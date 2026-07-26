@@ -7,11 +7,20 @@
 
 pub mod pages;
 
+/// Registers Fanta GPUI commands and their default key bindings.
+///
+/// Call this once after `gpui_component::init`.
+pub fn init(cx: &mut gpui::App) {
+    pages::init(cx);
+}
+
 /// Common imports for Fanta GPUI hosts.
 pub mod prelude {
     pub use crate::pages::{
-        PagesPanel, PagesPanelAction, PagesPanelElementCount, PagesPanelElementKind,
-        PagesPanelItem, PagesPanelResultDirection, PagesPanelSearchRequest, PagesPanelSearchResult,
-        PagesPanelSearchResults, PagesPanelSearchScope,
+        AddPage, ClosePagesSearch, FindInPages, NextSearchResult, PagesPanel, PagesPanelAction,
+        PagesPanelElementCount, PagesPanelElementKind, PagesPanelItem, PagesPanelResultDirection,
+        PagesPanelSearchRequest, PagesPanelSearchResult, PagesPanelSearchResults,
+        PagesPanelSearchScope, PreviousSearchResult, ReplaceAllResults, ReplaceCurrentResult,
+        TogglePagesPanel, ToggleSearchSettings,
     };
 }

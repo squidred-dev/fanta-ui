@@ -5,9 +5,9 @@ use std::time::Duration;
 use gpui::{Animation, AnimationExt as _, ElementId};
 use gpui::{
     AnyElement, App, AppContext as _, Bounds, ClickEvent, Context, Entity, EventEmitter,
-    InteractiveElement as _, IntoElement, MouseButton, ParentElement as _, Pixels, Render,
-    ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, Subscription, Window,
-    canvas, deferred, div, point, prelude::FluentBuilder as _, px,
+    FocusHandle, Focusable, InteractiveElement as _, IntoElement, MouseButton, ParentElement as _,
+    Pixels, Render, ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _,
+    Subscription, Window, canvas, deferred, div, point, prelude::FluentBuilder as _, px,
 };
 #[cfg(not(test))]
 use gpui_component::animation::cubic_bezier;
@@ -21,8 +21,11 @@ use gpui_component::{
 };
 
 use super::{
-    PagesPanelAction, PagesPanelElementKind, PagesPanelItem, PagesPanelResultDirection,
-    PagesPanelSearchRequest, PagesPanelSearchResults, PagesPanelSearchScope,
+    ActivatePagesControl, AddPage, ClosePagesSearch, FindInPages, NextSearchResult,
+    PAGES_CONTROL_KEY_CONTEXT, PAGES_PANEL_KEY_CONTEXT, PagesPanelAction, PagesPanelElementKind,
+    PagesPanelItem, PagesPanelResultDirection, PagesPanelSearchRequest, PagesPanelSearchResults,
+    PagesPanelSearchScope, PreviousSearchResult, ReplaceAllResults, ReplaceCurrentResult,
+    TogglePagesPanel, ToggleSearchSettings,
 };
 
 const HEADER_HEIGHT: f32 = 40.;
@@ -68,6 +71,9 @@ enum PanelMode {
 /// selection, search results, and all document mutations stay with the host.
 pub struct PagesPanel {
     id: SharedString,
+    focus_handle: FocusHandle,
+    filter_menu_focus_handle: FocusHandle,
+    scope_menu_focus_handle: FocusHandle,
     pages: Vec<PagesPanelItem>,
     expanded: bool,
     selected_page: Option<SharedString>,
@@ -145,6 +151,9 @@ impl PagesPanel {
 
         Self {
             id: id.into(),
+            focus_handle: cx.focus_handle(),
+            filter_menu_focus_handle: cx.focus_handle(),
+            scope_menu_focus_handle: cx.focus_handle(),
             pages,
             expanded: true,
             selected_page: None,
@@ -232,6 +241,101 @@ impl PagesPanel {
             expanded: self.expanded,
         });
         cx.notify();
+    }
+
+    fn toggle_search_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.mode == PanelMode::Pages {
+            return;
+        }
+        self.filter_menu_open = !self.filter_menu_open;
+        self.scope_menu_open = false;
+        if self.filter_menu_open {
+            let focus_handle = self.filter_menu_focus_handle.clone();
+            window.defer(cx, move |window, _| {
+                focus_handle.focus(window);
+            });
+        }
+        cx.notify();
+    }
+
+    fn toggle_search_scope(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.mode == PanelMode::Pages {
+            return;
+        }
+        self.scope_menu_open = !self.scope_menu_open;
+        self.filter_menu_open = false;
+        if self.scope_menu_open {
+            let focus_handle = self.scope_menu_focus_handle.clone();
+            window.defer(cx, move |window, _| {
+                focus_handle.focus(window);
+            });
+        }
+        cx.notify();
+    }
+
+    fn on_toggle_panel(&mut self, _: &TogglePagesPanel, _: &mut Window, cx: &mut Context<Self>) {
+        if self.mode == PanelMode::Pages {
+            self.toggle_expanded(cx);
+        }
+    }
+
+    fn on_find_in_pages(&mut self, _: &FindInPages, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_search(window, cx);
+    }
+
+    fn on_add_page(&mut self, _: &AddPage, window: &mut Window, cx: &mut Context<Self>) {
+        self.begin_new_page(window, cx);
+    }
+
+    fn on_toggle_search_settings(
+        &mut self,
+        _: &ToggleSearchSettings,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.toggle_search_settings(window, cx);
+    }
+
+    fn on_close_search(&mut self, _: &ClosePagesSearch, _: &mut Window, cx: &mut Context<Self>) {
+        if self.mode != PanelMode::Pages {
+            self.close_search(cx);
+        }
+    }
+
+    fn on_previous_search_result(
+        &mut self,
+        _: &PreviousSearchResult,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.navigate_results(PagesPanelResultDirection::Previous, cx);
+    }
+
+    fn on_next_search_result(
+        &mut self,
+        _: &NextSearchResult,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.navigate_results(PagesPanelResultDirection::Next, cx);
+    }
+
+    fn on_replace_current_result(
+        &mut self,
+        _: &ReplaceCurrentResult,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.request_replace(false, cx);
+    }
+
+    fn on_replace_all_results(
+        &mut self,
+        _: &ReplaceAllResults,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.request_replace(true, cx);
     }
 
     fn begin_new_page(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -372,10 +476,33 @@ impl PagesPanel {
         self.emit_search_request(cx);
     }
 
-    fn set_scope(&mut self, scope: PagesPanelSearchScope, cx: &mut Context<Self>) {
+    fn set_panel_mode(&mut self, mode: PanelMode, window: &mut Window, cx: &mut Context<Self>) {
+        self.mode = mode;
+        self.filter_menu_open = false;
+        if mode == PanelMode::Replace {
+            self.replace_input.update(cx, |input, cx| {
+                input.focus(window, cx);
+            });
+        } else {
+            self.search_input.update(cx, |input, cx| {
+                input.focus(window, cx);
+            });
+        }
+        cx.notify();
+    }
+
+    fn set_scope(
+        &mut self,
+        scope: PagesPanelSearchScope,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.search_scope = scope;
         self.scope_menu_open = false;
         self.emit_search_request(cx);
+        self.search_input.update(cx, |input, cx| {
+            input.focus(window, cx);
+        });
     }
 
     fn select_result(&mut self, index: usize, cx: &mut Context<Self>) {
@@ -456,14 +583,24 @@ impl PagesPanel {
         let header = h_flex()
             .id(SharedString::from(format!("{}-header", self.id)))
             .debug_selector(|| "pages-header".to_owned())
+            .key_context(PAGES_CONTROL_KEY_CONTEXT)
+            .tab_index(0)
             .h(px(HEADER_HEIGHT))
             .w_full()
             .flex_shrink_0()
             .cursor_pointer()
             .hover(|style| style.bg(cx.theme().sidebar_accent.opacity(0.55)))
+            .focus(|style| {
+                style
+                    .bg(cx.theme().sidebar_accent.opacity(0.55))
+                    .border_color(cx.theme().selection)
+            })
             .when(expanded, |header| {
                 header.border_b_1().border_color(cx.theme().border)
             })
+            .on_action(cx.listener(|this, _: &ActivatePagesControl, _, cx| {
+                this.toggle_expanded(cx);
+            }))
             .on_click(cx.listener(|this, _, _, cx| this.toggle_expanded(cx)));
         #[cfg(test)]
         let header = header.on_hover(cx.listener(|this, hovered, _, _| {
@@ -492,6 +629,11 @@ impl PagesPanel {
                 div()
                     .flex_none()
                     .debug_selector(|| "pages-search-trigger".to_owned())
+                    .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                    .on_action(cx.listener(|this, _: &ActivatePagesControl, window, cx| {
+                        cx.stop_propagation();
+                        this.open_search(window, cx);
+                    }))
                     .occlude()
                     .child(
                         Button::new(SharedString::from(format!("{}-search", self.id)))
@@ -499,7 +641,11 @@ impl PagesPanel {
                             .xsmall()
                             .compact()
                             .icon(IconName::Search)
-                            .tooltip("Find elements")
+                            .tooltip_with_action(
+                                "Find",
+                                &FindInPages,
+                                Some(PAGES_PANEL_KEY_CONTEXT),
+                            )
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.open_search(window, cx);
                             })),
@@ -509,6 +655,11 @@ impl PagesPanel {
                 div()
                     .flex_none()
                     .debug_selector(|| "pages-add-trigger".to_owned())
+                    .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                    .on_action(cx.listener(|this, _: &ActivatePagesControl, window, cx| {
+                        cx.stop_propagation();
+                        this.begin_new_page(window, cx);
+                    }))
                     .occlude()
                     .child(
                         Button::new(SharedString::from(format!("{}-add", self.id)))
@@ -516,7 +667,11 @@ impl PagesPanel {
                             .xsmall()
                             .compact()
                             .icon(IconName::Plus)
-                            .tooltip("Add page")
+                            .tooltip_with_action(
+                                "Add new page",
+                                &AddPage,
+                                Some(PAGES_PANEL_KEY_CONTEXT),
+                            )
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.begin_new_page(window, cx);
                             })),
@@ -624,6 +779,7 @@ impl PagesPanel {
     ) -> AnyElement {
         let page_id = page.id.clone();
         let page_title = page.title.clone();
+        let keyboard_page_id = page.id.clone();
         let context_page_id = page.id.clone();
         let context_page_title = page.title.clone();
         let panel = cx.entity();
@@ -634,6 +790,8 @@ impl PagesPanel {
         let row = h_flex()
             .id(SharedString::from(format!("{}-page-{index}", self.id)))
             .debug_selector(move || row_selector)
+            .key_context(PAGES_CONTROL_KEY_CONTEXT)
+            .tab_index(0)
             .h(px(PAGE_ROW_HEIGHT))
             .w_full()
             .min_w(row_min_width)
@@ -642,6 +800,12 @@ impl PagesPanel {
             .text_sm()
             .cursor_pointer()
             .hover(|style| style.bg(cx.theme().sidebar_accent.opacity(0.65)))
+            .focus(|style| {
+                style
+                    .bg(cx.theme().sidebar_accent.opacity(0.65))
+                    .border_1()
+                    .border_color(cx.theme().selection)
+            })
             .when(is_selected, |row| {
                 row.bg(cx.theme().sidebar_accent)
                     .text_color(cx.theme().sidebar_accent_foreground)
@@ -662,6 +826,12 @@ impl PagesPanel {
             MouseButton::Left,
             cx.listener(|this, _, _, cx| this.cancel_page_edit(cx)),
         )
+        .on_action(cx.listener(move |this, _: &ActivatePagesControl, _, cx| {
+            this.cancel_page_edit(cx);
+            cx.emit(PagesPanelAction::SelectRequested {
+                page_id: keyboard_page_id.clone(),
+            });
+        }))
         .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
             if event.click_count() >= 2 {
                 this.begin_rename(page_id.clone(), page_title.clone(), window, cx);
@@ -777,17 +947,24 @@ impl PagesPanel {
                             .relative()
                             .flex_none()
                             .debug_selector(|| "pages-filter-trigger".to_owned())
+                            .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                            .on_action(cx.listener(|this, _: &ActivatePagesControl, window, cx| {
+                                cx.stop_propagation();
+                                this.toggle_search_settings(window, cx);
+                            }))
                             .child(
                                 Button::new(SharedString::from(format!("{}-filters", self.id)))
                                     .ghost()
                                     .small()
                                     .compact()
                                     .icon(IconName::Settings2)
-                                    .tooltip("Search options")
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.filter_menu_open = !this.filter_menu_open;
-                                        this.scope_menu_open = false;
-                                        cx.notify();
+                                    .tooltip_with_action(
+                                        "Settings",
+                                        &ToggleSearchSettings,
+                                        Some(PAGES_PANEL_KEY_CONTEXT),
+                                    )
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.toggle_search_settings(window, cx);
                                     })),
                             )
                             .child(
@@ -806,13 +983,30 @@ impl PagesPanel {
                             ),
                     )
                     .child(
-                        Button::new(SharedString::from(format!("{}-close-search", self.id)))
-                            .ghost()
-                            .small()
-                            .compact()
-                            .icon(IconName::Close)
-                            .tooltip("Close search")
-                            .on_click(cx.listener(|this, _, _, cx| this.close_search(cx))),
+                        div()
+                            .flex_none()
+                            .debug_selector(|| "pages-close-search".to_owned())
+                            .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                            .on_action(cx.listener(|this, _: &ActivatePagesControl, _, cx| {
+                                cx.stop_propagation();
+                                this.close_search(cx);
+                            }))
+                            .child(
+                                Button::new(SharedString::from(format!(
+                                    "{}-close-search",
+                                    self.id
+                                )))
+                                .ghost()
+                                .small()
+                                .compact()
+                                .icon(IconName::Close)
+                                .tooltip_with_action(
+                                    "Close search",
+                                    &ClosePagesSearch,
+                                    Some(PAGES_PANEL_KEY_CONTEXT),
+                                )
+                                .on_click(cx.listener(|this, _, _, cx| this.close_search(cx))),
+                            ),
                     ),
             )
             .when(replace, |toolbar| {
@@ -831,6 +1025,15 @@ impl PagesPanel {
                                 div()
                                     .flex_none()
                                     .debug_selector(|| "pages-replace-one".to_owned())
+                                    .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                                    .on_action(cx.listener(
+                                        move |this, _: &ActivatePagesControl, _, cx| {
+                                            cx.stop_propagation();
+                                            if can_replace_one {
+                                                this.request_replace(false, cx);
+                                            }
+                                        },
+                                    ))
                                     .child(
                                         Button::new(SharedString::from(format!(
                                             "{}-replace-one",
@@ -839,6 +1042,11 @@ impl PagesPanel {
                                         .label("Replace")
                                         .small()
                                         .disabled(!can_replace_one)
+                                        .tooltip_with_action(
+                                            "Replace current result",
+                                            &ReplaceCurrentResult,
+                                            Some(PAGES_PANEL_KEY_CONTEXT),
+                                        )
                                         .on_click(
                                             cx.listener(|this, _, _, cx| {
                                                 this.request_replace(false, cx);
@@ -850,6 +1058,15 @@ impl PagesPanel {
                                 div()
                                     .flex_none()
                                     .debug_selector(|| "pages-replace-all".to_owned())
+                                    .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                                    .on_action(cx.listener(
+                                        move |this, _: &ActivatePagesControl, _, cx| {
+                                            cx.stop_propagation();
+                                            if can_replace_all {
+                                                this.request_replace(true, cx);
+                                            }
+                                        },
+                                    ))
                                     .child(
                                         Button::new(SharedString::from(format!(
                                             "{}-replace-all",
@@ -858,6 +1075,11 @@ impl PagesPanel {
                                         .label("Replace all")
                                         .small()
                                         .disabled(!can_replace_all)
+                                        .tooltip_with_action(
+                                            "Replace all results",
+                                            &ReplaceAllResults,
+                                            Some(PAGES_PANEL_KEY_CONTEXT),
+                                        )
                                         .on_click(
                                             cx.listener(|this, _, _, cx| {
                                                 this.request_replace(true, cx);
@@ -876,6 +1098,8 @@ impl PagesPanel {
                                 self.id,
                                 kind.label()
                             )))
+                            .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                            .tab_index(0)
                             .h(px(28.))
                             .gap_1()
                             .px_2()
@@ -884,6 +1108,14 @@ impl PagesPanel {
                             .border_color(cx.theme().border)
                             .cursor_pointer()
                             .hover(|style| style.bg(cx.theme().accent))
+                            .focus(|style| {
+                                style
+                                    .bg(cx.theme().accent)
+                                    .border_color(cx.theme().selection)
+                            })
+                            .on_action(cx.listener(move |this, _: &ActivatePagesControl, _, cx| {
+                                this.toggle_filter(kind, cx);
+                            }))
                             .on_click(cx.listener(move |this, _, _, cx| {
                                 this.toggle_filter(kind, cx);
                             }))
@@ -924,13 +1156,21 @@ impl PagesPanel {
                     .flex_none()
                     .whitespace_nowrap()
                     .debug_selector(|| "pages-scope-trigger".to_owned())
+                    .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                    .tab_index(0)
                     .gap_1()
                     .text_sm()
                     .cursor_pointer()
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.scope_menu_open = !this.scope_menu_open;
-                        this.filter_menu_open = false;
-                        cx.notify();
+                    .focus(|style| {
+                        style
+                            .bg(cx.theme().accent)
+                            .border_color(cx.theme().selection)
+                    })
+                    .on_action(cx.listener(|this, _: &ActivatePagesControl, window, cx| {
+                        this.toggle_search_scope(window, cx);
+                    }))
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        this.toggle_search_scope(window, cx);
                     }))
                     .child(self.search_scope.label())
                     .child(Icon::new(IconName::ChevronDown).xsmall())
@@ -954,6 +1194,13 @@ impl PagesPanel {
                 div()
                     .flex_none()
                     .debug_selector(|| "pages-previous-result".to_owned())
+                    .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                    .on_action(cx.listener(move |this, _: &ActivatePagesControl, _, cx| {
+                        cx.stop_propagation();
+                        if can_navigate {
+                            this.navigate_results(PagesPanelResultDirection::Previous, cx);
+                        }
+                    }))
                     .child(
                         Button::new(SharedString::from(format!("{}-previous", self.id)))
                             .ghost()
@@ -961,7 +1208,11 @@ impl PagesPanel {
                             .compact()
                             .icon(IconName::ChevronUp)
                             .disabled(!can_navigate)
-                            .tooltip("Previous result")
+                            .tooltip_with_action(
+                                "Previous result",
+                                &PreviousSearchResult,
+                                Some(PAGES_PANEL_KEY_CONTEXT),
+                            )
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.navigate_results(PagesPanelResultDirection::Previous, cx);
                             })),
@@ -971,6 +1222,13 @@ impl PagesPanel {
                 div()
                     .flex_none()
                     .debug_selector(|| "pages-next-result".to_owned())
+                    .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                    .on_action(cx.listener(move |this, _: &ActivatePagesControl, _, cx| {
+                        cx.stop_propagation();
+                        if can_navigate {
+                            this.navigate_results(PagesPanelResultDirection::Next, cx);
+                        }
+                    }))
                     .child(
                         Button::new(SharedString::from(format!("{}-next", self.id)))
                             .ghost()
@@ -978,7 +1236,11 @@ impl PagesPanel {
                             .compact()
                             .icon(IconName::ChevronDown)
                             .disabled(!can_navigate)
-                            .tooltip("Next result")
+                            .tooltip_with_action(
+                                "Next result",
+                                &NextSearchResult,
+                                Some(PAGES_PANEL_KEY_CONTEXT),
+                            )
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.navigate_results(PagesPanelResultDirection::Next, cx);
                             })),
@@ -1018,6 +1280,8 @@ impl PagesPanel {
                         let row = h_flex()
                             .id(SharedString::from(format!("{}-result-{index}", self.id)))
                             .debug_selector(move || format!("pages-result-{index}"))
+                            .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                            .tab_index(0)
                             .min_h(px(52.))
                             .w_full()
                             .gap_2()
@@ -1025,6 +1289,12 @@ impl PagesPanel {
                             .py_2()
                             .cursor_pointer()
                             .hover(|style| style.bg(cx.theme().accent))
+                            .focus(|style| {
+                                style
+                                    .bg(cx.theme().accent)
+                                    .border_l_2()
+                                    .border_color(cx.theme().selection)
+                            })
                             .when(is_active, |row| {
                                 row.bg(cx.theme().list_active)
                                     .border_l_2()
@@ -1039,6 +1309,9 @@ impl PagesPanel {
                             }
                         }));
                         row.on_click(cx.listener(move |this, _, _, cx| {
+                            this.select_result(index, cx);
+                        }))
+                        .on_action(cx.listener(move |this, _: &ActivatePagesControl, _, cx| {
                             this.select_result(index, cx);
                         }))
                         .child(Icon::new(Self::element_icon(result.kind)).small())
@@ -1122,6 +1395,8 @@ impl PagesPanel {
                             self.id,
                             kind.label()
                         )))
+                        .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                        .tab_index(0)
                         .h(px(32.))
                         .mx_2()
                         .px_2()
@@ -1129,6 +1404,14 @@ impl PagesPanel {
                         .rounded(px(5.))
                         .cursor_pointer()
                         .hover(|style| style.bg(cx.theme().accent))
+                        .focus(|style| {
+                            style
+                                .bg(cx.theme().accent)
+                                .border_color(cx.theme().selection)
+                        })
+                        .on_action(cx.listener(move |this, _: &ActivatePagesControl, _, cx| {
+                            this.toggle_filter(kind, cx);
+                        }))
                         .on_click(cx.listener(move |this, _, _, cx| {
                             this.toggle_filter(kind, cx);
                         }))
@@ -1162,9 +1445,15 @@ impl PagesPanel {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let selector = format!("pages-mode-{}", label.to_lowercase());
+        let menu_focus_handle = self.filter_menu_focus_handle.clone();
         h_flex()
             .id(SharedString::from(format!("{}-mode-{label}", self.id)))
             .debug_selector(move || selector)
+            .key_context(PAGES_CONTROL_KEY_CONTEXT)
+            .tab_index(0)
+            .when(item_mode == PanelMode::Find, |row| {
+                row.track_focus(&menu_focus_handle)
+            })
             .h(px(32.))
             .mx_2()
             .px_2()
@@ -1172,20 +1461,19 @@ impl PagesPanel {
             .rounded(px(5.))
             .cursor_pointer()
             .hover(|style| style.bg(cx.theme().accent))
+            .focus(|style| {
+                style
+                    .bg(cx.theme().accent)
+                    .border_color(cx.theme().selection)
+            })
             .when(item_mode == active_mode, |row| row.bg(cx.theme().accent))
+            .on_action(
+                cx.listener(move |this, _: &ActivatePagesControl, window, cx| {
+                    this.set_panel_mode(item_mode, window, cx);
+                }),
+            )
             .on_click(cx.listener(move |this, _, window, cx| {
-                this.mode = item_mode;
-                this.filter_menu_open = false;
-                if item_mode == PanelMode::Replace {
-                    this.replace_input.update(cx, |input, cx| {
-                        input.focus(window, cx);
-                    });
-                } else {
-                    this.search_input.update(cx, |input, cx| {
-                        input.focus(window, cx);
-                    });
-                }
-                cx.notify();
+                this.set_panel_mode(item_mode, window, cx);
             }))
             .child(div().w(px(14.)).when(item_mode == active_mode, |slot| {
                 slot.child(Icon::new(IconName::Check).xsmall())
@@ -1203,6 +1491,8 @@ impl PagesPanel {
     ) -> AnyElement {
         h_flex()
             .id(SharedString::from(format!("{}-option-{label}", self.id)))
+            .key_context(PAGES_CONTROL_KEY_CONTEXT)
+            .tab_index(0)
             .h(px(32.))
             .mx_2()
             .px_2()
@@ -1210,6 +1500,18 @@ impl PagesPanel {
             .rounded(px(5.))
             .cursor_pointer()
             .hover(|style| style.bg(cx.theme().accent))
+            .focus(|style| {
+                style
+                    .bg(cx.theme().accent)
+                    .border_color(cx.theme().selection)
+            })
+            .on_action(cx.listener(move |this, _: &ActivatePagesControl, _, cx| {
+                if match_case {
+                    this.toggle_match_case(cx);
+                } else {
+                    this.toggle_whole_words(cx);
+                }
+            }))
             .on_click(cx.listener(move |this, _, _, cx| {
                 if match_case {
                     this.toggle_match_case(cx);
@@ -1231,6 +1533,7 @@ impl PagesPanel {
             return div().into_any_element();
         };
         let origin = anchor_bounds.bottom_left() + point(px(0.), px(4.)) - panel_bounds.origin;
+        let menu_focus_handle = self.scope_menu_focus_handle.clone();
 
         deferred(
             v_flex()
@@ -1253,6 +1556,7 @@ impl PagesPanel {
                     ]
                     .into_iter()
                     .map(|scope| {
+                        let menu_focus_handle = menu_focus_handle.clone();
                         let selector = match scope {
                             PagesPanelSearchScope::CurrentPage => "pages-scope-current-page",
                             PagesPanelSearchScope::AllPages => "pages-scope-all-pages",
@@ -1264,6 +1568,11 @@ impl PagesPanel {
                                 scope.label()
                             )))
                             .debug_selector(move || selector.to_owned())
+                            .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                            .tab_index(0)
+                            .when(scope == PagesPanelSearchScope::CurrentPage, |row| {
+                                row.track_focus(&menu_focus_handle)
+                            })
                             .h(px(36.))
                             .mx_2()
                             .px_2()
@@ -1271,8 +1580,18 @@ impl PagesPanel {
                             .rounded(px(5.))
                             .cursor_pointer()
                             .hover(|style| style.bg(cx.theme().accent))
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                this.set_scope(scope, cx);
+                            .focus(|style| {
+                                style
+                                    .bg(cx.theme().accent)
+                                    .border_color(cx.theme().selection)
+                            })
+                            .on_action(cx.listener(
+                                move |this, _: &ActivatePagesControl, window, cx| {
+                                    this.set_scope(scope, window, cx);
+                                },
+                            ))
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                this.set_scope(scope, window, cx);
                             }))
                             .child(div().w(px(14.)).when(scope == self.search_scope, |slot| {
                                 slot.child(Icon::new(IconName::Check).xsmall())
@@ -1327,31 +1646,42 @@ impl PagesPanel {
     }
 }
 
+impl Focusable for PagesPanel {
+    fn focus_handle(&self, _: &App) -> FocusHandle {
+        self.focus_handle.clone()
+    }
+}
+
 impl Render for PagesPanel {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let id = self.id.clone();
+        let root = v_flex()
+            .id(id)
+            .key_context(PAGES_PANEL_KEY_CONTEXT)
+            .track_focus(&self.focus_handle)
+            .on_action(cx.listener(Self::on_toggle_panel))
+            .on_action(cx.listener(Self::on_find_in_pages))
+            .on_action(cx.listener(Self::on_add_page))
+            .on_action(cx.listener(Self::on_toggle_search_settings))
+            .on_action(cx.listener(Self::on_close_search))
+            .on_action(cx.listener(Self::on_previous_search_result))
+            .on_action(cx.listener(Self::on_next_search_result))
+            .on_action(cx.listener(Self::on_replace_current_result))
+            .on_action(cx.listener(Self::on_replace_all_results))
+            .w_full()
+            .max_h_full()
+            .bg(cx.theme().sidebar)
+            .text_color(cx.theme().sidebar_foreground)
+            .border_1()
+            .border_color(cx.theme().border);
         if self.mode == PanelMode::Pages {
-            v_flex()
-                .id(id)
-                .w_full()
-                .max_h_full()
-                .overflow_hidden()
-                .bg(cx.theme().sidebar)
-                .text_color(cx.theme().sidebar_foreground)
-                .border_1()
-                .border_color(cx.theme().border)
+            root.overflow_hidden()
                 .child(self.render_header(cx))
                 .child(self.render_pages(cx))
                 .into_any_element()
         } else {
-            v_flex()
-                .id(id)
-                .debug_selector(|| "pages-search-panel".to_owned())
+            root.debug_selector(|| "pages-search-panel".to_owned())
                 .size_full()
-                .bg(cx.theme().sidebar)
-                .text_color(cx.theme().sidebar_foreground)
-                .border_1()
-                .border_color(cx.theme().border)
                 .child(self.render_search(cx))
                 .into_any_element()
         }
@@ -1375,10 +1705,12 @@ fn page_context_menu_item(
     selector: &'static str,
     handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> PopupMenuItem {
-    PopupMenuItem::element(move |_, _| {
+    PopupMenuItem::element(move |_, cx| {
         div()
             .debug_selector(move || selector.to_owned())
+            .tab_index(0)
             .w_full()
+            .focus(|style| style.bg(cx.theme().accent))
             .child(label)
     })
     .on_click(handler)
@@ -1403,8 +1735,8 @@ mod tests {
     use std::{cell::RefCell, rc::Rc};
 
     use gpui::{
-        AppContext as _, Bounds, Context, Entity, IntoElement, Modifiers, MouseButton,
-        MouseDownEvent, MouseUpEvent, ParentElement as _, Pixels, Render, ScrollDelta,
+        AppContext as _, Bounds, Context, Entity, Focusable as _, IntoElement, Modifiers,
+        MouseButton, MouseDownEvent, MouseUpEvent, ParentElement as _, Pixels, Render, ScrollDelta,
         ScrollWheelEvent, Styled as _, Subscription, TestAppContext, VisualTestContext, Window,
         div, point, px,
     };
@@ -1415,8 +1747,9 @@ mod tests {
         result_count_label,
     };
     use crate::pages::{
-        PagesPanelAction, PagesPanelElementKind, PagesPanelItem, PagesPanelSearchResult,
-        PagesPanelSearchResults, PagesPanelSearchScope,
+        AddPage, FindInPages, PagesPanelAction, PagesPanelElementKind, PagesPanelItem,
+        PagesPanelResultDirection, PagesPanelSearchResult, PagesPanelSearchResults,
+        PagesPanelSearchScope,
     };
 
     struct TestHost {
@@ -1460,7 +1793,10 @@ mod tests {
     }
 
     fn setup(cx: &mut TestAppContext) -> (Entity<TestHost>, &mut VisualTestContext) {
-        cx.update(gpui_component::init);
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::init(cx);
+        });
         let host_slot = Rc::new(RefCell::new(None));
         let captured_host = host_slot.clone();
         let (_, cx) = cx.add_window_view(move |window, cx| {
@@ -1565,6 +1901,13 @@ mod tests {
         cx.run_until_parked();
     }
 
+    fn focus_panel(panel: &Entity<PagesPanel>, cx: &mut VisualTestContext) {
+        cx.update(|window, app| {
+            panel.focus_handle(app).focus(window);
+        });
+        cx.run_until_parked();
+    }
+
     #[test]
     fn next_page_title_uses_the_highest_page_number_not_the_count() {
         let pages = vec![
@@ -1642,6 +1985,139 @@ mod tests {
         assert!(
             actions.borrow().is_empty(),
             "disabled zero-result controls must not emit host intents"
+        );
+    }
+
+    #[gpui::test]
+    fn registered_commands_drive_the_same_headless_component_state(cx: &mut TestAppContext) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+
+        focus_panel(&panel, cx);
+        cx.dispatch_action(FindInPages);
+        assert_eq!(read_panel(&panel, cx, |panel| panel.mode), PanelMode::Find);
+
+        cx.dispatch_action(AddPage);
+        assert_eq!(read_panel(&panel, cx, |panel| panel.mode), PanelMode::Pages);
+        assert!(matches!(
+            read_panel(&panel, cx, |panel| panel.editing.clone()),
+            Some(PageEditorTarget::New { .. })
+        ));
+    }
+
+    #[gpui::test]
+    fn shortcuts_and_tab_activation_cover_pages_and_search_controls(cx: &mut TestAppContext) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+
+        focus_panel(&panel, cx);
+        cx.simulate_keystrokes("tab enter");
+        assert!(
+            !read_panel(&panel, cx, |panel| panel.expanded),
+            "Enter should activate the header reached with Tab"
+        );
+
+        cx.simulate_keystrokes("tab enter");
+        assert_eq!(
+            read_panel(&panel, cx, |panel| panel.mode),
+            PanelMode::Find,
+            "the next tab stop should be the Find button"
+        );
+
+        cx.simulate_keystrokes("tab enter");
+        assert!(
+            read_panel(&panel, cx, |panel| panel.filter_menu_open),
+            "Tab should leave the search input and Enter should open Settings"
+        );
+
+        cx.simulate_keystrokes("tab enter");
+        assert_eq!(
+            read_panel(&panel, cx, |panel| panel.mode),
+            PanelMode::Replace,
+            "the open Settings menu should move focus to Find, then Tab to Replace"
+        );
+
+        cx.simulate_keystrokes("tab enter");
+        assert!(
+            read_panel(&panel, cx, |panel| panel.scope_menu_open),
+            "Tab should leave the replace input for the search-scope control"
+        );
+
+        cx.simulate_keystrokes("tab enter");
+        assert_eq!(
+            read_panel(&panel, cx, |panel| panel.search_scope),
+            PagesPanelSearchScope::AllPages,
+            "the scope menu should focus This page, then Tab to All pages"
+        );
+    }
+
+    #[gpui::test]
+    fn tab_order_reaches_page_and_result_rows(cx: &mut TestAppContext) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+        let actions = actions(&host, cx);
+
+        focus_panel(&panel, cx);
+        actions.borrow_mut().clear();
+        cx.simulate_keystrokes("tab tab tab tab enter");
+        assert_eq!(
+            actions.borrow().as_slice(),
+            &[PagesPanelAction::SelectRequested {
+                page_id: "page-1".into(),
+            }],
+            "header, Find, Add, then the first page row should form the page tab order"
+        );
+
+        focus_panel(&panel, cx);
+        actions.borrow_mut().clear();
+        cx.simulate_keystrokes("shift-tab enter");
+        assert_eq!(
+            actions.borrow().as_slice(),
+            &[PagesPanelAction::SelectRequested {
+                page_id: "page-3".into(),
+            }],
+            "Shift-Tab should traverse the page tab order in reverse"
+        );
+
+        set_one_search_result(&panel, cx);
+        focus_panel(&panel, cx);
+        cx.simulate_keystrokes("secondary-f");
+        actions.borrow_mut().clear();
+        cx.simulate_keystrokes("tab tab tab tab tab tab enter");
+        assert_eq!(
+            actions.borrow().as_slice(),
+            &[PagesPanelAction::SearchResultSelected {
+                result_id: "result-1".into(),
+            }],
+            "search input, Settings, Close, scope, navigation, then result rows should be tabbable"
+        );
+    }
+
+    #[gpui::test]
+    fn result_navigation_shortcuts_emit_typed_intents(cx: &mut TestAppContext) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+        let actions = actions(&host, cx);
+        set_one_search_result(&panel, cx);
+        focus_panel(&panel, cx);
+
+        cx.simulate_keystrokes("secondary-f");
+        assert_eq!(read_panel(&panel, cx, |panel| panel.mode), PanelMode::Find);
+
+        actions.borrow_mut().clear();
+        cx.simulate_keystrokes("shift-secondary-f shift-secondary-d");
+        assert_eq!(
+            actions.borrow().as_slice(),
+            &[
+                PagesPanelAction::NavigateResults {
+                    direction: PagesPanelResultDirection::Next,
+                    result_id: Some("result-1".into()),
+                },
+                PagesPanelAction::NavigateResults {
+                    direction: PagesPanelResultDirection::Previous,
+                    result_id: Some("result-1".into()),
+                },
+            ]
         );
     }
 

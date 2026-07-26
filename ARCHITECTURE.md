@@ -119,3 +119,17 @@ The component emits a `PagesPanelAction` for every change that can affect the
 document or another host surface. Opaque identifiers are returned unchanged.
 Search requests contain only UI-level query fields and do not assume a Fanta
 index implementation.
+
+## §9 Commands and keyboard access
+
+`fanta_gpui::init` registers reusable GPUI command actions and their default
+key bindings. Hosts call it once after `gpui_component::init`. Controls route
+pointer activation, Enter/Space activation, and command actions through the
+same component methods, so keyboard access cannot bypass the headless intent
+boundary.
+
+Interactive controls participate in the GPUI tab-stop tree. Text inputs,
+buttons, page and result rows, filter pills, search-scope controls, and menu
+items must remain reachable with Tab and Shift-Tab. Focus styling is part of
+the component presentation state; command actions remain public so a host can
+replace key bindings or expose them in its own command palette.

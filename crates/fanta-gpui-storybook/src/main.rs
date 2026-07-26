@@ -6,9 +6,9 @@ use fanta_gpui::prelude::{
     PagesPanelSearchScope,
 };
 use gpui::{
-    App, AppContext as _, Application, Bounds, ClipboardItem, Context, Entity, IntoElement,
-    ParentElement as _, Render, SharedString, Styled as _, Subscription, TitlebarOptions, Window,
-    WindowBounds, WindowOptions, div, px, size,
+    App, AppContext as _, Application, Bounds, ClipboardItem, Context, Entity, Focusable as _,
+    IntoElement, ParentElement as _, Render, SharedString, Styled as _, Subscription,
+    TitlebarOptions, Window, WindowBounds, WindowOptions, div, px, size,
 };
 use gpui_component::{ActiveTheme as _, Root, StyledExt as _, Theme, ThemeMode, h_flex, v_flex};
 use gpui_component_assets::Assets;
@@ -37,6 +37,7 @@ impl Storybook {
         panel.update(cx, |panel, cx| {
             panel.set_selected_page(Some(active_page.clone()), cx);
         });
+        panel.focus_handle(cx).focus(window);
 
         let subscriptions =
             vec![
@@ -396,6 +397,7 @@ impl Render for Storybook {
 fn main() {
     Application::new().with_assets(Assets).run(|cx: &mut App| {
         gpui_component::init(cx);
+        fanta_gpui::init(cx);
         Theme::change(ThemeMode::Dark, None, cx);
         cx.activate(true);
 

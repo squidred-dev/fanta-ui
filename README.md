@@ -24,12 +24,17 @@ cargo run -p fanta-gpui-storybook
 
 ## Use the Pages panel
 
-Initialize `gpui-component` once in the host, create the panel as a GPUI
-entity, subscribe to its typed events, and render the entity:
+Initialize `gpui-component` and `fanta-gpui` once in the host, create the panel
+as a GPUI entity, subscribe to its typed events, and render the entity:
 
 ```rust
 use fanta_gpui::prelude::*;
-use gpui::{Context, Entity, SharedString, Subscription, Window};
+use gpui::{App, Context, Entity, SharedString, Subscription, Window};
+
+fn init(cx: &mut App) {
+    gpui_component::init(cx);
+    fanta_gpui::init(cx);
+}
 
 struct Editor {
     pages_panel: Entity<PagesPanel>,
@@ -75,8 +80,11 @@ impl Editor {
 - an animated collapsible page list whose Search and Add controls remain
   available while collapsed;
 - focused add/rename editing, hover, selection, and double-click rename;
+- a platform context menu for copy-link, rename, duplicate, and delete intents;
 - Find and Replace modes with removable element-filter pills;
 - current-page/all-pages scope and previous/next result navigation;
+- registered GPUI commands, shortcut-aware tooltips, and Tab/Shift-Tab
+  navigation with Enter/Space activation;
 - host-controlled result rows and typed replace intents.
 
 Page and result data remain controlled. The component owns only presentation
