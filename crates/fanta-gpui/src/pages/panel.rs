@@ -804,25 +804,32 @@ impl PagesPanel {
     }
 
     fn render_results_header(&mut self, cx: &mut Context<Self>) -> AnyElement {
-        let result_label = if self.results.total == 0 {
-            format!("No results on {}", self.search_scope.label().to_lowercase())
-        } else {
-            format!("{} results", self.results.total)
-        };
+        let result_label = result_count_label(self.results.total);
         let panel = cx.entity();
         h_flex()
+            .debug_selector(|| "pages-results-header".to_owned())
             .h(px(48.))
             .w_full()
+            .min_w(px(0.))
             .px_3()
             .gap_2()
             .border_b_1()
             .border_color(cx.theme().border)
-            .child(div().text_sm().child(result_label))
-            .child(div().text_sm().child("·"))
+            .child(
+                div()
+                    .debug_selector(|| "pages-result-count".to_owned())
+                    .flex_none()
+                    .whitespace_nowrap()
+                    .text_sm()
+                    .child(result_label),
+            )
+            .child(div().flex_none().text_sm().child("·"))
             .child(
                 h_flex()
                     .id(SharedString::from(format!("{}-scope", self.id)))
                     .relative()
+                    .flex_none()
+                    .whitespace_nowrap()
                     .debug_selector(|| "pages-scope-trigger".to_owned())
                     .gap_1()
                     .text_sm()
@@ -851,26 +858,36 @@ impl PagesPanel {
             )
             .child(div().flex_1())
             .child(
-                Button::new(SharedString::from(format!("{}-previous", self.id)))
-                    .ghost()
-                    .xsmall()
-                    .compact()
-                    .icon(IconName::ChevronUp)
-                    .tooltip("Previous result")
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.navigate_results(PagesPanelResultDirection::Previous, cx);
-                    })),
+                div()
+                    .flex_none()
+                    .debug_selector(|| "pages-previous-result".to_owned())
+                    .child(
+                        Button::new(SharedString::from(format!("{}-previous", self.id)))
+                            .ghost()
+                            .xsmall()
+                            .compact()
+                            .icon(IconName::ChevronUp)
+                            .tooltip("Previous result")
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.navigate_results(PagesPanelResultDirection::Previous, cx);
+                            })),
+                    ),
             )
             .child(
-                Button::new(SharedString::from(format!("{}-next", self.id)))
-                    .ghost()
-                    .xsmall()
-                    .compact()
-                    .icon(IconName::ChevronDown)
-                    .tooltip("Next result")
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.navigate_results(PagesPanelResultDirection::Next, cx);
-                    })),
+                div()
+                    .flex_none()
+                    .debug_selector(|| "pages-next-result".to_owned())
+                    .child(
+                        Button::new(SharedString::from(format!("{}-next", self.id)))
+                            .ghost()
+                            .xsmall()
+                            .compact()
+                            .icon(IconName::ChevronDown)
+                            .tooltip("Next result")
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.navigate_results(PagesPanelResultDirection::Next, cx);
+                            })),
+                    ),
             )
             .into_any_element()
     }
@@ -879,9 +896,22 @@ impl PagesPanel {
         let active = self.active_result;
         let replacement = self.replace_input.read(cx).value();
         let replace_mode = self.mode == PanelMode::Replace;
+        let empty = self.results.items.is_empty();
 
         v_flex()
+            .debug_selector(|| "pages-results-list".to_owned())
             .w_full()
+            .when(empty, |results| {
+                results.child(
+                    div()
+                        .debug_selector(|| "pages-results-empty".to_owned())
+                        .w_full()
+                        .p_4()
+                        .text_sm()
+                        .text_color(cx.theme().muted_foreground)
+                        .child(empty_results_label(self.search_scope)),
+                )
+            })
             .children(
                 self.results
                     .items
@@ -1185,8 +1215,11 @@ impl PagesPanel {
             .child(self.render_results_header(cx))
             .child(
                 div()
+                    .id(SharedString::from(format!("{}-results-scroll", self.id)))
+                    .debug_selector(|| "pages-results-viewport".to_owned())
                     .flex_1()
-                    .overflow_hidden()
+                    .min_h(px(0.))
+                    .overflow_scroll()
                     .child(self.render_results(cx)),
             )
             .when(self.filter_menu_open, |panel| {
@@ -1218,6 +1251,7 @@ impl Render for PagesPanel {
         } else {
             v_flex()
                 .id(id)
+                .debug_selector(|| "pages-search-panel".to_owned())
                 .size_full()
                 .bg(cx.theme().sidebar)
                 .text_color(cx.theme().sidebar_foreground)
@@ -1227,6 +1261,18 @@ impl Render for PagesPanel {
                 .into_any_element()
         }
     }
+}
+
+fn result_count_label(total: usize) -> String {
+    if total == 1 {
+        "1 result".to_owned()
+    } else {
+        format!("{total} results")
+    }
+}
+
+fn empty_results_label(scope: PagesPanelSearchScope) -> String {
+    format!("No results on {}", scope.label().to_lowercase())
 }
 
 fn next_page_title(pages: &[PagesPanelItem]) -> SharedString {
@@ -1255,7 +1301,10 @@ mod tests {
     };
     use gpui_component::Root;
 
-    use super::{PageEditorTarget, PagesPanel, PanelMode, next_page_title};
+    use super::{
+        PageEditorTarget, PagesPanel, PanelMode, empty_results_label, next_page_title,
+        result_count_label,
+    };
     use crate::pages::{
         PagesPanelAction, PagesPanelElementKind, PagesPanelItem, PagesPanelSearchResult,
         PagesPanelSearchResults, PagesPanelSearchScope,
@@ -1404,6 +1453,47 @@ mod tests {
         let pages = vec![PagesPanelItem::new("a", "Untitled")];
 
         assert_eq!(next_page_title(&pages).as_ref(), "Page 1");
+    }
+
+    #[test]
+    fn empty_results_use_a_count_header_and_a_scoped_body_message() {
+        assert_eq!(result_count_label(0), "0 results");
+        assert_eq!(result_count_label(1), "1 result");
+        assert_eq!(result_count_label(12), "12 results");
+        assert_eq!(
+            empty_results_label(PagesPanelSearchScope::CurrentPage),
+            "No results on this page"
+        );
+        assert_eq!(
+            empty_results_label(PagesPanelSearchScope::AllPages),
+            "No results on all pages"
+        );
+    }
+
+    #[gpui::test]
+    fn empty_results_render_in_the_scrollable_body_without_header_overflow(
+        cx: &mut TestAppContext,
+    ) {
+        let (_host, cx) = setup(cx);
+
+        click(cx, "pages-search-trigger");
+        click(cx, "pages-scope-trigger");
+        click(cx, "pages-scope-all-pages");
+
+        let panel = bounds(cx, "pages-search-panel");
+        let header = bounds(cx, "pages-results-header");
+        let count = bounds(cx, "pages-result-count");
+        let previous = bounds(cx, "pages-previous-result");
+        let next = bounds(cx, "pages-next-result");
+        let viewport = bounds(cx, "pages-results-viewport");
+        let empty = bounds(cx, "pages-results-empty");
+
+        assert!(header.right() <= panel.right());
+        assert!(count.left() >= header.left() && count.right() <= header.right());
+        assert!(previous.left() >= header.left());
+        assert!(next.right() <= header.right());
+        assert!(empty.top() >= viewport.top());
+        assert!(empty.right() <= viewport.right());
     }
 
     #[gpui::test]
