@@ -166,6 +166,15 @@ pub enum PagesPanelAction {
         page_id: SharedString,
         title: SharedString,
     },
+    DuplicateRequested {
+        page_id: SharedString,
+    },
+    DeleteRequested {
+        page_id: SharedString,
+    },
+    CopyLinkRequested {
+        page_id: SharedString,
+    },
     SearchRequested(PagesPanelSearchRequest),
     SearchClosed,
     SearchResultSelected {

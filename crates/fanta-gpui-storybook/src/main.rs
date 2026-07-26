@@ -6,9 +6,9 @@ use fanta_gpui::prelude::{
     PagesPanelSearchScope,
 };
 use gpui::{
-    App, AppContext as _, Application, Bounds, Context, Entity, IntoElement, ParentElement as _,
-    Render, SharedString, Styled as _, Subscription, TitlebarOptions, Window, WindowBounds,
-    WindowOptions, div, px, size,
+    App, AppContext as _, Application, Bounds, ClipboardItem, Context, Entity, IntoElement,
+    ParentElement as _, Render, SharedString, Styled as _, Subscription, TitlebarOptions, Window,
+    WindowBounds, WindowOptions, div, px, size,
 };
 use gpui_component::{ActiveTheme as _, Root, StyledExt as _, Theme, ThemeMode, h_flex, v_flex};
 use gpui_component_assets::Assets;
@@ -156,6 +156,53 @@ impl Storybook {
                     panel.set_pages(self.pages.clone(), cx);
                 });
                 self.last_action = format!("Renamed {page_id} to {title}").into();
+            }
+            PagesPanelAction::DuplicateRequested { page_id } => {
+                if let Some((index, source)) = self
+                    .pages
+                    .iter()
+                    .enumerate()
+                    .find(|(_, page)| page.id == *page_id)
+                    .map(|(index, page)| (index, page.clone()))
+                {
+                    let duplicate_id: SharedString = format!("page-{}", self.next_page_id).into();
+                    self.next_page_id += 1;
+                    let duplicate_title: SharedString = format!("{} Copy", source.title).into();
+                    self.pages.insert(
+                        index + 1,
+                        PagesPanelItem::new(duplicate_id.clone(), duplicate_title),
+                    );
+                    self.active_page = duplicate_id.clone();
+                    panel.update(cx, |panel, cx| {
+                        panel.set_pages(self.pages.clone(), cx);
+                        panel.set_selected_page(Some(duplicate_id.clone()), cx);
+                    });
+                    self.last_action =
+                        format!("Duplicated {page_id} through the host adapter").into();
+                }
+            }
+            PagesPanelAction::DeleteRequested { page_id } => {
+                self.pages.retain(|page| page.id != *page_id);
+                if self.active_page == *page_id {
+                    self.active_page = self
+                        .pages
+                        .first()
+                        .map(|page| page.id.clone())
+                        .unwrap_or_else(|| "".into());
+                }
+                panel.update(cx, |panel, cx| {
+                    panel.set_pages(self.pages.clone(), cx);
+                    panel.set_selected_page(
+                        (!self.active_page.is_empty()).then(|| self.active_page.clone()),
+                        cx,
+                    );
+                });
+                self.last_action = format!("Deleted {page_id} through the host adapter").into();
+            }
+            PagesPanelAction::CopyLinkRequested { page_id } => {
+                let link = format!("fanta://pages/{page_id}");
+                cx.write_to_clipboard(ClipboardItem::new_string(link.clone()));
+                self.last_action = format!("Copied {link}").into();
             }
             PagesPanelAction::SearchRequested(request) => {
                 let results = self.search(request);
@@ -314,8 +361,9 @@ impl Render for Storybook {
                             .text_color(cx.theme().muted_foreground)
                             .child(
                                 "Interactive headless component. Collapse it, add and rename \
-                                 pages, or open Find to exercise element filters, Replace, result \
-                                 scope, and navigation.",
+                                 pages, secondary-click a page for its context menu, or open Find \
+                                 to exercise element filters, Replace, result scope, and \
+                                 navigation.",
                             ),
                     )
                     .child(

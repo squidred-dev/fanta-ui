@@ -16,6 +16,7 @@ use gpui_component::{
     button::{Button, ButtonVariants as _},
     h_flex,
     input::{Input, InputEvent, InputState, SelectAll},
+    menu::{ContextMenuExt as _, PopupMenuItem},
     v_flex,
 };
 
@@ -623,6 +624,9 @@ impl PagesPanel {
     ) -> AnyElement {
         let page_id = page.id.clone();
         let page_title = page.title.clone();
+        let context_page_id = page.id.clone();
+        let context_page_title = page.title.clone();
+        let panel = cx.entity();
         let row_selector = format!("pages-row-{}", page.id);
         let row_min_width = px(page.title.chars().count() as f32
             * APPROXIMATE_PAGE_CHARACTER_WIDTH
@@ -668,6 +672,68 @@ impl PagesPanel {
             }
         }))
         .child(div().flex_none().whitespace_nowrap().child(page.title))
+        .context_menu(move |menu, _, _| {
+            let copy_link_panel = panel.clone();
+            let copy_link_page_id = context_page_id.clone();
+            let rename_panel = panel.clone();
+            let rename_page_id = context_page_id.clone();
+            let rename_page_title = context_page_title.clone();
+            let duplicate_panel = panel.clone();
+            let duplicate_page_id = context_page_id.clone();
+            let delete_panel = panel.clone();
+            let delete_page_id = context_page_id.clone();
+
+            menu.min_w(px(224.))
+                .item(page_context_menu_item(
+                    "Copy link to page",
+                    "pages-page-menu-copy-link",
+                    move |_, _, app| {
+                        copy_link_panel.update(app, |_, cx| {
+                            cx.emit(PagesPanelAction::CopyLinkRequested {
+                                page_id: copy_link_page_id.clone(),
+                            });
+                        });
+                    },
+                ))
+                .separator()
+                .item(page_context_menu_item(
+                    "Rename page",
+                    "pages-page-menu-rename",
+                    move |_, window, app| {
+                        rename_panel.update(app, |panel, cx| {
+                            panel.begin_rename(
+                                rename_page_id.clone(),
+                                rename_page_title.clone(),
+                                window,
+                                cx,
+                            );
+                        });
+                    },
+                ))
+                .item(page_context_menu_item(
+                    "Duplicate page",
+                    "pages-page-menu-duplicate",
+                    move |_, _, app| {
+                        duplicate_panel.update(app, |_, cx| {
+                            cx.emit(PagesPanelAction::DuplicateRequested {
+                                page_id: duplicate_page_id.clone(),
+                            });
+                        });
+                    },
+                ))
+                .separator()
+                .item(page_context_menu_item(
+                    "Delete page",
+                    "pages-page-menu-delete",
+                    move |_, _, app| {
+                        delete_panel.update(app, |_, cx| {
+                            cx.emit(PagesPanelAction::DeleteRequested {
+                                page_id: delete_page_id.clone(),
+                            });
+                        });
+                    },
+                ))
+        })
         .into_any_element()
     }
 
@@ -1304,6 +1370,20 @@ fn empty_results_label(scope: PagesPanelSearchScope) -> String {
     format!("No results on {}", scope.label().to_lowercase())
 }
 
+fn page_context_menu_item(
+    label: &'static str,
+    selector: &'static str,
+    handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+) -> PopupMenuItem {
+    PopupMenuItem::element(move |_, _| {
+        div()
+            .debug_selector(move || selector.to_owned())
+            .w_full()
+            .child(label)
+    })
+    .on_click(handler)
+}
+
 fn next_page_title(pages: &[PagesPanelItem]) -> SharedString {
     let next = pages
         .iter()
@@ -1422,6 +1502,25 @@ mod tests {
             modifiers: Modifiers::none(),
             click_count: 2,
         });
+    }
+
+    fn secondary_click(cx: &mut VisualTestContext, selector: &'static str) {
+        let position = bounds(cx, selector).center();
+        cx.simulate_mouse_move(position, None, Modifiers::none());
+        cx.simulate_event(MouseDownEvent {
+            position,
+            button: MouseButton::Right,
+            modifiers: Modifiers::none(),
+            click_count: 1,
+            first_mouse: false,
+        });
+        cx.simulate_event(MouseUpEvent {
+            position,
+            button: MouseButton::Right,
+            modifiers: Modifiers::none(),
+            click_count: 1,
+        });
+        cx.run_until_parked();
     }
 
     fn panel(host: &Entity<TestHost>, cx: &VisualTestContext) -> Entity<PagesPanel> {
@@ -1603,6 +1702,73 @@ mod tests {
             action,
             PagesPanelAction::CreateRequested { .. } | PagesPanelAction::RenameRequested { .. }
         )));
+    }
+
+    #[gpui::test]
+    fn page_context_menu_emits_headless_intents_and_starts_inline_rename(cx: &mut TestAppContext) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+        let actions = actions(&host, cx);
+
+        secondary_click(cx, "pages-row-page-2");
+        assert!(bounds(cx, "pages-page-menu-copy-link").size.width > px(0.));
+        actions.borrow_mut().clear();
+        click(cx, "pages-page-menu-copy-link");
+        assert_eq!(
+            actions.borrow().as_slice(),
+            &[PagesPanelAction::CopyLinkRequested {
+                page_id: "page-2".into(),
+            }]
+        );
+
+        secondary_click(cx, "pages-row-page-2");
+        actions.borrow_mut().clear();
+        click(cx, "pages-page-menu-duplicate");
+        assert_eq!(
+            actions.borrow().as_slice(),
+            &[PagesPanelAction::DuplicateRequested {
+                page_id: "page-2".into(),
+            }]
+        );
+
+        secondary_click(cx, "pages-row-page-2");
+        actions.borrow_mut().clear();
+        click(cx, "pages-page-menu-delete");
+        assert_eq!(
+            actions.borrow().as_slice(),
+            &[PagesPanelAction::DeleteRequested {
+                page_id: "page-2".into(),
+            }]
+        );
+
+        secondary_click(cx, "pages-row-page-1");
+        actions.borrow_mut().clear();
+        click(cx, "pages-page-menu-rename");
+        assert!(matches!(
+            read_panel(&panel, cx, |panel| panel.editing.clone()),
+            Some(PageEditorTarget::Existing { ref page_id, .. })
+                if page_id.as_ref() == "page-1"
+        ));
+        assert!(
+            actions.borrow().is_empty(),
+            "rename is emitted only after the inline editor commits"
+        );
+        assert!(bounds(cx, "pages-page-editor").size.height > px(0.));
+    }
+
+    #[gpui::test]
+    fn search_result_rows_do_not_open_the_page_context_menu(cx: &mut TestAppContext) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+        let actions = actions(&host, cx);
+        set_one_search_result(&panel, cx);
+        click(cx, "pages-search-trigger");
+
+        actions.borrow_mut().clear();
+        secondary_click(cx, "pages-result-0");
+
+        assert!(cx.debug_bounds("pages-page-menu-copy-link").is_none());
+        assert!(actions.borrow().is_empty());
     }
 
     #[gpui::test]
