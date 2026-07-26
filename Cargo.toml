@@ -1,0 +1,37 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/fanta-gpui",
+    "crates/fanta-gpui-storybook",
+]
+default-members = ["crates/fanta-gpui"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+publish = false
+license = "GPL-3.0"
+repository = "https://github.com/squidred-dev/fanta-gpui"
+
+[workspace.dependencies]
+gpui = "0.2.2"
+gpui-component = "0.5.1"
+gpui-component-assets = "0.5.1"
+
+fanta-gpui = { path = "crates/fanta-gpui" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+
+[profile.dev]
+codegen-units = 16
+debug = "limited"
+split-debuginfo = "unpacked"
+
+[profile.dev.package]
+gpui = { opt-level = 3 }

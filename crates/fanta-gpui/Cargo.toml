@@ -1,0 +1,17 @@
+[package]
+name = "fanta-gpui"
+description = "Headless, host-controlled GPUI components for Fanta applications."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+gpui.workspace = true
+gpui-component.workspace = true
+
+[lints]
+workspace = true
+
