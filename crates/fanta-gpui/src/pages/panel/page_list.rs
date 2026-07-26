@@ -16,13 +16,8 @@ impl PagesPanel {
     pub(super) fn render_pages(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let selected_page = self.selected_page.clone();
         let editing = self.editing.clone();
-        let content_min_width = page_title_min_width(
-            self.pages
-                .iter()
-                .map(|page| page.title.chars().count())
-                .max()
-                .unwrap_or(0),
-        );
+        let editor_min_width =
+            page_title_min_width(self.rename_input.read(cx).value().chars().count());
         let rows = self
             .pages
             .clone()
@@ -35,30 +30,27 @@ impl PagesPanel {
                     Some(PageEditorTarget::Existing { page_id, .. }) if page_id == &page.id
                 );
                 if is_editing {
-                    self.render_page_editor(
-                        format!("{}-edit-{index}", self.id),
-                        page_title_min_width(page.title.chars().count()),
-                    )
+                    self.render_page_editor(format!("{}-edit-{index}", self.id), editor_min_width)
                 } else {
                     self.render_page_row(index, page, is_selected, cx)
                 }
             })
             .collect::<Vec<_>>();
 
-        let content = v_flex()
-            .w_full()
-            .min_w(content_min_width)
+        let scroll_viewport = v_flex()
+            .id(SharedString::from(format!("{}-pages-scroll", self.id)))
+            .debug_selector(|| "pages-scroll-viewport".to_owned())
+            .relative()
+            .size_full()
+            .overflow_scroll()
+            .track_scroll(&self.pages_scroll_handle)
             .p_2()
             .gap_1()
             .children(rows)
             .when(self.editing_is_new(), |content| {
-                let min_width = match self.editing.as_ref() {
-                    Some(PageEditorTarget::New { suggested_title }) => {
-                        page_title_min_width(suggested_title.chars().count())
-                    }
-                    _ => px(0.),
-                };
-                content.child(self.render_page_editor(format!("{}-new-page", self.id), min_width))
+                content.child(
+                    self.render_page_editor(format!("{}-new-page", self.id), editor_min_width),
+                )
             });
 
         let expanded = self.expanded;
@@ -69,16 +61,7 @@ impl PagesPanel {
             .h(px(if expanded { height } else { 0. }))
             .min_h(px(0.))
             .overflow_hidden()
-            .child(
-                div()
-                    .id(SharedString::from(format!("{}-pages-scroll", self.id)))
-                    .debug_selector(|| "pages-scroll-viewport".to_owned())
-                    .relative()
-                    .size_full()
-                    .overflow_scroll()
-                    .track_scroll(&self.pages_scroll_handle)
-                    .child(content),
-            )
+            .child(scroll_viewport)
             .child(
                 div()
                     .debug_selector(|| "pages-scrollbar-layer".to_owned())

@@ -290,6 +290,11 @@ impl PagesPanel {
             .clone()
             .tab_index(0)
             .tab_stop(true);
+        let scope_trigger_focus_handle = self
+            .scope_trigger_focus_handle
+            .clone()
+            .tab_index(0)
+            .tab_stop(true);
         h_flex()
             .debug_selector(|| "pages-results-header".to_owned())
             .h(px(48.))
@@ -316,7 +321,7 @@ impl PagesPanel {
                     .whitespace_nowrap()
                     .debug_selector(|| "pages-scope-trigger".to_owned())
                     .key_context(PAGES_CONTROL_KEY_CONTEXT)
-                    .tab_index(0)
+                    .track_focus(&scope_trigger_focus_handle)
                     .gap_1()
                     .text_sm()
                     .cursor_pointer()

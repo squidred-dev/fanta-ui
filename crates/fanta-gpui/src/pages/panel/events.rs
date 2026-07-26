@@ -105,9 +105,32 @@ impl PagesPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.dismiss_open_popover(window, cx) {
+            cx.stop_propagation();
+            return;
+        }
         if self.mode != PanelMode::Pages {
+            cx.stop_propagation();
             self.close_search(window, cx);
         }
+    }
+
+    fn dismiss_open_popover(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if let Some(menu) = self.page_menu.take() {
+            menu.return_focus
+                .unwrap_or_else(|| self.focus_handle.clone())
+                .focus(window);
+        } else if self.filter_menu_open {
+            self.filter_menu_open = false;
+            self.settings_focus_handle.focus(window);
+        } else if self.scope_menu_open {
+            self.scope_menu_open = false;
+            self.scope_trigger_focus_handle.focus(window);
+        } else {
+            return false;
+        }
+        cx.notify();
+        true
     }
 
     pub(super) fn on_previous_search_result(
@@ -277,10 +300,12 @@ impl PagesPanel {
         cx: &mut Context<Self>,
     ) {
         self.cancel_page_edit(cx);
+        let return_focus = window.focused(cx);
         self.page_menu = Some(PageMenuState {
             page_id,
             page_title,
             anchor,
+            return_focus,
         });
         let focus_handle = self.page_menu_focus_handle.clone();
         window.defer(cx, move |window, _| {

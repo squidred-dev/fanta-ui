@@ -414,6 +414,56 @@ fn complete_keyboard_lifecycle_keeps_filter_and_scope_menus_open(cx: &mut TestAp
 }
 
 #[gpui::test]
+fn escape_dismisses_search_popovers_before_closing_search(cx: &mut TestAppContext) {
+    let (host, cx) = setup(cx);
+    let panel = panel(&host, cx);
+    let actions = actions(&host, cx);
+
+    focus_panel(&panel, cx);
+    cx.simulate_keystrokes("secondary-f tab enter");
+    cx.run_until_parked();
+    assert!(read_panel(&panel, cx, |panel| panel.filter_menu_open));
+
+    actions.borrow_mut().clear();
+    cx.simulate_keystrokes("escape");
+    assert!(!read_panel(&panel, cx, |panel| panel.filter_menu_open));
+    assert_eq!(read_panel(&panel, cx, |panel| panel.mode), PanelMode::Find);
+    assert!(actions.borrow().is_empty());
+    assert!(cx.update(|window, app| { panel.read(app).settings_focus_handle.is_focused(window) }));
+
+    cx.simulate_keystrokes("escape");
+    assert_eq!(read_panel(&panel, cx, |panel| panel.mode), PanelMode::Pages);
+    assert_eq!(
+        actions.borrow().as_slice(),
+        &[PagesPanelAction::SearchClosed]
+    );
+
+    focus_panel(&panel, cx);
+    cx.simulate_keystrokes("secondary-f tab tab tab enter");
+    cx.run_until_parked();
+    assert!(read_panel(&panel, cx, |panel| panel.scope_menu_open));
+
+    actions.borrow_mut().clear();
+    cx.simulate_keystrokes("escape");
+    assert!(!read_panel(&panel, cx, |panel| panel.scope_menu_open));
+    assert_eq!(read_panel(&panel, cx, |panel| panel.mode), PanelMode::Find);
+    assert!(actions.borrow().is_empty());
+    assert!(cx.update(|window, app| {
+        panel
+            .read(app)
+            .scope_trigger_focus_handle
+            .is_focused(window)
+    }));
+
+    cx.simulate_keystrokes("escape");
+    assert_eq!(read_panel(&panel, cx, |panel| panel.mode), PanelMode::Pages);
+    assert_eq!(
+        actions.borrow().as_slice(),
+        &[PagesPanelAction::SearchClosed]
+    );
+}
+
+#[gpui::test]
 fn tab_focus_opens_the_same_command_tooltips_as_pointer_hover(cx: &mut TestAppContext) {
     let (host, cx) = setup(cx);
     let panel = panel(&host, cx);
@@ -732,6 +782,34 @@ fn page_menu_is_row_scoped_and_ctrl_enter_opens_it_for_keyboard_users(cx: &mut T
 }
 
 #[gpui::test]
+fn escape_closes_the_page_menu_and_restores_the_page_row_focus(cx: &mut TestAppContext) {
+    let (host, cx) = setup(cx);
+    let panel = panel(&host, cx);
+    let actions = actions(&host, cx);
+
+    focus_panel(&panel, cx);
+    cx.simulate_keystrokes("tab tab tab tab ctrl-enter");
+    cx.run_until_parked();
+    let return_focus = read_panel(&panel, cx, |panel| {
+        panel
+            .page_menu
+            .as_ref()
+            .and_then(|menu| menu.return_focus.clone())
+            .expect("keyboard-opened menu should remember its page row")
+    });
+    assert!(bounds(cx, "pages-page-menu").size.height > px(0.));
+
+    actions.borrow_mut().clear();
+    cx.simulate_keystrokes("escape");
+    assert!(read_panel(&panel, cx, |panel| panel.page_menu.is_none()));
+    assert!(cx.update(|window, _| return_focus.is_focused(window)));
+    assert!(actions.borrow().is_empty());
+
+    cx.simulate_keystrokes("escape");
+    assert!(actions.borrow().is_empty());
+}
+
+#[gpui::test]
 fn search_result_rows_do_not_open_the_page_context_menu(cx: &mut TestAppContext) {
     let (host, cx) = setup(cx);
     let panel = panel(&host, cx);
@@ -906,10 +984,19 @@ fn long_page_names_scroll_horizontally_and_many_pages_scroll_vertically(cx: &mut
     let viewport = bounds(cx, "pages-scroll-viewport");
     let scrollbar_layer = bounds(cx, "pages-scrollbar-layer");
     let long_row = bounds(cx, "pages-row-long-page-1");
+    let short_row = bounds(cx, "pages-row-long-page-2");
     let scroll_handle = read_panel(&panel, cx, |panel| panel.pages_scroll_handle.clone());
     assert_eq!(scrollbar_layer, viewport);
     assert_eq!(scroll_handle.bounds(), viewport);
     assert!(long_row.size.width > viewport.size.width);
+    assert!(
+        short_row.size.width < long_row.size.width,
+        "a long sibling must not force every page row to share its width"
+    );
+    assert!(
+        short_row.size.width >= viewport.size.width - px(20.),
+        "ordinary rows should still fill the available viewport"
+    );
     assert!(scroll_handle.max_offset().width > px(0.));
     assert!(scroll_handle.max_offset().height > px(0.));
 
@@ -941,6 +1028,55 @@ fn long_page_names_scroll_horizontally_and_many_pages_scroll_vertically(cx: &mut
     assert_eq!(
         resized_viewport.bottom(),
         bounds(cx, "pages-scrollbar-layer").bottom()
+    );
+}
+
+#[gpui::test]
+fn page_editor_width_tracks_its_own_live_text_not_the_longest_sibling(cx: &mut TestAppContext) {
+    let (host, cx) = setup(cx);
+    let panel = panel(&host, cx);
+    let long_title =
+        "This sibling is intentionally wider than the viewport but should not widen Page 2";
+    cx.update(|_, app| {
+        panel.update(app, |panel, cx| {
+            panel.set_pages(
+                vec![
+                    PagesPanelItem::new("long-page", long_title),
+                    PagesPanelItem::new("short-page", "Page 2"),
+                ],
+                cx,
+            );
+        });
+    });
+    cx.run_until_parked();
+
+    let viewport = bounds(cx, "pages-scroll-viewport");
+    let long_row = bounds(cx, "pages-row-long-page");
+    let short_row = bounds(cx, "pages-row-short-page");
+    assert!(long_row.size.width > viewport.size.width);
+    assert!(short_row.size.width < long_row.size.width);
+
+    double_click(cx, "pages-row-short-page");
+    cx.run_until_parked();
+    let initial_editor = bounds(cx, "pages-page-editor");
+    assert!(
+        initial_editor.size.width < long_row.size.width,
+        "a short editor must not inherit a long sibling's width"
+    );
+    assert!(initial_editor.size.width >= viewport.size.width - px(20.));
+
+    cx.simulate_input(&"x".repeat(160));
+    let grown_editor = bounds(cx, "pages-page-editor");
+    let input_slot = bounds(cx, "pages-page-editor-input-slot");
+    assert!(
+        grown_editor.size.width > long_row.size.width,
+        "the editor should grow when its own text becomes the longest content"
+    );
+    assert_eq!(input_slot.size.width, grown_editor.size.width);
+    assert_eq!(
+        bounds(cx, "pages-row-long-page").size.width,
+        long_row.size.width,
+        "growing the editor must not resize its sibling rows"
     );
 }
 

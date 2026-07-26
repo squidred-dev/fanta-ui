@@ -48,5 +48,6 @@ pub(crate) fn init(cx: &mut App) {
             OpenPageContextMenu,
             Some(PAGES_CONTROL_KEY_CONTEXT),
         ),
+        KeyBinding::new("escape", ClosePagesSearch, Some(PAGES_PANEL_KEY_CONTEXT)),
     ]);
 }

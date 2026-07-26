@@ -74,6 +74,7 @@ struct PageMenuState {
     page_id: SharedString,
     page_title: SharedString,
     anchor: Point<Pixels>,
+    return_focus: Option<FocusHandle>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -118,6 +119,7 @@ pub struct PagesPanel {
     find_focus_handle: FocusHandle,
     add_page_focus_handle: FocusHandle,
     settings_focus_handle: FocusHandle,
+    scope_trigger_focus_handle: FocusHandle,
     close_search_focus_handle: FocusHandle,
     replace_current_focus_handle: FocusHandle,
     replace_all_focus_handle: FocusHandle,
@@ -182,7 +184,8 @@ impl PagesPanel {
                         this.commit_page_name(true, window, cx);
                     }
                     InputEvent::Blur => this.commit_page_name(false, window, cx),
-                    InputEvent::Change | InputEvent::Focus => {}
+                    InputEvent::Change => cx.notify(),
+                    InputEvent::Focus => {}
                 },
             ),
             cx.subscribe(
@@ -216,6 +219,7 @@ impl PagesPanel {
             find_focus_handle: cx.focus_handle(),
             add_page_focus_handle: cx.focus_handle(),
             settings_focus_handle: cx.focus_handle(),
+            scope_trigger_focus_handle: cx.focus_handle(),
             close_search_focus_handle: cx.focus_handle(),
             replace_current_focus_handle: cx.focus_handle(),
             replace_all_focus_handle: cx.focus_handle(),
