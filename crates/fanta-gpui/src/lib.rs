@@ -9,5 +9,9 @@ pub mod pages;
 
 /// Common imports for Fanta GPUI hosts.
 pub mod prelude {
-    pub use crate::pages::{PagesPanel, PagesPanelAction, PagesPanelItem};
+    pub use crate::pages::{
+        PagesPanel, PagesPanelAction, PagesPanelElementCount, PagesPanelElementKind,
+        PagesPanelItem, PagesPanelResultDirection, PagesPanelSearchRequest, PagesPanelSearchResult,
+        PagesPanelSearchResults, PagesPanelSearchScope,
+    };
 }

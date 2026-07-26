@@ -34,20 +34,24 @@ maps component intents to the engine's public operation surface. This keeps UI
 release cadence independent from the document schema and avoids introducing a
 windowing dependency into the engine.
 
-## §3 Controlled components
+## §3 Controlled domain data
 
-Components are controlled:
+Domain-facing component data is controlled:
 
 - Input data is immutable for the duration of a render.
 - Selection and expanded state are supplied by the host.
 - User interaction emits typed intents.
 - A component never mutates a Fanta document or silently invents domain state.
-- A component may keep transient presentation state only when GPUI requires it
-  (focus, hover, animation, scroll position).
+- A component entity may keep transient presentation state when interaction
+  continuity requires it (focus, draft text, animation, popovers, filters,
+  scroll position, or the active search-result cursor).
 
 The Pages panel demonstrates the contract with `PagesPanelItem`,
-`PagesPanelAction`, and `PagesPanel`. Adding a page emits `Add`; it does not
-create a page itself.
+`PagesPanelSearchResults`, `PagesPanelAction`, and `PagesPanel`. Committing a
+new draft emits `CreateRequested`; it does not create a page itself. Committing
+a rename emits `RenameRequested`; it does not update the supplied read model.
+The host applies its operation and calls the appropriate setter with fresh
+data.
 
 ## §4 Identity boundary
 
@@ -76,6 +80,10 @@ its meaningful visual states. Story state is local mock state only. Stories are
 the place for visual tuning; domain workflows and Fanta operations belong in
 the application host.
 
+The Pages story is also a reference adapter: it subscribes to the component's
+typed event stream, mutates mock host data, performs mock search, and supplies
+the resulting page and search read models back to the component.
+
 ## §7 Safety and quality
 
 - `unsafe` code is forbidden.
@@ -84,3 +92,30 @@ the application host.
   `cargo clippy --workspace --all-targets -- -D warnings` must pass.
 - New dependencies should preserve the seam in §2.
 
+## §8 Pages panel integration contract
+
+`PagesPanel` is a stateful GPUI entity because input focus, animation, and
+popover continuity cannot be represented safely by reconstructing a
+`RenderOnce` element each frame. This does not move domain ownership into the
+component.
+
+Host-controlled state:
+
+- page identifiers and titles;
+- selected page;
+- expanded state when an external host changes it;
+- search results and element counts;
+- document mutations, selection changes, and replacement.
+
+Component-owned presentation state:
+
+- reveal animation and locally-triggered expanded state;
+- the in-progress new/rename draft;
+- Find/Replace mode and input values;
+- open filter/scope menus, active filter pills, and search options;
+- active result cursor.
+
+The component emits a `PagesPanelAction` for every change that can affect the
+document or another host surface. Opaque identifiers are returned unchanged.
+Search requests contain only UI-level query fields and do not assume a Fanta
+index implementation.
