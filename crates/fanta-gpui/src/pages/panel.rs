@@ -1,14 +1,18 @@
+#[cfg(not(test))]
 use std::time::Duration;
 
+#[cfg(not(test))]
+use gpui::{Animation, AnimationExt as _, ElementId};
 use gpui::{
-    Animation, AnimationExt as _, AnyElement, App, AppContext as _, ClickEvent, Context, ElementId,
-    Entity, EventEmitter, InteractiveElement as _, IntoElement, ParentElement as _, Render,
-    SharedString, StatefulInteractiveElement as _, Styled as _, Subscription, Window, div,
-    prelude::FluentBuilder as _, px,
+    AnyElement, App, AppContext as _, Bounds, ClickEvent, Context, Entity, EventEmitter,
+    InteractiveElement as _, IntoElement, MouseButton, ParentElement as _, Pixels, Render,
+    ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, Subscription, Window,
+    canvas, deferred, div, point, prelude::FluentBuilder as _, px,
 };
+#[cfg(not(test))]
+use gpui_component::animation::cubic_bezier;
 use gpui_component::{
     ActiveTheme as _, Icon, IconName, Sizable as _, StyledExt as _,
-    animation::cubic_bezier,
     button::{Button, ButtonVariants as _},
     h_flex,
     input::{Input, InputEvent, InputState, SelectAll},
@@ -24,6 +28,9 @@ const HEADER_HEIGHT: f32 = 40.;
 const PAGE_ROW_HEIGHT: f32 = 32.;
 const PAGE_ROW_GAP: f32 = 4.;
 const PAGE_PADDING: f32 = 8.;
+const MAX_PAGE_LIST_HEIGHT: f32 = 320.;
+const APPROXIMATE_PAGE_CHARACTER_WIDTH: f32 = 8.;
+#[cfg(not(test))]
 const REVEAL_DURATION: f64 = 0.18;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -74,8 +81,18 @@ pub struct PagesPanel {
     whole_words: bool,
     filter_menu_open: bool,
     scope_menu_open: bool,
+    search_panel_bounds: Option<Bounds<Pixels>>,
+    filter_anchor_bounds: Option<Bounds<Pixels>>,
+    scope_anchor_bounds: Option<Bounds<Pixels>>,
+    pages_scroll_handle: ScrollHandle,
     results: PagesPanelSearchResults,
     active_result: Option<usize>,
+    #[cfg(test)]
+    hovered_result: Option<usize>,
+    #[cfg(test)]
+    header_hovered: bool,
+    #[cfg(test)]
+    hovered_page: Option<SharedString>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -141,8 +158,18 @@ impl PagesPanel {
             whole_words: false,
             filter_menu_open: false,
             scope_menu_open: false,
+            search_panel_bounds: None,
+            filter_anchor_bounds: None,
+            scope_anchor_bounds: None,
+            pages_scroll_handle: ScrollHandle::new(),
             results: PagesPanelSearchResults::default(),
             active_result: None,
+            #[cfg(test)]
+            hovered_result: None,
+            #[cfg(test)]
+            header_hovered: false,
+            #[cfg(test)]
+            hovered_page: None,
             _subscriptions: subscriptions,
         }
     }
@@ -279,6 +306,12 @@ impl PagesPanel {
         cx.notify();
     }
 
+    fn cancel_page_edit(&mut self, cx: &mut Context<Self>) {
+        if self.editing.take().is_some() {
+            cx.notify();
+        }
+    }
+
     fn open_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.commit_page_name(cx);
         self.mode = PanelMode::Find;
@@ -399,9 +432,10 @@ impl PagesPanel {
 
     fn page_reveal_height(&self) -> f32 {
         let count = self.pages.len() + usize::from(self.editing_is_new());
-        PAGE_PADDING * 2.
+        (PAGE_PADDING * 2.
             + count as f32 * PAGE_ROW_HEIGHT
-            + count.saturating_sub(1) as f32 * PAGE_ROW_GAP
+            + count.saturating_sub(1) as f32 * PAGE_ROW_GAP)
+            .min(MAX_PAGE_LIST_HEIGHT)
     }
 
     fn editing_is_new(&self) -> bool {
@@ -416,12 +450,24 @@ impl PagesPanel {
             self.collapsed_title()
         };
 
-        h_flex()
+        let header = h_flex()
+            .id(SharedString::from(format!("{}-header", self.id)))
+            .debug_selector(|| "pages-header".to_owned())
             .h(px(HEADER_HEIGHT))
             .w_full()
             .flex_shrink_0()
-            .border_b_1()
-            .border_color(cx.theme().border)
+            .cursor_pointer()
+            .hover(|style| style.bg(cx.theme().sidebar_accent.opacity(0.55)))
+            .when(expanded, |header| {
+                header.border_b_1().border_color(cx.theme().border)
+            })
+            .on_click(cx.listener(|this, _, _, cx| this.toggle_expanded(cx)));
+        #[cfg(test)]
+        let header = header.on_hover(cx.listener(|this, hovered, _, _| {
+            this.header_hovered = *hovered;
+        }));
+
+        header
             .child(
                 h_flex()
                     .id(SharedString::from(format!("{}-toggle", self.id)))
@@ -429,9 +475,6 @@ impl PagesPanel {
                     .flex_1()
                     .gap_1()
                     .px_2()
-                    .cursor_pointer()
-                    .hover(|style| style.bg(cx.theme().sidebar_accent.opacity(0.55)))
-                    .on_click(cx.listener(|this, _, _, cx| this.toggle_expanded(cx)))
                     .child(
                         Icon::new(if expanded {
                             IconName::ChevronDown
@@ -443,26 +486,38 @@ impl PagesPanel {
                     .child(title),
             )
             .child(
-                Button::new(SharedString::from(format!("{}-search", self.id)))
-                    .ghost()
-                    .xsmall()
-                    .compact()
-                    .icon(IconName::Search)
-                    .tooltip("Find elements")
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        this.open_search(window, cx);
-                    })),
+                div()
+                    .flex_none()
+                    .debug_selector(|| "pages-search-trigger".to_owned())
+                    .occlude()
+                    .child(
+                        Button::new(SharedString::from(format!("{}-search", self.id)))
+                            .ghost()
+                            .xsmall()
+                            .compact()
+                            .icon(IconName::Search)
+                            .tooltip("Find elements")
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.open_search(window, cx);
+                            })),
+                    ),
             )
             .child(
-                Button::new(SharedString::from(format!("{}-add", self.id)))
-                    .ghost()
-                    .xsmall()
-                    .compact()
-                    .icon(IconName::Plus)
-                    .tooltip("Add page")
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        this.begin_new_page(window, cx);
-                    })),
+                div()
+                    .flex_none()
+                    .debug_selector(|| "pages-add-trigger".to_owned())
+                    .occlude()
+                    .child(
+                        Button::new(SharedString::from(format!("{}-add", self.id)))
+                            .ghost()
+                            .xsmall()
+                            .compact()
+                            .icon(IconName::Plus)
+                            .tooltip("Add page")
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.begin_new_page(window, cx);
+                            })),
+                    ),
             )
             .child(div().w(px(4.)))
             .into_any_element()
@@ -471,6 +526,14 @@ impl PagesPanel {
     fn render_pages(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let selected_page = self.selected_page.clone();
         let editing = self.editing.clone();
+        let content_min_width = px(self
+            .pages
+            .iter()
+            .map(|page| page.title.chars().count())
+            .max()
+            .unwrap_or(0) as f32
+            * APPROXIMATE_PAGE_CHARACTER_WIDTH
+            + PAGE_PADDING * 2.);
         let rows = self
             .pages
             .clone()
@@ -492,6 +555,7 @@ impl PagesPanel {
 
         let content = v_flex()
             .w_full()
+            .min_w(content_min_width)
             .p_2()
             .gap_1()
             .children(rows)
@@ -501,29 +565,47 @@ impl PagesPanel {
 
         let expanded = self.expanded;
         let height = self.page_reveal_height();
-        div()
+        let reveal = div()
             .w_full()
             .h(px(if expanded { height } else { 0. }))
+            .min_h(px(0.))
             .overflow_hidden()
-            .child(content)
-            .with_animation(
-                ElementId::NamedInteger(
-                    SharedString::from(format!("{}-reveal", self.id)),
-                    expanded as u64,
-                ),
-                Animation::new(Duration::from_secs_f64(REVEAL_DURATION))
-                    .with_easing(cubic_bezier(0.4, 0., 0.2, 1.)),
-                move |element, delta| {
-                    let progress = if expanded { delta } else { 1. - delta };
-                    element.h(px(height * progress)).opacity(progress)
-                },
-            )
-            .into_any_element()
+            .child(
+                div()
+                    .id(SharedString::from(format!("{}-pages-scroll", self.id)))
+                    .debug_selector(|| "pages-scroll-viewport".to_owned())
+                    .size_full()
+                    .overflow_scroll()
+                    .track_scroll(&self.pages_scroll_handle)
+                    .child(content),
+            );
+        #[cfg(test)]
+        {
+            reveal.into_any_element()
+        }
+        #[cfg(not(test))]
+        {
+            reveal
+                .with_animation(
+                    ElementId::NamedInteger(
+                        SharedString::from(format!("{}-reveal", self.id)),
+                        expanded as u64,
+                    ),
+                    Animation::new(Duration::from_secs_f64(REVEAL_DURATION))
+                        .with_easing(cubic_bezier(0.4, 0., 0.2, 1.)),
+                    move |element, delta| {
+                        let progress = if expanded { delta } else { 1. - delta };
+                        element.h(px(height * progress)).opacity(progress)
+                    },
+                )
+                .into_any_element()
+        }
     }
 
     fn render_page_editor(&self, id: impl Into<SharedString>) -> AnyElement {
         h_flex()
             .id(id.into())
+            .debug_selector(|| "pages-page-editor".to_owned())
             .h(px(PAGE_ROW_HEIGHT))
             .w_full()
             .child(Input::new(&self.rename_input).xsmall())
@@ -539,10 +621,16 @@ impl PagesPanel {
     ) -> AnyElement {
         let page_id = page.id.clone();
         let page_title = page.title.clone();
-        h_flex()
+        let row_selector = format!("pages-row-{}", page.id);
+        let row_min_width = px(page.title.chars().count() as f32
+            * APPROXIMATE_PAGE_CHARACTER_WIDTH
+            + PAGE_PADDING * 2.);
+        let row = h_flex()
             .id(SharedString::from(format!("{}-page-{index}", self.id)))
+            .debug_selector(move || row_selector)
             .h(px(PAGE_ROW_HEIGHT))
             .w_full()
+            .min_w(row_min_width)
             .px_2()
             .rounded(px(4.))
             .text_sm()
@@ -552,18 +640,33 @@ impl PagesPanel {
                 row.bg(cx.theme().sidebar_accent)
                     .text_color(cx.theme().sidebar_accent_foreground)
                     .font_semibold()
-            })
-            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
-                if event.click_count() >= 2 {
-                    this.begin_rename(page_id.clone(), page_title.clone(), window, cx);
-                } else {
-                    cx.emit(PagesPanelAction::SelectRequested {
-                        page_id: page_id.clone(),
-                    });
+            });
+        #[cfg(test)]
+        let row = {
+            let hovered_page_id = page_id.clone();
+            row.on_hover(cx.listener(move |this, hovered, _, _| {
+                if *hovered {
+                    this.hovered_page = Some(hovered_page_id.clone());
+                } else if this.hovered_page.as_ref() == Some(&hovered_page_id) {
+                    this.hovered_page = None;
                 }
             }))
-            .child(page.title)
-            .into_any_element()
+        };
+        row.on_mouse_down(
+            MouseButton::Left,
+            cx.listener(|this, _, _, cx| this.cancel_page_edit(cx)),
+        )
+        .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
+            if event.click_count() >= 2 {
+                this.begin_rename(page_id.clone(), page_title.clone(), window, cx);
+            } else {
+                cx.emit(PagesPanelAction::SelectRequested {
+                    page_id: page_id.clone(),
+                });
+            }
+        }))
+        .child(div().flex_none().whitespace_nowrap().child(page.title))
+        .into_any_element()
     }
 
     fn element_icon(kind: PagesPanelElementKind) -> IconName {
@@ -581,6 +684,7 @@ impl PagesPanel {
 
     fn render_search_toolbar(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let replace = self.mode == PanelMode::Replace;
+        let panel = cx.entity();
         v_flex()
             .w_full()
             .gap_2()
@@ -599,17 +703,37 @@ impl PagesPanel {
                         ),
                     )
                     .child(
-                        Button::new(SharedString::from(format!("{}-filters", self.id)))
-                            .ghost()
-                            .small()
-                            .compact()
-                            .icon(IconName::Settings2)
-                            .tooltip("Search options")
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                this.filter_menu_open = !this.filter_menu_open;
-                                this.scope_menu_open = false;
-                                cx.notify();
-                            })),
+                        div()
+                            .relative()
+                            .flex_none()
+                            .debug_selector(|| "pages-filter-trigger".to_owned())
+                            .child(
+                                Button::new(SharedString::from(format!("{}-filters", self.id)))
+                                    .ghost()
+                                    .small()
+                                    .compact()
+                                    .icon(IconName::Settings2)
+                                    .tooltip("Search options")
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.filter_menu_open = !this.filter_menu_open;
+                                        this.scope_menu_open = false;
+                                        cx.notify();
+                                    })),
+                            )
+                            .child(
+                                canvas(
+                                    move |bounds, _, app| {
+                                        panel.update(app, |this, _| {
+                                            this.filter_anchor_bounds = Some(bounds);
+                                        });
+                                    },
+                                    |_, _, _, _| {},
+                                )
+                                .absolute()
+                                .top_0()
+                                .left_0()
+                                .size_full(),
+                            ),
                     )
                     .child(
                         Button::new(SharedString::from(format!("{}-close-search", self.id)))
@@ -685,6 +809,7 @@ impl PagesPanel {
         } else {
             format!("{} results", self.results.total)
         };
+        let panel = cx.entity();
         h_flex()
             .h(px(48.))
             .w_full()
@@ -697,6 +822,8 @@ impl PagesPanel {
             .child(
                 h_flex()
                     .id(SharedString::from(format!("{}-scope", self.id)))
+                    .relative()
+                    .debug_selector(|| "pages-scope-trigger".to_owned())
                     .gap_1()
                     .text_sm()
                     .cursor_pointer()
@@ -706,7 +833,21 @@ impl PagesPanel {
                         cx.notify();
                     }))
                     .child(self.search_scope.label())
-                    .child(Icon::new(IconName::ChevronDown).xsmall()),
+                    .child(Icon::new(IconName::ChevronDown).xsmall())
+                    .child(
+                        canvas(
+                            move |bounds, _, app| {
+                                panel.update(app, |this, _| {
+                                    this.scope_anchor_bounds = Some(bounds);
+                                });
+                            },
+                            |_, _, _, _| {},
+                        )
+                        .absolute()
+                        .top_0()
+                        .left_0()
+                        .size_full(),
+                    ),
             )
             .child(div().flex_1())
             .child(
@@ -749,8 +890,9 @@ impl PagesPanel {
                     .enumerate()
                     .map(|(index, result)| {
                         let is_active = active == Some(index);
-                        h_flex()
+                        let row = h_flex()
                             .id(SharedString::from(format!("{}-result-{index}", self.id)))
+                            .debug_selector(move || format!("pages-result-{index}"))
                             .min_h(px(52.))
                             .w_full()
                             .gap_2()
@@ -762,117 +904,129 @@ impl PagesPanel {
                                 row.bg(cx.theme().list_active)
                                     .border_l_2()
                                     .border_color(cx.theme().list_active_border)
-                            })
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                this.select_result(index, cx);
-                            }))
-                            .child(Icon::new(Self::element_icon(result.kind)).small())
-                            .child(
-                                v_flex()
-                                    .gap_0p5()
-                                    .child(
-                                        h_flex()
-                                            .gap_1()
-                                            .child(
-                                                div()
-                                                    .text_sm()
-                                                    .when(
-                                                        replace_mode && !replacement.is_empty(),
-                                                        |text| {
-                                                            text.text_color(
-                                                                cx.theme().muted_foreground,
-                                                            )
-                                                            .line_through()
-                                                        },
-                                                    )
-                                                    .child(result.title),
-                                            )
-                                            .when(
-                                                replace_mode && !replacement.is_empty(),
-                                                |line| line.child(replacement.clone()),
-                                            ),
-                                    )
-                                    .when_some(result.parent, |column, parent| {
-                                        column.child(
+                            });
+                        #[cfg(test)]
+                        let row = row.on_hover(cx.listener(move |this, hovered, _, _| {
+                            if *hovered {
+                                this.hovered_result = Some(index);
+                            } else if this.hovered_result == Some(index) {
+                                this.hovered_result = None;
+                            }
+                        }));
+                        row.on_click(cx.listener(move |this, _, _, cx| {
+                            this.select_result(index, cx);
+                        }))
+                        .child(Icon::new(Self::element_icon(result.kind)).small())
+                        .child(
+                            v_flex()
+                                .gap_0p5()
+                                .child(
+                                    h_flex()
+                                        .gap_1()
+                                        .child(
                                             div()
                                                 .text_sm()
-                                                .text_color(cx.theme().muted_foreground)
-                                                .child(parent),
+                                                .when(
+                                                    replace_mode && !replacement.is_empty(),
+                                                    |text| {
+                                                        text.text_color(cx.theme().muted_foreground)
+                                                            .line_through()
+                                                    },
+                                                )
+                                                .child(result.title),
                                         )
-                                    }),
-                            )
+                                        .when(replace_mode && !replacement.is_empty(), |line| {
+                                            line.child(replacement.clone())
+                                        }),
+                                )
+                                .when_some(result.parent, |column, parent| {
+                                    column.child(
+                                        div()
+                                            .text_sm()
+                                            .text_color(cx.theme().muted_foreground)
+                                            .child(parent),
+                                    )
+                                }),
+                        )
                     }),
             )
             .into_any_element()
     }
 
     fn render_filter_menu(&mut self, cx: &mut Context<Self>) -> AnyElement {
+        let (Some(panel_bounds), Some(anchor_bounds)) =
+            (self.search_panel_bounds, self.filter_anchor_bounds)
+        else {
+            return div().into_any_element();
+        };
+        let origin = anchor_bounds.bottom_left() + point(px(0.), px(4.)) - panel_bounds.origin;
         let counts = self.results.element_counts.clone();
         let all_active = self.active_filters.is_empty();
         let mode = self.mode;
 
-        v_flex()
-            .absolute()
-            .top(px(if mode == PanelMode::Replace {
-                144.
-            } else {
-                58.
-            }))
-            .right(px(34.))
-            .w(px(224.))
-            .py_2()
-            .rounded(px(12.))
-            .border_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().popover)
-            .shadow_lg()
-            .child(self.render_mode_item(PanelMode::Find, "Find", mode, cx))
-            .child(self.render_mode_item(PanelMode::Replace, "Replace", mode, cx))
-            .child(div().h(px(1.)).w_full().my_2().bg(cx.theme().border))
-            .children(PagesPanelElementKind::FILTER_ORDER.into_iter().map(|kind| {
-                let active = if kind == PagesPanelElementKind::All {
-                    all_active
-                } else {
-                    self.active_filters.contains(&kind)
-                };
-                let count = counts
-                    .iter()
-                    .find(|item| item.kind == kind)
-                    .map(|item| item.count);
-                h_flex()
-                    .id(SharedString::from(format!(
-                        "{}-filter-{}",
-                        self.id,
-                        kind.label()
-                    )))
-                    .h(px(32.))
-                    .mx_2()
-                    .px_2()
-                    .gap_2()
-                    .rounded(px(5.))
-                    .cursor_pointer()
-                    .hover(|style| style.bg(cx.theme().accent))
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.toggle_filter(kind, cx);
-                    }))
-                    .child(div().w(px(14.)).when(active, |slot| {
-                        slot.child(Icon::new(IconName::Check).xsmall())
-                    }))
-                    .child(Icon::new(Self::element_icon(kind)).small())
-                    .child(div().flex_1().text_sm().child(kind.label()))
-                    .when_some(count, |row, count| {
-                        row.child(
-                            div()
-                                .text_sm()
-                                .text_color(cx.theme().muted_foreground)
-                                .child(count.to_string()),
-                        )
-                    })
-            }))
-            .child(div().h(px(1.)).w_full().my_2().bg(cx.theme().border))
-            .child(self.render_option_item("Match case", self.match_case, true, cx))
-            .child(self.render_option_item("Whole words", self.whole_words, false, cx))
-            .into_any_element()
+        deferred(
+            v_flex()
+                .absolute()
+                .left(origin.x)
+                .top(origin.y)
+                .debug_selector(|| "pages-filter-menu".to_owned())
+                .occlude()
+                .w(px(224.))
+                .py_2()
+                .rounded(px(12.))
+                .border_1()
+                .border_color(cx.theme().border)
+                .bg(cx.theme().popover)
+                .shadow_lg()
+                .child(self.render_mode_item(PanelMode::Find, "Find", mode, cx))
+                .child(self.render_mode_item(PanelMode::Replace, "Replace", mode, cx))
+                .child(div().h(px(1.)).w_full().my_2().bg(cx.theme().border))
+                .children(PagesPanelElementKind::FILTER_ORDER.into_iter().map(|kind| {
+                    let active = if kind == PagesPanelElementKind::All {
+                        all_active
+                    } else {
+                        self.active_filters.contains(&kind)
+                    };
+                    let count = counts
+                        .iter()
+                        .find(|item| item.kind == kind)
+                        .map(|item| item.count);
+                    h_flex()
+                        .id(SharedString::from(format!(
+                            "{}-filter-{}",
+                            self.id,
+                            kind.label()
+                        )))
+                        .h(px(32.))
+                        .mx_2()
+                        .px_2()
+                        .gap_2()
+                        .rounded(px(5.))
+                        .cursor_pointer()
+                        .hover(|style| style.bg(cx.theme().accent))
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.toggle_filter(kind, cx);
+                        }))
+                        .child(div().w(px(14.)).when(active, |slot| {
+                            slot.child(Icon::new(IconName::Check).xsmall())
+                        }))
+                        .child(Icon::new(Self::element_icon(kind)).small())
+                        .child(div().flex_1().text_sm().child(kind.label()))
+                        .when_some(count, |row, count| {
+                            row.child(
+                                div()
+                                    .text_sm()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .child(count.to_string()),
+                            )
+                        })
+                }))
+                .child(div().h(px(1.)).w_full().my_2().bg(cx.theme().border))
+                .child(self.render_option_item("Match case", self.match_case, true, cx))
+                .child(self.render_option_item("Whole words", self.whole_words, false, cx)),
+        )
+        .with_priority(2)
+        .into_any_element()
     }
 
     fn render_mode_item(
@@ -882,8 +1036,10 @@ impl PagesPanel {
         active_mode: PanelMode,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let selector = format!("pages-mode-{}", label.to_lowercase());
         h_flex()
             .id(SharedString::from(format!("{}-mode-{label}", self.id)))
+            .debug_selector(move || selector)
             .h(px(32.))
             .mx_2()
             .px_2()
@@ -944,59 +1100,87 @@ impl PagesPanel {
     }
 
     fn render_scope_menu(&mut self, cx: &mut Context<Self>) -> AnyElement {
-        v_flex()
-            .absolute()
-            .top(px(if self.mode == PanelMode::Replace {
-                220.
-            } else {
-                108.
-            }))
-            .left(px(72.))
-            .w(px(168.))
-            .py_2()
-            .rounded(px(12.))
-            .border_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().popover)
-            .shadow_lg()
-            .children(
-                [
-                    PagesPanelSearchScope::CurrentPage,
-                    PagesPanelSearchScope::AllPages,
-                ]
-                .into_iter()
-                .map(|scope| {
-                    h_flex()
-                        .id(SharedString::from(format!(
-                            "{}-scope-{}",
-                            self.id,
-                            scope.label()
-                        )))
-                        .h(px(36.))
-                        .mx_2()
-                        .px_2()
-                        .gap_2()
-                        .rounded(px(5.))
-                        .cursor_pointer()
-                        .hover(|style| style.bg(cx.theme().accent))
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            this.set_scope(scope, cx);
-                        }))
-                        .child(div().w(px(14.)).when(scope == self.search_scope, |slot| {
-                            slot.child(Icon::new(IconName::Check).xsmall())
-                        }))
-                        .child(scope.label())
-                }),
-            )
-            .into_any_element()
+        let (Some(panel_bounds), Some(anchor_bounds)) =
+            (self.search_panel_bounds, self.scope_anchor_bounds)
+        else {
+            return div().into_any_element();
+        };
+        let origin = anchor_bounds.bottom_left() + point(px(0.), px(4.)) - panel_bounds.origin;
+
+        deferred(
+            v_flex()
+                .absolute()
+                .left(origin.x)
+                .top(origin.y)
+                .debug_selector(|| "pages-scope-menu".to_owned())
+                .occlude()
+                .w(px(168.))
+                .py_2()
+                .rounded(px(12.))
+                .border_1()
+                .border_color(cx.theme().border)
+                .bg(cx.theme().popover)
+                .shadow_lg()
+                .children(
+                    [
+                        PagesPanelSearchScope::CurrentPage,
+                        PagesPanelSearchScope::AllPages,
+                    ]
+                    .into_iter()
+                    .map(|scope| {
+                        let selector = match scope {
+                            PagesPanelSearchScope::CurrentPage => "pages-scope-current-page",
+                            PagesPanelSearchScope::AllPages => "pages-scope-all-pages",
+                        };
+                        h_flex()
+                            .id(SharedString::from(format!(
+                                "{}-scope-{}",
+                                self.id,
+                                scope.label()
+                            )))
+                            .debug_selector(move || selector.to_owned())
+                            .h(px(36.))
+                            .mx_2()
+                            .px_2()
+                            .gap_2()
+                            .rounded(px(5.))
+                            .cursor_pointer()
+                            .hover(|style| style.bg(cx.theme().accent))
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.set_scope(scope, cx);
+                            }))
+                            .child(div().w(px(14.)).when(scope == self.search_scope, |slot| {
+                                slot.child(Icon::new(IconName::Check).xsmall())
+                            }))
+                            .child(scope.label())
+                    }),
+                ),
+        )
+        .with_priority(2)
+        .into_any_element()
     }
 
     fn render_search(&mut self, cx: &mut Context<Self>) -> AnyElement {
+        let panel = cx.entity();
         v_flex()
             .relative()
             .size_full()
             .min_h(px(280.))
             .bg(cx.theme().sidebar)
+            .child(
+                canvas(
+                    move |bounds, _, app| {
+                        panel.update(app, |this, _| {
+                            this.search_panel_bounds = Some(bounds);
+                        });
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
+            )
             .child(self.render_search_toolbar(cx))
             .child(self.render_results_header(cx))
             .child(
@@ -1022,6 +1206,7 @@ impl Render for PagesPanel {
             v_flex()
                 .id(id)
                 .w_full()
+                .max_h_full()
                 .overflow_hidden()
                 .bg(cx.theme().sidebar)
                 .text_color(cx.theme().sidebar_foreground)
@@ -1034,7 +1219,6 @@ impl Render for PagesPanel {
             v_flex()
                 .id(id)
                 .size_full()
-                .overflow_hidden()
                 .bg(cx.theme().sidebar)
                 .text_color(cx.theme().sidebar_foreground)
                 .border_1()
@@ -1061,8 +1245,148 @@ fn next_page_title(pages: &[PagesPanelItem]) -> SharedString {
 
 #[cfg(test)]
 mod tests {
-    use super::next_page_title;
-    use crate::pages::PagesPanelItem;
+    use std::{cell::RefCell, rc::Rc};
+
+    use gpui::{
+        AppContext as _, Bounds, Context, Entity, IntoElement, Modifiers, MouseButton,
+        MouseDownEvent, MouseUpEvent, ParentElement as _, Pixels, Render, ScrollDelta,
+        ScrollWheelEvent, Styled as _, Subscription, TestAppContext, VisualTestContext, Window,
+        div, point, px,
+    };
+    use gpui_component::Root;
+
+    use super::{PageEditorTarget, PagesPanel, PanelMode, next_page_title};
+    use crate::pages::{
+        PagesPanelAction, PagesPanelElementKind, PagesPanelItem, PagesPanelSearchResult,
+        PagesPanelSearchResults, PagesPanelSearchScope,
+    };
+
+    struct TestHost {
+        panel: Entity<PagesPanel>,
+        actions: Rc<RefCell<Vec<PagesPanelAction>>>,
+        _subscription: Subscription,
+    }
+
+    impl TestHost {
+        fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+            let panel = cx.new(|cx| {
+                PagesPanel::new(
+                    "test-pages",
+                    vec![
+                        PagesPanelItem::new("page-1", "Page 1"),
+                        PagesPanelItem::new("page-2", "Page 2"),
+                        PagesPanelItem::new("page-3", "Page 3"),
+                    ],
+                    window,
+                    cx,
+                )
+            });
+            let actions = Rc::new(RefCell::new(Vec::new()));
+            let captured_actions = actions.clone();
+            let subscription = cx.subscribe(&panel, move |_, _, action: &PagesPanelAction, _| {
+                captured_actions.borrow_mut().push(action.clone());
+            });
+
+            Self {
+                panel,
+                actions,
+                _subscription: subscription,
+            }
+        }
+    }
+
+    impl Render for TestHost {
+        fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+            div().w(px(320.)).h(px(220.)).child(self.panel.clone())
+        }
+    }
+
+    fn setup(cx: &mut TestAppContext) -> (Entity<TestHost>, &mut VisualTestContext) {
+        cx.update(gpui_component::init);
+        let host_slot = Rc::new(RefCell::new(None));
+        let captured_host = host_slot.clone();
+        let (_, cx) = cx.add_window_view(move |window, cx| {
+            let host = cx.new(|cx| TestHost::new(window, cx));
+            *captured_host.borrow_mut() = Some(host.clone());
+            Root::new(host, window, cx)
+        });
+        let host = host_slot
+            .borrow_mut()
+            .take()
+            .expect("test host should be installed in the component root");
+        (host, cx)
+    }
+
+    fn bounds(cx: &mut VisualTestContext, selector: &'static str) -> Bounds<Pixels> {
+        cx.debug_bounds(selector)
+            .unwrap_or_else(|| panic!("missing rendered selector: {selector}"))
+    }
+
+    fn click(cx: &mut VisualTestContext, selector: &'static str) {
+        let position = bounds(cx, selector).center();
+        cx.simulate_click(position, Modifiers::none());
+    }
+
+    fn double_click(cx: &mut VisualTestContext, selector: &'static str) {
+        let position = bounds(cx, selector).center();
+        cx.simulate_mouse_move(position, None, Modifiers::none());
+        cx.simulate_click(position, Modifiers::none());
+        cx.simulate_event(MouseDownEvent {
+            position,
+            button: MouseButton::Left,
+            modifiers: Modifiers::none(),
+            click_count: 2,
+            first_mouse: false,
+        });
+        cx.simulate_event(MouseUpEvent {
+            position,
+            button: MouseButton::Left,
+            modifiers: Modifiers::none(),
+            click_count: 2,
+        });
+    }
+
+    fn panel(host: &Entity<TestHost>, cx: &VisualTestContext) -> Entity<PagesPanel> {
+        cx.read(|app| host.read(app).panel.clone())
+    }
+
+    fn actions(
+        host: &Entity<TestHost>,
+        cx: &VisualTestContext,
+    ) -> Rc<RefCell<Vec<PagesPanelAction>>> {
+        cx.read(|app| host.read(app).actions.clone())
+    }
+
+    fn read_panel<R>(
+        panel: &Entity<PagesPanel>,
+        cx: &VisualTestContext,
+        read: impl FnOnce(&PagesPanel) -> R,
+    ) -> R {
+        cx.read(|app| read(panel.read(app)))
+    }
+
+    fn set_one_search_result(panel: &Entity<PagesPanel>, cx: &mut VisualTestContext) {
+        cx.update(|_, app| {
+            panel.update(app, |panel, cx| {
+                panel.set_search_results(
+                    PagesPanelSearchResults {
+                        total: 1,
+                        items: vec![
+                            PagesPanelSearchResult::new(
+                                "result-1",
+                                "Long page heading",
+                                PagesPanelElementKind::Text,
+                            )
+                            .parent("Hero"),
+                        ],
+                        element_counts: Vec::new(),
+                    },
+                    cx,
+                );
+            });
+        });
+        cx.run_until_parked();
+    }
 
     #[test]
     fn next_page_title_uses_the_highest_page_number_not_the_count() {
@@ -1080,5 +1404,210 @@ mod tests {
         let pages = vec![PagesPanelItem::new("a", "Untitled")];
 
         assert_eq!(next_page_title(&pages).as_ref(), "Page 1");
+    }
+
+    #[gpui::test]
+    fn clicking_another_page_cancels_rename_and_new_page_edits(cx: &mut TestAppContext) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+        let actions = actions(&host, cx);
+
+        let first_page_bounds = bounds(cx, "pages-row-page-1");
+        let viewport_bounds = bounds(cx, "pages-scroll-viewport");
+        let first_page_center = first_page_bounds.center();
+        cx.simulate_mouse_move(first_page_center, None, Modifiers::none());
+        assert_eq!(
+            read_panel(&panel, cx, |panel| panel.hovered_page.clone()),
+            Some("page-1".into()),
+            "row bounds: {first_page_bounds:?}; viewport bounds: {viewport_bounds:?}"
+        );
+        double_click(cx, "pages-row-page-1");
+        let editing = read_panel(&panel, cx, |panel| panel.editing.clone());
+        assert!(
+            editing.is_some(),
+            "double click did not start editing; actions: {:?}",
+            actions.borrow().as_slice()
+        );
+        assert!(bounds(cx, "pages-page-editor").size.height > px(0.));
+        assert!(matches!(
+            editing,
+            Some(PageEditorTarget::Existing { ref page_id, .. }) if page_id.as_ref() == "page-1"
+        ));
+
+        actions.borrow_mut().clear();
+        click(cx, "pages-row-page-2");
+        assert!(read_panel(&panel, cx, |panel| panel.editing.is_none()));
+        assert_eq!(
+            actions.borrow().as_slice(),
+            &[PagesPanelAction::SelectRequested {
+                page_id: "page-2".into(),
+            }]
+        );
+
+        click(cx, "pages-add-trigger");
+        assert!(matches!(
+            read_panel(&panel, cx, |panel| panel.editing.clone()),
+            Some(PageEditorTarget::New { .. })
+        ));
+
+        actions.borrow_mut().clear();
+        click(cx, "pages-row-page-3");
+        assert!(read_panel(&panel, cx, |panel| panel.editing.is_none()));
+        assert_eq!(
+            actions.borrow().as_slice(),
+            &[PagesPanelAction::SelectRequested {
+                page_id: "page-3".into(),
+            }]
+        );
+        assert!(!actions.borrow().iter().any(|action| matches!(
+            action,
+            PagesPanelAction::CreateRequested { .. } | PagesPanelAction::RenameRequested { .. }
+        )));
+    }
+
+    #[gpui::test]
+    fn popovers_are_top_left_anchored_and_replace_does_not_displace_filter(
+        cx: &mut TestAppContext,
+    ) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+        let actions = actions(&host, cx);
+        set_one_search_result(&panel, cx);
+
+        click(cx, "pages-search-trigger");
+        let find_trigger = bounds(cx, "pages-filter-trigger");
+        click(cx, "pages-filter-trigger");
+        let find_menu = bounds(cx, "pages-filter-menu");
+        assert_eq!(find_menu.origin.x, find_trigger.origin.x);
+        assert_eq!(find_menu.origin.y, find_trigger.bottom() + px(4.));
+
+        click(cx, "pages-mode-replace");
+        assert_eq!(
+            read_panel(&panel, cx, |panel| panel.mode),
+            PanelMode::Replace
+        );
+        let replace_trigger = bounds(cx, "pages-filter-trigger");
+        assert_eq!(replace_trigger.origin, find_trigger.origin);
+
+        click(cx, "pages-filter-trigger");
+        let replace_menu = bounds(cx, "pages-filter-menu");
+        assert_eq!(replace_menu.origin, find_menu.origin);
+        assert_eq!(replace_menu.origin.x, replace_trigger.origin.x);
+        assert_eq!(replace_menu.origin.y, replace_trigger.bottom() + px(4.));
+
+        click(cx, "pages-filter-trigger");
+        let scope_trigger = bounds(cx, "pages-scope-trigger");
+        click(cx, "pages-scope-trigger");
+        let scope_menu = bounds(cx, "pages-scope-menu");
+        assert_eq!(scope_menu.origin.x, scope_trigger.origin.x);
+        assert_eq!(scope_menu.origin.y, scope_trigger.bottom() + px(4.));
+
+        actions.borrow_mut().clear();
+        click(cx, "pages-scope-all-pages");
+        assert_eq!(
+            read_panel(&panel, cx, |panel| panel.search_scope),
+            PagesPanelSearchScope::AllPages
+        );
+        assert!(matches!(
+            actions.borrow().last(),
+            Some(PagesPanelAction::SearchRequested(request))
+                if request.scope == PagesPanelSearchScope::AllPages
+        ));
+    }
+
+    #[gpui::test]
+    fn popup_occlusion_prevents_hover_from_leaking_to_results(cx: &mut TestAppContext) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+        set_one_search_result(&panel, cx);
+        click(cx, "pages-search-trigger");
+        click(cx, "pages-filter-trigger");
+
+        let overlap = bounds(cx, "pages-filter-menu").intersect(&bounds(cx, "pages-result-0"));
+        assert!(overlap.size.width > px(0.) && overlap.size.height > px(0.));
+        let overlap_point = overlap.center();
+
+        click(cx, "pages-filter-trigger");
+        cx.simulate_mouse_move(overlap_point, None, Modifiers::none());
+        assert_eq!(
+            read_panel(&panel, cx, |panel| panel.hovered_result),
+            Some(0)
+        );
+
+        click(cx, "pages-filter-trigger");
+        cx.simulate_mouse_move(overlap_point, None, Modifiers::none());
+        assert_eq!(read_panel(&panel, cx, |panel| panel.hovered_result), None);
+    }
+
+    #[gpui::test]
+    fn collapsed_header_hover_excludes_its_action_buttons(cx: &mut TestAppContext) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+        let actions = actions(&host, cx);
+
+        click(cx, "pages-header");
+        assert!(!read_panel(&panel, cx, |panel| panel.expanded));
+
+        let header = bounds(cx, "pages-header");
+        cx.simulate_mouse_move(
+            point(header.left() + px(12.), header.center().y),
+            None,
+            Modifiers::none(),
+        );
+        assert!(read_panel(&panel, cx, |panel| panel.header_hovered));
+
+        let search_button_center = bounds(cx, "pages-search-trigger").center();
+        cx.simulate_mouse_move(search_button_center, None, Modifiers::none());
+        assert!(!read_panel(&panel, cx, |panel| panel.header_hovered));
+
+        actions.borrow_mut().clear();
+        click(cx, "pages-search-trigger");
+        assert_eq!(read_panel(&panel, cx, |panel| panel.mode), PanelMode::Find);
+        assert!(!read_panel(&panel, cx, |panel| panel.expanded));
+        assert!(actions.borrow().is_empty());
+    }
+
+    #[gpui::test]
+    fn long_page_names_scroll_horizontally_and_many_pages_scroll_vertically(
+        cx: &mut TestAppContext,
+    ) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+        let pages = (1..=14)
+            .map(|index| {
+                let title = if index == 1 {
+                    "This page name is intentionally far wider than the Pages panel viewport"
+                        .to_owned()
+                } else {
+                    format!("Page {index}")
+                };
+                PagesPanelItem::new(format!("long-page-{index}"), title)
+            })
+            .collect();
+        cx.update(|_, app| {
+            panel.update(app, |panel, cx| panel.set_pages(pages, cx));
+        });
+        cx.run_until_parked();
+
+        let viewport = bounds(cx, "pages-scroll-viewport");
+        let long_row = bounds(cx, "pages-row-long-page-1");
+        let scroll_handle = read_panel(&panel, cx, |panel| panel.pages_scroll_handle.clone());
+        assert!(long_row.size.width > viewport.size.width);
+        assert!(scroll_handle.max_offset().width > px(0.));
+        assert!(scroll_handle.max_offset().height > px(0.));
+
+        cx.simulate_event(ScrollWheelEvent {
+            position: viewport.center(),
+            delta: ScrollDelta::Pixels(point(px(-180.), px(0.))),
+            ..Default::default()
+        });
+        assert!(scroll_handle.offset().x < px(0.));
+
+        cx.simulate_event(ScrollWheelEvent {
+            position: viewport.center(),
+            delta: ScrollDelta::Pixels(point(px(0.), px(-120.))),
+            ..Default::default()
+        });
+        assert!(scroll_handle.offset().y < px(0.));
     }
 }
