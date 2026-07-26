@@ -12,7 +12,8 @@ actions!(
         NextSearchResult,
         ReplaceCurrentResult,
         ReplaceAllResults,
-        ActivatePagesControl
+        ActivatePagesControl,
+        OpenPageContextMenu
     ]
 );
 
@@ -40,6 +41,11 @@ pub(crate) fn init(cx: &mut App) {
         KeyBinding::new(
             "space",
             ActivatePagesControl,
+            Some(PAGES_CONTROL_KEY_CONTEXT),
+        ),
+        KeyBinding::new(
+            "ctrl-enter",
+            OpenPageContextMenu,
             Some(PAGES_CONTROL_KEY_CONTEXT),
         ),
     ]);

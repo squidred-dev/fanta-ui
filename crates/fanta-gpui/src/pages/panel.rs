@@ -1,13 +1,16 @@
-#[cfg(not(test))]
-use std::time::Duration;
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
 #[cfg(not(test))]
 use gpui::{Animation, AnimationExt as _, ElementId};
 use gpui::{
     AnyElement, App, AppContext as _, Bounds, ClickEvent, Context, Entity, EventEmitter,
-    FocusHandle, Focusable, InteractiveElement as _, IntoElement, MouseButton, ParentElement as _,
-    Pixels, Render, ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _,
-    Subscription, Window, canvas, deferred, div, point, prelude::FluentBuilder as _, px,
+    FocusHandle, Focusable, InteractiveElement as _, IntoElement, MouseButton, MouseDownEvent,
+    ParentElement as _, Pixels, Point, Render, ScrollHandle, SharedString,
+    StatefulInteractiveElement as _, Styled as _, Subscription, Window, canvas, deferred, div,
+    point, prelude::FluentBuilder as _, px,
 };
 #[cfg(not(test))]
 use gpui_component::animation::cubic_bezier;
@@ -16,17 +19,17 @@ use gpui_component::{
     button::{Button, ButtonVariants as _},
     h_flex,
     input::{Input, InputEvent, InputState, SelectAll},
-    menu::{ContextMenuExt as _, PopupMenuItem},
-    scroll::{ScrollableElement as _, ScrollbarAxis},
+    scroll::{Scrollbar, ScrollbarAxis},
+    tooltip::Tooltip,
     v_flex,
 };
 
 use super::{
     ActivatePagesControl, AddPage, ClosePagesSearch, FindInPages, NextSearchResult,
-    PAGES_CONTROL_KEY_CONTEXT, PAGES_PANEL_KEY_CONTEXT, PagesPanelAction, PagesPanelElementKind,
-    PagesPanelItem, PagesPanelResultDirection, PagesPanelSearchRequest, PagesPanelSearchResults,
-    PagesPanelSearchScope, PreviousSearchResult, ReplaceAllResults, ReplaceCurrentResult,
-    TogglePagesPanel, ToggleSearchSettings,
+    OpenPageContextMenu, PAGES_CONTROL_KEY_CONTEXT, PAGES_PANEL_KEY_CONTEXT, PagesPanelAction,
+    PagesPanelElementKind, PagesPanelItem, PagesPanelResultDirection, PagesPanelSearchRequest,
+    PagesPanelSearchResults, PagesPanelSearchScope, PreviousSearchResult, ReplaceAllResults,
+    ReplaceCurrentResult, TogglePagesPanel, ToggleSearchSettings,
 };
 
 const HEADER_HEIGHT: f32 = 40.;
@@ -35,6 +38,7 @@ const PAGE_ROW_GAP: f32 = 4.;
 const PAGE_PADDING: f32 = 8.;
 const MAX_PAGE_LIST_HEIGHT: f32 = 320.;
 const APPROXIMATE_PAGE_CHARACTER_WIDTH: f32 = 8.;
+const DOUBLE_ENTER_INTERVAL: Duration = Duration::from_millis(500);
 #[cfg(not(test))]
 const REVEAL_DURATION: f64 = 0.18;
 
@@ -57,6 +61,33 @@ enum PanelMode {
     Replace,
 }
 
+#[derive(Clone, Debug)]
+struct PageMenuState {
+    page_id: SharedString,
+    page_title: SharedString,
+    anchor: Point<Pixels>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+enum FocusTooltipKind {
+    Find,
+    AddPage,
+    Settings,
+    CloseSearch,
+    ReplaceCurrent,
+    ReplaceAll,
+    PreviousResult,
+    NextResult,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum PageMenuAction {
+    CopyLink,
+    Rename,
+    Duplicate,
+    Delete,
+}
+
 /// Stateful, headless Pages panel.
 ///
 /// Create this as a GPUI entity, subscribe to [`PagesPanelAction`], and render
@@ -75,11 +106,21 @@ pub struct PagesPanel {
     focus_handle: FocusHandle,
     filter_menu_focus_handle: FocusHandle,
     scope_menu_focus_handle: FocusHandle,
+    page_menu_focus_handle: FocusHandle,
+    find_focus_handle: FocusHandle,
+    add_page_focus_handle: FocusHandle,
+    settings_focus_handle: FocusHandle,
+    close_search_focus_handle: FocusHandle,
+    replace_current_focus_handle: FocusHandle,
+    replace_all_focus_handle: FocusHandle,
+    previous_result_focus_handle: FocusHandle,
+    next_result_focus_handle: FocusHandle,
     pages: Vec<PagesPanelItem>,
     expanded: bool,
     selected_page: Option<SharedString>,
     mode: PanelMode,
     editing: Option<PageEditorTarget>,
+    select_page_editor_after_render: bool,
     rename_input: Entity<InputState>,
     search_input: Entity<InputState>,
     replace_input: Entity<InputState>,
@@ -89,13 +130,18 @@ pub struct PagesPanel {
     whole_words: bool,
     filter_menu_open: bool,
     scope_menu_open: bool,
+    page_menu: Option<PageMenuState>,
+    panel_bounds: Option<Bounds<Pixels>>,
     search_panel_bounds: Option<Bounds<Pixels>>,
     filter_anchor_bounds: Option<Bounds<Pixels>>,
     scope_anchor_bounds: Option<Bounds<Pixels>>,
+    tooltip_anchor_bounds: HashMap<FocusTooltipKind, Bounds<Pixels>>,
+    page_row_bounds: HashMap<SharedString, Bounds<Pixels>>,
     pages_scroll_handle: ScrollHandle,
     results_scroll_handle: ScrollHandle,
     results: PagesPanelSearchResults,
     active_result: Option<usize>,
+    last_keyboard_page_activation: Option<(SharedString, Instant)>,
     #[cfg(test)]
     hovered_result: Option<usize>,
     #[cfg(test)]
@@ -120,12 +166,14 @@ impl PagesPanel {
         let replace_input = cx.new(|cx| InputState::new(window, cx).placeholder("Replace with…"));
 
         let subscriptions = vec![
-            cx.subscribe(
+            cx.subscribe_in(
                 &rename_input,
-                |this, _, event: &InputEvent, cx| match event {
-                    InputEvent::PressEnter { .. } | InputEvent::Blur => {
-                        this.commit_page_name(cx);
+                window,
+                |this, _, event: &InputEvent, window, cx| match event {
+                    InputEvent::PressEnter { .. } => {
+                        this.commit_page_name(true, window, cx);
                     }
+                    InputEvent::Blur => this.commit_page_name(false, window, cx),
                     InputEvent::Change | InputEvent::Focus => {}
                 },
             ),
@@ -156,11 +204,21 @@ impl PagesPanel {
             focus_handle: cx.focus_handle(),
             filter_menu_focus_handle: cx.focus_handle(),
             scope_menu_focus_handle: cx.focus_handle(),
+            page_menu_focus_handle: cx.focus_handle(),
+            find_focus_handle: cx.focus_handle(),
+            add_page_focus_handle: cx.focus_handle(),
+            settings_focus_handle: cx.focus_handle(),
+            close_search_focus_handle: cx.focus_handle(),
+            replace_current_focus_handle: cx.focus_handle(),
+            replace_all_focus_handle: cx.focus_handle(),
+            previous_result_focus_handle: cx.focus_handle(),
+            next_result_focus_handle: cx.focus_handle(),
             pages,
             expanded: true,
             selected_page: None,
             mode: PanelMode::Pages,
             editing: None,
+            select_page_editor_after_render: false,
             rename_input,
             search_input,
             replace_input,
@@ -170,13 +228,18 @@ impl PagesPanel {
             whole_words: false,
             filter_menu_open: false,
             scope_menu_open: false,
+            page_menu: None,
+            panel_bounds: None,
             search_panel_bounds: None,
             filter_anchor_bounds: None,
             scope_anchor_bounds: None,
+            tooltip_anchor_bounds: HashMap::new(),
+            page_row_bounds: HashMap::new(),
             pages_scroll_handle: ScrollHandle::new(),
             results_scroll_handle: ScrollHandle::new(),
             results: PagesPanelSearchResults::default(),
             active_result: None,
+            last_keyboard_page_activation: None,
             #[cfg(test)]
             hovered_result: None,
             #[cfg(test)]
@@ -199,6 +262,12 @@ impl PagesPanel {
         selected_page: Option<SharedString>,
         cx: &mut Context<Self>,
     ) {
+        if selected_page
+            .as_ref()
+            .is_some_and(|selected| self.pages.last().is_some_and(|page| page.id == *selected))
+        {
+            self.pages_scroll_handle.scroll_to_bottom();
+        }
         self.selected_page = selected_page;
         cx.notify();
     }
@@ -239,6 +308,7 @@ impl PagesPanel {
     }
 
     fn toggle_expanded(&mut self, cx: &mut Context<Self>) {
+        self.page_menu = None;
         self.expanded = !self.expanded;
         cx.emit(PagesPanelAction::ExpansionChanged {
             expanded: self.expanded,
@@ -261,6 +331,19 @@ impl PagesPanel {
         cx.notify();
     }
 
+    fn open_search_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.mode == PanelMode::Pages {
+            return;
+        }
+        self.filter_menu_open = true;
+        self.scope_menu_open = false;
+        let focus_handle = self.filter_menu_focus_handle.clone();
+        window.defer(cx, move |window, _| {
+            focus_handle.focus(window);
+        });
+        cx.notify();
+    }
+
     fn toggle_search_scope(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.mode == PanelMode::Pages {
             return;
@@ -273,6 +356,19 @@ impl PagesPanel {
                 focus_handle.focus(window);
             });
         }
+        cx.notify();
+    }
+
+    fn open_search_scope(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.mode == PanelMode::Pages {
+            return;
+        }
+        self.scope_menu_open = true;
+        self.filter_menu_open = false;
+        let focus_handle = self.scope_menu_focus_handle.clone();
+        window.defer(cx, move |window, _| {
+            focus_handle.focus(window);
+        });
         cx.notify();
     }
 
@@ -299,9 +395,14 @@ impl PagesPanel {
         self.toggle_search_settings(window, cx);
     }
 
-    fn on_close_search(&mut self, _: &ClosePagesSearch, _: &mut Window, cx: &mut Context<Self>) {
+    fn on_close_search(
+        &mut self,
+        _: &ClosePagesSearch,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.mode != PanelMode::Pages {
-            self.close_search(cx);
+            self.close_search(window, cx);
         }
     }
 
@@ -347,11 +448,13 @@ impl PagesPanel {
             cx.emit(PagesPanelAction::ExpansionChanged { expanded: true });
         }
         self.mode = PanelMode::Pages;
+        self.page_menu = None;
 
         let title = next_page_title(&self.pages);
         self.editing = Some(PageEditorTarget::New {
             suggested_title: title.clone(),
         });
+        self.pages_scroll_handle.scroll_to_bottom();
         self.focus_page_editor(title, window, cx);
     }
 
@@ -362,6 +465,7 @@ impl PagesPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.page_menu = None;
         self.editing = Some(PageEditorTarget::Existing {
             page_id,
             original_title: title.clone(),
@@ -379,11 +483,16 @@ impl PagesPanel {
             input.set_value(title, window, cx);
             input.focus(window, cx);
         });
-        window.dispatch_action(Box::new(SelectAll), cx);
+        self.select_page_editor_after_render = true;
         cx.notify();
     }
 
-    fn commit_page_name(&mut self, cx: &mut Context<Self>) {
+    fn commit_page_name(
+        &mut self,
+        restore_focus: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(target) = self.editing.take() else {
             return;
         };
@@ -411,6 +520,12 @@ impl PagesPanel {
                 cx.emit(PagesPanelAction::CreateRequested { title });
             }
         }
+        if restore_focus {
+            let focus_handle = self.focus_handle.clone();
+            window.defer(cx, move |window, _| {
+                focus_handle.focus(window);
+            });
+        }
         cx.notify();
     }
 
@@ -420,22 +535,157 @@ impl PagesPanel {
         }
     }
 
+    fn activate_page_from_keyboard(
+        &mut self,
+        page_id: SharedString,
+        page_title: SharedString,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let now = Instant::now();
+        let is_double_enter = self.last_keyboard_page_activation.as_ref().is_some_and(
+            |(last_page_id, activated_at)| {
+                *last_page_id == page_id
+                    && now.saturating_duration_since(*activated_at) <= DOUBLE_ENTER_INTERVAL
+            },
+        );
+
+        if is_double_enter {
+            self.last_keyboard_page_activation = None;
+            self.begin_rename(page_id, page_title, window, cx);
+        } else {
+            self.last_keyboard_page_activation = Some((page_id.clone(), now));
+            self.cancel_page_edit(cx);
+            cx.emit(PagesPanelAction::SelectRequested { page_id });
+        }
+    }
+
+    fn open_page_menu(
+        &mut self,
+        page_id: SharedString,
+        page_title: SharedString,
+        anchor: Point<Pixels>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.cancel_page_edit(cx);
+        self.page_menu = Some(PageMenuState {
+            page_id,
+            page_title,
+            anchor,
+        });
+        let focus_handle = self.page_menu_focus_handle.clone();
+        window.defer(cx, move |window, _| {
+            focus_handle.focus(window);
+        });
+        cx.notify();
+    }
+
+    fn open_page_menu_from_keyboard(
+        &mut self,
+        page_id: SharedString,
+        page_title: SharedString,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(bounds) = self.page_row_bounds.get(&page_id).copied() else {
+            return;
+        };
+        self.open_page_menu(
+            page_id,
+            page_title,
+            bounds.bottom_left() + point(px(0.), px(4.)),
+            window,
+            cx,
+        );
+    }
+
+    fn dismiss_page_menu(&mut self, cx: &mut Context<Self>) {
+        if self.page_menu.take().is_some() {
+            cx.notify();
+        }
+    }
+
+    fn activate_page_menu_item(
+        &mut self,
+        action: PageMenuAction,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(menu) = self.page_menu.take() else {
+            return;
+        };
+        match action {
+            PageMenuAction::CopyLink => {
+                cx.emit(PagesPanelAction::CopyLinkRequested {
+                    page_id: menu.page_id,
+                });
+                self.focus_panel_after_action(window, cx);
+            }
+            PageMenuAction::Rename => {
+                self.begin_rename(menu.page_id, menu.page_title, window, cx);
+            }
+            PageMenuAction::Duplicate => {
+                cx.emit(PagesPanelAction::DuplicateRequested {
+                    page_id: menu.page_id,
+                });
+                self.focus_panel_after_action(window, cx);
+            }
+            PageMenuAction::Delete => {
+                cx.emit(PagesPanelAction::DeleteRequested {
+                    page_id: menu.page_id,
+                });
+                self.focus_panel_after_action(window, cx);
+            }
+        }
+        cx.notify();
+    }
+
+    fn focus_panel_after_action(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let focus_handle = self.focus_handle.clone();
+        window.defer(cx, move |window, _| {
+            focus_handle.focus(window);
+        });
+    }
+
+    fn control_bounds_tracker(&self, kind: FocusTooltipKind, cx: &mut Context<Self>) -> AnyElement {
+        let panel = cx.entity();
+        canvas(
+            move |bounds, _, app| {
+                panel.update(app, |this, _| {
+                    this.tooltip_anchor_bounds.insert(kind, bounds);
+                });
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .top_0()
+        .left_0()
+        .size_full()
+        .into_any_element()
+    }
+
     fn open_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.commit_page_name(cx);
+        self.commit_page_name(false, window, cx);
         self.mode = PanelMode::Find;
         self.filter_menu_open = false;
         self.scope_menu_open = false;
+        self.page_menu = None;
         self.search_input.update(cx, |input, cx| {
             input.focus(window, cx);
         });
         cx.notify();
     }
 
-    fn close_search(&mut self, cx: &mut Context<Self>) {
+    fn close_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.mode = PanelMode::Pages;
         self.filter_menu_open = false;
         self.scope_menu_open = false;
         cx.emit(PagesPanelAction::SearchClosed);
+        let focus_handle = self.focus_handle.clone();
+        window.defer(cx, move |window, _| {
+            focus_handle.focus(window);
+        });
         cx.notify();
     }
 
@@ -592,6 +842,7 @@ impl PagesPanel {
             .w_full()
             .flex_shrink_0()
             .cursor_pointer()
+            .occlude()
             .hover(|style| style.bg(cx.theme().sidebar_accent.opacity(0.55)))
             .focus(|style| {
                 style
@@ -604,6 +855,13 @@ impl PagesPanel {
             .on_action(cx.listener(|this, _: &ActivatePagesControl, _, cx| {
                 this.toggle_expanded(cx);
             }))
+            .on_mouse_down(
+                MouseButton::Right,
+                cx.listener(|this, _, _, cx| {
+                    cx.stop_propagation();
+                    this.dismiss_page_menu(cx);
+                }),
+            )
             .on_click(cx.listener(|this, _, _, cx| this.toggle_expanded(cx)));
         #[cfg(test)]
         let header = header.on_hover(cx.listener(|this, hovered, _, _| {
@@ -616,6 +874,8 @@ impl PagesPanel {
                     .id(SharedString::from(format!("{}-toggle", self.id)))
                     .h_full()
                     .flex_1()
+                    .min_w(px(0.))
+                    .overflow_hidden()
                     .gap_1()
                     .px_2()
                     .child(
@@ -626,13 +886,23 @@ impl PagesPanel {
                         })
                         .xsmall(),
                     )
-                    .child(title),
+                    .child(
+                        div()
+                            .debug_selector(|| "pages-header-title".to_owned())
+                            .flex_1()
+                            .min_w(px(0.))
+                            .truncate()
+                            .child(title),
+                    ),
             )
             .child(
                 div()
+                    .relative()
                     .flex_none()
                     .debug_selector(|| "pages-search-trigger".to_owned())
                     .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                    .track_focus(&self.find_focus_handle.clone().tab_index(0).tab_stop(true))
+                    .focus(|style| style.bg(cx.theme().sidebar_accent).rounded(px(5.)))
                     .on_action(cx.listener(|this, _: &ActivatePagesControl, window, cx| {
                         cx.stop_propagation();
                         this.open_search(window, cx);
@@ -643,6 +913,7 @@ impl PagesPanel {
                             .ghost()
                             .xsmall()
                             .compact()
+                            .tab_stop(false)
                             .icon(IconName::Search)
                             .tooltip_with_action(
                                 "Find",
@@ -652,13 +923,23 @@ impl PagesPanel {
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.open_search(window, cx);
                             })),
-                    ),
+                    )
+                    .child(self.control_bounds_tracker(FocusTooltipKind::Find, cx)),
             )
             .child(
                 div()
+                    .relative()
                     .flex_none()
                     .debug_selector(|| "pages-add-trigger".to_owned())
                     .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                    .track_focus(
+                        &self
+                            .add_page_focus_handle
+                            .clone()
+                            .tab_index(0)
+                            .tab_stop(true),
+                    )
+                    .focus(|style| style.bg(cx.theme().sidebar_accent).rounded(px(5.)))
                     .on_action(cx.listener(|this, _: &ActivatePagesControl, window, cx| {
                         cx.stop_propagation();
                         this.begin_new_page(window, cx);
@@ -669,6 +950,7 @@ impl PagesPanel {
                             .ghost()
                             .xsmall()
                             .compact()
+                            .tab_stop(false)
                             .icon(IconName::Plus)
                             .tooltip_with_action(
                                 "Add new page",
@@ -678,7 +960,8 @@ impl PagesPanel {
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.begin_new_page(window, cx);
                             })),
-                    ),
+                    )
+                    .child(self.control_bounds_tracker(FocusTooltipKind::AddPage, cx)),
             )
             .child(div().w(px(4.)))
             .into_any_element()
@@ -727,6 +1010,7 @@ impl PagesPanel {
         let expanded = self.expanded;
         let height = self.page_reveal_height();
         let reveal = div()
+            .relative()
             .w_full()
             .h(px(if expanded { height } else { 0. }))
             .min_h(px(0.))
@@ -739,8 +1023,21 @@ impl PagesPanel {
                     .size_full()
                     .overflow_scroll()
                     .track_scroll(&self.pages_scroll_handle)
-                    .child(content)
-                    .scrollbar(&self.pages_scroll_handle, ScrollbarAxis::Both),
+                    .child(content),
+            )
+            .child(
+                div()
+                    .debug_selector(|| "pages-scrollbar-layer".to_owned())
+                    .absolute()
+                    .top_0()
+                    .right_0()
+                    .bottom_0()
+                    .left_0()
+                    .child(
+                        Scrollbar::new(&self.pages_scroll_handle)
+                            .id(SharedString::from(format!("{}-pages-scrollbar", self.id)))
+                            .axis(ScrollbarAxis::Both),
+                    ),
             );
         #[cfg(test)]
         {
@@ -785,9 +1082,11 @@ impl PagesPanel {
         let page_id = page.id.clone();
         let page_title = page.title.clone();
         let keyboard_page_id = page.id.clone();
-        let context_page_id = page.id.clone();
-        let context_page_title = page.title.clone();
-        let panel = cx.entity();
+        let keyboard_page_title = page.title.clone();
+        let menu_page_id = page.id.clone();
+        let menu_page_title = page.title.clone();
+        let row_bounds_page_id = page.id.clone();
+        let row_bounds_panel = cx.entity();
         let row_selector = format!("pages-row-{}", page.id);
         let row_min_width = px(page.title.chars().count() as f32
             * APPROXIMATE_PAGE_CHARACTER_WIDTH
@@ -797,6 +1096,7 @@ impl PagesPanel {
             .debug_selector(move || row_selector)
             .key_context(PAGES_CONTROL_KEY_CONTEXT)
             .tab_index(0)
+            .relative()
             .h(px(PAGE_ROW_HEIGHT))
             .w_full()
             .min_w(row_min_width)
@@ -829,15 +1129,55 @@ impl PagesPanel {
         };
         row.on_mouse_down(
             MouseButton::Left,
-            cx.listener(|this, _, _, cx| this.cancel_page_edit(cx)),
+            cx.listener(|this, _, _, cx| {
+                this.last_keyboard_page_activation = None;
+                this.dismiss_page_menu(cx);
+                this.cancel_page_edit(cx);
+            }),
         )
-        .on_action(cx.listener(move |this, _: &ActivatePagesControl, _, cx| {
-            this.cancel_page_edit(cx);
-            cx.emit(PagesPanelAction::SelectRequested {
-                page_id: keyboard_page_id.clone(),
-            });
+        .on_mouse_down(
+            MouseButton::Right,
+            cx.listener({
+                let menu_page_id = menu_page_id.clone();
+                let menu_page_title = menu_page_title.clone();
+                move |this, event: &MouseDownEvent, window, cx| {
+                    cx.stop_propagation();
+                    this.open_page_menu(
+                        menu_page_id.clone(),
+                        menu_page_title.clone(),
+                        event.position,
+                        window,
+                        cx,
+                    );
+                }
+            }),
+        )
+        .on_action(
+            cx.listener(move |this, _: &ActivatePagesControl, window, cx| {
+                this.activate_page_from_keyboard(
+                    keyboard_page_id.clone(),
+                    keyboard_page_title.clone(),
+                    window,
+                    cx,
+                );
+            }),
+        )
+        .on_action(cx.listener({
+            let menu_page_id = menu_page_id.clone();
+            let menu_page_title = menu_page_title.clone();
+            move |this, _: &OpenPageContextMenu, window, cx| {
+                cx.stop_propagation();
+                this.open_page_menu_from_keyboard(
+                    menu_page_id.clone(),
+                    menu_page_title.clone(),
+                    window,
+                    cx,
+                );
+            }
         }))
         .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
+            this.last_keyboard_page_activation = None;
+            this.page_menu = None;
             if event.click_count() >= 2 {
                 this.begin_rename(page_id.clone(), page_title.clone(), window, cx);
             } else {
@@ -847,69 +1187,194 @@ impl PagesPanel {
             }
         }))
         .child(div().flex_none().whitespace_nowrap().child(page.title))
-        .context_menu(move |menu, _, _| {
-            let copy_link_panel = panel.clone();
-            let copy_link_page_id = context_page_id.clone();
-            let rename_panel = panel.clone();
-            let rename_page_id = context_page_id.clone();
-            let rename_page_title = context_page_title.clone();
-            let duplicate_panel = panel.clone();
-            let duplicate_page_id = context_page_id.clone();
-            let delete_panel = panel.clone();
-            let delete_page_id = context_page_id.clone();
+        .child(
+            canvas(
+                move |bounds, _, app| {
+                    row_bounds_panel.update(app, |this, _| {
+                        this.page_row_bounds
+                            .insert(row_bounds_page_id.clone(), bounds);
+                    });
+                },
+                |_, _, _, _| {},
+            )
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full(),
+        )
+        .into_any_element()
+    }
 
-            menu.min_w(px(224.))
-                .item(page_context_menu_item(
+    fn render_page_menu_item(
+        &mut self,
+        label: &'static str,
+        selector: &'static str,
+        action: PageMenuAction,
+        first: bool,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        h_flex()
+            .id(SharedString::from(format!("{}-{selector}", self.id)))
+            .debug_selector(move || selector.to_owned())
+            .key_context(PAGES_CONTROL_KEY_CONTEXT)
+            .tab_index(0)
+            .when(first, |item| {
+                item.track_focus(
+                    &self
+                        .page_menu_focus_handle
+                        .clone()
+                        .tab_index(0)
+                        .tab_stop(true),
+                )
+            })
+            .h(px(36.))
+            .mx_2()
+            .px_3()
+            .rounded(px(5.))
+            .cursor_pointer()
+            .hover(|style| style.bg(cx.theme().accent))
+            .focus(|style| {
+                style
+                    .bg(cx.theme().accent)
+                    .border_color(cx.theme().selection)
+            })
+            .on_action(
+                cx.listener(move |this, _: &ActivatePagesControl, window, cx| {
+                    cx.stop_propagation();
+                    this.activate_page_menu_item(action, window, cx);
+                }),
+            )
+            .on_click(cx.listener(move |this, _, window, cx| {
+                this.activate_page_menu_item(action, window, cx);
+            }))
+            .child(label)
+            .into_any_element()
+    }
+
+    fn render_page_menu(&mut self, cx: &mut Context<Self>) -> AnyElement {
+        let (Some(panel_bounds), Some(menu)) = (self.panel_bounds, self.page_menu.as_ref()) else {
+            return div().into_any_element();
+        };
+        let origin = menu.anchor - panel_bounds.origin;
+
+        deferred(
+            v_flex()
+                .absolute()
+                .left(origin.x)
+                .top(origin.y)
+                .debug_selector(|| "pages-page-menu".to_owned())
+                .occlude()
+                .w(px(224.))
+                .py_2()
+                .rounded(px(12.))
+                .border_1()
+                .border_color(cx.theme().border)
+                .bg(cx.theme().popover)
+                .shadow_lg()
+                .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _, cx| {
+                    this.dismiss_page_menu(cx);
+                }))
+                .child(self.render_page_menu_item(
                     "Copy link to page",
                     "pages-page-menu-copy-link",
-                    move |_, _, app| {
-                        copy_link_panel.update(app, |_, cx| {
-                            cx.emit(PagesPanelAction::CopyLinkRequested {
-                                page_id: copy_link_page_id.clone(),
-                            });
-                        });
-                    },
+                    PageMenuAction::CopyLink,
+                    true,
+                    cx,
                 ))
-                .separator()
-                .item(page_context_menu_item(
+                .child(div().h(px(1.)).w_full().my_2().bg(cx.theme().border))
+                .child(self.render_page_menu_item(
                     "Rename page",
                     "pages-page-menu-rename",
-                    move |_, window, app| {
-                        rename_panel.update(app, |panel, cx| {
-                            panel.begin_rename(
-                                rename_page_id.clone(),
-                                rename_page_title.clone(),
-                                window,
-                                cx,
-                            );
-                        });
-                    },
+                    PageMenuAction::Rename,
+                    false,
+                    cx,
                 ))
-                .item(page_context_menu_item(
+                .child(self.render_page_menu_item(
                     "Duplicate page",
                     "pages-page-menu-duplicate",
-                    move |_, _, app| {
-                        duplicate_panel.update(app, |_, cx| {
-                            cx.emit(PagesPanelAction::DuplicateRequested {
-                                page_id: duplicate_page_id.clone(),
-                            });
-                        });
-                    },
+                    PageMenuAction::Duplicate,
+                    false,
+                    cx,
                 ))
-                .separator()
-                .item(page_context_menu_item(
+                .child(div().h(px(1.)).w_full().my_2().bg(cx.theme().border))
+                .child(self.render_page_menu_item(
                     "Delete page",
                     "pages-page-menu-delete",
-                    move |_, _, app| {
-                        delete_panel.update(app, |_, cx| {
-                            cx.emit(PagesPanelAction::DeleteRequested {
-                                page_id: delete_page_id.clone(),
-                            });
-                        });
-                    },
-                ))
-        })
+                    PageMenuAction::Delete,
+                    false,
+                    cx,
+                )),
+        )
+        .with_priority(3)
         .into_any_element()
+    }
+
+    fn render_focused_tooltip(
+        &self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
+        let kind = [
+            (FocusTooltipKind::Find, &self.find_focus_handle),
+            (FocusTooltipKind::AddPage, &self.add_page_focus_handle),
+            (FocusTooltipKind::Settings, &self.settings_focus_handle),
+            (
+                FocusTooltipKind::CloseSearch,
+                &self.close_search_focus_handle,
+            ),
+            (
+                FocusTooltipKind::ReplaceCurrent,
+                &self.replace_current_focus_handle,
+            ),
+            (FocusTooltipKind::ReplaceAll, &self.replace_all_focus_handle),
+            (
+                FocusTooltipKind::PreviousResult,
+                &self.previous_result_focus_handle,
+            ),
+            (FocusTooltipKind::NextResult, &self.next_result_focus_handle),
+        ]
+        .into_iter()
+        .find_map(|(kind, handle)| handle.is_focused(window).then_some(kind))?;
+        let panel_bounds = self.panel_bounds?;
+        let anchor_bounds = *self.tooltip_anchor_bounds.get(&kind)?;
+        let tooltip = match kind {
+            FocusTooltipKind::Find => {
+                Tooltip::new("Find").action(&FindInPages, Some(PAGES_PANEL_KEY_CONTEXT))
+            }
+            FocusTooltipKind::AddPage => {
+                Tooltip::new("Add new page").action(&AddPage, Some(PAGES_PANEL_KEY_CONTEXT))
+            }
+            FocusTooltipKind::Settings => Tooltip::new("Settings")
+                .action(&ToggleSearchSettings, Some(PAGES_PANEL_KEY_CONTEXT)),
+            FocusTooltipKind::CloseSearch => Tooltip::new("Close search")
+                .action(&ClosePagesSearch, Some(PAGES_PANEL_KEY_CONTEXT)),
+            FocusTooltipKind::ReplaceCurrent => Tooltip::new("Replace current result")
+                .action(&ReplaceCurrentResult, Some(PAGES_PANEL_KEY_CONTEXT)),
+            FocusTooltipKind::ReplaceAll => Tooltip::new("Replace all results")
+                .action(&ReplaceAllResults, Some(PAGES_PANEL_KEY_CONTEXT)),
+            FocusTooltipKind::PreviousResult => Tooltip::new("Previous result")
+                .action(&PreviousSearchResult, Some(PAGES_PANEL_KEY_CONTEXT)),
+            FocusTooltipKind::NextResult => {
+                Tooltip::new("Next result").action(&NextSearchResult, Some(PAGES_PANEL_KEY_CONTEXT))
+            }
+        }
+        .build(window, cx);
+        let right = panel_bounds.right() - anchor_bounds.right();
+        let top = anchor_bounds.bottom() + px(2.) - panel_bounds.top();
+
+        Some(
+            deferred(
+                div()
+                    .absolute()
+                    .right(right)
+                    .top(top)
+                    .debug_selector(|| "pages-focus-tooltip".to_owned())
+                    .occlude()
+                    .child(tooltip),
+            )
+            .with_priority(4)
+            .into_any_element(),
+        )
     }
 
     fn element_icon(kind: PagesPanelElementKind) -> IconName {
@@ -930,6 +1395,26 @@ impl PagesPanel {
         let can_replace_one = !self.results.items.is_empty();
         let can_replace_all = self.results.total > 0;
         let panel = cx.entity();
+        let settings_focus_handle = self
+            .settings_focus_handle
+            .clone()
+            .tab_index(0)
+            .tab_stop(true);
+        let close_search_focus_handle = self
+            .close_search_focus_handle
+            .clone()
+            .tab_index(0)
+            .tab_stop(true);
+        let replace_current_focus_handle = self
+            .replace_current_focus_handle
+            .clone()
+            .tab_index(0)
+            .tab_stop(true);
+        let replace_all_focus_handle = self
+            .replace_all_focus_handle
+            .clone()
+            .tab_index(0)
+            .tab_stop(true);
         v_flex()
             .w_full()
             .gap_2()
@@ -953,15 +1438,18 @@ impl PagesPanel {
                             .flex_none()
                             .debug_selector(|| "pages-filter-trigger".to_owned())
                             .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                            .track_focus(&settings_focus_handle)
+                            .focus(|style| style.bg(cx.theme().accent).rounded(px(5.)))
                             .on_action(cx.listener(|this, _: &ActivatePagesControl, window, cx| {
                                 cx.stop_propagation();
-                                this.toggle_search_settings(window, cx);
+                                this.open_search_settings(window, cx);
                             }))
                             .child(
                                 Button::new(SharedString::from(format!("{}-filters", self.id)))
                                     .ghost()
                                     .small()
                                     .compact()
+                                    .tab_stop(false)
                                     .icon(IconName::Settings2)
                                     .tooltip_with_action(
                                         "Settings",
@@ -972,6 +1460,7 @@ impl PagesPanel {
                                         this.toggle_search_settings(window, cx);
                                     })),
                             )
+                            .child(self.control_bounds_tracker(FocusTooltipKind::Settings, cx))
                             .child(
                                 canvas(
                                     move |bounds, _, app| {
@@ -989,12 +1478,15 @@ impl PagesPanel {
                     )
                     .child(
                         div()
+                            .relative()
                             .flex_none()
                             .debug_selector(|| "pages-close-search".to_owned())
                             .key_context(PAGES_CONTROL_KEY_CONTEXT)
-                            .on_action(cx.listener(|this, _: &ActivatePagesControl, _, cx| {
+                            .track_focus(&close_search_focus_handle)
+                            .focus(|style| style.bg(cx.theme().accent).rounded(px(5.)))
+                            .on_action(cx.listener(|this, _: &ActivatePagesControl, window, cx| {
                                 cx.stop_propagation();
-                                this.close_search(cx);
+                                this.close_search(window, cx);
                             }))
                             .child(
                                 Button::new(SharedString::from(format!(
@@ -1004,14 +1496,20 @@ impl PagesPanel {
                                 .ghost()
                                 .small()
                                 .compact()
+                                .tab_stop(false)
                                 .icon(IconName::Close)
                                 .tooltip_with_action(
                                     "Close search",
                                     &ClosePagesSearch,
                                     Some(PAGES_PANEL_KEY_CONTEXT),
                                 )
-                                .on_click(cx.listener(|this, _, _, cx| this.close_search(cx))),
-                            ),
+                                .on_click(cx.listener(
+                                    |this, _, window, cx| {
+                                        this.close_search(window, cx);
+                                    },
+                                )),
+                            )
+                            .child(self.control_bounds_tracker(FocusTooltipKind::CloseSearch, cx)),
                     ),
             )
             .when(replace, |toolbar| {
@@ -1028,9 +1526,14 @@ impl PagesPanel {
                             .gap_2()
                             .child(
                                 div()
+                                    .relative()
                                     .flex_none()
                                     .debug_selector(|| "pages-replace-one".to_owned())
                                     .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                                    .when(can_replace_one, |control| {
+                                        control.track_focus(&replace_current_focus_handle)
+                                    })
+                                    .focus(|style| style.bg(cx.theme().accent).rounded(px(5.)))
                                     .on_action(cx.listener(
                                         move |this, _: &ActivatePagesControl, _, cx| {
                                             cx.stop_propagation();
@@ -1046,6 +1549,7 @@ impl PagesPanel {
                                         )))
                                         .label("Replace")
                                         .small()
+                                        .tab_stop(false)
                                         .disabled(!can_replace_one)
                                         .tooltip_with_action(
                                             "Replace current result",
@@ -1057,13 +1561,22 @@ impl PagesPanel {
                                                 this.request_replace(false, cx);
                                             }),
                                         ),
-                                    ),
+                                    )
+                                    .child(self.control_bounds_tracker(
+                                        FocusTooltipKind::ReplaceCurrent,
+                                        cx,
+                                    )),
                             )
                             .child(
                                 div()
+                                    .relative()
                                     .flex_none()
                                     .debug_selector(|| "pages-replace-all".to_owned())
                                     .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                                    .when(can_replace_all, |control| {
+                                        control.track_focus(&replace_all_focus_handle)
+                                    })
+                                    .focus(|style| style.bg(cx.theme().accent).rounded(px(5.)))
                                     .on_action(cx.listener(
                                         move |this, _: &ActivatePagesControl, _, cx| {
                                             cx.stop_propagation();
@@ -1079,6 +1592,7 @@ impl PagesPanel {
                                         )))
                                         .label("Replace all")
                                         .small()
+                                        .tab_stop(false)
                                         .disabled(!can_replace_all)
                                         .tooltip_with_action(
                                             "Replace all results",
@@ -1089,6 +1603,12 @@ impl PagesPanel {
                                             cx.listener(|this, _, _, cx| {
                                                 this.request_replace(true, cx);
                                             }),
+                                        ),
+                                    )
+                                    .child(
+                                        self.control_bounds_tracker(
+                                            FocusTooltipKind::ReplaceAll,
+                                            cx,
                                         ),
                                     ),
                             ),
@@ -1136,6 +1656,16 @@ impl PagesPanel {
         let result_label = result_count_label(self.results.total);
         let can_navigate = !self.results.items.is_empty();
         let panel = cx.entity();
+        let previous_result_focus_handle = self
+            .previous_result_focus_handle
+            .clone()
+            .tab_index(0)
+            .tab_stop(true);
+        let next_result_focus_handle = self
+            .next_result_focus_handle
+            .clone()
+            .tab_index(0)
+            .tab_stop(true);
         h_flex()
             .debug_selector(|| "pages-results-header".to_owned())
             .h(px(48.))
@@ -1172,7 +1702,8 @@ impl PagesPanel {
                             .border_color(cx.theme().selection)
                     })
                     .on_action(cx.listener(|this, _: &ActivatePagesControl, window, cx| {
-                        this.toggle_search_scope(window, cx);
+                        cx.stop_propagation();
+                        this.open_search_scope(window, cx);
                     }))
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.toggle_search_scope(window, cx);
@@ -1197,9 +1728,14 @@ impl PagesPanel {
             .child(div().flex_1())
             .child(
                 div()
+                    .relative()
                     .flex_none()
                     .debug_selector(|| "pages-previous-result".to_owned())
                     .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                    .when(can_navigate, |control| {
+                        control.track_focus(&previous_result_focus_handle)
+                    })
+                    .focus(|style| style.bg(cx.theme().accent).rounded(px(5.)))
                     .on_action(cx.listener(move |this, _: &ActivatePagesControl, _, cx| {
                         cx.stop_propagation();
                         if can_navigate {
@@ -1211,6 +1747,7 @@ impl PagesPanel {
                             .ghost()
                             .xsmall()
                             .compact()
+                            .tab_stop(false)
                             .icon(IconName::ChevronUp)
                             .disabled(!can_navigate)
                             .tooltip_with_action(
@@ -1221,13 +1758,19 @@ impl PagesPanel {
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.navigate_results(PagesPanelResultDirection::Previous, cx);
                             })),
-                    ),
+                    )
+                    .child(self.control_bounds_tracker(FocusTooltipKind::PreviousResult, cx)),
             )
             .child(
                 div()
+                    .relative()
                     .flex_none()
                     .debug_selector(|| "pages-next-result".to_owned())
                     .key_context(PAGES_CONTROL_KEY_CONTEXT)
+                    .when(can_navigate, |control| {
+                        control.track_focus(&next_result_focus_handle)
+                    })
+                    .focus(|style| style.bg(cx.theme().accent).rounded(px(5.)))
                     .on_action(cx.listener(move |this, _: &ActivatePagesControl, _, cx| {
                         cx.stop_propagation();
                         if can_navigate {
@@ -1239,6 +1782,7 @@ impl PagesPanel {
                             .ghost()
                             .xsmall()
                             .compact()
+                            .tab_stop(false)
                             .icon(IconName::ChevronDown)
                             .disabled(!can_navigate)
                             .tooltip_with_action(
@@ -1249,7 +1793,8 @@ impl PagesPanel {
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.navigate_results(PagesPanelResultDirection::Next, cx);
                             })),
-                    ),
+                    )
+                    .child(self.control_bounds_tracker(FocusTooltipKind::NextResult, cx)),
             )
             .into_any_element()
     }
@@ -1634,15 +2179,36 @@ impl PagesPanel {
             .child(self.render_results_header(cx))
             .child(
                 div()
-                    .id(SharedString::from(format!("{}-results-scroll", self.id)))
-                    .debug_selector(|| "pages-results-viewport".to_owned())
                     .relative()
                     .flex_1()
                     .min_h(px(0.))
-                    .overflow_scroll()
-                    .track_scroll(&self.results_scroll_handle)
-                    .child(self.render_results(cx))
-                    .vertical_scrollbar(&self.results_scroll_handle),
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("{}-results-scroll", self.id)))
+                            .debug_selector(|| "pages-results-viewport".to_owned())
+                            .absolute()
+                            .top_0()
+                            .right_0()
+                            .bottom_0()
+                            .left_0()
+                            .overflow_scroll()
+                            .track_scroll(&self.results_scroll_handle)
+                            .child(self.render_results(cx)),
+                    )
+                    .child(
+                        div()
+                            .debug_selector(|| "pages-results-scrollbar-layer".to_owned())
+                            .absolute()
+                            .top_0()
+                            .right_0()
+                            .bottom_0()
+                            .left_0()
+                            .child(
+                                Scrollbar::vertical(&self.results_scroll_handle).id(
+                                    SharedString::from(format!("{}-results-scrollbar", self.id)),
+                                ),
+                            ),
+                    ),
             )
             .when(self.filter_menu_open, |panel| {
                 panel.child(self.render_filter_menu(cx))
@@ -1661,8 +2227,15 @@ impl Focusable for PagesPanel {
 }
 
 impl Render for PagesPanel {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.select_page_editor_after_render {
+            self.select_page_editor_after_render = false;
+            window.on_next_frame(|window, cx| {
+                window.dispatch_action(Box::new(SelectAll), cx);
+            });
+        }
         let id = self.id.clone();
+        let panel = cx.entity();
         let root = v_flex()
             .id(id)
             .key_context(PAGES_PANEL_KEY_CONTEXT)
@@ -1676,23 +2249,40 @@ impl Render for PagesPanel {
             .on_action(cx.listener(Self::on_next_search_result))
             .on_action(cx.listener(Self::on_replace_current_result))
             .on_action(cx.listener(Self::on_replace_all_results))
+            .relative()
             .w_full()
             .max_h_full()
             .bg(cx.theme().sidebar)
             .text_color(cx.theme().sidebar_foreground)
             .border_1()
-            .border_color(cx.theme().border);
-        if self.mode == PanelMode::Pages {
-            root.overflow_hidden()
-                .child(self.render_header(cx))
+            .border_color(cx.theme().border)
+            .child(
+                canvas(
+                    move |bounds, _, app| {
+                        panel.update(app, |this, _| {
+                            this.panel_bounds = Some(bounds);
+                        });
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
+            );
+        let root = if self.mode == PanelMode::Pages {
+            root.child(self.render_header(cx))
                 .child(self.render_pages(cx))
-                .into_any_element()
         } else {
             root.debug_selector(|| "pages-search-panel".to_owned())
                 .size_full()
                 .child(self.render_search(cx))
-                .into_any_element()
-        }
+        };
+        let tooltip = self.render_focused_tooltip(window, cx);
+        root.when(self.page_menu.is_some(), |root| {
+            root.child(self.render_page_menu(cx))
+        })
+        .when_some(tooltip, |root, tooltip| root.child(tooltip))
     }
 }
 
@@ -1706,22 +2296,6 @@ fn result_count_label(total: usize) -> String {
 
 fn empty_results_label(scope: PagesPanelSearchScope) -> String {
     format!("No results on {}", scope.label().to_lowercase())
-}
-
-fn page_context_menu_item(
-    label: &'static str,
-    selector: &'static str,
-    handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> PopupMenuItem {
-    PopupMenuItem::element(move |_, cx| {
-        div()
-            .debug_selector(move || selector.to_owned())
-            .tab_index(0)
-            .w_full()
-            .focus(|style| style.bg(cx.theme().accent))
-            .child(label)
-    })
-    .on_click(handler)
 }
 
 fn next_page_title(pages: &[PagesPanelItem]) -> SharedString {
@@ -1745,8 +2319,8 @@ mod tests {
     use gpui::{
         AppContext as _, Bounds, Context, Entity, Focusable as _, IntoElement, Modifiers,
         MouseButton, MouseDownEvent, MouseUpEvent, ParentElement as _, Pixels, Render, ScrollDelta,
-        ScrollWheelEvent, Styled as _, Subscription, TestAppContext, VisualTestContext, Window,
-        div, point, px,
+        ScrollWheelEvent, SharedString, Styled as _, Subscription, TestAppContext,
+        VisualTestContext, Window, div, point, px, size,
     };
     use gpui_component::Root;
 
@@ -1796,7 +2370,12 @@ mod tests {
 
     impl Render for TestHost {
         fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-            div().w(px(320.)).h(px(220.)).child(self.panel.clone())
+            div()
+                .w_full()
+                .h_full()
+                .max_w(px(320.))
+                .max_h(px(220.))
+                .child(self.panel.clone())
         }
     }
 
@@ -2060,6 +2639,73 @@ mod tests {
     }
 
     #[gpui::test]
+    fn closing_search_from_the_keyboard_restores_tab_focus_and_expands_the_header(
+        cx: &mut TestAppContext,
+    ) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+
+        click(cx, "pages-header");
+        assert!(!read_panel(&panel, cx, |panel| panel.expanded));
+
+        focus_panel(&panel, cx);
+        cx.simulate_keystrokes("secondary-f");
+        assert_eq!(read_panel(&panel, cx, |panel| panel.mode), PanelMode::Find);
+
+        cx.simulate_keystrokes("tab tab enter");
+        cx.run_until_parked();
+        assert_eq!(read_panel(&panel, cx, |panel| panel.mode), PanelMode::Pages);
+
+        cx.simulate_keystrokes("tab enter");
+        assert!(
+            read_panel(&panel, cx, |panel| panel.expanded),
+            "the restored panel focus should make the collapsed header the next tab stop"
+        );
+    }
+
+    #[gpui::test]
+    fn keyboard_opened_filter_and_scope_menus_stay_open(cx: &mut TestAppContext) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+
+        focus_panel(&panel, cx);
+        cx.simulate_keystrokes("secondary-f tab enter");
+        cx.run_until_parked();
+        assert!(read_panel(&panel, cx, |panel| panel.filter_menu_open));
+        assert!(bounds(cx, "pages-filter-menu").size.height > px(0.));
+
+        click(cx, "pages-filter-trigger");
+        assert!(!read_panel(&panel, cx, |panel| panel.filter_menu_open));
+
+        focus_panel(&panel, cx);
+        cx.simulate_keystrokes("tab tab tab tab enter");
+        cx.run_until_parked();
+        assert!(read_panel(&panel, cx, |panel| panel.scope_menu_open));
+        assert!(bounds(cx, "pages-scope-menu").size.height > px(0.));
+    }
+
+    #[gpui::test]
+    fn tab_focus_opens_the_same_command_tooltips_as_pointer_hover(cx: &mut TestAppContext) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+
+        focus_panel(&panel, cx);
+        cx.simulate_keystrokes("tab tab");
+        cx.run_until_parked();
+        let find_tooltip = bounds(cx, "pages-focus-tooltip");
+        assert!(find_tooltip.size.width > px(0.) && find_tooltip.size.height > px(0.));
+
+        cx.simulate_keystrokes("tab");
+        cx.run_until_parked();
+        let add_tooltip = bounds(cx, "pages-focus-tooltip");
+        assert!(add_tooltip.size.width > px(0.) && add_tooltip.size.height > px(0.));
+        assert_ne!(
+            add_tooltip.origin, find_tooltip.origin,
+            "the tooltip should follow the newly focused Add page control"
+        );
+    }
+
+    #[gpui::test]
     fn tab_order_reaches_page_and_result_rows(cx: &mut TestAppContext) {
         let (host, cx) = setup(cx);
         let panel = panel(&host, cx);
@@ -2099,6 +2745,80 @@ mod tests {
             }],
             "search input, Settings, Close, scope, navigation, then result rows should be tabbable"
         );
+    }
+
+    #[gpui::test]
+    fn adding_a_page_scrolls_and_focuses_the_editor_then_restores_tab_navigation(
+        cx: &mut TestAppContext,
+    ) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+        let actions = actions(&host, cx);
+        let pages = (1..=18)
+            .map(|index| PagesPanelItem::new(format!("page-{index}"), format!("Page {index}")))
+            .collect();
+        cx.update(|_, app| {
+            panel.update(app, |panel, cx| panel.set_pages(pages, cx));
+        });
+        cx.run_until_parked();
+
+        click(cx, "pages-add-trigger");
+        cx.run_until_parked();
+        let viewport = bounds(cx, "pages-scroll-viewport");
+        let editor = bounds(cx, "pages-page-editor");
+        let scroll_handle = read_panel(&panel, cx, |panel| panel.pages_scroll_handle.clone());
+        assert!(editor.top() >= viewport.top());
+        assert!(editor.bottom() <= viewport.bottom());
+        assert_eq!(scroll_handle.offset().y, -scroll_handle.max_offset().height);
+
+        cx.simulate_keystrokes("x");
+        let editor_value = cx.read(|app| panel.read(app).rename_input.read(app).value());
+        assert!(
+            editor_value.ends_with('x'),
+            "typing should go directly to the newly revealed editor"
+        );
+
+        actions.borrow_mut().clear();
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        assert_eq!(
+            actions.borrow().as_slice(),
+            &[PagesPanelAction::CreateRequested {
+                title: editor_value,
+            }]
+        );
+        assert!(read_panel(&panel, cx, |panel| panel.editing.is_none()));
+
+        cx.simulate_keystrokes("tab enter");
+        assert!(
+            !read_panel(&panel, cx, |panel| panel.expanded),
+            "committing the new page should restore the panel as a tab-navigation owner"
+        );
+    }
+
+    #[gpui::test]
+    fn double_enter_renames_the_focused_page_row(cx: &mut TestAppContext) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+        let actions = actions(&host, cx);
+
+        focus_panel(&panel, cx);
+        actions.borrow_mut().clear();
+        cx.simulate_keystrokes("tab tab tab tab enter enter");
+        cx.run_until_parked();
+
+        assert_eq!(
+            actions.borrow().as_slice(),
+            &[PagesPanelAction::SelectRequested {
+                page_id: "page-1".into(),
+            }]
+        );
+        assert!(matches!(
+            read_panel(&panel, cx, |panel| panel.editing.clone()),
+            Some(PageEditorTarget::Existing { ref page_id, .. })
+                if page_id.as_ref() == "page-1"
+        ));
+        assert!(bounds(cx, "pages-page-editor").size.height > px(0.));
     }
 
     #[gpui::test]
@@ -2241,6 +2961,48 @@ mod tests {
     }
 
     #[gpui::test]
+    fn page_menu_is_row_scoped_and_ctrl_enter_opens_it_for_keyboard_users(cx: &mut TestAppContext) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+        let actions = actions(&host, cx);
+
+        secondary_click(cx, "pages-header");
+        assert!(cx.debug_bounds("pages-page-menu").is_none());
+
+        focus_panel(&panel, cx);
+        cx.simulate_keystrokes("tab tab tab tab ctrl-enter");
+        cx.run_until_parked();
+        assert!(bounds(cx, "pages-page-menu").size.height > px(0.));
+        assert!(bounds(cx, "pages-page-menu-copy-link").size.height > px(0.));
+
+        actions.borrow_mut().clear();
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        assert_eq!(
+            actions.borrow().as_slice(),
+            &[PagesPanelAction::CopyLinkRequested {
+                page_id: "page-1".into(),
+            }]
+        );
+
+        secondary_click(cx, "pages-row-page-2");
+        assert!(bounds(cx, "pages-page-menu").size.height > px(0.));
+        click(cx, "pages-header");
+        cx.run_until_parked();
+        assert!(
+            read_panel(&panel, cx, |panel| panel.page_menu.is_none()),
+            "a header click must dismiss the panel-owned page menu state"
+        );
+        assert!(!read_panel(&panel, cx, |panel| panel.expanded));
+
+        secondary_click(cx, "pages-header");
+        assert!(
+            read_panel(&panel, cx, |panel| panel.page_menu.is_none()),
+            "clipped rows must never receive a secondary click through the collapsed header"
+        );
+    }
+
+    #[gpui::test]
     fn search_result_rows_do_not_open_the_page_context_menu(cx: &mut TestAppContext) {
         let (host, cx) = setup(cx);
         let panel = panel(&host, cx);
@@ -2358,6 +3120,44 @@ mod tests {
     }
 
     #[gpui::test]
+    fn collapsed_long_page_titles_truncate_before_the_header_actions(cx: &mut TestAppContext) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+        let long_id: SharedString = "long-selected-page".into();
+        let long_title =
+            "This selected page title is intentionally much wider than the collapsed Pages panel";
+        cx.update(|_, app| {
+            panel.update(app, |panel, cx| {
+                panel.set_pages(
+                    vec![
+                        PagesPanelItem::new(long_id.clone(), long_title),
+                        PagesPanelItem::new("page-2", "Page 2"),
+                    ],
+                    cx,
+                );
+                panel.set_selected_page(Some(long_id.clone()), cx);
+            });
+        });
+        cx.run_until_parked();
+
+        click(cx, "pages-header");
+        let assert_constrained = |cx: &mut VisualTestContext| {
+            let header = bounds(cx, "pages-header");
+            let title = bounds(cx, "pages-header-title");
+            let search = bounds(cx, "pages-search-trigger");
+            let add = bounds(cx, "pages-add-trigger");
+            assert!(title.right() <= search.left());
+            assert!(search.right() <= add.left());
+            assert!(add.right() <= header.right());
+        };
+        assert_constrained(cx);
+
+        cx.simulate_resize(size(px(220.), px(180.)));
+        cx.run_until_parked();
+        assert_constrained(cx);
+    }
+
+    #[gpui::test]
     fn long_page_names_scroll_horizontally_and_many_pages_scroll_vertically(
         cx: &mut TestAppContext,
     ) {
@@ -2380,8 +3180,11 @@ mod tests {
         cx.run_until_parked();
 
         let viewport = bounds(cx, "pages-scroll-viewport");
+        let scrollbar_layer = bounds(cx, "pages-scrollbar-layer");
         let long_row = bounds(cx, "pages-row-long-page-1");
         let scroll_handle = read_panel(&panel, cx, |panel| panel.pages_scroll_handle.clone());
+        assert_eq!(scrollbar_layer, viewport);
+        assert_eq!(scroll_handle.bounds(), viewport);
         assert!(long_row.size.width > viewport.size.width);
         assert!(scroll_handle.max_offset().width > px(0.));
         assert!(scroll_handle.max_offset().height > px(0.));
@@ -2399,6 +3202,22 @@ mod tests {
             ..Default::default()
         });
         assert!(scroll_handle.offset().y < px(0.));
+        assert_eq!(bounds(cx, "pages-scrollbar-layer"), viewport);
+
+        cx.simulate_resize(size(px(260.), px(180.)));
+        cx.run_until_parked();
+        let resized_viewport = bounds(cx, "pages-scroll-viewport");
+        assert_ne!(resized_viewport.size, viewport.size);
+        assert_eq!(bounds(cx, "pages-scrollbar-layer"), resized_viewport);
+        assert_eq!(scroll_handle.bounds(), resized_viewport);
+        assert_eq!(
+            resized_viewport.right(),
+            bounds(cx, "pages-scrollbar-layer").right()
+        );
+        assert_eq!(
+            resized_viewport.bottom(),
+            bounds(cx, "pages-scrollbar-layer").bottom()
+        );
     }
 
     #[gpui::test]
@@ -2431,7 +3250,10 @@ mod tests {
         click(cx, "pages-search-trigger");
 
         let viewport = bounds(cx, "pages-results-viewport");
+        let scrollbar_layer = bounds(cx, "pages-results-scrollbar-layer");
         let scroll_handle = read_panel(&panel, cx, |panel| panel.results_scroll_handle.clone());
+        assert_eq!(scrollbar_layer, viewport);
+        assert_eq!(scroll_handle.bounds(), viewport);
         assert!(scroll_handle.max_offset().height > px(0.));
 
         cx.simulate_event(ScrollWheelEvent {
@@ -2440,5 +3262,16 @@ mod tests {
             ..Default::default()
         });
         assert!(scroll_handle.offset().y < px(0.));
+        assert_eq!(bounds(cx, "pages-results-scrollbar-layer"), viewport);
+
+        cx.simulate_resize(size(px(260.), px(180.)));
+        cx.run_until_parked();
+        let resized_viewport = bounds(cx, "pages-results-viewport");
+        assert_ne!(resized_viewport.size, viewport.size);
+        assert_eq!(
+            bounds(cx, "pages-results-scrollbar-layer"),
+            resized_viewport
+        );
+        assert_eq!(scroll_handle.bounds(), resized_viewport);
     }
 }

@@ -17,10 +17,10 @@ pub fn init(cx: &mut gpui::App) {
 /// Common imports for Fanta GPUI hosts.
 pub mod prelude {
     pub use crate::pages::{
-        AddPage, ClosePagesSearch, FindInPages, NextSearchResult, PagesPanel, PagesPanelAction,
-        PagesPanelElementCount, PagesPanelElementKind, PagesPanelItem, PagesPanelResultDirection,
-        PagesPanelSearchRequest, PagesPanelSearchResult, PagesPanelSearchResults,
-        PagesPanelSearchScope, PreviousSearchResult, ReplaceAllResults, ReplaceCurrentResult,
-        TogglePagesPanel, ToggleSearchSettings,
+        AddPage, ClosePagesSearch, FindInPages, NextSearchResult, OpenPageContextMenu, PagesPanel,
+        PagesPanelAction, PagesPanelElementCount, PagesPanelElementKind, PagesPanelItem,
+        PagesPanelResultDirection, PagesPanelSearchRequest, PagesPanelSearchResult,
+        PagesPanelSearchResults, PagesPanelSearchScope, PreviousSearchResult, ReplaceAllResults,
+        ReplaceCurrentResult, TogglePagesPanel, ToggleSearchSettings,
     };
 }

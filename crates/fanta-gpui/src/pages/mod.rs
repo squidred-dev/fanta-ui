@@ -5,8 +5,9 @@ mod model;
 mod panel;
 
 pub use commands::{
-    AddPage, ClosePagesSearch, FindInPages, NextSearchResult, PreviousSearchResult,
-    ReplaceAllResults, ReplaceCurrentResult, TogglePagesPanel, ToggleSearchSettings,
+    AddPage, ClosePagesSearch, FindInPages, NextSearchResult, OpenPageContextMenu,
+    PreviousSearchResult, ReplaceAllResults, ReplaceCurrentResult, TogglePagesPanel,
+    ToggleSearchSettings,
 };
 pub use model::{
     PagesPanelAction, PagesPanelElementCount, PagesPanelElementKind, PagesPanelItem,
