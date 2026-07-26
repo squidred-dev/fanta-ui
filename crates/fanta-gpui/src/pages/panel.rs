@@ -12,7 +12,7 @@ use gpui::{
 #[cfg(not(test))]
 use gpui_component::animation::cubic_bezier;
 use gpui_component::{
-    ActiveTheme as _, Icon, IconName, Sizable as _, StyledExt as _,
+    ActiveTheme as _, Disableable as _, Icon, IconName, Sizable as _, StyledExt as _,
     button::{Button, ButtonVariants as _},
     h_flex,
     input::{Input, InputEvent, InputState, SelectAll},
@@ -390,16 +390,15 @@ impl PagesPanel {
 
     fn navigate_results(&mut self, direction: PagesPanelResultDirection, cx: &mut Context<Self>) {
         let len = self.results.items.len();
-        let next = if len == 0 {
-            None
-        } else {
-            Some(match (self.active_result, direction) {
-                (None, _) => 0,
-                (Some(0), PagesPanelResultDirection::Previous) => len - 1,
-                (Some(index), PagesPanelResultDirection::Previous) => index - 1,
-                (Some(index), PagesPanelResultDirection::Next) => (index + 1) % len,
-            })
-        };
+        if len == 0 {
+            return;
+        }
+        let next = Some(match (self.active_result, direction) {
+            (None, _) => 0,
+            (Some(0), PagesPanelResultDirection::Previous) => len - 1,
+            (Some(index), PagesPanelResultDirection::Previous) => index - 1,
+            (Some(index), PagesPanelResultDirection::Next) => (index + 1) % len,
+        });
         self.active_result = next;
         let result_id = next.map(|index| self.results.items[index].id.clone());
         cx.emit(PagesPanelAction::NavigateResults {
@@ -410,6 +409,9 @@ impl PagesPanel {
     }
 
     fn request_replace(&mut self, all: bool, cx: &mut Context<Self>) {
+        if (all && self.results.total == 0) || (!all && self.results.items.is_empty()) {
+            return;
+        }
         let request = self.build_search_request(cx);
         let replacement = self.replace_input.read(cx).value();
         if all {
@@ -684,6 +686,8 @@ impl PagesPanel {
 
     fn render_search_toolbar(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let replace = self.mode == PanelMode::Replace;
+        let can_replace_one = !self.results.items.is_empty();
+        let can_replace_all = self.results.total > 0;
         let panel = cx.entity();
         v_flex()
             .w_full()
@@ -758,20 +762,42 @@ impl PagesPanel {
                             .justify_end()
                             .gap_2()
                             .child(
-                                Button::new(SharedString::from(format!("{}-replace-one", self.id)))
-                                    .label("Replace")
-                                    .small()
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.request_replace(false, cx);
-                                    })),
+                                div()
+                                    .flex_none()
+                                    .debug_selector(|| "pages-replace-one".to_owned())
+                                    .child(
+                                        Button::new(SharedString::from(format!(
+                                            "{}-replace-one",
+                                            self.id
+                                        )))
+                                        .label("Replace")
+                                        .small()
+                                        .disabled(!can_replace_one)
+                                        .on_click(
+                                            cx.listener(|this, _, _, cx| {
+                                                this.request_replace(false, cx);
+                                            }),
+                                        ),
+                                    ),
                             )
                             .child(
-                                Button::new(SharedString::from(format!("{}-replace-all", self.id)))
-                                    .label("Replace all")
-                                    .small()
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.request_replace(true, cx);
-                                    })),
+                                div()
+                                    .flex_none()
+                                    .debug_selector(|| "pages-replace-all".to_owned())
+                                    .child(
+                                        Button::new(SharedString::from(format!(
+                                            "{}-replace-all",
+                                            self.id
+                                        )))
+                                        .label("Replace all")
+                                        .small()
+                                        .disabled(!can_replace_all)
+                                        .on_click(
+                                            cx.listener(|this, _, _, cx| {
+                                                this.request_replace(true, cx);
+                                            }),
+                                        ),
+                                    ),
                             ),
                     )
             })
@@ -805,6 +831,7 @@ impl PagesPanel {
 
     fn render_results_header(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let result_label = result_count_label(self.results.total);
+        let can_navigate = !self.results.items.is_empty();
         let panel = cx.entity();
         h_flex()
             .debug_selector(|| "pages-results-header".to_owned())
@@ -867,6 +894,7 @@ impl PagesPanel {
                             .xsmall()
                             .compact()
                             .icon(IconName::ChevronUp)
+                            .disabled(!can_navigate)
                             .tooltip("Previous result")
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.navigate_results(PagesPanelResultDirection::Previous, cx);
@@ -883,6 +911,7 @@ impl PagesPanel {
                             .xsmall()
                             .compact()
                             .icon(IconName::ChevronDown)
+                            .disabled(!can_navigate)
                             .tooltip("Next result")
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.navigate_results(PagesPanelResultDirection::Next, cx);
@@ -1494,6 +1523,27 @@ mod tests {
         assert!(next.right() <= header.right());
         assert!(empty.top() >= viewport.top());
         assert!(empty.right() <= viewport.right());
+    }
+
+    #[gpui::test]
+    fn zero_results_prevent_replace_and_navigation_actions(cx: &mut TestAppContext) {
+        let (host, cx) = setup(cx);
+        let actions = actions(&host, cx);
+
+        click(cx, "pages-search-trigger");
+        click(cx, "pages-filter-trigger");
+        click(cx, "pages-mode-replace");
+
+        actions.borrow_mut().clear();
+        click(cx, "pages-previous-result");
+        click(cx, "pages-next-result");
+        click(cx, "pages-replace-one");
+        click(cx, "pages-replace-all");
+
+        assert!(
+            actions.borrow().is_empty(),
+            "disabled zero-result controls must not emit host intents"
+        );
     }
 
     #[gpui::test]
