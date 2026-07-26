@@ -17,6 +17,7 @@ use gpui_component::{
     h_flex,
     input::{Input, InputEvent, InputState, SelectAll},
     menu::{ContextMenuExt as _, PopupMenuItem},
+    scroll::{ScrollableElement as _, ScrollbarAxis},
     v_flex,
 };
 
@@ -92,6 +93,7 @@ pub struct PagesPanel {
     filter_anchor_bounds: Option<Bounds<Pixels>>,
     scope_anchor_bounds: Option<Bounds<Pixels>>,
     pages_scroll_handle: ScrollHandle,
+    results_scroll_handle: ScrollHandle,
     results: PagesPanelSearchResults,
     active_result: Option<usize>,
     #[cfg(test)]
@@ -172,6 +174,7 @@ impl PagesPanel {
             filter_anchor_bounds: None,
             scope_anchor_bounds: None,
             pages_scroll_handle: ScrollHandle::new(),
+            results_scroll_handle: ScrollHandle::new(),
             results: PagesPanelSearchResults::default(),
             active_result: None,
             #[cfg(test)]
@@ -732,10 +735,12 @@ impl PagesPanel {
                 div()
                     .id(SharedString::from(format!("{}-pages-scroll", self.id)))
                     .debug_selector(|| "pages-scroll-viewport".to_owned())
+                    .relative()
                     .size_full()
                     .overflow_scroll()
                     .track_scroll(&self.pages_scroll_handle)
-                    .child(content),
+                    .child(content)
+                    .scrollbar(&self.pages_scroll_handle, ScrollbarAxis::Both),
             );
         #[cfg(test)]
         {
@@ -1631,10 +1636,13 @@ impl PagesPanel {
                 div()
                     .id(SharedString::from(format!("{}-results-scroll", self.id)))
                     .debug_selector(|| "pages-results-viewport".to_owned())
+                    .relative()
                     .flex_1()
                     .min_h(px(0.))
                     .overflow_scroll()
-                    .child(self.render_results(cx)),
+                    .track_scroll(&self.results_scroll_handle)
+                    .child(self.render_results(cx))
+                    .vertical_scrollbar(&self.results_scroll_handle),
             )
             .when(self.filter_menu_open, |panel| {
                 panel.child(self.render_filter_menu(cx))
@@ -2388,6 +2396,47 @@ mod tests {
         cx.simulate_event(ScrollWheelEvent {
             position: viewport.center(),
             delta: ScrollDelta::Pixels(point(px(0.), px(-120.))),
+            ..Default::default()
+        });
+        assert!(scroll_handle.offset().y < px(0.));
+    }
+
+    #[gpui::test]
+    fn search_results_have_a_bounded_scrollable_viewport(cx: &mut TestAppContext) {
+        let (host, cx) = setup(cx);
+        let panel = panel(&host, cx);
+        let items = (1..=24)
+            .map(|index| {
+                PagesPanelSearchResult::new(
+                    format!("result-{index}"),
+                    format!("Result {index}"),
+                    PagesPanelElementKind::Text,
+                )
+                .parent("Frame")
+            })
+            .collect::<Vec<_>>();
+        cx.update(|_, app| {
+            panel.update(app, |panel, cx| {
+                panel.set_search_results(
+                    PagesPanelSearchResults {
+                        total: items.len(),
+                        items,
+                        element_counts: Vec::new(),
+                    },
+                    cx,
+                );
+            });
+        });
+        cx.run_until_parked();
+        click(cx, "pages-search-trigger");
+
+        let viewport = bounds(cx, "pages-results-viewport");
+        let scroll_handle = read_panel(&panel, cx, |panel| panel.results_scroll_handle.clone());
+        assert!(scroll_handle.max_offset().height > px(0.));
+
+        cx.simulate_event(ScrollWheelEvent {
+            position: viewport.center(),
+            delta: ScrollDelta::Pixels(point(px(0.), px(-160.))),
             ..Default::default()
         });
         assert!(scroll_handle.offset().y < px(0.));

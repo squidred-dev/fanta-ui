@@ -345,7 +345,14 @@ impl Render for Storybook {
                             .text_color(cx.theme().muted_foreground)
                             .child("PAGES PANEL"),
                     )
-                    .child(div().flex_1().w_full().child(self.panel.clone())),
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_h(px(0.))
+                            .w_full()
+                            .overflow_hidden()
+                            .child(self.panel.clone()),
+                    ),
             )
             .child(
                 v_flex()
