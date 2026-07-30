@@ -1,6 +1,6 @@
 [package]
 name = "fanta-gpui"
-description = "Headless, host-controlled GPUI components for Fanta applications."
+description = "Engine-decoupled, host-controlled GPUI components for Fanta applications."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -337,6 +337,25 @@ fn shortcuts_and_tab_activation_cover_pages_and_search_controls(cx: &mut TestApp
 }
 
 #[gpui::test]
+fn key_up_does_not_reverse_a_header_disclosure_activation(cx: &mut TestAppContext) {
+    let (host, cx) = setup(cx);
+    let panel = panel(&host, cx);
+    let actions = actions(&host, cx);
+
+    focus_panel(&panel, cx);
+    cx.simulate_keystrokes("tab");
+    key_down(cx, "enter");
+    assert!(!read_panel(&panel, cx, |panel| panel.expanded));
+
+    key_up(cx, "enter");
+    assert!(!read_panel(&panel, cx, |panel| panel.expanded));
+    assert_eq!(
+        actions.borrow().as_slice(),
+        &[PagesPanelAction::ExpansionChanged { expanded: false }]
+    );
+}
+
+#[gpui::test]
 fn closing_search_from_the_keyboard_restores_tab_focus_and_expands_the_header(
     cx: &mut TestAppContext,
 ) {

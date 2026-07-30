@@ -45,6 +45,7 @@ impl PagesPanel {
                 )
             })
             .h(px(36.))
+            .flex_none()
             .mx_2()
             .px_3()
             .rounded(px(5.))
@@ -76,11 +77,12 @@ impl PagesPanel {
 
         deferred(
             v_flex()
+                .id(SharedString::from(format!("{}-page-menu", self.id)))
                 .absolute()
                 .left(origin.x)
                 .top(origin.y)
                 .debug_selector(|| "pages-page-menu".to_owned())
-                .occlude()
+                .block_mouse_except_scroll()
                 .w(px(224.))
                 .py_2()
                 .rounded(px(12.))
@@ -204,16 +206,29 @@ impl PagesPanel {
         let counts = self.results.element_counts.clone();
         let all_active = self.active_filters.is_empty();
         let mode = self.mode;
+        let estimated_height =
+            px((PagesPanelElementKind::FILTER_ORDER.len() as f32 + 4.) * 32. + 50.);
+        let menu_top = if origin.y < px(0.) { px(0.) } else { origin.y };
+        let available_height = panel_bounds.size.height - menu_top;
+        let menu_height = if estimated_height > available_height {
+            available_height
+        } else {
+            estimated_height
+        };
 
         deferred(
             v_flex()
+                .id(SharedString::from(format!("{}-filter-menu", self.id)))
                 .absolute()
                 .left(origin.x)
-                .top(origin.y)
+                .top(menu_top)
                 .debug_selector(|| "pages-filter-menu".to_owned())
                 .capture_key_up(prevent_keyboard_activation_click)
-                .occlude()
+                .block_mouse_except_scroll()
                 .w(px(224.))
+                .max_h(menu_height)
+                .overflow_scroll()
+                .track_scroll(&self.filter_menu_scroll_handle)
                 .py_2()
                 .rounded(px(12.))
                 .border_1()
@@ -222,7 +237,14 @@ impl PagesPanel {
                 .shadow_lg()
                 .child(self.render_mode_item(PanelMode::Find, "Find", mode, cx))
                 .child(self.render_mode_item(PanelMode::Replace, "Replace", mode, cx))
-                .child(div().h(px(1.)).w_full().my_2().bg(cx.theme().border))
+                .child(
+                    div()
+                        .h(px(1.))
+                        .w_full()
+                        .my_2()
+                        .flex_none()
+                        .bg(cx.theme().border),
+                )
                 .children(PagesPanelElementKind::FILTER_ORDER.into_iter().map(|kind| {
                     let active = if kind == PagesPanelElementKind::All {
                         all_active
@@ -242,6 +264,7 @@ impl PagesPanel {
                         .key_context(PAGES_CONTROL_KEY_CONTEXT)
                         .tab_index(0)
                         .h(px(32.))
+                        .flex_none()
                         .mx_2()
                         .px_2()
                         .gap_2()
@@ -273,9 +296,27 @@ impl PagesPanel {
                             )
                         })
                 }))
-                .child(div().h(px(1.)).w_full().my_2().bg(cx.theme().border))
+                .child(
+                    div()
+                        .h(px(1.))
+                        .w_full()
+                        .my_2()
+                        .flex_none()
+                        .bg(cx.theme().border),
+                )
                 .child(self.render_option_item("Match case", self.match_case, true, cx))
-                .child(self.render_option_item("Whole words", self.whole_words, false, cx)),
+                .child(self.render_option_item("Whole words", self.whole_words, false, cx))
+                .child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .right_0()
+                        .bottom_0()
+                        .debug_selector(|| "pages-filter-menu-scrollbar".to_owned())
+                        .child(Scrollbar::vertical(&self.filter_menu_scroll_handle).id(
+                            SharedString::from(format!("{}-filter-menu-scrollbar", self.id)),
+                        )),
+                ),
         )
         .with_priority(2)
         .into_any_element()
@@ -299,6 +340,7 @@ impl PagesPanel {
                 row.track_focus(&menu_focus_handle)
             })
             .h(px(32.))
+            .flex_none()
             .mx_2()
             .px_2()
             .gap_2()
@@ -338,6 +380,7 @@ impl PagesPanel {
             .key_context(PAGES_CONTROL_KEY_CONTEXT)
             .tab_index(0)
             .h(px(32.))
+            .flex_none()
             .mx_2()
             .px_2()
             .gap_2()
@@ -386,7 +429,7 @@ impl PagesPanel {
                 .top(origin.y)
                 .debug_selector(|| "pages-scope-menu".to_owned())
                 .capture_key_up(prevent_keyboard_activation_click)
-                .occlude()
+                .block_mouse_except_scroll()
                 .w(px(168.))
                 .py_2()
                 .rounded(px(12.))
@@ -419,6 +462,7 @@ impl PagesPanel {
                                 row.track_focus(&menu_focus_handle)
                             })
                             .h(px(36.))
+                            .flex_none()
                             .mx_2()
                             .px_2()
                             .gap_2()

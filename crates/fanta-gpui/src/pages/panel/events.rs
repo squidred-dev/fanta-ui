@@ -17,6 +17,7 @@ impl PagesPanel {
         self.filter_menu_open = !self.filter_menu_open;
         self.scope_menu_open = false;
         if self.filter_menu_open {
+            self.filter_menu_scroll_handle.set_offset(Point::default());
             let focus_handle = self.filter_menu_focus_handle.clone();
             window.defer(cx, move |window, _| {
                 focus_handle.focus(window);
@@ -31,6 +32,7 @@ impl PagesPanel {
         }
         self.filter_menu_open = true;
         self.scope_menu_open = false;
+        self.filter_menu_scroll_handle.set_offset(Point::default());
         let focus_handle = self.filter_menu_focus_handle.clone();
         window.defer(cx, move |window, _| {
             focus_handle.focus(window);

@@ -25,6 +25,8 @@ impl PagesPanel {
             .h(px(HEADER_HEIGHT))
             .w_full()
             .flex_shrink_0()
+            .border_b_1()
+            .border_color(cx.theme().transparent)
             .cursor_pointer()
             .occlude()
             .hover(|style| style.bg(cx.theme().sidebar_accent.opacity(0.55)))

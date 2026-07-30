@@ -462,6 +462,7 @@ impl PagesPanel {
                             .key_context(PAGES_CONTROL_KEY_CONTEXT)
                             .tab_index(0)
                             .min_h(px(52.))
+                            .flex_none()
                             .w_full()
                             .gap_2()
                             .px_4()

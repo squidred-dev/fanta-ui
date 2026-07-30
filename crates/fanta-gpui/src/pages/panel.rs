@@ -149,6 +149,7 @@ pub struct PagesPanel {
     page_row_bounds: HashMap<SharedString, Bounds<Pixels>>,
     pages_scroll_handle: ScrollHandle,
     results_scroll_handle: ScrollHandle,
+    filter_menu_scroll_handle: ScrollHandle,
     results: PagesPanelSearchResults,
     active_result: Option<usize>,
     last_keyboard_page_activation: Option<(SharedString, Instant)>,
@@ -249,6 +250,7 @@ impl PagesPanel {
             page_row_bounds: HashMap::new(),
             pages_scroll_handle: ScrollHandle::new(),
             results_scroll_handle: ScrollHandle::new(),
+            filter_menu_scroll_handle: ScrollHandle::new(),
             results: PagesPanelSearchResults::default(),
             active_result: None,
             last_keyboard_page_activation: None,
@@ -332,6 +334,7 @@ impl Render for PagesPanel {
             .id(id)
             .key_context(PAGES_PANEL_KEY_CONTEXT)
             .track_focus(&self.focus_handle)
+            .capture_key_up(prevent_keyboard_activation_click)
             .on_action(cx.listener(Self::on_toggle_panel))
             .on_action(cx.listener(Self::on_find_in_pages))
             .on_action(cx.listener(Self::on_add_page))

@@ -144,6 +144,9 @@ impl PagesPanel {
             .h(px(PAGE_ROW_HEIGHT))
             .w_full()
             .min_w(row_min_width)
+            .flex_none()
+            .border_1()
+            .border_color(cx.theme().transparent)
             .px_2()
             .rounded(px(4.))
             .text_sm()
@@ -152,7 +155,6 @@ impl PagesPanel {
             .focus(|style| {
                 style
                     .bg(cx.theme().sidebar_accent.opacity(0.65))
-                    .border_1()
                     .border_color(cx.theme().selection)
             })
             .when(is_selected, |row| {
