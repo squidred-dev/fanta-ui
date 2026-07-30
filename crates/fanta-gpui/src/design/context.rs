@@ -604,7 +604,7 @@ impl<T> DesignPanelReadOnlyValue<T> {
     }
 
     pub fn reason(&self) -> Option<&str> {
-        self.reason.as_deref().map(|reason| &**reason)
+        self.reason.as_deref()
     }
 }
 

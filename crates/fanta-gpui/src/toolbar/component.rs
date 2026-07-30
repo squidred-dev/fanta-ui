@@ -280,7 +280,7 @@ impl EditorToolbar {
         }
         self.set_overlay(None, cx);
         let focus_handle = self.focus_handle.clone();
-        window.defer(cx, move |window, _| focus_handle.focus(window));
+        window.defer(cx, move |window, cx| focus_handle.focus(window, cx));
         cx.notify();
         true
     }
@@ -440,7 +440,7 @@ impl EditorToolbar {
             _ => {
                 self.set_overlay(None, cx);
                 let focus_handle = self.focus_handle.clone();
-                window.defer(cx, move |window, _| focus_handle.focus(window));
+                window.defer(cx, move |window, cx| focus_handle.focus(window, cx));
                 cx.notify();
             }
         }

@@ -35,3 +35,7 @@ split-debuginfo = "unpacked"
 
 [profile.dev.package]
 gpui = { opt-level = 3 }
+
+[patch.crates-io]
+gpui = { path = "../fanta-edit/crates/gpui" }
+gpui-component = { path = "../fanta-edit/crates/gpui_component" }

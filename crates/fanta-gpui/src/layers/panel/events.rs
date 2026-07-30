@@ -22,7 +22,7 @@ impl LayersPanel {
         if let Some(menu) = self.menu.take() {
             menu.return_focus
                 .unwrap_or_else(|| self.focus_handle.clone())
-                .focus(window);
+                .focus(window, cx);
             cx.stop_propagation();
             cx.notify();
         } else if self.editing.take().is_some() {
@@ -153,8 +153,8 @@ impl LayersPanel {
         });
         self.menu_scroll_handle.set_offset(Point::default());
         let focus_handle = self.menu_focus_handle.clone();
-        window.defer(cx, move |window, _| {
-            focus_handle.focus(window);
+        window.defer(cx, move |window, cx| {
+            focus_handle.focus(window, cx);
         });
         cx.notify();
     }
@@ -232,8 +232,8 @@ impl LayersPanel {
 
     fn focus_panel_after_action(&self, window: &mut Window, cx: &mut Context<Self>) {
         let focus_handle = self.focus_handle.clone();
-        window.defer(cx, move |window, _| {
-            focus_handle.focus(window);
+        window.defer(cx, move |window, cx| {
+            focus_handle.focus(window, cx);
         });
     }
 }

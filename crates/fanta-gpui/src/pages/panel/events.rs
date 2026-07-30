@@ -19,8 +19,8 @@ impl PagesPanel {
         if self.filter_menu_open {
             self.filter_menu_scroll_handle.set_offset(Point::default());
             let focus_handle = self.filter_menu_focus_handle.clone();
-            window.defer(cx, move |window, _| {
-                focus_handle.focus(window);
+            window.defer(cx, move |window, cx| {
+                focus_handle.focus(window, cx);
             });
         }
         cx.notify();
@@ -34,8 +34,8 @@ impl PagesPanel {
         self.scope_menu_open = false;
         self.filter_menu_scroll_handle.set_offset(Point::default());
         let focus_handle = self.filter_menu_focus_handle.clone();
-        window.defer(cx, move |window, _| {
-            focus_handle.focus(window);
+        window.defer(cx, move |window, cx| {
+            focus_handle.focus(window, cx);
         });
         cx.notify();
     }
@@ -48,8 +48,8 @@ impl PagesPanel {
         self.filter_menu_open = false;
         if self.scope_menu_open {
             let focus_handle = self.scope_menu_focus_handle.clone();
-            window.defer(cx, move |window, _| {
-                focus_handle.focus(window);
+            window.defer(cx, move |window, cx| {
+                focus_handle.focus(window, cx);
             });
         }
         cx.notify();
@@ -62,8 +62,8 @@ impl PagesPanel {
         self.scope_menu_open = true;
         self.filter_menu_open = false;
         let focus_handle = self.scope_menu_focus_handle.clone();
-        window.defer(cx, move |window, _| {
-            focus_handle.focus(window);
+        window.defer(cx, move |window, cx| {
+            focus_handle.focus(window, cx);
         });
         cx.notify();
     }
@@ -121,13 +121,13 @@ impl PagesPanel {
         if let Some(menu) = self.page_menu.take() {
             menu.return_focus
                 .unwrap_or_else(|| self.focus_handle.clone())
-                .focus(window);
+                .focus(window, cx);
         } else if self.filter_menu_open {
             self.filter_menu_open = false;
-            self.settings_focus_handle.focus(window);
+            self.settings_focus_handle.focus(window, cx);
         } else if self.scope_menu_open {
             self.scope_menu_open = false;
-            self.scope_trigger_focus_handle.focus(window);
+            self.scope_trigger_focus_handle.focus(window, cx);
         } else {
             return false;
         }
@@ -255,8 +255,8 @@ impl PagesPanel {
         }
         if restore_focus {
             let focus_handle = self.focus_handle.clone();
-            window.defer(cx, move |window, _| {
-                focus_handle.focus(window);
+            window.defer(cx, move |window, cx| {
+                focus_handle.focus(window, cx);
             });
         }
         cx.notify();
@@ -310,8 +310,8 @@ impl PagesPanel {
             return_focus,
         });
         let focus_handle = self.page_menu_focus_handle.clone();
-        window.defer(cx, move |window, _| {
-            focus_handle.focus(window);
+        window.defer(cx, move |window, cx| {
+            focus_handle.focus(window, cx);
         });
         cx.notify();
     }
@@ -378,8 +378,8 @@ impl PagesPanel {
 
     fn focus_panel_after_action(&self, window: &mut Window, cx: &mut Context<Self>) {
         let focus_handle = self.focus_handle.clone();
-        window.defer(cx, move |window, _| {
-            focus_handle.focus(window);
+        window.defer(cx, move |window, cx| {
+            focus_handle.focus(window, cx);
         });
     }
 
@@ -401,8 +401,8 @@ impl PagesPanel {
         self.scope_menu_open = false;
         cx.emit(PagesPanelAction::SearchClosed);
         let focus_handle = self.focus_handle.clone();
-        window.defer(cx, move |window, _| {
-            focus_handle.focus(window);
+        window.defer(cx, move |window, cx| {
+            focus_handle.focus(window, cx);
         });
         cx.notify();
     }

@@ -158,7 +158,7 @@ fn double_click(cx: &mut VisualTestContext, selector: &'static str) {
 
 fn focus_panel(panel: &Entity<LayersPanel>, cx: &mut VisualTestContext) {
     cx.update(|window, app| {
-        panel.focus_handle(app).focus(window);
+        panel.focus_handle(app).focus(window, app);
     });
     cx.run_until_parked();
 }

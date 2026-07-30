@@ -8,7 +8,7 @@
 use std::path::PathBuf;
 
 use gpui::{
-    AnyElement, App, AppContext as _, Bounds, Context, Corner, Entity, EventEmitter, ExternalPaths,
+    Anchor, AnyElement, App, AppContext as _, Bounds, Context, Entity, EventEmitter, ExternalPaths,
     FocusHandle, Focusable, Hsla, InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton,
     MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _, Pixels, Point, Render,
     ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, Subscription, Window,
@@ -906,8 +906,8 @@ impl PaintPicker {
         self.resource_scope_menu_return_focus = window.focused(cx);
         self.resource_scope_menu_open = true;
         let focus_handle = self.resource_scope_menu_focus_handle.clone();
-        window.defer(cx, move |window, _| {
-            focus_handle.focus(window);
+        window.defer(cx, move |window, cx| {
+            focus_handle.focus(window, cx);
         });
         cx.notify();
     }
@@ -915,8 +915,8 @@ impl PaintPicker {
     fn close_resource_scope_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.resource_scope_menu_open = false;
         if let Some(return_focus) = self.resource_scope_menu_return_focus.take() {
-            window.defer(cx, move |window, _| {
-                return_focus.focus(window);
+            window.defer(cx, move |window, cx| {
+                return_focus.focus(window, cx);
             });
         }
         cx.notify();
@@ -1080,8 +1080,8 @@ impl PaintPicker {
         self.color_format_menu_return_focus = window.focused(cx);
         self.color_format_menu_open = true;
         let focus_handle = self.color_format_menu_focus_handle.clone();
-        window.defer(cx, move |window, _| {
-            focus_handle.focus(window);
+        window.defer(cx, move |window, cx| {
+            focus_handle.focus(window, cx);
         });
         cx.notify();
     }
@@ -1089,8 +1089,8 @@ impl PaintPicker {
     fn close_color_format_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.color_format_menu_open = false;
         if let Some(return_focus) = self.color_format_menu_return_focus.take() {
-            window.defer(cx, move |window, _| {
-                return_focus.focus(window);
+            window.defer(cx, move |window, cx| {
+                return_focus.focus(window, cx);
             });
         }
         cx.notify();
@@ -1426,8 +1426,8 @@ impl PaintPicker {
         self.creation_menu_return_focus = window.focused(cx);
         self.creation_menu_open = true;
         let focus_handle = self.creation_menu_focus_handle.clone();
-        window.defer(cx, move |window, _| {
-            focus_handle.focus(window);
+        window.defer(cx, move |window, cx| {
+            focus_handle.focus(window, cx);
         });
         cx.notify();
     }
@@ -1435,8 +1435,8 @@ impl PaintPicker {
     fn close_creation_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.creation_menu_open = false;
         if let Some(return_focus) = self.creation_menu_return_focus.take() {
-            window.defer(cx, move |window, _| {
-                return_focus.focus(window);
+            window.defer(cx, move |window, cx| {
+                return_focus.focus(window, cx);
             });
         }
         cx.notify();
@@ -2628,7 +2628,7 @@ impl PaintPicker {
             });
 
         Popover::new(SharedString::from(format!("{}-creation-menu", self.id)))
-            .anchor(Corner::BottomRight)
+            .anchor(Anchor::BottomRight)
             .open(self.creation_menu_open)
             .track_focus(&menu_focus_handle)
             .overlay_closable(true)
@@ -2969,7 +2969,7 @@ impl PaintPicker {
             "{}-paint-blend-mode-menu",
             self.id
         )))
-        .anchor(Corner::BottomRight)
+        .anchor(Anchor::BottomRight)
         .open(self.blend_mode_menu_open)
         .overlay_closable(true)
         .on_open_change(move |open, _, cx| {
@@ -3370,8 +3370,8 @@ impl PaintPicker {
         self.gradient_kind_menu_return_focus = window.focused(cx);
         self.gradient_kind_menu_open = true;
         let focus_handle = self.gradient_kind_menu_focus_handle.clone();
-        window.defer(cx, move |window, _| {
-            focus_handle.focus(window);
+        window.defer(cx, move |window, cx| {
+            focus_handle.focus(window, cx);
         });
         cx.notify();
     }
@@ -3379,8 +3379,8 @@ impl PaintPicker {
     fn close_gradient_kind_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.gradient_kind_menu_open = false;
         if let Some(return_focus) = self.gradient_kind_menu_return_focus.take() {
-            window.defer(cx, move |window, _| {
-                return_focus.focus(window);
+            window.defer(cx, move |window, cx| {
+                return_focus.focus(window, cx);
             });
         }
         cx.notify();
@@ -3595,7 +3595,7 @@ impl PaintPicker {
             "{}-gradient-kind-menu",
             self.id
         )))
-        .anchor(Corner::BottomLeft)
+        .anchor(Anchor::BottomLeft)
         .open(self.gradient_kind_menu_open)
         .track_focus(&menu_focus_handle)
         .overlay_closable(true)
@@ -4164,7 +4164,7 @@ impl PaintPicker {
             });
 
         Popover::new(SharedString::from(format!("{}-color-format-menu", self.id)))
-            .anchor(Corner::BottomLeft)
+            .anchor(Anchor::BottomLeft)
             .open(self.color_format_menu_open)
             .track_focus(&menu_focus_handle)
             .overlay_closable(true)
@@ -4713,7 +4713,7 @@ impl PaintPicker {
             "{}-resource-scope-menu",
             self.id
         )))
-        .anchor(Corner::BottomLeft)
+        .anchor(Anchor::BottomLeft)
         .open(self.resource_scope_menu_open)
         .track_focus(&menu_focus_handle)
         .overlay_closable(true)
@@ -7681,7 +7681,7 @@ mod tests {
         });
         let hex_input = visual_cx.read(|app| picker.read(app).hex_input.clone());
         visual_cx.update(|window, app| {
-            hex_input.focus_handle(app).focus(window);
+            hex_input.focus_handle(app).focus(window, app);
         });
         visual_cx.run_until_parked();
         visual_cx.update(|window, app| {
@@ -7749,7 +7749,7 @@ mod tests {
         });
         let hex_input = visual_cx.read(|app| picker.read(app).hex_input.clone());
         visual_cx.update(|window, app| {
-            hex_input.focus_handle(app).focus(window);
+            hex_input.focus_handle(app).focus(window, app);
         });
         visual_cx.run_until_parked();
         visual_cx.update(|window, app| {
@@ -7809,7 +7809,7 @@ mod tests {
             });
         });
         let input = visual_cx.read(|app| picker.read(app).hex_input.clone());
-        visual_cx.update(|window, app| input.focus_handle(app).focus(window));
+        visual_cx.update(|window, app| input.focus_handle(app).focus(window, app));
         visual_cx.run_until_parked();
         visual_cx.update(|window, app| {
             input.update(app, |input, cx| {
@@ -7940,14 +7940,17 @@ mod tests {
         let i = KeyDownEvent {
             keystroke: Keystroke::parse("i").expect("I shortcut"),
             is_held: false,
+            prefer_character_input: false,
         };
         let modified_i = KeyDownEvent {
             keystroke: Keystroke::parse("shift-i").expect("modified I shortcut"),
             is_held: false,
+            prefer_character_input: false,
         };
         let control_c = KeyDownEvent {
             keystroke: Keystroke::parse("ctrl-c").expect("macOS Control-C shortcut"),
             is_held: false,
+            prefer_character_input: false,
         };
         assert!(is_eyedropper_shortcut(&i));
         assert!(!is_eyedropper_shortcut(&modified_i));
@@ -7971,7 +7974,7 @@ mod tests {
                     window,
                     cx,
                 );
-                picker.focus_handle.focus(window);
+                picker.focus_handle.focus(window, cx);
                 picker.open_color_format_menu_from_keyboard(window, cx);
             });
         });
@@ -8053,7 +8056,7 @@ mod tests {
         visual_cx.update(|window, app| {
             picker.update(app, |picker, cx| {
                 picker.set_target("node", DesignPanelCollection::Fill, 0, paint, window, cx);
-                picker.focus_handle.focus(window);
+                picker.focus_handle.focus(window, cx);
                 picker.open_creation_menu_from_keyboard(window, cx);
             });
         });
@@ -8165,7 +8168,7 @@ mod tests {
                     ]),
                     cx,
                 );
-                picker.focus_handle.focus(window);
+                picker.focus_handle.focus(window, cx);
                 picker.open_resource_scope_menu_from_keyboard(window, cx);
             });
         });
@@ -8829,7 +8832,7 @@ mod tests {
                     window,
                     cx,
                 );
-                picker.focus_handle.focus(window);
+                picker.focus_handle.focus(window, cx);
                 picker.open_gradient_kind_menu_from_keyboard(window, cx);
             });
         });
@@ -8842,6 +8845,7 @@ mod tests {
                     &KeyDownEvent {
                         keystroke: Keystroke::parse("home").expect("Home"),
                         is_held: false,
+                        prefer_character_input: false,
                     },
                     window,
                     cx,
@@ -8850,6 +8854,7 @@ mod tests {
                     &KeyDownEvent {
                         keystroke: Keystroke::parse("up").expect("Up"),
                         is_held: false,
+                        prefer_character_input: false,
                     },
                     window,
                     cx,
@@ -8859,6 +8864,7 @@ mod tests {
                     &KeyDownEvent {
                         keystroke: Keystroke::parse("enter").expect("Enter"),
                         is_held: false,
+                        prefer_character_input: false,
                     },
                     window,
                     cx,

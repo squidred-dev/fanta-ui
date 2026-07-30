@@ -6,7 +6,7 @@ use std::{
 };
 
 use gpui::{
-    AnyElement, App, AppContext as _, ClickEvent, Context, Corner, Entity, EventEmitter,
+    Anchor, AnyElement, App, AppContext as _, ClickEvent, Context, Entity, EventEmitter,
     ExternalPaths, FocusHandle, Focusable, InteractiveElement as _, IntoElement, KeyDownEvent,
     Modifiers, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _,
     Render, ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, Subscription,
@@ -6949,7 +6949,7 @@ impl DesignPanel {
                 (DesignPanelEditPhase::Commit, value)
             });
         self.emit_variable_font_axis_action(&editor, value, phase, cx);
-        self.type_settings_focus.focus(window);
+        self.type_settings_focus.focus(window, cx);
         cx.notify();
     }
 
@@ -7198,7 +7198,7 @@ impl DesignPanel {
                 this.suppress_next_control_activation = false;
             });
         }
-        self.type_settings_focus.focus(window);
+        self.type_settings_focus.focus(window, cx);
         cx.notify();
         true
     }
@@ -13109,8 +13109,8 @@ impl DesignPanel {
     }
 
     fn defer_editor_focus(handle: FocusHandle, window: &mut Window, cx: &mut Context<Self>) {
-        window.defer(cx, move |window, _| {
-            handle.focus(window);
+        window.defer(cx, move |window, cx| {
+            handle.focus(window, cx);
         });
     }
 
@@ -13130,7 +13130,7 @@ impl DesignPanel {
             return;
         }
         let handle = cx.focus_handle();
-        handle.focus(window);
+        handle.focus(window, cx);
         self.editor_focus_return = Some(EditorFocusReturn { origin, handle });
         cx.notify();
     }
@@ -14365,7 +14365,7 @@ impl DesignPanel {
             "{}-selection-header-title-menu",
             self.id
         )))
-        .anchor(Corner::TopLeft)
+        .anchor(Anchor::TopLeft)
         .open(self.selection_header_overlay.as_ref() == Some(&overlay))
         .overlay_closable(true)
         .on_open_change(move |open, _, cx| {
@@ -14526,7 +14526,7 @@ impl DesignPanel {
             "{}-selection-header-control-menu-{}",
             self.id, control.id
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(self.selection_header_overlay.as_ref() == Some(&overlay))
         .overlay_closable(true)
         .on_open_change(move |open, _, cx| {
@@ -14627,7 +14627,7 @@ impl DesignPanel {
             "{}-selection-header-more-menu",
             self.id
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(self.selection_header_overlay.as_ref() == Some(&overlay))
         .overlay_closable(true)
         .on_open_change(move |open, _, cx| {
@@ -15098,7 +15098,7 @@ impl DesignPanel {
             "{}-typography-style-popover",
             self.id
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(active)
         .overlay_closable(true)
         .track_focus(&picker_focus)
@@ -15280,7 +15280,7 @@ impl DesignPanel {
             }));
 
         let browser = Popover::new(SharedString::from(format!("{}-font-popover", self.id)))
-            .anchor(Corner::TopRight)
+            .anchor(Anchor::TopRight)
             .open(open)
             .overlay_closable(true)
             .on_open_change(move |is_open, window, cx| {
@@ -15829,7 +15829,7 @@ impl DesignPanel {
             self.id,
             collection.label().to_lowercase().replace(' ', "-")
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(active)
         .overlay_closable(true)
         .on_open_change(move |open, window, cx| {
@@ -16248,7 +16248,7 @@ impl DesignPanel {
             "{}-effect-style-popover",
             self.id
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(active)
         .overlay_closable(true)
         .on_open_change(move |open, _, cx| {
@@ -16544,7 +16544,7 @@ impl DesignPanel {
             "{}-layout-guide-style-popover",
             self.id
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(active)
         .overlay_closable(true)
         .on_open_change(move |open, _, cx| {
@@ -16888,7 +16888,7 @@ impl DesignPanel {
         Popover::new(SharedString::from(format!(
             "{panel_id}-layout-guide-variable-popover-{index}-{property_key}"
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(active)
         .overlay_closable(true)
         .on_open_change(move |open, _, cx| {
@@ -17318,7 +17318,7 @@ impl DesignPanel {
             "{}-appearance-blend-mode-popover",
             self.id
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(self.appearance_blend_mode_open)
         .overlay_closable(true)
         .on_open_change(move |open, _, cx| {
@@ -17618,7 +17618,7 @@ impl DesignPanel {
                 "{}-property-variable-popover-{property:?}",
                 panel_id
             )))
-            .anchor(Corner::TopRight)
+            .anchor(Anchor::TopRight)
             .open(active)
             .overlay_closable(true)
             .on_open_change(move |open, window, cx| {
@@ -18490,7 +18490,7 @@ impl DesignPanel {
                 "{}-{id_suffix}-preview-menu",
                 self.id
             )))
-            .anchor(Corner::BottomLeft)
+            .anchor(Anchor::BottomLeft)
             .open(open)
             .overlay_closable(true)
             .on_open_change(move |is_open, _, cx| {
@@ -20221,7 +20221,7 @@ impl DesignPanel {
             "{}-grid-dimensions-popover",
             self.id
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(open)
         .overlay_closable(true)
         .on_open_change(move |is_open, _, cx| {
@@ -20525,7 +20525,7 @@ impl DesignPanel {
                 "{}-frame-preset-popover",
                 self.id
             )))
-            .anchor(Corner::TopRight)
+            .anchor(Anchor::TopRight)
             .open(open)
             .overlay_closable(true)
             .on_open_change(move |is_open, _, cx| {
@@ -21292,7 +21292,7 @@ impl DesignPanel {
             "{}-{axis_name}-dimension-popover",
             self.id
         )))
-        .anchor(Corner::TopLeft)
+        .anchor(Anchor::TopLeft)
         .open(open)
         .overlay_closable(true)
         .on_open_change(move |is_open, _, cx| {
@@ -23414,7 +23414,7 @@ impl DesignPanel {
                 property.id,
                 target.field.api_name()
             )))
-            .anchor(Corner::TopRight)
+            .anchor(Anchor::TopRight)
             .open(open)
             .overlay_closable(true)
             .on_open_change(move |is_open, window, cx| {
@@ -23681,7 +23681,7 @@ impl DesignPanel {
             "{}-component-swap-popover-{}",
             self.id, property.id
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(open)
         .overlay_closable(true)
         .on_open_change(move |is_open, window, cx| {
@@ -24119,7 +24119,7 @@ impl DesignPanel {
         {
             self.component_authoring_dialog_last_rendered_kind = None;
         }
-        self.focus_handle.focus(window);
+        self.focus_handle.focus(window, cx);
         cx.notify();
     }
 
@@ -24199,7 +24199,7 @@ impl DesignPanel {
     fn cancel_component_property_create(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.component_property_create_draft.take().is_some() {
             self.close_component_authoring_dialog(window, cx);
-            self.focus_handle.focus(window);
+            self.focus_handle.focus(window, cx);
             cx.notify();
         }
     }
@@ -24288,7 +24288,7 @@ impl DesignPanel {
             cx.emit_design_panel_action(self, action);
             self.component_property_create_draft = None;
             self.close_component_authoring_dialog(window, cx);
-            self.focus_handle.focus(window);
+            self.focus_handle.focus(window, cx);
             cx.notify();
         }
     }
@@ -24443,7 +24443,7 @@ impl DesignPanel {
         }
         self.component_authoring_name_editor = None;
         self.close_component_authoring_dialog(window, cx);
-        self.focus_handle.focus(window);
+        self.focus_handle.focus(window, cx);
         cx.notify();
     }
 
@@ -24712,7 +24712,7 @@ impl DesignPanel {
                 self.emit_component_authoring_action(action, cx);
             }
             self.component_authoring_name_editor = None;
-            self.focus_handle.focus(window);
+            self.focus_handle.focus(window, cx);
             cx.notify();
             return;
         }
@@ -24779,7 +24779,7 @@ impl DesignPanel {
         };
         self.emit_component_authoring_action(action, cx);
         self.component_authoring_name_editor = None;
-        self.focus_handle.focus(window);
+        self.focus_handle.focus(window, cx);
         cx.notify();
     }
 
@@ -25766,7 +25766,7 @@ impl DesignPanel {
             "{}-component-property-create-menu",
             self.id
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(open)
         .overlay_closable(true)
         .on_open_change(move |is_open, _, cx| {
@@ -30262,7 +30262,7 @@ impl DesignPanel {
             "{}-type-settings-popover",
             self.id
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(open)
         .overlay_closable(true)
         .track_focus(&focus)
@@ -30274,7 +30274,7 @@ impl DesignPanel {
                     this.active_picker = None;
                     this.typography_style_picker_open = false;
                     this.font_browser_open = false;
-                    focus_for_open.focus(window);
+                    focus_for_open.focus(window, cx);
                 } else {
                     this.type_settings_tab = TypographySettingsTab::Basics;
                 }
@@ -31563,7 +31563,7 @@ impl DesignPanel {
             .child(
                 div().flex_1().min_w(px(0.)).h_full().child(
                     Popover::new(popover_id)
-                        .anchor(Corner::TopRight)
+                        .anchor(Anchor::TopRight)
                         .open(active)
                         .overlay_closable(true)
                         .track_focus(&picker_focus)
@@ -32362,7 +32362,7 @@ impl DesignPanel {
             "{}-{id_suffix}-color-popover",
             self.id
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(open)
         .overlay_closable(true)
         .track_focus(&picker_focus)
@@ -33967,7 +33967,7 @@ impl DesignPanel {
                 "{}-effect-settings-popover-{index}",
                 self.id
             )))
-            .anchor(Corner::TopRight)
+            .anchor(Anchor::TopRight)
             .open(active)
             .overlay_closable(true)
             .on_open_change(move |open, _, cx| {
@@ -34571,7 +34571,7 @@ impl DesignPanel {
                     ),
             );
         Popover::new(SharedString::from(format!("{}-{id_suffix}-menu", self.id)))
-            .anchor(Corner::TopRight)
+            .anchor(Anchor::TopRight)
             .open(self.export_choice_overlay.as_ref() == Some(&overlay))
             .overlay_closable(true)
             .on_open_change(move |open, _, cx| {
@@ -34914,7 +34914,7 @@ impl DesignPanel {
                     ),
             );
         Popover::new(SharedString::from(format!("{}-{id_suffix}-menu", self.id)))
-            .anchor(Corner::TopRight)
+            .anchor(Anchor::TopRight)
             .open(self.export_choice_overlay.as_ref() == Some(&overlay))
             .overlay_closable(true)
             .on_open_change(move |open, _, cx| {
@@ -35996,7 +35996,7 @@ impl DesignPanel {
         Popover::new(SharedString::from(format!(
             "{panel_id}-selection-color-{selection_color_id}-paint-style-popover"
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(active)
         .overlay_closable(true)
         .on_open_change(move |open, _, cx| {
@@ -36302,7 +36302,7 @@ impl DesignPanel {
         Popover::new(SharedString::from(format!(
             "{panel_id}-selection-color-{selection_color_id}-variable-popover"
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(active)
         .overlay_closable(true)
         .on_open_change(move |open, _, cx| {
@@ -36517,7 +36517,7 @@ impl DesignPanel {
             "{}-selection-paint-{index}-popover",
             self.id
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(open)
         .overlay_closable(true)
         .track_focus(&picker_focus)
@@ -37357,7 +37357,7 @@ impl DesignPanel {
             "{}-page-background-popover",
             self.id
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(open)
         .overlay_closable(true)
         .track_focus(&picker_focus)
@@ -37417,7 +37417,7 @@ impl DesignPanel {
             "{}-page-resource-popover-{:?}",
             self.id, category
         )))
-        .anchor(Corner::TopRight)
+        .anchor(Anchor::TopRight)
         .open(self.page_resource_browser == Some(category))
         .overlay_closable(true)
         .on_open_change(move |open, _, cx| {
@@ -37647,7 +37647,7 @@ impl DesignPanel {
                 "{}-variable-modes-popover",
                 self.id
             )))
-            .anchor(Corner::TopRight)
+            .anchor(Anchor::TopRight)
             .open(self.variable_mode_browser_open)
             .overlay_closable(true)
             .on_open_change(move |open, _, cx| {
@@ -38899,7 +38899,7 @@ impl Render for DesignPanel {
                     {
                         this.component_property_create_menu_open = false;
                         this.close_component_authoring_dialog(window, cx);
-                        this.focus_handle.focus(window);
+                        this.focus_handle.focus(window, cx);
                         cx.notify();
                     } else if let Some(property) = this.draw_appearance_slider_property {
                         this.finish_draw_appearance_slider(property, false, cx);

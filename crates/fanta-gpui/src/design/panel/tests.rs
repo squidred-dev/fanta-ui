@@ -205,6 +205,7 @@ fn alignment_shortcuts_follow_visible_axes_and_ignore_modifiers() {
         AlignmentGridShortcut::from_key_down(&KeyDownEvent {
             keystroke: gpui::Keystroke::parse(key).expect("valid shortcut"),
             is_held: false,
+            prefer_character_input: false,
         })
     };
     assert_eq!(shortcut("up"), Some(AlignmentGridShortcut::Up));
@@ -302,6 +303,7 @@ fn alignment_grid_keyboard_emits_atomic_host_intents_and_gates_each_leaf(cx: &mu
         let event = KeyDownEvent {
             keystroke: gpui::Keystroke::parse(key).expect("valid shortcut"),
             is_held: false,
+            prefer_character_input: false,
         };
         visual_cx.update(|window, app| {
             panel.update(app, |panel, cx| {
@@ -601,6 +603,7 @@ fn grid_dimensions_picker_is_atomic_keyboard_accessible_and_stale_safe(cx: &mut 
                     &KeyDownEvent {
                         keystroke: gpui::Keystroke::parse(key).expect("valid Grid picker shortcut"),
                         is_held: false,
+                        prefer_character_input: false,
                     },
                     window,
                     cx,
@@ -1005,8 +1008,12 @@ impl TestHost {
 }
 
 impl Render for TestHost {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let key_downs = self.key_downs.clone();
+        // The dialog layer must live in the window's real element tree for its
+        // key bindings (escape -> Cancel) to dispatch, exactly as a production
+        // host renders it; an ephemeral `visual_cx.draw` frame does not keep
+        // dispatch state past the next refresh.
         let mut content = div()
             .relative()
             .w(px(self.panel_width))
@@ -1016,7 +1023,8 @@ impl Render for TestHost {
                     .borrow_mut()
                     .push(event.keystroke.key.clone().into());
             })
-            .child(self.panel.clone());
+            .child(self.panel.clone())
+            .children(Root::render_dialog_layer(window, cx));
         if self.render_type_setting_probe {
             let (editing, invalid, input) = {
                 let panel = self.panel.read(cx);
@@ -1094,10 +1102,10 @@ fn key_downs(host: &Entity<TestHost>, cx: &VisualTestContext) -> Rc<RefCell<Vec<
 
 fn rendered_tab_stop_count(panel: &Entity<DesignPanel>, cx: &mut VisualTestContext) -> usize {
     cx.update(|window, app| {
-        panel.read(app).focus_handle.focus(window);
+        panel.read(app).focus_handle.clone().focus(window, app);
         let mut visited = Vec::new();
         for _ in 0..512 {
-            window.focus_next();
+            window.focus_next(app);
             let focused = window
                 .focused(app)
                 .expect("the rendered Design panel should expose at least one tab stop");
@@ -1269,8 +1277,8 @@ fn surface_tabs_request_host_echo_from_pointer_and_keyboard(cx: &mut TestAppCont
     captured_actions.borrow_mut().clear();
 
     visual_cx.update(|window, app| {
-        panel.update(app, |panel, _| {
-            panel.focus_handle.focus(window);
+        panel.update(app, |panel, cx| {
+            panel.focus_handle.focus(window, cx);
         });
     });
     visual_cx.simulate_keystrokes("tab tab enter");
@@ -1344,8 +1352,8 @@ fn surface_tabs_request_host_echo_from_pointer_and_keyboard(cx: &mut TestAppCont
     );
 
     visual_cx.update(|window, app| {
-        panel.update(app, |panel, _| {
-            panel.focus_handle.focus(window);
+        panel.update(app, |panel, cx| {
+            panel.focus_handle.focus(window, cx);
         });
     });
     visual_cx.simulate_keystrokes("tab enter");
@@ -1737,7 +1745,7 @@ fn draw_opacity_slider_uses_balanced_phases_and_strict_keyboard_propagation(
         );
     });
     visual_cx.update(|window, app| {
-        panel.update(app, |panel, _| panel.focus_handle.focus(window));
+        panel.update(app, |panel, cx| panel.focus_handle.focus(window, cx));
     });
     visual_cx.simulate_keystrokes("right");
     visual_cx.run_until_parked();
@@ -4534,7 +4542,7 @@ fn selection_change_and_escape_close_transient_header_menus(cx: &mut TestAppCont
                 cx,
             );
             panel.selection_header_overlay = Some(SelectionHeaderOverlay::More);
-            panel.focus_handle.focus(window);
+            panel.focus_handle.focus(window, cx);
             cx.notify();
         });
     });
@@ -6303,8 +6311,8 @@ fn dimension_menu_opens_from_keyboard_and_emits_sizing_selection(cx: &mut TestAp
             .clone()
     });
 
-    visual_cx.update(|window, _| {
-        width_menu_focus.focus(window);
+    visual_cx.update(|window, cx| {
+        width_menu_focus.focus(window, cx);
     });
     visual_cx.simulate_keystrokes("enter");
     visual_cx.run_until_parked();
@@ -6870,7 +6878,7 @@ fn dimension_limit_icon_supports_pointer_keyboard_hover_and_selection_reset(
             .expect("Width menu focus")
             .clone()
     });
-    visual_cx.update(|window, _| width_menu_focus.focus(window));
+    visual_cx.update(|window, cx| width_menu_focus.focus(window, cx));
     visual_cx.simulate_keystrokes("enter");
     visual_cx.run_until_parked();
     assert!(
@@ -9481,7 +9489,7 @@ fn escape_closes_transient_type_settings(cx: &mut TestAppContext) {
         panel.update(app, |panel, cx| {
             panel.type_settings_open = true;
             panel.type_settings_tab = TypographySettingsTab::Details;
-            panel.focus_handle.focus(window);
+            panel.focus_handle.focus(window, cx);
             cx.notify();
         });
     });
@@ -11248,7 +11256,7 @@ fn shader_field_focus_rebases_and_reopens_the_exact_leaf(cx: &mut TestAppContext
     let panel = panel(&host, visual_cx);
     visual_cx.update(|window, app| {
         panel.update(app, |panel, cx| {
-            panel.focus_handle.focus(window);
+            panel.focus_handle.focus(window, cx);
             panel.activate_shader_property_field_from_control(
                 DesignPanelProperty::EffectShaderProperty(0, 1),
                 ShaderPropertyEditorField::LineEndX,
@@ -12892,7 +12900,7 @@ fn multiline_focus_survives_reorder_and_restores_after_save_and_cancel(cx: &mut 
     let panel = panel(&host, visual_cx);
     visual_cx.update(|window, app| {
         panel.update(app, |panel, cx| {
-            panel.focus_handle.focus(window);
+            panel.focus_handle.focus(window, cx);
             panel.open_component_multiline_editor_from_control(label_index, window, cx);
         });
     });
@@ -13173,7 +13181,7 @@ fn component_authoring_dialog_is_live_modal_and_escape_clears_each_draft(cx: &mu
     _ = visual_cx.draw(
         gpui::point(px(0.), px(0.)),
         gpui::size(px(1280.), px(720.)),
-        |_, _| dialog_layer.clone(),
+        |_, _| dialog_layer.clone().into_any_element(),
     );
     visual_cx.run_until_parked();
     panel.update(visual_cx, |panel, _| {
@@ -13200,7 +13208,7 @@ fn component_authoring_dialog_is_live_modal_and_escape_clears_each_draft(cx: &mu
     _ = visual_cx.draw(
         gpui::point(px(0.), px(0.)),
         gpui::size(px(1280.), px(720.)),
-        |_, _| dialog_layer.clone(),
+        |_, _| dialog_layer.clone().into_any_element(),
     );
     visual_cx.run_until_parked();
     panel.update(visual_cx, |panel, _| {
@@ -13234,7 +13242,7 @@ fn component_authoring_dialog_is_live_modal_and_escape_clears_each_draft(cx: &mu
     _ = visual_cx.draw(
         gpui::point(px(0.), px(0.)),
         gpui::size(px(1280.), px(720.)),
-        |_, _| dialog_layer,
+        |_, _| dialog_layer.into_any_element(),
     );
     visual_cx.run_until_parked();
     visual_cx.simulate_keystrokes("escape");

@@ -119,6 +119,7 @@ fn key_down(cx: &mut VisualTestContext, key: &str) {
     cx.simulate_event(KeyDownEvent {
         keystroke: Keystroke::parse(key).expect("valid test keystroke"),
         is_held: false,
+        prefer_character_input: false,
     });
     cx.run_until_parked();
 }
@@ -190,7 +191,7 @@ fn set_one_search_result(panel: &Entity<PagesPanel>, cx: &mut VisualTestContext)
 
 fn focus_panel(panel: &Entity<PagesPanel>, cx: &mut VisualTestContext) {
     cx.update(|window, app| {
-        panel.focus_handle(app).focus(window);
+        panel.focus_handle(app).focus(window, app);
     });
     cx.run_until_parked();
 }
@@ -567,7 +568,7 @@ fn adding_a_page_scrolls_and_focuses_the_editor_then_restores_tab_navigation(
     let scroll_handle = read_panel(&panel, cx, |panel| panel.pages_scroll_handle.clone());
     assert!(editor.top() >= viewport.top());
     assert!(editor.bottom() <= viewport.bottom());
-    assert_eq!(scroll_handle.offset().y, -scroll_handle.max_offset().height);
+    assert_eq!(scroll_handle.offset().y, -scroll_handle.max_offset().y);
 
     cx.simulate_keystrokes("x");
     let editor_value = cx.read(|app| panel.read(app).rename_input.read(app).value());
@@ -1016,8 +1017,8 @@ fn long_page_names_scroll_horizontally_and_many_pages_scroll_vertically(cx: &mut
         short_row.size.width >= viewport.size.width - px(20.),
         "ordinary rows should still fill the available viewport"
     );
-    assert!(scroll_handle.max_offset().width > px(0.));
-    assert!(scroll_handle.max_offset().height > px(0.));
+    assert!(scroll_handle.max_offset().x > px(0.));
+    assert!(scroll_handle.max_offset().y > px(0.));
 
     cx.simulate_event(ScrollWheelEvent {
         position: viewport.center(),
@@ -1121,7 +1122,7 @@ fn editing_a_long_horizontally_scrolled_page_keeps_a_full_width_input(cx: &mut T
     let scroll_handle = read_panel(&panel, cx, |panel| panel.pages_scroll_handle.clone());
     cx.simulate_event(ScrollWheelEvent {
         position: viewport.center(),
-        delta: ScrollDelta::Pixels(point(-scroll_handle.max_offset().width, px(0.))),
+        delta: ScrollDelta::Pixels(point(-scroll_handle.max_offset().x, px(0.))),
         ..Default::default()
     });
     assert!(scroll_handle.offset().x < px(0.));
@@ -1183,7 +1184,7 @@ fn search_results_have_a_bounded_scrollable_viewport(cx: &mut TestAppContext) {
     let scroll_handle = read_panel(&panel, cx, |panel| panel.results_scroll_handle.clone());
     assert_eq!(scrollbar_layer, viewport);
     assert_eq!(scroll_handle.bounds(), viewport);
-    assert!(scroll_handle.max_offset().height > px(0.));
+    assert!(scroll_handle.max_offset().y > px(0.));
 
     cx.simulate_event(ScrollWheelEvent {
         position: viewport.center(),
