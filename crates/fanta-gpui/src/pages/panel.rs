@@ -312,6 +312,16 @@ impl PagesPanel {
     pub fn search_request(&self, cx: &App) -> PagesPanelSearchRequest {
         self.build_search_request(cx)
     }
+
+    /// The host-controlled selected page id, for hosts verifying their echo.
+    pub fn selected_page(&self) -> Option<&SharedString> {
+        self.selected_page.as_ref()
+    }
+
+    /// The host-controlled search results the panel currently renders.
+    pub fn search_results(&self) -> &PagesPanelSearchResults {
+        &self.results
+    }
 }
 
 impl Focusable for PagesPanel {
