@@ -77,6 +77,11 @@ with the application because GPUI installs one application-level asset source.
 The storybook uses `gpui-component-assets::Assets`; a production host may use
 that source or compose those assets with its own.
 
+Semantic toolbar icons use canonical or toolbar-owned vector rendering. A
+Unicode character rendered through the current text font is not an icon source:
+its outline, alignment, and availability vary by platform. Textual shortcut
+hints may still use their conventional symbols.
+
 ## §6 Storybook
 
 Every reusable component should have at least one interactive story covering
@@ -95,17 +100,53 @@ mock-data owner. The opened window captures the selected story at activation;
 later Gallery navigation does not retarget it. Window routing is development
 host state and is not part of any reusable component contract.
 
-The Foundations section includes an Icons page covering every `IconName`
-provided by the installed `gpui-component` asset bundle. The catalog belongs to
-the Storybook because it documents application-level assets rather than adding
-domain or document state to `fanta-gpui`.
+The sidebar mirrors the library's atomic tiers (§16). The Atoms and
+Molecules sections carry per-piece specimen stories built on the curated
+public `fanta_gpui::atoms` / `fanta_gpui::molecules` API — the icon_button
+activation matrix, the labeled ControlIcon grid, truncation, context menus
+with two-axis clamping, list rows, and anchored popups with edge fades —
+each wired into the shared intent log. The Atoms section also includes the
+Icon assets page covering every `IconName` provided by the installed
+`gpui-component` asset bundle; that catalog belongs to the Storybook because
+it documents application-level assets rather than adding domain or document
+state to `fanta-gpui`. The Getting started Welcome story renders the tier
+map itself, and the screens tier is the storybook: every story is a screen
+module feeding mock host data into the tiers above.
+
+Stories are registered in one `StoryDescriptor` table
+(`storybook/src/screens/mod.rs`). The registry is the single source for
+sidebar grouping into the five fixed sections — Getting started, Atoms,
+Molecules, Organisms, Layouts — plus render/focus/last-intent dispatch,
+launch-name parsing, and
+window sizing; `FANTA_STORYBOOK_STORY` rejects unknown names with the valid id
+list instead of falling back. Each story is one screen module owning its mock
+host state, seed and named-state fixtures, reducer, and knobs; the shared knob
+framework and last-typed-intent chrome live beside the registry. Restart-style
+environment variables (for example `FANTA_TOOLBAR_MODE`) survive as the
+initial values of runtime knobs. Adding a story means adding one screen module
+and one registry entry.
+
+The Gallery is also a responsiveness and accessibility instrument. Every
+story mounts the shared viewport harness (`screens/viewport.rs`): width and
+height scrub handles with a live pixel readout plus per-story preset chips
+sourced from the registry's `viewport_presets` (a component's natural sizes),
+so stories reflow instead of clipping at one fixed surface. Story windows
+scroll below the smallest registered viewport rather than clipping. The
+registry's `keyboard_hints` feed the gallery footer's `?` help panel, and a
+registry-driven storybook test walks every story's tab ring — proving a
+focusable control exists, Tab traversal cycles without trapping, and Escape
+is safe with and without an overlay open — so new stories are covered by
+registering.
 
 ## §7 Safety and quality
 
 - `unsafe` code is forbidden.
 - Public intent and prop types should implement useful comparison/debug traits.
-- `cargo fmt --all -- --check`, `cargo test --workspace`, and
-  `cargo clippy --workspace --all-targets -- -D warnings` must pass.
+- `cargo fmt -p fanta-gpui -p fanta-gpui-storybook -- --check`,
+  `cargo test --workspace`, and
+  `cargo clippy --workspace --all-targets -- -D warnings` must pass. Scoped
+  `fmt` is deliberate: `--all` would also reformat the patched sibling
+  `fanta-edit` sources.
 - New dependencies should preserve the seam in §2.
 
 ## §8 Pages panel integration contract
@@ -144,15 +185,31 @@ pointer activation, Enter/Space activation, and command actions through the
 same component methods, so keyboard access cannot bypass the headless intent
 boundary.
 
+Reloading or replacing a host keymap should rebuild the programmatic
+`gpui-component` and Fanta bindings before applying user bindings. As a narrow
+safety net for hosts that clear everything, focused toolbar, Pages, and Design
+inputs recover their core editing commands and suppress broader canvas
+bindings. A
+Fanta surface key context must not shadow those editing actions.
+
 Custom button-like controls share `ActivateControl` and the `FantaControl` key
 context. A surface-specific command is warranted only when the action must also
-be available outside the focused control.
+be available outside the focused control. Controls register that convergence
+through the shared activation builder (§16) rather than hand-wiring listener
+pairs, so pointer/keyboard parity holds by construction and is proven once by
+atom-level interaction tests.
 
 Interactive controls participate in the GPUI tab-stop tree. Text inputs,
 buttons, page and result rows, filter pills, search-scope controls, and menu
-items must remain reachable with Tab and Shift-Tab. Focus styling is part of
-the component presentation state; command actions remain public so a host can
-replace key bindings or expose them in its own command palette.
+items must remain reachable with Tab and Shift-Tab. Dense lists and trees use
+roving navigation instead of per-control stops: a row is one tab stop, Up/Down
+(and Left/Right for tree disclosure, Home/End for list ends) move focus between
+rows, and per-row satellite controls such as lock and visibility are
+pointer-plus-command surfaces reachable through row-scoped key bindings that
+emit the same typed intents. Focus styling is part of the component
+presentation state — the shared atoms reserve their focus-ring border so
+keyboard focus never shifts layout — and command actions remain public so a
+host can replace key bindings or expose them in its own command palette.
 
 ## §10 Layers panel integration contract
 
@@ -743,32 +800,49 @@ Storybook rejects compatibility-only paths before reducer dispatch.
 
 ## §12 Editor toolbar integration contract
 
-`EditorToolbar` is a stateful, full-canvas chrome overlay. A host supplies the
-active mode, selected tool, zoom, and Draw/Dev/Motion option read models. The
-toolbar emits `ToolbarAction` intents and never creates layers, changes a
-selection, runs a command, advances a timeline, or invokes an AI service.
+`EditorToolbar` is a stateful, intrinsic editor-chrome dock. It renders its
+persistent controls as one contained, content-sized surface; it does not claim
+full-canvas bounds, choose viewport coordinates, or apply its own outer
+positioning. A host supplies the active mode, selected tool, zoom, and
+Draw/Dev/Motion option read models. The toolbar emits `ToolbarAction` intents
+and never creates layers, changes a selection, runs a command, advances a
+timeline, or invokes an AI service.
 
 Host-controlled state:
 
 - the active Draw, Design, Motion, or Dev mode;
 - the selected primary tool and accepted mode-specific control values;
 - canvas zoom, Draw stroke options, Dev readiness, and Motion transport state;
+- every candidate the Draw and Motion option editors may offer: the swatch
+  palette, weight and smoothing min/max/step ranges, brush styles, and
+  animation styles — the toolbar presents these and never invents a value
+  outside them;
 - Agent context copy and suggestions, plus the allowed command subset/order;
 - command execution, plugins, widgets, media placement, undo, present, share,
   generated content, document mutations, and timeline data.
 
 Component-owned presentation state:
 
-- the open split-tool, Actions, Agent, or zoom overlay;
-- Actions query and highlighted result;
+- the open split-tool, Actions, Agent, zoom, or chip option-editor overlay;
+- Actions query and highlighted result, plus the menu highlight cursor;
 - the unsent Agent prompt and focused suggestion/control;
-- focus return, hover, pressed, tooltip, and flyout continuity.
+- focus return, hover, pressed, tooltip, and flyout continuity;
+- row scroll offsets and the overflow-fade visibility derived from them.
+
+Each transient surface is anchored to the exact disclosure, Actions, Agent, or
+zoom trigger that opened it. It may render in a deferred layer above the dock,
+but it must not position itself against an unrelated full-canvas root or canvas
+center. Component-owned popups snap inside the window with an 8 px edge margin.
+Persistent primary, secondary, mode, zoom, and Agent controls remain inside the
+dock; constrained hosts may let the dock's internal rows scroll.
 
 Pointer controls, Enter/Space activation, and the command actions registered by
 `fanta_gpui::init` converge on the same methods and typed intents. Hosts accept
 an intent by calling `set_mode`, `set_active_tool`, `set_zoom_percent`, or the
 appropriate options setter with fresh controlled data. The interactive
 storybook is the mock host and is the only layer that applies those requests.
+The host owns the dock's outer placement, canvas inset, and surrounding canvas
+clipping; the toolbar owns collision handling for its transient surfaces.
 
 ## §13 Variables, assets, prototype, and timeline contracts
 
@@ -789,6 +863,14 @@ settings, add keyframes, seek, or run an agent.
 subscribes to each child component, then passes those entities through
 `PseudoEditorChildren`. The shell owns simulated surface tabs and variables
 overlay visibility; it does not intercept or translate child intents.
+
+The shell's canvas is the positioning context for the intrinsic toolbar. It
+places a host-owned wrapper at bottom center and mounts `EditorToolbar` inside
+that wrapper without asking the toolbar to fill the canvas. The standalone
+Toolbar story uses the same canvas-relative bottom-center pattern. The shell or
+storybook host, rather than the reusable toolbar, chooses the bottom inset and
+adapts it when another host-owned surface such as the timeline occupies that
+edge.
 
 This makes the storybook composition useful for visual and integration testing
 without turning it into a document host. Pages, layers, assets, design,
@@ -821,3 +903,59 @@ Tests provide four complementary levels:
 the reusable crate may not depend on any Fanta domain/application crate, may
 not reference its Storybook host, and the Storybook must consume the library
 through its public facade.
+
+## §16 Atomic design tiers
+
+The library source is organized by atomic design tier:
+
+```text
+crates/fanta-gpui/src/
+  atoms/        activation, buttons, vector icons, truncation, bounds tracking
+  molecules/    menu chrome + clamping, anchored popups, list rows, edge fades
+  organisms/    assets, design, layers, pages, prototype, timeline, toolbar,
+                variables — the host-facing feature surfaces
+  layouts/      pseudo_editor — composition shells that arrange organisms
+```
+
+Organism and layout modules are re-exported at the crate root, so hosts import
+`fanta_gpui::pages`, never a tier path. The atoms and molecules tiers are
+curated public API: hosts (and the storybook) import `fanta_gpui::atoms` and
+`fanta_gpui::molecules` — or the prelude — to build custom chrome that shares
+the library's activation, focus-ring, icon, and clamping contracts, while
+drawing internals such as the icon stroke-path builder stay crate-private.
+The storybook mirrors the taxonomy
+with one screen module per story. Feature surfaces compose the shared tiers
+instead of re-implementing key contexts, focus rings, activation wiring,
+icons, or menu chrome per control:
+
+- `ControlExt::on_activate` registers one handler for both pointer clicks and
+  the Enter/Space `ActivateControl` command, suppressing keyboard-synthesized
+  clicks so a keystroke activates exactly once. A control may keep an explicit
+  action/click pair only when the pointer path needs event data the activation
+  payload lacks (for example `click_count` for double-click rename); such
+  sites carry a contract comment. `ButtonControlExt` mirrors the same
+  convergence for `gpui_component::Button` (which owns its focus handle and
+  click slot), and its `on_keyboard_activate` covers Buttons whose pointer
+  path is owned by a wrapping surface such as a `Popover` trigger — a Button
+  tab stop without one of these registrations is a dead control.
+- `icon_button` and `list_row` own the complete §9 control recipe: `id`, the
+  `FantaControl` key context, a tab stop, hover treatment, and a non-shifting
+  focus ring with the border width reserved while unfocused.
+- `menu_surface`, `menu_item`, and `clamp_menu_origin` own popover-menu chrome
+  and two-axis window clamping. Transient surfaces must stay inside the window
+  on both axes (§12 established the rule for toolbar popups; pointer-anchored
+  context menus follow it through this molecule).
+- `vector_icon` renders theme-colored stroke paths on a 16-unit grid and is
+  the sanctioned §5 icon source, shared with the toolbar's tool/mode drawings.
+  Unicode characters and hand-assembled div art are not icons.
+- `track_bounds` and `truncating_label` replace hand-rolled measurement
+  canvases and character-count width heuristics; labels truncate rather than
+  forcing horizontal scroll extents.
+- `controls::test_support` mounts any intent-emitting component behind a
+  recording probe host and asserts the §9 pointer/Enter/Space parity matrix
+  against a control's debug selector. Every interactive control carries a
+  systematic `debug_selector` so interaction tests target controls uniformly.
+
+New feature work must consume this layer; adding a bespoke control stanza,
+menu implementation, or glyph icon to a feature module is an architecture
+violation unless this section records why the shared piece cannot serve it.

@@ -1,5 +1,55 @@
 use super::*;
 
+/// Below this window width the gallery runs its narrow layout: the
+/// sidebar auto-collapses and story knobs default to collapsed.
+pub(crate) const GALLERY_NARROW_WINDOW_WIDTH: f32 = 880.;
+
+/// The user's standing choice for the gallery sidebar, kept on the
+/// Storybook entity so it survives story switches.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SidebarPin {
+    /// Follow the window width: expanded when wide, collapsed when narrow.
+    Auto,
+    /// Explicitly collapsed; stays collapsed at any window width.
+    Collapsed,
+    /// Explicitly reopened while the window was narrow.
+    Expanded,
+}
+
+pub(crate) fn window_is_narrow(window_width: f32) -> bool {
+    window_width < GALLERY_NARROW_WINDOW_WIDTH
+}
+
+/// Whether the sidebar is collapsed at the given window width.
+pub(crate) fn sidebar_collapsed(window_width: f32, pin: SidebarPin) -> bool {
+    match pin {
+        SidebarPin::Collapsed => true,
+        SidebarPin::Expanded => false,
+        SidebarPin::Auto => window_is_narrow(window_width),
+    }
+}
+
+/// The pin state after the user presses the sidebar toggle. Collapsing is
+/// always an explicit pin; reopening at a wide width returns to Auto so
+/// the sidebar keeps auto-collapsing when the window later shrinks.
+pub(crate) fn toggled_sidebar_pin(pin: SidebarPin, window_width: f32) -> SidebarPin {
+    if sidebar_collapsed(window_width, pin) {
+        if window_is_narrow(window_width) {
+            SidebarPin::Expanded
+        } else {
+            SidebarPin::Auto
+        }
+    } else {
+        SidebarPin::Collapsed
+    }
+}
+
+/// Whether a story's knobs section renders its body: the user's explicit
+/// choice wins over the narrow-window default.
+pub(crate) fn knobs_expanded(narrow: bool, user_choice: Option<bool>) -> bool {
+    user_choice.unwrap_or(!narrow)
+}
+
 impl Storybook {
     pub(super) fn open_story_window(&mut self, cx: &mut Context<Self>) {
         if self.launch_mode != StorybookLaunchMode::Gallery {
@@ -59,18 +109,6 @@ impl Storybook {
     }
 
     fn render_gallery_sidebar(&self, cx: &mut Context<Self>) -> AnyElement {
-        const GETTING_STARTED: &[StoryKind] = &[StoryKind::PseudoEditor];
-        const FOUNDATIONS: &[StoryKind] = &[StoryKind::Icons];
-        const COMPONENTS: &[StoryKind] = &[
-            StoryKind::Assets,
-            StoryKind::Design,
-            StoryKind::Layers,
-            StoryKind::Pages,
-            StoryKind::Prototype,
-            StoryKind::Timeline,
-            StoryKind::Toolbar,
-            StoryKind::Variables,
-        ];
         let query = self
             .gallery_search_input
             .read(cx)
@@ -78,17 +116,14 @@ impl Storybook {
             .trim()
             .to_ascii_lowercase();
         let mut groups = Vec::new();
-        for (label, stories) in [
-            ("Getting Started", GETTING_STARTED),
-            ("Foundations", FOUNDATIONS),
-            ("Components", COMPONENTS),
-        ] {
-            let items = stories
+        for section in screens::StorySection::ALL {
+            let items = screens::registry()
                 .iter()
-                .copied()
-                .filter(|story| story.matches_query(&query))
-                .map(|story| {
-                    SidebarMenuItem::new(story.title())
+                .filter(|descriptor| descriptor.section == section)
+                .filter(|descriptor| descriptor.matches_query(&query))
+                .map(|descriptor| {
+                    let story = descriptor.kind;
+                    SidebarMenuItem::new(descriptor.title)
                         .active(self.active_story == story)
                         .on_click(cx.listener(move |this, _, window, cx| {
                             this.activate_gallery_story(story, window, cx);
@@ -96,7 +131,9 @@ impl Storybook {
                 })
                 .collect::<Vec<_>>();
             if !items.is_empty() {
-                groups.push(SidebarGroup::new(label).child(SidebarMenu::new().children(items)));
+                groups.push(
+                    SidebarGroup::new(section.label()).child(SidebarMenu::new().children(items)),
+                );
             }
         }
         if groups.is_empty() {
@@ -164,29 +201,95 @@ impl Storybook {
             .into_any_element()
     }
 
-    fn render_gallery_story_surface(&self, cx: &mut Context<Self>) -> AnyElement {
-        let (width, height) = self.active_story.gallery_surface_size();
-        div()
-            .id("storybook-gallery-story-surface")
-            .debug_selector(|| "storybook-gallery-story-surface".to_owned())
-            .relative()
-            .flex_none()
-            .h(px(height))
-            .overflow_hidden()
-            .bg(cx.theme().background)
-            .when(self.active_story.gallery_uses_fluid_width(), |surface| {
-                surface.w_full().min_w(px(width))
-            })
-            .when(!self.active_story.gallery_uses_fluid_width(), |surface| {
-                surface.w(px(width))
-            })
-            .child(self.render_gallery_story_component(cx))
+    fn toggle_keyboard_help(&mut self, cx: &mut Context<Self>) {
+        self.keyboard_help_visible = !self.keyboard_help_visible;
+        cx.notify();
+    }
+
+    pub(super) fn toggle_gallery_sidebar(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let window_width = f32::from(window.viewport_size().width);
+        self.sidebar_pin = toggled_sidebar_pin(self.sidebar_pin, window_width);
+        cx.notify();
+    }
+
+    fn render_keyboard_help_panel(&self, cx: &mut Context<Self>) -> AnyElement {
+        let descriptor = self.active_story.descriptor();
+        let hint_row = |hint: &screens::KeyboardHint, cx: &mut Context<Self>| {
+            h_flex()
+                .w_full()
+                .items_start()
+                .gap_3()
+                .child(
+                    // Shrinks to its floor before the description column,
+                    // so the panel stays readable at narrow window widths.
+                    div()
+                        .w(px(210.))
+                        .min_w(px(96.))
+                        .font_semibold()
+                        .child(hint.keys),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .text_color(cx.theme().muted_foreground)
+                        .child(hint.action),
+                )
+                .into_any_element()
+        };
+
+        let mut rows = Vec::new();
+        for hint in screens::SHARED_KEYBOARD_HINTS {
+            rows.push(hint_row(hint, cx));
+        }
+        if !descriptor.keyboard_hints.is_empty() {
+            rows.push(
+                div()
+                    .mt_1()
+                    .text_color(cx.theme().muted_foreground)
+                    .child(format!("{} bindings", descriptor.title))
+                    .into_any_element(),
+            );
+            for hint in descriptor.keyboard_hints {
+                rows.push(hint_row(hint, cx));
+            }
+        }
+
+        v_flex()
+            .id("storybook-keyboard-help-panel")
+            .debug_selector(|| "storybook-keyboard-help-panel".to_owned())
+            .absolute()
+            .left(px(12.))
+            .right(px(12.))
+            .bottom(px(36.))
+            .max_w(px(460.))
+            .p_3()
+            .gap_2()
+            .rounded(px(8.))
+            .border_1()
+            .border_color(cx.theme().border)
+            .bg(cx.theme().popover.opacity(0.98))
+            .shadow_lg()
+            .text_xs()
+            .child(
+                div()
+                    .text_color(cx.theme().muted_foreground)
+                    .child("KEYBOARD"),
+            )
+            .children(rows)
             .into_any_element()
     }
 
-    pub(super) fn render_gallery_shell(&self, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_gallery_shell(
+        &self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let active_story = self.active_story;
         let last_action = self.last_action_for_story(active_story);
+        let window_width = f32::from(window.viewport_size().width);
+        let narrow = window_is_narrow(window_width);
+        let sidebar_hidden = sidebar_collapsed(window_width, self.sidebar_pin);
 
         v_flex()
             .id("storybook-gallery-shell")
@@ -198,6 +301,7 @@ impl Storybook {
             .on_action(cx.listener(|this, _: &ToggleGalleryTheme, _, cx| {
                 this.toggle_gallery_theme(cx);
             }))
+            .relative()
             .size_full()
             .min_h(px(0.))
             .overflow_hidden()
@@ -211,6 +315,30 @@ impl Storybook {
                     .border_b_1()
                     .border_color(cx.theme().border)
                     .bg(cx.theme().title_bar)
+                    .child(
+                        h_flex().h_full().pl_1().flex_none().items_center().child(
+                            Button::new("storybook-sidebar-toggle")
+                                .debug_selector(|| "storybook-sidebar-toggle".to_owned())
+                                .ghost()
+                                .small()
+                                .icon(
+                                    Icon::new(if sidebar_hidden {
+                                        IconName::PanelLeftOpen
+                                    } else {
+                                        IconName::PanelLeftClose
+                                    })
+                                    .size_4(),
+                                )
+                                .tooltip(if sidebar_hidden {
+                                    "Show the component sidebar"
+                                } else {
+                                    "Hide the component sidebar"
+                                })
+                                .on_click(cx.listener(|this, _, window, cx| {
+                                    this.toggle_gallery_sidebar(window, cx);
+                                })),
+                        ),
+                    )
                     .child(
                         div()
                             .h_full()
@@ -248,90 +376,130 @@ impl Storybook {
                                         this.toggle_gallery_theme(cx);
                                     })),
                             )
-                            .child(Icon::new(IconName::CircleCheck).size_4())
-                            .child("Interactive"),
+                            .when(!narrow, |bar| {
+                                bar.child(Icon::new(IconName::CircleCheck).size_4())
+                                    .child("Interactive")
+                            }),
                     ),
             )
             .child(
-                div().flex_1().min_h(px(0.)).child(
-                    h_resizable("storybook-gallery-layout")
+                div().flex_1().min_h(px(0.)).child({
+                    let story_column = v_flex()
+                        .size_full()
+                        .min_w(px(0.))
+                        .min_h(px(0.))
                         .child(
-                            resizable_panel()
-                                .size(px(255.))
-                                .size_range(px(200.)..px(320.))
-                                .child(self.render_gallery_sidebar(cx)),
+                            h_flex()
+                                .w_full()
+                                .min_h(px(86.))
+                                .flex_none()
+                                .flex_wrap()
+                                .items_start()
+                                .justify_between()
+                                .gap_3()
+                                .px_4()
+                                .py_4()
+                                .border_b_1()
+                                .border_color(cx.theme().border)
+                                .child(
+                                    v_flex()
+                                        .min_w(px(0.))
+                                        .gap_1()
+                                        .child(
+                                            div()
+                                                .text_xl()
+                                                .font_semibold()
+                                                .child(active_story.title()),
+                                        )
+                                        .child(
+                                            div()
+                                                .max_w(px(780.))
+                                                .text_sm()
+                                                .text_color(cx.theme().muted_foreground)
+                                                .child(active_story.description()),
+                                        ),
+                                )
+                                .child(
+                                    Button::new("storybook-open-story-window")
+                                        .outline()
+                                        .small()
+                                        .icon(Icon::new(IconName::ExternalLink).size_4())
+                                        .label("Open window")
+                                        .tooltip(
+                                            "Open this story in a maximized window. Its data stays in the Gallery.",
+                                        )
+                                        .on_click(cx.listener(|this, _, _, cx| {
+                                            this.open_story_window(cx);
+                                        })),
+                                ),
                         )
                         .child(
-                            resizable_panel().child(
-                                v_flex()
-                                    .size_full()
-                                    .min_w(px(0.))
-                                    .min_h(px(0.))
-                                    .child(
-                                        h_flex()
-                                            .w_full()
-                                            .min_h(px(86.))
-                                            .flex_none()
-                                            .items_start()
-                                            .justify_between()
-                                            .gap_6()
-                                            .px_4()
-                                            .py_4()
-                                            .border_b_1()
-                                            .border_color(cx.theme().border)
-                                            .child(
-                                                v_flex()
-                                                    .min_w(px(0.))
-                                                    .gap_1()
-                                                    .child(
-                                                        div()
-                                                            .text_xl()
-                                                            .font_semibold()
-                                                            .child(active_story.title()),
-                                                    )
-                                                    .child(
-                                                        div()
-                                                            .max_w(px(780.))
-                                                            .text_sm()
-                                                            .text_color(
-                                                                cx.theme().muted_foreground,
-                                                            )
-                                                            .child(active_story.description()),
-                                                    ),
-                                            )
-                                            .child(
-                                                Button::new("storybook-open-story-window")
-                                                    .outline()
-                                                    .small()
-                                                    .icon(
-                                                        Icon::new(IconName::ExternalLink).size_4(),
-                                                    )
-                                                    .label("Open window")
-                                                    .tooltip(
-                                                        "Open this story in a maximized window. Its data stays in the Gallery.",
-                                                    )
-                                                    .on_click(cx.listener(|this, _, _, cx| {
-                                                        this.open_story_window(cx);
-                                                    })),
-                                            ),
-                                    )
+                            // The viewport meta row lives above the scrolled
+                            // canvas so preset chips stay reachable and never
+                            // eat into the measured story area.
+                            div()
+                                .w_full()
+                                .flex_none()
+                                .px_4()
+                                .pt_3()
+                                .child(self.render_viewport_meta_row(cx)),
+                        )
+                        .child(
+                            // The relative wrapper carries the area probe so
+                            // fluid viewports can fill the visible canvas.
+                            div()
+                                .flex_1()
+                                .min_h(px(0.))
+                                .relative()
+                                .child(
+                                    div()
+                                        .id("storybook-gallery-canvas")
+                                        .debug_selector(|| "storybook-gallery-canvas".to_owned())
+                                        .size_full()
+                                        .overflow_scroll()
+                                        .track_scroll(&self.gallery_story_scroll_handle)
+                                        .bg(cx.theme().background)
+                                        .p(px(screens::viewport::GALLERY_CANVAS_PADDING))
+                                        .child(
+                                            v_flex()
+                                                .w_full()
+                                                .child(self.render_story_viewport(cx))
+                                                .when_some(
+                                                    active_story.descriptor().render_knobs,
+                                                    |canvas, knobs| {
+                                                        canvas.child(
+                                                            self.render_gallery_knobs_section(
+                                                                narrow, knobs, cx,
+                                                            ),
+                                                        )
+                                                    },
+                                                ),
+                                        ),
+                                )
+                                .child(self.render_story_area_probe(cx)),
+                        );
+                    if sidebar_hidden {
+                        story_column.into_any_element()
+                    } else {
+                        h_resizable("storybook-gallery-layout")
+                            .child(
+                                resizable_panel()
+                                    .size(px(255.))
+                                    .size_range(px(200.)..px(320.))
                                     .child(
                                         div()
-                                            .id("storybook-gallery-canvas")
+                                            .id("storybook-gallery-sidebar")
                                             .debug_selector(|| {
-                                                "storybook-gallery-canvas".to_owned()
+                                                "storybook-gallery-sidebar".to_owned()
                                             })
-                                            .flex_1()
-                                            .min_h(px(0.))
-                                            .overflow_scroll()
-                                            .track_scroll(&self.gallery_story_scroll_handle)
-                                            .bg(cx.theme().background)
-                                            .p_4()
-                                            .child(self.render_gallery_story_surface(cx)),
+                                            .size_full()
+                                            .child(self.render_gallery_sidebar(cx)),
                                     ),
-                            ),
-                        ),
-                ),
+                            )
+                            .child(resizable_panel().child(story_column))
+                            .into_any_element()
+                    }
+                }),
             )
             .child(
                 h_flex()
@@ -340,10 +508,24 @@ impl Storybook {
                     .flex_none()
                     .px_3()
                     .gap_2()
+                    .overflow_hidden()
                     .border_t_1()
                     .border_color(cx.theme().border)
                     .bg(cx.theme().title_bar)
                     .text_xs()
+                    .child(
+                        Button::new("storybook-keyboard-help-toggle")
+                            .debug_selector(|| "storybook-keyboard-help-toggle".to_owned())
+                            .ghost()
+                            .xsmall()
+                            .compact()
+                            .label("?")
+                            .selected(self.keyboard_help_visible)
+                            .tooltip("Show this story's key bindings")
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.toggle_keyboard_help(cx);
+                            })),
+                    )
                     .child(div().size(px(7.)).rounded_full().bg(cx.theme().success))
                     .child(div().font_medium().child(active_story.title()))
                     .child(
@@ -354,16 +536,64 @@ impl Storybook {
                             .child(last_action),
                     )
                     .child(div().flex_1())
-                    .child(
-                        div()
-                            .text_color(cx.theme().muted_foreground)
-                            .child(format!(
-                                "{} stories · {} theme · typed host intents",
-                                StoryKind::ALL.len(),
-                                self.gallery_theme_mode.name()
-                            )),
-                    ),
+                    .when(!narrow, |footer| {
+                        footer.child(
+                            div()
+                                .flex_none()
+                                .text_color(cx.theme().muted_foreground)
+                                .child(format!(
+                                    "{} stories · {} theme · typed host intents",
+                                    screens::registry().len(),
+                                    self.gallery_theme_mode.name()
+                                )),
+                        )
+                    }),
             )
+            .when(self.keyboard_help_visible, |shell| {
+                shell.child(self.render_keyboard_help_panel(cx))
+            })
+            .into_any_element()
+    }
+
+    /// The collapsible wrapper around a story's runtime knobs. Narrow
+    /// windows collapse the section by default so the knobs never crowd
+    /// out the story surface; the user's toggle wins at any width and
+    /// persists across story switches.
+    fn render_gallery_knobs_section(
+        &self,
+        narrow: bool,
+        render_knobs: fn(&Storybook, &mut Context<Storybook>) -> AnyElement,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let expanded = knobs_expanded(narrow, self.knobs_user_expanded);
+        v_flex()
+            .w_full()
+            .mt_3()
+            .child(
+                h_flex().w_full().child(
+                    Button::new("storybook-knobs-toggle")
+                        .debug_selector(|| "storybook-knobs-toggle".to_owned())
+                        .outline()
+                        .xsmall()
+                        .icon(
+                            Icon::new(if expanded {
+                                IconName::ChevronDown
+                            } else {
+                                IconName::ChevronRight
+                            })
+                            .size_4(),
+                        )
+                        .label(if expanded { "Hide knobs" } else { "Show knobs" })
+                        .tooltip("Collapse or expand this story's runtime knobs")
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            let narrow = window_is_narrow(f32::from(window.viewport_size().width));
+                            let expanded = knobs_expanded(narrow, this.knobs_user_expanded);
+                            this.knobs_user_expanded = Some(!expanded);
+                            cx.notify();
+                        })),
+                ),
+            )
+            .when(expanded, |section| section.child(render_knobs(self, cx)))
             .into_any_element()
     }
 
@@ -372,16 +602,90 @@ impl Storybook {
         story: StoryKind,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        // Below the story's smallest registered viewport the window
+        // scrolls instead of clipping the component.
+        let (min_width, min_height) = story.descriptor().min_story_size();
         div()
             .id("storybook-story-window")
             .debug_selector(|| "storybook-story-window".to_owned())
             .size_full()
             .min_w(px(0.))
             .min_h(px(0.))
-            .overflow_hidden()
+            .overflow_scroll()
             .bg(cx.theme().background)
             .text_color(cx.theme().foreground)
-            .child(self.render_story_component(story, cx))
+            .child(
+                div()
+                    .id("storybook-story-window-content")
+                    .debug_selector(|| "storybook-story-window-content".to_owned())
+                    .size_full()
+                    .min_w(px(min_width))
+                    .min_h(px(min_height))
+                    .child(self.render_story_component(story, cx)),
+            )
             .into_any_element()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_sidebar_auto_collapses_only_below_the_narrow_threshold() {
+        assert!(!sidebar_collapsed(1440., SidebarPin::Auto));
+        assert!(!sidebar_collapsed(
+            GALLERY_NARROW_WINDOW_WIDTH,
+            SidebarPin::Auto
+        ));
+        assert!(sidebar_collapsed(
+            GALLERY_NARROW_WINDOW_WIDTH - 1.,
+            SidebarPin::Auto
+        ));
+        assert!(sidebar_collapsed(320., SidebarPin::Auto));
+
+        // Explicit pins win at any width.
+        assert!(sidebar_collapsed(1440., SidebarPin::Collapsed));
+        assert!(sidebar_collapsed(320., SidebarPin::Collapsed));
+        assert!(!sidebar_collapsed(1440., SidebarPin::Expanded));
+        assert!(!sidebar_collapsed(320., SidebarPin::Expanded));
+    }
+
+    #[test]
+    fn sidebar_toggles_pin_collapses_and_release_wide_reopens_to_auto() {
+        // Collapsing is always an explicit pin, so later window growth
+        // does not reopen it.
+        assert_eq!(
+            toggled_sidebar_pin(SidebarPin::Auto, 1440.),
+            SidebarPin::Collapsed
+        );
+        assert_eq!(
+            toggled_sidebar_pin(SidebarPin::Expanded, 320.),
+            SidebarPin::Collapsed
+        );
+
+        // Reopening while narrow pins the sidebar open; reopening once the
+        // window is wide returns to Auto so it keeps auto-collapsing.
+        assert_eq!(
+            toggled_sidebar_pin(SidebarPin::Collapsed, 320.),
+            SidebarPin::Expanded
+        );
+        assert_eq!(
+            toggled_sidebar_pin(SidebarPin::Collapsed, 1440.),
+            SidebarPin::Auto
+        );
+        assert_eq!(
+            toggled_sidebar_pin(SidebarPin::Auto, 320.),
+            SidebarPin::Expanded,
+            "an auto-collapsed sidebar reopens pinned while the window stays narrow"
+        );
+    }
+
+    #[test]
+    fn knobs_default_by_window_width_and_the_user_choice_wins() {
+        assert!(knobs_expanded(false, None));
+        assert!(!knobs_expanded(true, None));
+        assert!(knobs_expanded(true, Some(true)));
+        assert!(!knobs_expanded(false, Some(false)));
     }
 }

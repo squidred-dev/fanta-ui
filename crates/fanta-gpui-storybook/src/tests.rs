@@ -1,6 +1,10 @@
 use super::*;
+use crate::screens::design::fixtures as design_fixtures;
+use crate::screens::design::fixtures::*;
+use crate::screens::design::reducers::*;
+use crate::screens::design::*;
 use fanta_gpui::prelude::{DesignBlendMode, DesignStrokeType};
-use gpui::{ScrollDelta, ScrollWheelEvent, TestAppContext, VisualTestContext, point};
+use gpui::{Modifiers, ScrollDelta, ScrollWheelEvent, TestAppContext, VisualTestContext, point};
 
 fn setup_design_story(cx: &mut TestAppContext) -> (Entity<Storybook>, &mut VisualTestContext) {
     cx.update(|cx| {
@@ -36,10 +40,10 @@ fn setup_design_story(cx: &mut TestAppContext) -> (Entity<Storybook>, &mut Visua
 fn launch_without_story_env_opens_the_gallery() {
     assert_eq!(
         parse_storybook_launch(None, None),
-        StorybookLaunch {
+        Ok(StorybookLaunch {
             story: StoryKind::PseudoEditor,
             mode: StorybookLaunchMode::Gallery,
-        }
+        })
     );
 }
 
@@ -47,43 +51,62 @@ fn launch_without_story_env_opens_the_gallery() {
 fn explicit_story_env_opens_a_reference_fixture() {
     assert_eq!(
         parse_storybook_launch(Some("assets-panel"), None),
-        StorybookLaunch {
+        Ok(StorybookLaunch {
             story: StoryKind::Assets,
             mode: StorybookLaunchMode::ReferenceFixture,
-        }
+        })
     );
     assert_eq!(
-        parse_storybook_launch(Some("not-a-story"), Some("design")),
-        StorybookLaunch {
+        parse_storybook_launch(Some("toolbar"), None),
+        Ok(StorybookLaunch {
             story: StoryKind::Toolbar,
             mode: StorybookLaunchMode::ReferenceFixture,
-        }
+        })
     );
+}
+
+#[test]
+fn unknown_story_names_are_rejected_with_the_valid_id_list() {
+    let error = parse_storybook_launch(Some("not-a-story"), Some("design"))
+        .expect_err("unknown reference stories must not silently fall back");
+    assert!(error.contains("not-a-story"), "{error}");
+    assert!(error.contains("FANTA_STORYBOOK_STORY"), "{error}");
+    for descriptor in screens::registry() {
+        assert!(
+            error.contains(descriptor.id),
+            "the error must list {:?}: {error}",
+            descriptor.id
+        );
+    }
+
+    let error = parse_storybook_launch(None, Some("mystery"))
+        .expect_err("unknown gallery stories must not silently fall back");
+    assert!(error.contains("FANTA_STORYBOOK_GALLERY_STORY"), "{error}");
 }
 
 #[test]
 fn gallery_story_env_selects_a_story_without_bypassing_the_gallery() {
     assert_eq!(
         parse_storybook_launch(None, Some("design")),
-        StorybookLaunch {
+        Ok(StorybookLaunch {
             story: StoryKind::Design,
             mode: StorybookLaunchMode::Gallery,
-        }
+        })
     );
     assert_eq!(
         parse_storybook_launch(None, Some("icon-gallery")),
-        StorybookLaunch {
+        Ok(StorybookLaunch {
             story: StoryKind::Icons,
             mode: StorybookLaunchMode::Gallery,
-        }
+        })
     );
 }
 
 #[test]
 fn icon_catalog_covers_every_bundled_icon() {
-    assert_eq!(icon_gallery::icon_count(), icon_gallery::ICON_COUNT);
-    assert_eq!(icon_gallery::ICON_COUNT, 86);
-    let names = icon_gallery::icon_names();
+    assert_eq!(screens::icons::icon_count(), screens::icons::ICON_COUNT);
+    assert_eq!(screens::icons::ICON_COUNT, 86);
+    let names = screens::icons::icon_names();
     assert_eq!(
         names.iter().copied().collect::<HashSet<_>>().len(),
         names.len(),
@@ -133,7 +156,7 @@ fn gallery_keeps_its_shell_when_a_story_opens_in_a_shared_window(cx: &mut TestAp
         ThemeMode::Light
     );
 
-    for story in StoryKind::ALL {
+    for story in screens::registry().iter().map(|descriptor| descriptor.kind) {
         visual_cx.update(|_, app| {
             storybook.update(app, |storybook, cx| {
                 storybook.active_story = story;
@@ -227,7 +250,74 @@ fn gallery_keeps_its_shell_when_a_story_opens_in_a_shared_window(cx: &mut TestAp
     );
 }
 #[gpui::test]
-fn pseudo_editor_toolbar_keeps_main_zoom_and_agent_surfaces_visible(cx: &mut TestAppContext) {
+fn every_reference_fixture_renders_through_the_registry(cx: &mut TestAppContext) {
+    cx.update(|cx| {
+        gpui_component::init(cx);
+        fanta_gpui::init(cx);
+        Theme::change(ThemeMode::Dark, None, cx);
+        apply_figma_ui3_storybook_theme(cx);
+    });
+    let storybook_slot = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let captured_storybook = storybook_slot.clone();
+    let (_, visual_cx) = cx.add_window_view(move |window, cx| {
+        let storybook = cx.new(|cx| Storybook::new(window, cx));
+        *captured_storybook.borrow_mut() = Some(storybook.clone());
+        Root::new(storybook, window, cx)
+    });
+    let storybook = storybook_slot
+        .borrow_mut()
+        .take()
+        .expect("test Storybook should be installed");
+    visual_cx.simulate_resize(size(px(1240.), px(820.)));
+
+    let fixture_selectors: &[(StoryKind, &str)] = &[
+        (StoryKind::Welcome, "storybook-reference-welcome"),
+        (StoryKind::Buttons, "storybook-reference-buttons"),
+        (StoryKind::VectorIcons, "storybook-reference-vector-icons"),
+        (StoryKind::Labels, "storybook-reference-labels"),
+        (StoryKind::Icons, "storybook-icon-gallery"),
+        (StoryKind::Menus, "storybook-reference-menus"),
+        (StoryKind::ListRows, "storybook-reference-list-rows"),
+        (StoryKind::Popups, "storybook-reference-popups"),
+        (StoryKind::Toolbar, "storybook-reference-toolbar"),
+        (StoryKind::Pages, "storybook-reference-pages"),
+        (StoryKind::Layers, "storybook-reference-layers"),
+        (StoryKind::Design, "design-fixture-rail-scroll"),
+        (StoryKind::Variables, "storybook-reference-variables"),
+        (StoryKind::Assets, "storybook-reference-assets"),
+        (StoryKind::Prototype, "storybook-reference-prototype"),
+        (StoryKind::Timeline, "storybook-reference-timeline"),
+        (StoryKind::PseudoEditor, "storybook-reference-pseudo-editor"),
+    ];
+    assert_eq!(
+        fixture_selectors.len(),
+        screens::registry().len(),
+        "every registered story must pin a reference fixture selector"
+    );
+    for (story, selector) in fixture_selectors {
+        assert_eq!(
+            story.descriptor().kind,
+            *story,
+            "{selector} must resolve its descriptor"
+        );
+        visual_cx.update(|_, app| {
+            storybook.update(app, |storybook, cx| {
+                storybook.active_story = *story;
+                storybook.launch_mode = StorybookLaunchMode::ReferenceFixture;
+                cx.notify();
+            });
+        });
+        visual_cx.run_until_parked();
+        assert!(
+            visual_cx.debug_bounds(selector).is_some(),
+            "the {} reference fixture must render {selector}",
+            story.title()
+        );
+    }
+}
+
+#[gpui::test]
+fn pseudo_editor_toolbar_contains_primary_zoom_and_agent_surfaces(cx: &mut TestAppContext) {
     cx.update(|cx| {
         gpui_component::init(cx);
         fanta_gpui::init(cx);
@@ -244,11 +334,14 @@ fn pseudo_editor_toolbar_keeps_main_zoom_and_agent_surfaces_visible(cx: &mut Tes
         .borrow_mut()
         .take()
         .expect("test Storybook should be installed");
-    let toolbar = visual_cx.read(|app| storybook.read(app).toolbar.clone());
+    let toolbar = visual_cx.read(|app| storybook.read(app).toolbar_screen.toolbar.clone());
     visual_cx.update(|_, app| {
         storybook.update(app, |storybook, cx| {
             storybook.active_story = StoryKind::PseudoEditor;
             storybook.launch_mode = StorybookLaunchMode::Gallery;
+            // Pin the story viewport at the reference size: this test is
+            // about the toolbar's own layout, not the fluid harness.
+            storybook.story_viewport.apply_preset(1440., 900.);
             cx.notify();
         });
     });
@@ -274,25 +367,21 @@ fn pseudo_editor_toolbar_keeps_main_zoom_and_agent_surfaces_visible(cx: &mut Tes
             .expect("the main toolbar should render");
         let zoom = visual_cx
             .debug_bounds("toolbar-zoom-control")
-            .expect("the detached zoom control should render");
+            .expect("the zoom control should render");
         let agent = visual_cx
             .debug_bounds("toolbar-agent-launcher")
-            .expect("the detached Agent launcher should render");
+            .expect("the Agent launcher should render");
 
         assert!(root.is_contained_within(&canvas));
-        for (name, bounds) in [("main", surface), ("zoom", zoom), ("Agent", agent)] {
+        for (name, bounds) in [("zoom", zoom), ("Agent", agent)] {
             assert!(
-                bounds.is_contained_within(&root),
-                "{mode:?} {name} surface {bounds:?} must fit inside toolbar root {root:?}"
+                bounds.is_contained_within(&surface),
+                "{mode:?} {name} surface {bounds:?} must fit inside toolbar dock {surface:?}"
             );
         }
-        assert!(
-            !zoom.intersects(&surface),
-            "{mode:?} zoom control must not overlap the main toolbar"
-        );
-        assert!(
-            !agent.intersects(&surface),
-            "{mode:?} Agent launcher must not overlap the main toolbar"
+        assert_eq!(
+            surface, root,
+            "{mode:?} root should adopt the dock's intrinsic bounds"
         );
     }
 }
@@ -305,10 +394,10 @@ fn design_fixture_rail_scroll_reaches_the_node_variation_matrix(cx: &mut TestApp
         .expect("fixture rail should render");
     let scroll_handle = cx.read(|app| {
         let storybook = storybook.read(app);
-        storybook.design_fixture_scroll_handle.clone()
+        storybook.design_screen.fixture_scroll_handle.clone()
     });
     assert_eq!(scroll_handle.bounds(), rail);
-    assert!(scroll_handle.max_offset().height > px(0.));
+    assert!(scroll_handle.max_offset().y > px(0.));
 
     let last_before_scroll = cx
         .debug_bounds("design-preset-last")
@@ -353,7 +442,7 @@ fn storybook_nudge_presets_expose_default_and_custom_preferences() {
 #[test]
 fn page_local_style_reducer_rejects_stale_selection_and_page_projections() {
     let page_id: SharedString = "storybook-page".into();
-    let styles = Storybook::seed_design_page_local_styles();
+    let styles = design_fixtures::seed_design_page_local_styles();
     assert!(story_page_local_styles_projection_is_current(
         true,
         Some(&page_id),
@@ -390,8 +479,8 @@ fn page_local_style_reducer_rejects_stale_selection_and_page_projections() {
 
 #[test]
 fn design_story_media_nodes_cover_independent_source_action_permissions() {
-    let nodes = Storybook::seed_design_nodes();
-    let views = Storybook::seed_design_media_paint_views(&nodes);
+    let nodes = design_fixtures::seed_design_nodes();
+    let views = design_fixtures::seed_design_media_paint_views(&nodes);
     let expected = [
         ("paint-image-0", "image-0-fill", [true, true, true]),
         ("paint-image-1", "image-1-fill", [true, false, true]),
@@ -843,6 +932,43 @@ fn design_story_width_parser_drag_and_keyboard_are_continuous_and_clamped() {
 }
 
 #[test]
+fn design_harness_stacks_below_its_breakpoint_and_caps_the_panel_width() {
+    assert!(!design_harness_stacked(1200.));
+    assert!(!design_harness_stacked(DESIGN_HARNESS_STACK_BREAKPOINT));
+    assert!(design_harness_stacked(DESIGN_HARNESS_STACK_BREAKPOINT - 1.));
+    assert!(design_harness_stacked(DESIGN_STORY_MIN_WIDTH));
+
+    // Wide layouts reserve the rail, a canvas sliver, and the handle; the
+    // user's width survives whenever that chrome fits.
+    assert_eq!(design_harness_panel_width(472., 1200.), 472.);
+    assert_eq!(design_harness_panel_width(640., 1200.), 640.);
+    assert_eq!(design_harness_panel_width(640., 900.), 480.);
+
+    // Stacked layouts reserve only the resize handle, so the inspector
+    // keeps as much of the story width as its own clamp allows.
+    assert_eq!(
+        design_harness_panel_width(472., DESIGN_STORY_MIN_WIDTH),
+        DESIGN_STORY_MIN_WIDTH - DESIGN_HARNESS_RESIZE_HANDLE_WIDTH
+    );
+    assert_eq!(
+        design_harness_panel_width(320., DESIGN_STORY_MIN_WIDTH),
+        320.
+    );
+    // Out-of-range user widths still clamp before the harness cap applies.
+    assert_eq!(design_harness_panel_width(9_000., 1200.), 640.);
+    assert_eq!(design_harness_panel_width(f32::NAN, 1200.), 472.);
+    // The cap never pushes the inspector below its own 320 px minimum;
+    // the story floor (panel minimum + handle + margins by definition)
+    // keeps that minimum reachable on screen.
+    assert_eq!(design_harness_panel_width(472., 300.), 320.);
+    assert_eq!(
+        StoryKind::Design.descriptor().min_story_size(),
+        (DESIGN_STORY_MIN_WIDTH, DESIGN_STORY_MIN_HEIGHT),
+        "the Design story floor is the stacked harness minimum"
+    );
+}
+
+#[test]
 fn story_component_authoring_name_sessions_reject_unbalanced_and_restore_cancel() {
     let key = (SharedString::from("component"), SharedString::from("label"));
     let original = SharedString::from("Label");
@@ -1046,7 +1172,7 @@ fn story_component_authoring_reorder_sessions_reject_stale_anchors_and_duplicate
 
 #[test]
 fn story_component_authoring_create_delete_and_variant_value_guards_are_exact() {
-    let node = Storybook::seed_design_nodes()
+    let node = design_fixtures::seed_design_nodes()
         .into_iter()
         .find(|node| node.kind == DesignPanelNodeKind::Component)
         .expect("component authoring fixture");
@@ -1142,7 +1268,7 @@ fn story_component_authoring_create_delete_and_variant_value_guards_are_exact() 
 
 #[test]
 fn story_component_authoring_combined_slot_edit_is_atomic_and_stale_guarded() {
-    let component_catalog = Storybook::seed_design_component_swaps();
+    let component_catalog = design_fixtures::seed_design_component_swaps();
     let arrow = component_catalog
         .candidates
         .iter()
@@ -1343,7 +1469,7 @@ fn story_component_authoring_delete_invalidates_related_reorders_and_reuses_only
     )));
     assert!(option_reorders.contains_key(&(other_node_id, property_id, "state-option-0".into())));
 
-    let mut node = Storybook::seed_design_nodes()
+    let mut node = design_fixtures::seed_design_nodes()
         .into_iter()
         .find(|node| node.kind == DesignPanelNodeKind::Component)
         .expect("component authoring fixture");
@@ -1400,7 +1526,7 @@ fn story_component_authoring_delete_invalidates_related_reorders_and_reuses_only
 
 #[test]
 fn story_component_authoring_echo_keeps_partition_and_variant_ids_in_sync() {
-    let mut node = Storybook::seed_design_nodes()
+    let mut node = design_fixtures::seed_design_nodes()
         .into_iter()
         .find(|node| node.kind == DesignPanelNodeKind::Component)
         .expect("component authoring fixture");
@@ -1516,7 +1642,7 @@ fn story_component_authoring_echo_keeps_partition_and_variant_ids_in_sync() {
 
 #[test]
 fn design_story_selector_covers_compatibility_kinds_without_fake_multiple_node() {
-    let nodes = Storybook::seed_design_nodes();
+    let nodes = design_fixtures::seed_design_nodes();
     let kinds = nodes.iter().map(|node| node.kind).collect::<HashSet<_>>();
 
     for (index, kind) in DesignPanelNodeKind::ALL.into_iter().enumerate() {
@@ -1581,7 +1707,7 @@ fn design_story_selector_covers_compatibility_kinds_without_fake_multiple_node()
 
 #[test]
 fn design_story_widget_fixture_is_exact_and_dimensions_are_read_only() {
-    let widget = Storybook::seed_design_nodes()
+    let widget = design_fixtures::seed_design_nodes()
         .into_iter()
         .find(|node| node.id.as_ref() == "reference-widget")
         .expect("the Widget reference fixture keeps its stable identity");
@@ -1716,7 +1842,7 @@ fn design_story_permission_selection_scenarios_have_stable_ids_and_launch_values
 
 #[test]
 fn design_story_viewer_page_and_multiple_contexts_preserve_exact_cardinality() {
-    let nodes = Storybook::seed_design_nodes();
+    let nodes = design_fixtures::seed_design_nodes();
     let first = nodes
         .iter()
         .find(|node| node.id.as_ref() == "reference-frame")
@@ -1835,13 +1961,13 @@ fn storybook_viewer_copy_fixture_reports_the_exact_host_intent() {
 
 #[test]
 fn storybook_viewer_component_projection_preserves_role_docs_order_and_exact_copy() {
-    let nodes = Storybook::seed_design_nodes();
+    let nodes = design_fixtures::seed_design_nodes();
     let instance = nodes
         .iter()
         .find(|node| node.kind == DesignPanelNodeKind::Instance)
         .expect("Instance viewer fixture");
     let view =
-        Storybook::viewer_properties_for_node(instance, DesignViewerColorRepresentation::Css);
+        design_fixtures::viewer_properties_for_node(instance, DesignViewerColorRepresentation::Css);
     assert!(view.is_valid());
     assert_eq!(
         view.sections
@@ -1947,7 +2073,7 @@ fn storybook_viewer_component_projection_preserves_role_docs_order_and_exact_cop
             "component"
         };
         assert!(
-            Storybook::viewer_properties_for_node(node, DesignViewerColorRepresentation::Css)
+            design_fixtures::viewer_properties_for_node(node, DesignViewerColorRepresentation::Css)
                 .section(section_id)
                 .is_some()
         );
@@ -1980,7 +2106,7 @@ fn storybook_viewer_component_projection_handles_absent_missing_and_unavailable_
             DesignPanelNodeKind::Instance,
         );
         node.component_context = Some(context);
-        Storybook::viewer_properties_for_node(&node, DesignViewerColorRepresentation::Css)
+        design_fixtures::viewer_properties_for_node(&node, DesignViewerColorRepresentation::Css)
     };
 
     let absent = project(
@@ -2072,13 +2198,13 @@ fn storybook_viewer_component_projection_handles_absent_missing_and_unavailable_
 
 #[test]
 fn storybook_viewer_ui3_fixtures_cover_text_content_and_all_border_representations() {
-    let nodes = Storybook::seed_design_nodes();
+    let nodes = design_fixtures::seed_design_nodes();
     let text = nodes
         .iter()
         .find(|node| node.kind == DesignPanelNodeKind::Text)
         .expect("Text viewer fixture");
     let text_view =
-        Storybook::viewer_properties_for_node(text, DesignViewerColorRepresentation::Css);
+        design_fixtures::viewer_properties_for_node(text, DesignViewerColorRepresentation::Css);
     assert!(
         text_view.section("content").is_some_and(
             |section| section.title.as_ref() == "Content" && section.copy_value.is_some()
@@ -2097,7 +2223,7 @@ fn storybook_viewer_ui3_fixtures_cover_text_content_and_all_border_representatio
         .find(|node| node.stroke.is_some())
         .expect("Borders viewer fixture");
     for representation in DesignViewerColorRepresentation::ALL {
-        let view = Storybook::viewer_properties_for_node(frame, representation);
+        let view = design_fixtures::viewer_properties_for_node(frame, representation);
         let borders = view.section("borders").expect("Borders projection");
         assert_eq!(borders.title.as_ref(), "Borders");
         assert_eq!(borders.color_representation, Some(representation));
@@ -2107,7 +2233,7 @@ fn storybook_viewer_ui3_fixtures_cover_text_content_and_all_border_representatio
 
 #[test]
 fn storybook_min_max_fixtures_cover_owner_child_grid_and_ignored_contexts() {
-    let nodes = Storybook::seed_design_nodes();
+    let nodes = design_fixtures::seed_design_nodes();
     let fixture = |id: &str| {
         nodes
             .iter()
@@ -2152,7 +2278,7 @@ fn storybook_min_max_fixtures_cover_owner_child_grid_and_ignored_contexts() {
 
 #[test]
 fn storybook_text_path_fixtures_cover_native_flip_and_opt_in_api_debug_controls() {
-    let mut nodes = Storybook::seed_design_nodes();
+    let mut nodes = design_fixtures::seed_design_nodes();
     let native_index = nodes
         .iter()
         .position(|node| {
@@ -2200,7 +2326,7 @@ fn storybook_text_path_fixtures_cover_native_flip_and_opt_in_api_debug_controls(
 
 #[test]
 fn storybook_text_max_lines_fixtures_cover_every_native_availability_branch() {
-    let nodes = Storybook::seed_design_nodes();
+    let nodes = design_fixtures::seed_design_nodes();
     let fixture = |id: &str| {
         nodes
             .iter()
@@ -2281,7 +2407,7 @@ fn storybook_text_max_lines_fixtures_cover_every_native_availability_branch() {
 
 #[test]
 fn storybook_text_height_limit_reducer_canonicalizes_atomically() {
-    let mut node = Storybook::seed_design_nodes()
+    let mut node = design_fixtures::seed_design_nodes()
         .into_iter()
         .find(|node| node.id.as_ref() == "text-max-lines-vertical-hug")
         .expect("vertical Hug fixture");
@@ -2412,7 +2538,7 @@ fn storybook_text_edit_scenario_exposes_an_exact_initial_range_revision() {
 
 #[test]
 fn story_style_browser_catalogs_cover_page_library_and_importable_rows() {
-    let paints = Storybook::seed_design_paint_styles();
+    let paints = design_fixtures::seed_design_paint_styles();
     assert!(!paints.page_styles.is_empty());
     assert!(paints.libraries.iter().any(|library| {
         library.name.as_ref() == "Fanta foundations"
@@ -2422,7 +2548,7 @@ fn story_style_browser_catalogs_cover_page_library_and_importable_rows() {
                 .any(|style| style.import_state == DesignPaintStyleImportState::Available)
     }));
 
-    let effects = Storybook::seed_design_effect_styles();
+    let effects = design_fixtures::seed_design_effect_styles();
     assert!(!effects.page_styles.is_empty());
     assert!(
         effects
@@ -2431,7 +2557,7 @@ fn story_style_browser_catalogs_cover_page_library_and_importable_rows() {
             .any(|library| library.name.as_ref() == "Fanta effects" && !library.styles.is_empty())
     );
 
-    let grids = Storybook::seed_design_layout_grid_styles();
+    let grids = design_fixtures::seed_design_layout_grid_styles();
     assert!(!grids.page_styles.is_empty());
     assert!(grids.libraries.iter().any(|library| {
         library.name.as_ref() == "Fanta layout grids"
@@ -2444,7 +2570,7 @@ fn story_style_browser_catalogs_cover_page_library_and_importable_rows() {
 
 #[test]
 fn story_typography_variables_cover_family_style_and_numeric_weight() {
-    let variables = Storybook::seed_design_property_variables();
+    let variables = design_fixtures::seed_design_property_variables();
     for (id, resolved_type, scope) in [
         (
             "font-body-family",
@@ -2507,7 +2633,7 @@ fn story_typography_variables_cover_family_style_and_numeric_weight() {
         target.compatible_scope,
         Some(DesignVariableScope::FontWeight)
     );
-    let fonts = Storybook::seed_design_fonts();
+    let fonts = design_fixtures::seed_design_fonts();
     let medium = fonts
         .families
         .iter()
@@ -2532,11 +2658,11 @@ fn storybook_plugin_header_exercises_menu_and_viewer_safe_controls() {
 
 #[test]
 fn story_fill_shader_fixture_covers_every_complex_property_editor() {
-    let shaders = Storybook::seed_design_shaders();
+    let shaders = design_fixtures::seed_design_shaders();
     let definition = shaders
         .definition("shader:page:fractal-noise")
         .expect("Fractal noise catalog fixture");
-    let nodes = Storybook::seed_design_nodes();
+    let nodes = design_fixtures::seed_design_nodes();
     let paint = nodes
         .iter()
         .find(|node| node.id.as_ref() == "paint-host-opaque")
@@ -2584,7 +2710,7 @@ fn story_fill_shader_fixture_covers_every_complex_property_editor() {
 #[test]
 fn story_fill_shader_complex_property_editor_applies_deterministic_sample_edits() {
     let vector = fanta_gpui::design::DesignEffectVector::new;
-    let mut node = Storybook::seed_design_nodes()
+    let mut node = design_fixtures::seed_design_nodes()
         .into_iter()
         .find(|node| node.id.as_ref() == "paint-host-opaque")
         .expect("fill Shader fixture");
@@ -2681,7 +2807,7 @@ fn story_fill_shader_complex_property_editor_applies_deterministic_sample_edits(
 
 #[test]
 fn story_effect_shader_fixture_covers_every_typed_property_editor() {
-    let nodes = Storybook::seed_design_nodes();
+    let nodes = design_fixtures::seed_design_nodes();
     let effects = nodes
         .iter()
         .find(|node| node.id.as_ref() == "effects-all")
@@ -2810,8 +2936,8 @@ fn story_effect_shader_resource_reducer_resolves_stable_ids_after_reorder() {
 
 #[test]
 fn story_frame_preset_matrix_covers_figma_groups_and_reducer_revalidates_identity() {
-    let mut nodes = Storybook::seed_design_nodes();
-    let catalogs = Storybook::seed_design_frame_presets(&nodes);
+    let mut nodes = design_fixtures::seed_design_nodes();
+    let catalogs = design_fixtures::seed_design_frame_presets(&nodes);
     let frame_id = nodes
         .iter()
         .find(|node| node.kind == DesignPanelNodeKind::Frame)
@@ -2867,7 +2993,7 @@ fn story_frame_preset_matrix_covers_figma_groups_and_reducer_revalidates_identit
 
 #[test]
 fn story_component_fixtures_cover_bindings_nested_origins_and_swap_import_states() {
-    let nodes = Storybook::seed_design_nodes();
+    let nodes = design_fixtures::seed_design_nodes();
     let main = nodes
         .iter()
         .find(|node| node.kind == DesignPanelNodeKind::Component)
@@ -2917,7 +3043,7 @@ fn story_component_fixtures_cover_bindings_nested_origins_and_swap_import_states
             .is_some_and(|property| property.resolved_value_binding.is_some())
     );
 
-    let swaps = Storybook::seed_design_component_swaps();
+    let swaps = design_fixtures::seed_design_component_swaps();
     assert!(swaps.candidates.iter().any(|candidate| {
         candidate.asset_kind == DesignComponentAssetKind::ComponentSet
             && candidate.import_state == DesignComponentImportState::Local
@@ -2941,7 +3067,7 @@ fn homogeneous_multiple_scenario_projects_only_common_fill_and_stroke_collection
     );
     assert!(DesignInspectionScenario::ALL.contains(&DesignInspectionScenario::HomogeneousMultiple));
 
-    let nodes = Storybook::seed_design_nodes();
+    let nodes = design_fixtures::seed_design_nodes();
     let first = nodes
         .iter()
         .find(|node| node.id.as_ref() == STORY_HOMOGENEOUS_MULTIPLE_NODE_IDS[0])
@@ -4686,7 +4812,7 @@ fn story_component_instance_child_rejects_aspect_ratio_lock() {
 
     assert!(!node.lock_aspect_ratio);
     assert!(
-        Storybook::seed_design_nodes()
+        design_fixtures::seed_design_nodes()
             .iter()
             .any(
                 |candidate| candidate.id.as_ref() == "component-instance-child"
@@ -5740,4 +5866,780 @@ fn story_menu_preview_reducer_uses_exact_paint_scope_id_index_and_effect_id() {
         &effect_preview,
         DesignMenuPreviewPhase::Begin,
     ));
+}
+
+fn setup_gallery_storybook(cx: &mut TestAppContext) -> (Entity<Storybook>, &mut VisualTestContext) {
+    cx.update(|cx| {
+        gpui_component::init(cx);
+        fanta_gpui::init(cx);
+        Theme::change(ThemeMode::Light, None, cx);
+    });
+    let storybook_slot = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let captured_storybook = storybook_slot.clone();
+    let (_, visual_cx) = cx.add_window_view(move |window, cx| {
+        let storybook = cx.new(|cx| Storybook::new(window, cx));
+        *captured_storybook.borrow_mut() = Some(storybook.clone());
+        Root::new(storybook, window, cx)
+    });
+    let storybook = storybook_slot
+        .borrow_mut()
+        .take()
+        .expect("test Storybook should be installed");
+    visual_cx.update(|_, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook.launch_mode = StorybookLaunchMode::Gallery;
+            cx.notify();
+        });
+    });
+    visual_cx.simulate_resize(size(px(1440.), px(900.)));
+    visual_cx.run_until_parked();
+    (storybook, visual_cx)
+}
+
+#[gpui::test]
+fn gallery_viewport_harness_presets_and_scrubs_resize_the_surface(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_gallery_storybook(cx);
+    cx.update(|window, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook.activate_gallery_story(StoryKind::Pages, window, cx);
+        });
+    });
+    cx.run_until_parked();
+
+    // Pages seeds fluid like every story; pin its registered Default
+    // preset so the scrub assertions continue from an authored size.
+    cx.update(|_, app| {
+        storybook.update(app, |storybook, cx| {
+            assert!(
+                storybook.story_viewport.fluid,
+                "Pages must seed its registered fluid mode"
+            );
+            storybook.story_viewport.apply_preset(337., 716.);
+            cx.notify();
+        });
+    });
+    cx.run_until_parked();
+    let surface = cx
+        .debug_bounds("storybook-gallery-story-surface")
+        .expect("the Pages story surface should render");
+    assert_eq!(surface.size.width, px(337.));
+    assert_eq!(surface.size.height, px(716.));
+    assert!(
+        cx.debug_bounds("story-viewport-readout").is_some(),
+        "the harness must render its live pixel readout"
+    );
+
+    // Preset chips repin the viewport to another registered natural size.
+    cx.update(|_, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook.story_viewport.apply_preset(240., 716.);
+            cx.notify();
+        });
+    });
+    cx.run_until_parked();
+    let narrow = cx
+        .debug_bounds("storybook-gallery-story-surface")
+        .expect("the narrowed surface should render");
+    assert_eq!(narrow.size.width, px(240.));
+
+    // Dragging the width handle scrubs the surface live.
+    let handle = cx
+        .debug_bounds("story-viewport-width-handle")
+        .expect("the width scrub handle should render");
+    cx.simulate_event(MouseDownEvent {
+        position: handle.center(),
+        button: MouseButton::Left,
+        ..Default::default()
+    });
+    cx.run_until_parked();
+    cx.simulate_event(MouseMoveEvent {
+        position: handle.center() + point(px(64.), px(0.)),
+        pressed_button: Some(MouseButton::Left),
+        ..Default::default()
+    });
+    cx.simulate_event(MouseUpEvent {
+        position: handle.center() + point(px(64.), px(0.)),
+        button: MouseButton::Left,
+        ..Default::default()
+    });
+    cx.run_until_parked();
+    let scrubbed = cx
+        .debug_bounds("storybook-gallery-story-surface")
+        .expect("the scrubbed surface should render");
+    assert_eq!(scrubbed.size.width, px(304.));
+
+    // Dragging the height handle scrubs the other axis.
+    // The height handle lays out below the visible canvas; scroll the
+    // gallery canvas down first, like a user would.
+    cx.update(|_, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook
+                .gallery_story_scroll_handle
+                .set_offset(point(px(0.), px(-240.)));
+            cx.notify();
+        });
+    });
+    cx.run_until_parked();
+    let handle = cx
+        .debug_bounds("story-viewport-height-handle")
+        .expect("the height scrub handle should render");
+    let grab = handle.center();
+    cx.simulate_event(MouseDownEvent {
+        position: grab,
+        button: MouseButton::Left,
+        ..Default::default()
+    });
+    cx.run_until_parked();
+    cx.simulate_event(MouseMoveEvent {
+        position: grab + point(px(0.), px(-40.)),
+        pressed_button: Some(MouseButton::Left),
+        ..Default::default()
+    });
+    cx.simulate_event(MouseUpEvent {
+        position: grab + point(px(0.), px(-40.)),
+        button: MouseButton::Left,
+        ..Default::default()
+    });
+    cx.run_until_parked();
+    let scrubbed = cx
+        .debug_bounds("storybook-gallery-story-surface")
+        .expect("the height-scrubbed surface should render");
+    assert_eq!(scrubbed.size.height, px(676.));
+
+    // Activating another story reseeds the viewport from the registry:
+    // the pinned scrub state is dropped for Prototype's fluid mode.
+    cx.update(|window, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook.activate_gallery_story(StoryKind::Prototype, window, cx);
+        });
+    });
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("storybook-gallery-story-surface").is_some(),
+        "the Prototype surface should render"
+    );
+    cx.update(|_, app| {
+        storybook.update(app, |storybook, _| {
+            assert!(
+                storybook.story_viewport.fluid,
+                "activating another story must reseed its registered fluid mode"
+            );
+        });
+    });
+}
+
+#[gpui::test]
+fn gallery_fluid_viewports_fill_the_measured_story_area(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_gallery_storybook(cx);
+    cx.update(|window, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook.activate_gallery_story(StoryKind::Welcome, window, cx);
+        });
+    });
+    cx.run_until_parked();
+
+    let padding = screens::viewport::GALLERY_CANVAS_PADDING;
+    let handle = screens::viewport::VIEWPORT_HANDLE_THICKNESS;
+    let assert_fills = |cx: &mut VisualTestContext, label: &str| {
+        let canvas_area = cx
+            .debug_bounds("storybook-gallery-canvas")
+            .expect("the gallery canvas should render");
+        let surface = cx
+            .debug_bounds("storybook-gallery-story-surface")
+            .expect("the fluid story surface should render");
+        let expected_width = f32::from(canvas_area.size.width) - 2. * padding - handle;
+        assert!(
+            (f32::from(surface.size.width) - expected_width).abs() <= 1.5,
+            "{label}: a fluid surface must fill the story area width up to the scrub \
+             handle (got {:?}, expected {expected_width})",
+            surface.size.width,
+        );
+        let expected_bottom = f32::from(canvas_area.bottom()) - padding - handle;
+        assert!(
+            (f32::from(surface.bottom()) - expected_bottom).abs() <= 1.5,
+            "{label}: a fluid surface must fill the story area height down to the scrub \
+             handle (got {:?}, expected {expected_bottom})",
+            surface.bottom(),
+        );
+    };
+    assert_fills(cx, "1440x900");
+
+    // Both axes keep tracking as the window shrinks and grows again.
+    cx.simulate_resize(size(px(1000.), px(700.)));
+    cx.run_until_parked();
+    assert_fills(cx, "1000x700");
+    cx.simulate_resize(size(px(1360.), px(860.)));
+    cx.run_until_parked();
+    assert_fills(cx, "1360x860");
+
+    // Fluid mode itself never pins a fixed size; the surface probe feeds
+    // the live readout instead.
+    cx.update(|_, app| {
+        storybook.update(app, |storybook, _| {
+            assert!(
+                storybook.story_viewport.fluid,
+                "window resizes must never pin the fluid viewport"
+            );
+            assert!(
+                storybook.story_viewport.available.is_some(),
+                "the area probe should have recorded the story area"
+            );
+        });
+    });
+}
+
+#[gpui::test]
+fn design_story_stacks_its_harness_at_the_minimum_viewport(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_gallery_storybook(cx);
+    cx.update(|window, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook.activate_gallery_story(StoryKind::Design, window, cx);
+        });
+    });
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("design-fixture-rail-scroll").is_some(),
+        "a wide Design story keeps the fixture rail beside the inspector"
+    );
+
+    cx.update(|_, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook
+                .story_viewport
+                .apply_preset(DESIGN_STORY_MIN_WIDTH, DESIGN_STORY_MIN_HEIGHT);
+            cx.notify();
+        });
+    });
+    cx.run_until_parked();
+
+    let surface = cx
+        .debug_bounds("storybook-gallery-story-surface")
+        .expect("the Design story surface should render at its floor");
+    assert_eq!(surface.size.width, px(DESIGN_STORY_MIN_WIDTH));
+    assert_eq!(surface.size.height, px(DESIGN_STORY_MIN_HEIGHT));
+    assert!(
+        cx.debug_bounds("design-fixture-rail-scroll").is_none(),
+        "the stacked harness must fold the fixture rail away"
+    );
+    let panel = cx
+        .debug_bounds("design-harness-panel")
+        .expect("the inspector stays mounted at the floor");
+    assert!(
+        f32::from(panel.size.width) + 0.5 >= 320.,
+        "the inspector must keep its own 320 px minimum at the story floor \
+         (got {:?})",
+        panel.size.width
+    );
+    assert!(
+        panel.right() <= surface.right() + px(1.),
+        "the inspector must fit inside the story surface"
+    );
+
+    // The folded story controls expand on demand and reveal the full
+    // scenario/node matrix in a scrollable section.
+    let toggle = cx
+        .debug_bounds("design-harness-controls-toggle")
+        .expect("the stacked harness offers its controls toggle");
+    assert!(
+        cx.debug_bounds("design-harness-controls-scroll").is_none(),
+        "the story controls stay collapsed by default at the floor"
+    );
+    cx.simulate_click(toggle.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("design-harness-controls-scroll").is_some(),
+        "expanding must reveal the scrollable story controls"
+    );
+    assert!(
+        cx.debug_bounds("design-node-variation-matrix-heading")
+            .is_some(),
+        "the node matrix folds into the expanded controls"
+    );
+
+    // The bespoke width resizer keeps working at the floor: dragging the
+    // handle updates the stored width while the rendered panel stays
+    // capped inside the surface.
+    let handle = cx
+        .debug_bounds("design-panel-resize-handle")
+        .expect("the width resizer survives the stacked layout");
+    cx.simulate_event(MouseDownEvent {
+        position: handle.center(),
+        button: MouseButton::Left,
+        ..Default::default()
+    });
+    cx.run_until_parked();
+    cx.simulate_event(MouseMoveEvent {
+        position: handle.center() + point(px(30.), px(0.)),
+        pressed_button: Some(MouseButton::Left),
+        ..Default::default()
+    });
+    cx.simulate_event(MouseUpEvent {
+        position: handle.center() + point(px(30.), px(0.)),
+        button: MouseButton::Left,
+        ..Default::default()
+    });
+    cx.run_until_parked();
+    cx.update(|_, app| {
+        storybook.update(app, |storybook, _| {
+            assert_eq!(
+                storybook.design_screen.panel_width, 442.,
+                "the drag must scrub the stored inspector width"
+            );
+        });
+    });
+    let panel = cx
+        .debug_bounds("design-harness-panel")
+        .expect("the inspector survives the resize interaction");
+    assert!(
+        panel.right() <= surface.right() + px(1.),
+        "the resized inspector must stay capped inside the story surface"
+    );
+}
+
+#[gpui::test]
+fn variables_story_reflows_to_its_minimum_viewport(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_gallery_storybook(cx);
+    cx.update(|window, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook.activate_gallery_story(StoryKind::Variables, window, cx);
+        });
+    });
+    cx.run_until_parked();
+
+    cx.update(|_, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook
+                .story_viewport
+                .apply_preset(VARIABLES_PAGE_MIN_WIDTH, VARIABLES_PAGE_MIN_HEIGHT);
+            cx.notify();
+        });
+    });
+    // The page measures its own width during a draw and defers the
+    // shared-column update past it, so park twice.
+    cx.run_until_parked();
+    cx.run_until_parked();
+
+    let surface = cx
+        .debug_bounds("storybook-gallery-story-surface")
+        .expect("the Variables story surface should render at its floor");
+    assert_eq!(surface.size.width, px(VARIABLES_PAGE_MIN_WIDTH));
+    assert_eq!(surface.size.height, px(VARIABLES_PAGE_MIN_HEIGHT));
+    let sidebar = cx
+        .debug_bounds("variables-sidebar")
+        .expect("the sidebar stays mounted at the floor");
+    assert_eq!(
+        sidebar.size.width,
+        px(180.),
+        "the sidebar compresses to its Phase G floor"
+    );
+    let name_header = cx
+        .debug_bounds("variables-name-header")
+        .expect("the name header stays mounted at the floor");
+    assert_eq!(
+        name_header.size.width,
+        px(140.),
+        "the name column compresses to its Phase G floor"
+    );
+    let add_mode = cx
+        .debug_bounds("variables-add-mode")
+        .expect("the add-mode cell stays mounted at the floor");
+    assert!(
+        add_mode.right() <= surface.right() + px(1.),
+        "the add-mode cell must stay pinned inside the page while the \
+         mode columns clip"
+    );
+    let create_variable = cx
+        .debug_bounds("variables-create-variable")
+        .expect("the create-variable row stays mounted at the floor");
+    assert!(
+        create_variable.bottom() <= surface.bottom() + px(1.),
+        "the create-variable row must stay inside the floor-height page"
+    );
+
+    // Interaction at the floor: the pinned header cell still adds a mode
+    // through the host adapter.
+    cx.simulate_click(add_mode.center(), Modifiers::none());
+    cx.run_until_parked();
+    cx.update(|_, app| {
+        storybook.update(app, |storybook, _| {
+            assert_eq!(
+                storybook.variables_screen.view_data.modes.len(),
+                3,
+                "the add-mode intent must reach the story reducer"
+            );
+            assert!(
+                storybook
+                    .variables_screen
+                    .last_action
+                    .contains("Added Mode 3"),
+                "unexpected last action: {}",
+                storybook.variables_screen.last_action
+            );
+        });
+    });
+    let add_mode = cx
+        .debug_bounds("variables-add-mode")
+        .expect("the add-mode cell survives adding a third mode");
+    assert!(
+        add_mode.right() <= surface.right() + px(1.),
+        "the add-mode cell stays pinned after the table gains a mode column"
+    );
+}
+
+#[gpui::test]
+fn gallery_sidebar_auto_collapses_below_the_narrow_threshold(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_gallery_storybook(cx);
+    assert!(
+        cx.debug_bounds("storybook-gallery-sidebar").is_some(),
+        "a wide gallery window keeps the sidebar expanded"
+    );
+
+    cx.simulate_resize(size(px(720.), px(640.)));
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("storybook-gallery-sidebar").is_none(),
+        "the sidebar must auto-collapse below the narrow window threshold"
+    );
+    assert!(
+        cx.debug_bounds("storybook-sidebar-toggle").is_some(),
+        "a collapsed sidebar keeps its reopen affordance in the top bar"
+    );
+
+    cx.simulate_resize(size(px(1440.), px(900.)));
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("storybook-gallery-sidebar").is_some(),
+        "the sidebar returns when the window grows past the threshold"
+    );
+
+    // An explicit collapse pins the sidebar closed across window growth.
+    let toggle = cx
+        .debug_bounds("storybook-sidebar-toggle")
+        .expect("the sidebar toggle should render");
+    cx.simulate_click(toggle.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("storybook-gallery-sidebar").is_none(),
+        "the toggle must collapse the sidebar"
+    );
+    cx.simulate_resize(size(px(1500.), px(900.)));
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("storybook-gallery-sidebar").is_none(),
+        "an explicitly collapsed sidebar stays collapsed as the window grows"
+    );
+
+    // Reopening at a wide width returns the sidebar to automatic mode.
+    let toggle = cx
+        .debug_bounds("storybook-sidebar-toggle")
+        .expect("the sidebar toggle should render while collapsed");
+    cx.simulate_click(toggle.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("storybook-gallery-sidebar").is_some(),
+        "the toggle must reopen the sidebar"
+    );
+    assert_eq!(
+        cx.update(|_, app| storybook.read(app).sidebar_pin),
+        SidebarPin::Auto,
+        "reopening at a wide width must return the sidebar to auto-collapse mode"
+    );
+
+    // At the registered 320x240 window minimum the shell stays usable:
+    // the sidebar auto-collapses again and the story surface stays
+    // mounted inside the scrollable canvas instead of being clipped away.
+    cx.simulate_resize(size(px(320.), px(240.)));
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("storybook-gallery-sidebar").is_none(),
+        "the sidebar must collapse at the window minimum"
+    );
+    assert!(
+        cx.debug_bounds("storybook-gallery-canvas").is_some(),
+        "the story canvas must survive the window minimum"
+    );
+    assert!(
+        cx.debug_bounds("storybook-gallery-story-surface").is_some(),
+        "the story surface must stay mounted at the window minimum"
+    );
+}
+
+#[gpui::test]
+fn gallery_knobs_sections_collapse_below_the_narrow_threshold(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_gallery_storybook(cx);
+    cx.update(|window, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook.activate_gallery_story(StoryKind::Pages, window, cx);
+        });
+    });
+    cx.run_until_parked();
+
+    // The knobs section lays out below the fixed Pages surface; scroll
+    // the canvas down to it like a user would.
+    fn scroll_to_bottom(storybook: &Entity<Storybook>, cx: &mut VisualTestContext) {
+        cx.update(|_, app| {
+            storybook.update(app, |storybook, cx| {
+                storybook
+                    .gallery_story_scroll_handle
+                    .set_offset(point(px(0.), px(-4000.)));
+                cx.notify();
+            });
+        });
+        cx.run_until_parked();
+    }
+    scroll_to_bottom(&storybook, cx);
+    assert!(
+        cx.debug_bounds("pages-story-knobs").is_some(),
+        "a wide window shows the story's knobs panel by default"
+    );
+    assert!(
+        cx.debug_bounds("storybook-knobs-toggle").is_some(),
+        "the knobs section renders its collapse toggle"
+    );
+
+    cx.simulate_resize(size(px(720.), px(640.)));
+    cx.run_until_parked();
+    scroll_to_bottom(&storybook, cx);
+    assert!(
+        cx.debug_bounds("pages-story-knobs").is_none(),
+        "a narrow window collapses the knobs section by default"
+    );
+    let toggle = cx
+        .debug_bounds("storybook-knobs-toggle")
+        .expect("the collapsed knobs section keeps its toggle");
+    cx.simulate_click(toggle.center(), Modifiers::none());
+    cx.run_until_parked();
+    scroll_to_bottom(&storybook, cx);
+    assert!(
+        cx.debug_bounds("pages-story-knobs").is_some(),
+        "the toggle must reopen the knobs at a narrow width"
+    );
+    assert_eq!(
+        cx.update(|_, app| storybook.read(app).knobs_user_expanded),
+        Some(true),
+        "the explicit knobs choice persists on the storybook entity"
+    );
+
+    // The explicit choice survives switching stories.
+    cx.update(|window, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook.activate_gallery_story(StoryKind::Layers, window, cx);
+        });
+    });
+    cx.run_until_parked();
+    scroll_to_bottom(&storybook, cx);
+    assert!(
+        cx.debug_bounds("layers-story-knobs").is_some(),
+        "the reopened knobs choice persists across story switches"
+    );
+}
+
+#[gpui::test]
+fn story_windows_scroll_below_the_smallest_registered_viewport(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_gallery_storybook(cx);
+    let window_id = cx.update(|window, _| window.window_handle().window_id());
+    cx.update(|_, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook.story_windows.insert(window_id, StoryKind::Pages);
+            cx.notify();
+        });
+    });
+    cx.simulate_resize(size(px(400.), px(300.)));
+    cx.run_until_parked();
+
+    let window_root = cx
+        .debug_bounds("storybook-story-window")
+        .expect("the story window root should render");
+    let content = cx
+        .debug_bounds("storybook-story-window-content")
+        .expect("the story window content should render");
+    let (min_width, min_height) = StoryKind::Pages.descriptor().min_story_size();
+    assert!(
+        content.size.width >= px(min_width) && content.size.height >= px(min_height),
+        "content {content:?} must hold the story's smallest viewport {min_width}×{min_height}"
+    );
+    assert!(
+        window_root.size.height < content.size.height,
+        "the undersized window must scroll the story instead of clipping it"
+    );
+}
+
+#[gpui::test]
+fn keyboard_help_toggle_lists_shared_and_story_bindings(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_gallery_storybook(cx);
+    cx.update(|window, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook.activate_gallery_story(StoryKind::Toolbar, window, cx);
+        });
+    });
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("storybook-keyboard-help-panel").is_none(),
+        "the help panel stays hidden until requested"
+    );
+
+    let toggle = cx
+        .debug_bounds("storybook-keyboard-help-toggle")
+        .expect("the footer help toggle should render");
+    cx.simulate_click(toggle.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("storybook-keyboard-help-panel").is_some(),
+        "the help toggle must open the binding listing"
+    );
+
+    cx.simulate_click(toggle.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("storybook-keyboard-help-panel").is_none(),
+        "the help toggle must close the binding listing again"
+    );
+}
+
+/// Upper bound on one story's tab-stop walk. Every surviving ring must
+/// cycle well inside it; the bound only exists so a broken focus graph
+/// fails fast instead of hanging the suite.
+const TAB_WALK_BOUND: usize = 1024;
+
+/// Walks `focus_next` from the story's current focus until the ring
+/// revisits a stop, recording each focused element's identity.
+fn walk_tab_ring(cx: &mut VisualTestContext, story_title: &str) -> Vec<String> {
+    cx.update(|window, app| {
+        let mut visited = Vec::new();
+        for _ in 0..TAB_WALK_BOUND {
+            window.focus_next(app);
+            let Some(focused) = window.focused(app) else {
+                panic!("{story_title}: tab traversal must never drop window focus");
+            };
+            let identity = format!("{focused:?}");
+            if visited.contains(&identity) {
+                return visited;
+            }
+            visited.push(identity);
+        }
+        panic!("{story_title}: tab traversal must cycle within {TAB_WALK_BOUND} stops");
+    })
+}
+
+/// Opens the story's primary overlay state when it has one that a test
+/// can reach without pointer coordinates.
+fn open_overlay_state(
+    storybook: &Entity<Storybook>,
+    kind: StoryKind,
+    cx: &mut VisualTestContext,
+) -> bool {
+    match kind {
+        StoryKind::Toolbar => {
+            cx.update(|window, app| {
+                storybook.update(app, |storybook, cx| {
+                    storybook.apply_toolbar_overlay(
+                        screens::toolbar::ToolbarOverlay::Actions,
+                        window,
+                        cx,
+                    );
+                });
+            });
+            true
+        }
+        StoryKind::Pages => {
+            cx.update(|window, app| {
+                storybook.update(app, |storybook, cx| {
+                    storybook.pages_screen.apply_named_state(
+                        screens::pages::PagesNamedState::SearchActive,
+                        window,
+                        cx,
+                    );
+                });
+            });
+            true
+        }
+        StoryKind::PseudoEditor => {
+            cx.update(|_, app| {
+                storybook.update(app, |storybook, cx| {
+                    let editor = storybook.pseudo_screen.editor.clone();
+                    storybook.pseudo_screen.handle_action(
+                        editor,
+                        &PseudoEditorAction::VariablesVisibilityChanged { visible: true },
+                        cx,
+                    );
+                });
+            });
+            true
+        }
+        StoryKind::Menus => {
+            cx.update(|_, app| {
+                storybook.update(app, |storybook, cx| {
+                    storybook
+                        .menus_screen
+                        .open_menu_at(point(px(60.), px(40.)), "from the walker");
+                    cx.notify();
+                });
+            });
+            true
+        }
+        StoryKind::Popups => {
+            cx.update(|_, app| {
+                storybook.update(app, |storybook, cx| {
+                    storybook.popups_screen.set_popup_open(true, "walker");
+                    cx.notify();
+                });
+            });
+            true
+        }
+        _ => false,
+    }
+}
+
+#[gpui::test]
+fn every_registered_story_passes_the_bounded_keyboard_walk(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_gallery_storybook(cx);
+
+    for descriptor in screens::registry() {
+        let kind = descriptor.kind;
+        cx.update(|window, app| {
+            storybook.update(app, |storybook, cx| {
+                storybook.activate_gallery_story(kind, window, cx);
+            });
+        });
+        cx.run_until_parked();
+
+        // (a) The registry focus hook lands real keyboard focus.
+        assert!(
+            cx.update(|window, app| window.focused(app).is_some()),
+            "{} must focus a story control on activation",
+            descriptor.title
+        );
+
+        // (b) The bounded walk terminates in a cycle without dropping
+        // focus, so Tab can never trap or escape the window.
+        let ring = walk_tab_ring(cx, descriptor.title);
+        assert!(
+            !ring.is_empty(),
+            "{} must expose at least one tab stop",
+            descriptor.title
+        );
+
+        // (c) Escape is safe with no overlay open…
+        cx.simulate_keystrokes("escape");
+        cx.run_until_parked();
+
+        // …and with the story's primary overlay state open, where the
+        // story has one a test can reach without pointer coordinates.
+        if open_overlay_state(&storybook, kind, cx) {
+            cx.run_until_parked();
+            let overlay_ring = walk_tab_ring(cx, descriptor.title);
+            assert!(
+                !overlay_ring.is_empty(),
+                "{} overlay state must keep a focusable ring",
+                descriptor.title
+            );
+            cx.update(|window, app| {
+                storybook.update(app, |storybook, cx| {
+                    storybook.focus_story(kind, window, cx);
+                });
+            });
+            cx.simulate_keystrokes("escape");
+            cx.run_until_parked();
+        }
+    }
 }

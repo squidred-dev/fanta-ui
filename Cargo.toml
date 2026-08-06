@@ -18,6 +18,12 @@ repository = "https://github.com/squidred-dev/fanta-gpui"
 gpui = "0.2.2"
 gpui-component = "0.5.1"
 gpui-component-assets = "0.5.1"
+# The storybook launches through Zed's platform factory; keep native macOS text
+# rendering plus both Linux backends enabled from the same manifest.
+gpui_platform = { path = "../fanta-edit/crates/gpui_platform", features = ["font-kit", "wayland", "x11"] }
+# gpui-component-assets' derive uses include/exclude filters; this direct entry
+# intentionally unifies rust-embed's feature set for the storybook build.
+rust-embed = { version = "8.12", features = ["include-exclude"] }
 
 fanta-gpui = { path = "crates/fanta-gpui" }
 

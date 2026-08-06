@@ -20,13 +20,32 @@ The visual layer is built on
 - `crates/fanta-gpui-storybook` — a small desktop gallery for developing
   components in isolation.
 
+The library source is organized by atomic design tier (`ARCHITECTURE.md` §16):
+
+```text
+crates/fanta-gpui/src/
+  atoms/        activation, buttons, vector icons, truncation, bounds tracking
+  molecules/    menu chrome + clamping, anchored popups, list rows, edge fades
+  organisms/    assets, design, layers, pages, prototype, timeline, toolbar,
+                variables
+  layouts/      pseudo_editor
+```
+
+Organism and layout modules are re-exported at the crate root, so hosts import
+`fanta_gpui::pages`, never a tier path. The atoms and molecules tiers are
+curated public API — hosts build custom chrome from `fanta_gpui::atoms`,
+`fanta_gpui::molecules`, or the prelude.
+
 ## Run the storybook
 
 ```sh
 cargo run -p fanta-gpui-storybook
 ```
 
-The Gallery includes a searchable Foundations → Icons catalog with every
+The Gallery sidebar mirrors the atomic tiers — Getting started, Atoms,
+Molecules, Organisms, Layouts — with per-atom and per-molecule specimen
+stories (buttons and activation, vector icons, truncation, menus, list rows,
+popups and edge fades) beside the searchable Icon assets catalog of every
 bundled `gpui-component` icon. Use **Open window** on any story to keep the
 Gallery and its mock data in place while opening that component in its own
 maximized, full-window surface.
@@ -34,11 +53,14 @@ maximized, full-window surface.
 ## Validate the workspace
 
 ```sh
-cargo fmt --all -- --check
+cargo fmt -p fanta-gpui -p fanta-gpui-storybook -- --check
 cargo check --workspace
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 ```
+
+Scope `cargo fmt` to the workspace crates: `--all` would also reformat the
+patched `gpui`/`gpui-component` sources in the sibling `fanta-edit` checkout.
 
 The test suite includes executable dependency-boundary checks, model tests,
 real GPUI pointer/keyboard interaction tests, and a composed mock-host workflow
@@ -164,8 +186,9 @@ cx.subscribe(&panel, |host, panel, action: &LayersPanelAction, cx| {
 });
 ```
 
-The panel includes Figma-like nested rows, node glyphs, multi-selection
-modifiers, disclosure, inline rename, hover lock/visibility controls, and
+The panel includes Figma-like nested rows, vector node-kind icons,
+multi-selection modifiers, arrow-key tree navigation, disclosure, inline
+rename, hover lock/visibility controls, and
 capability-specific menus for containers, components, instances, text, media,
 shapes, vectors, sections, slices, masks, and fallback nodes. See
 [`docs/layers-panel.md`](docs/layers-panel.md) for the complete contract and
@@ -288,10 +311,13 @@ surface directly.
 chrome. It includes the complete Design split-tool groups, Draw illustration
 controls, Dev handoff tools, Motion transport/keyframing controls, the Actions
 command palette, contextual Agent composer, zoom controls, tooltips, focus
-navigation, and registered shortcuts:
+navigation, and registered shortcuts. The toolbar is intrinsic; the host places
+it in a canvas-relative wrapper (typically bottom center) rather than asking the
+component to fill the canvas:
 
 ```rust
 use fanta_gpui::prelude::*;
+use gpui::{div, prelude::*, px};
 
 let toolbar = cx.new(|cx| {
     EditorToolbar::new(
@@ -303,6 +329,15 @@ let toolbar = cx.new(|cx| {
         cx,
     )
 });
+
+let toolbar_layer = div()
+    .absolute()
+    .left_0()
+    .right_0()
+    .bottom(px(18.))
+    .flex()
+    .justify_center()
+    .child(toolbar.clone());
 
 cx.subscribe(&toolbar, |host, toolbar, action: &ToolbarAction, cx| {
     host.apply_toolbar_intent(action);

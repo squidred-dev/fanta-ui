@@ -13,6 +13,8 @@ fanta-gpui.workspace = true
 gpui.workspace = true
 gpui-component.workspace = true
 gpui-component-assets.workspace = true
+gpui_platform.workspace = true
+rust-embed.workspace = true
 
 [dev-dependencies]
 gpui = { workspace = true, features = ["test-support"] }
