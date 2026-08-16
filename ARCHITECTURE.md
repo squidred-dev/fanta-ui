@@ -246,7 +246,24 @@ supplied node tree.
 Dragging a row is presentation-only until it is dropped. A valid drop emits
 `LayersPanelAction::MoveRequested` with opaque source and target identifiers
 plus a before/inside/after placement. The host performs the reorder or
-reparenting and supplies the resulting tree back through `set_nodes`.
+reparenting and supplies the resulting tree back through `set_nodes`. The
+panel itself refuses only what the tree proves impossible (a node onto itself
+or a descendant, `Inside` on a kind that cannot hold children — instances
+included); every document rule beyond that (page roots, component masters,
+recursive instances, locked parents, …) is the host's, supplied through
+`set_drop_validator` so the drop highlight never promises a drop the host
+would refuse. A refused target shows no highlight and emits nothing.
+
+The tree is virtualized (`uniform_list` over the flattened visible rows): the
+host tree is flattened once per `set_nodes` into a pre-order arena, the
+visible-row list is recomputed only when the tree or the expansion set
+changes, and each frame builds only the rows inside the viewport. Hosts with
+tens of thousands of nodes per page therefore pay per-visible-row, never
+per-node, and echo cost is bounded by `set_nodes` alone. `reveal_node` scrolls
+a shown row to the viewport center (canvas selection → panel reveal); it does
+not expand ancestors — the host owns expansion and echoes it through
+`set_expanded_node_ids` first. `visible_row_ids` exposes the shown order for
+host-side shift-click range selection over what the user actually sees.
 
 Contextual menu contents are selected from UI capabilities associated with
 `LayersPanelNodeKind`. This lets the component reproduce Figma-like menus

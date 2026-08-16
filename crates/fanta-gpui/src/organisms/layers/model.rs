@@ -73,6 +73,13 @@ impl LayersPanelNodeKind {
         )
     }
 
+    /// Whether a layer dropped onto this kind may become its child. Instances
+    /// are containers for layout purposes but never accept real children —
+    /// their subtree comes from the main component.
+    pub(crate) const fn accepts_dropped_children(self) -> bool {
+        self.is_container() && !matches!(self, Self::Instance)
+    }
+
     pub(crate) const fn can_flip(self) -> bool {
         !matches!(self, Self::Section | Self::Slice)
     }

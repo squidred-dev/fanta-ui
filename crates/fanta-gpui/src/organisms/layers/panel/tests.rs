@@ -11,7 +11,7 @@ use crate::test_support::{
     Mounted, ProbeHost, assert_pointer_and_keyboard_parity, mount_component,
 };
 
-use super::{flatten_visible, menu::menu_sections_for, *};
+use super::{events::layer_drop_position, menu::menu_sections_for, *};
 
 actions!(layers_input_regression, [CompetingDeleteSelection]);
 
@@ -140,38 +140,61 @@ fn actions_for(kind: LayersPanelNodeKind) -> HashSet<LayersPanelContextAction> {
 
 #[test]
 fn visible_tree_respects_expansion_and_depth() {
-    let nodes = fixture_nodes();
-    let expanded = vec!["frame".into(), "group".into()];
-    let mut visible = Vec::new();
-    flatten_visible(&nodes, 0, &expanded, &mut visible);
+    let arena = LayerArena::from_items(&fixture_nodes());
+    let expanded: HashSet<SharedString> = ["frame".into(), "group".into()].into_iter().collect();
+    let visible = arena.visible_indices(&expanded);
 
     let identity_and_depth = visible
         .iter()
-        .map(|layer| {
+        .map(|index| {
+            let node = arena.get(*index).expect("visible index is in the arena");
             (
-                layer.item.id.as_ref(),
-                layer.depth,
-                layer
-                    .ancestor_ids
+                node.id.to_string(),
+                node.depth,
+                arena
+                    .ancestor_ids(*index)
                     .iter()
-                    .map(SharedString::as_ref)
+                    .map(ToString::to_string)
                     .collect::<Vec<_>>(),
             )
         })
         .collect::<Vec<_>>();
-    assert_eq!(
-        identity_and_depth,
-        vec![
-            ("frame", 0, vec![]),
-            ("group", 1, vec!["frame"]),
-            ("text", 2, vec!["frame", "group"]),
-            ("image", 2, vec!["frame", "group"]),
-            ("component", 1, vec!["frame"]),
-            ("rectangle", 1, vec!["frame"]),
-            ("section", 0, vec![]),
-            ("slice", 0, vec![]),
-        ]
-    );
+    let expected = vec![
+        ("frame", 0, vec![]),
+        ("group", 1, vec!["frame"]),
+        ("text", 2, vec!["frame", "group"]),
+        ("image", 2, vec!["frame", "group"]),
+        ("component", 1, vec!["frame"]),
+        ("rectangle", 1, vec!["frame"]),
+        ("section", 0, vec![]),
+        ("slice", 0, vec![]),
+    ]
+    .into_iter()
+    .map(|(id, depth, ancestors): (&str, usize, Vec<&str>)| {
+        (
+            id.to_owned(),
+            depth,
+            ancestors.into_iter().map(str::to_owned).collect::<Vec<_>>(),
+        )
+    })
+    .collect::<Vec<_>>();
+    assert_eq!(identity_and_depth, expected);
+}
+
+#[test]
+fn arena_answers_subtree_membership_from_preorder_indices() {
+    let arena = LayerArena::from_items(&fixture_nodes());
+    let index = |id: &str| arena.index_of(&SharedString::from(id.to_owned())).unwrap();
+
+    assert!(arena.is_within(index("text"), index("frame")));
+    assert!(arena.is_within(index("text"), index("group")));
+    assert!(arena.is_within(index("group"), index("group")));
+    assert!(!arena.is_within(index("group"), index("text")));
+    assert!(!arena.is_within(index("section"), index("frame")));
+    assert!(!arena.is_within(index("rectangle"), index("group")));
+    assert!(arena.has_children(index("frame")));
+    assert!(!arena.has_children(index("slice")));
+    assert_eq!(arena.len(), 9);
 }
 
 #[test]
@@ -254,7 +277,11 @@ fn tree_renders_nested_types_selection_and_host_states(cx: &mut TestAppContext) 
     assert!(bounds(cx, "layers-lock-group").size.width > px(0.));
     assert!(bounds(cx, "layers-visibility-image").size.width > px(0.));
     assert_eq!(
-        read_panel(&panel, cx, |panel| panel.selected_node_ids.clone()),
+        read_panel(&panel, cx, |panel| panel
+            .selected_node_ids
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>()),
         vec![SharedString::from("text")]
     );
 }
@@ -269,10 +296,7 @@ fn hovering_a_nested_row_highlights_its_nearest_visible_group(cx: &mut TestAppCo
     cx.run_until_parked();
 
     assert_eq!(
-        read_panel(&panel, cx, |panel| {
-            let visible = panel.visible_layers();
-            panel.hovered_group_id(&visible)
-        }),
+        read_panel(&panel, cx, |panel| panel.hovered_group_id()),
         Some("group".into())
     );
 }
@@ -286,15 +310,7 @@ fn selecting_a_group_highlights_its_visible_subtree(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
 
-    let highlighted = read_panel(&panel, cx, |panel| {
-        let visible = panel.visible_layers();
-        let selected_groups = panel.selected_group_ids(&visible);
-        visible
-            .iter()
-            .filter(|layer| LayersPanel::layer_is_within_groups(layer, &selected_groups))
-            .map(|layer| layer.item.id.clone())
-            .collect::<Vec<_>>()
-    });
+    let highlighted = read_panel(&panel, cx, |panel| panel.rows_within_selected_groups());
     assert_eq!(
         highlighted,
         vec![
@@ -424,7 +440,7 @@ fn expansion_and_collapse_all_update_presentation_and_emit_intents(cx: &mut Test
     click(cx, "layers-expand-group", Modifiers::none());
     assert!(!read_panel(&panel, cx, |panel| panel
         .expanded_node_ids
-        .contains(&"group".into())));
+        .contains(&SharedString::from("group"))));
     assert_eq!(
         actions.borrow().last(),
         Some(&LayersPanelAction::ExpansionChanged {
@@ -910,4 +926,183 @@ fn keyboard_opens_and_escape_closes_a_row_menu_with_focus_restored(cx: &mut Test
     cx.simulate_keystrokes("escape");
     cx.run_until_parked();
     assert!(read_panel(&panel, cx, |panel| panel.menu.is_none()));
+}
+
+fn wide_root_layers(count: usize) -> Vec<LayersPanelItem> {
+    (0..count)
+        .map(|index| {
+            LayersPanelItem::new(
+                format!("leaf-{index}"),
+                format!("Leaf {index}"),
+                LayersPanelNodeKind::Rectangle,
+            )
+        })
+        .collect()
+}
+
+#[gpui::test]
+fn the_tree_is_virtualized_and_reveal_scrolls_a_far_row_into_view(cx: &mut TestAppContext) {
+    let (host, _actions, cx) = mount_component(cx, |window, cx| {
+        LayersPanel::new("virtual-layers", wide_root_layers(5_000), window, cx)
+    });
+    let panel = panel(&host, cx);
+
+    // Only the viewport's worth of rows is built: the first row exists, a
+    // row thousands deep does not, and the panel holds focus handles for the
+    // rendered rows only.
+    assert!(bounds(cx, "layers-row-leaf-0").size.height > px(0.));
+    assert!(cx.debug_bounds("layers-row-leaf-4000").is_none());
+    let rendered = read_panel(&panel, cx, |panel| panel.row_focus_handles.len());
+    assert!(
+        rendered < 200,
+        "a 5,000-row tree must build only the visible rows, built {rendered}"
+    );
+
+    let revealed = panel.update(cx, |panel, cx| {
+        panel.reveal_node(&SharedString::from("leaf-4000"), cx)
+    });
+    assert!(revealed);
+    cx.run_until_parked();
+    let far = bounds(cx, "layers-row-leaf-4000");
+    let viewport = bounds(cx, "layers-tree-viewport");
+    assert!(
+        far.top() >= viewport.top() && far.bottom() <= viewport.bottom(),
+        "the revealed row must sit inside the viewport: {far:?} in {viewport:?}"
+    );
+    assert!(cx.debug_bounds("layers-row-leaf-0").is_none());
+}
+
+#[gpui::test]
+fn reveal_refuses_rows_hidden_under_a_collapsed_ancestor(cx: &mut TestAppContext) {
+    let (host, _actions, cx) = setup(cx);
+    let panel = panel(&host, cx);
+
+    panel.update(cx, |panel, cx| {
+        panel.set_expanded_node_ids(vec!["frame".into()], cx);
+    });
+    cx.run_until_parked();
+    let revealed = panel.update(cx, |panel, cx| {
+        panel.reveal_node(&SharedString::from("text"), cx)
+    });
+    assert!(!revealed, "a row under the collapsed `group` is not shown");
+    assert!(cx.debug_bounds("layers-row-text").is_none());
+
+    panel.update(cx, |panel, cx| {
+        panel.set_expanded_node_ids(vec!["frame".into(), "group".into()], cx);
+    });
+    cx.run_until_parked();
+    let revealed = panel.update(cx, |panel, cx| {
+        panel.reveal_node(&SharedString::from("text"), cx)
+    });
+    assert!(revealed);
+    cx.run_until_parked();
+    assert!(bounds(cx, "layers-row-text").size.height > px(0.));
+    assert_eq!(
+        read_panel(&panel, cx, |panel| panel.visible_row_ids()),
+        vec![
+            SharedString::from("frame"),
+            SharedString::from("group"),
+            SharedString::from("text"),
+            SharedString::from("image"),
+            SharedString::from("component"),
+            SharedString::from("rectangle"),
+            SharedString::from("section"),
+            SharedString::from("slice"),
+        ]
+    );
+}
+
+#[gpui::test]
+fn arrow_keys_scroll_focus_to_rows_outside_the_viewport(cx: &mut TestAppContext) {
+    let (host, _actions, cx) = mount_component(cx, |window, cx| {
+        LayersPanel::new("virtual-focus-layers", wide_root_layers(400), window, cx)
+    });
+    let panel = panel(&host, cx);
+
+    focus_panel(&panel, cx);
+    cx.simulate_keystrokes("tab tab tab");
+    cx.run_until_parked();
+    assert_eq!(focused_row(&panel, cx), Some("leaf-0".into()));
+
+    // Walk well past the first viewport: each Down must land on the next
+    // row even though it had no element when the key was pressed.
+    for _ in 0..60 {
+        cx.simulate_keystrokes("down");
+    }
+    cx.run_until_parked();
+    assert_eq!(focused_row(&panel, cx), Some("leaf-60".into()));
+    let row = bounds(cx, "layers-row-leaf-60");
+    let viewport = bounds(cx, "layers-tree-viewport");
+    assert!(row.top() >= viewport.top() && row.bottom() <= viewport.bottom());
+}
+
+#[gpui::test]
+fn a_refusing_drop_validator_suppresses_the_move_intent(cx: &mut TestAppContext) {
+    let (host, actions, cx) = setup(cx);
+    let panel = panel(&host, cx);
+    panel.update(cx, |panel, cx| {
+        panel.set_drop_validator(
+            Some(Rc::new(|dragged, target, _, _| {
+                !(dragged.as_ref() == "rectangle" && target.as_ref() == "section")
+            })),
+            cx,
+        );
+    });
+    cx.run_until_parked();
+
+    let drag_to = |cx: &mut VisualTestContext, source: &'static str, target: &'static str| {
+        let source = bounds(cx, source).center();
+        let target_bounds = bounds(cx, target);
+        let target = gpui::point(target_bounds.center().x, target_bounds.top() + px(2.));
+        cx.simulate_mouse_move(source, None, Modifiers::none());
+        cx.simulate_mouse_down(source, MouseButton::Left, Modifiers::none());
+        cx.simulate_mouse_move(
+            source + gpui::point(px(8.), px(0.)),
+            MouseButton::Left,
+            Modifiers::none(),
+        );
+        cx.simulate_mouse_move(target, MouseButton::Left, Modifiers::none());
+        cx.simulate_mouse_up(target, MouseButton::Left, Modifiers::none());
+        cx.run_until_parked();
+    };
+
+    actions.borrow_mut().clear();
+    drag_to(cx, "layers-row-rectangle", "layers-row-section");
+    assert!(
+        !actions
+            .borrow()
+            .iter()
+            .any(|action| matches!(action, LayersPanelAction::MoveRequested { .. })),
+        "a drop the host refuses must not emit MoveRequested: {:?}",
+        actions.borrow()
+    );
+
+    actions.borrow_mut().clear();
+    drag_to(cx, "layers-row-rectangle", "layers-row-slice");
+    assert_eq!(
+        actions.borrow().last(),
+        Some(&LayersPanelAction::MoveRequested {
+            node_id: "rectangle".into(),
+            target_node_id: "slice".into(),
+            position: LayersPanelDropPosition::Before,
+        })
+    );
+}
+
+#[test]
+fn drop_position_never_nests_inside_an_instance() {
+    let bounds = Bounds::new(gpui::point(px(0.), px(0.)), size(px(200.), px(28.)));
+    let center = bounds.center();
+    assert_eq!(
+        layer_drop_position(LayersPanelNodeKind::Frame, bounds, center),
+        LayersPanelDropPosition::Inside
+    );
+    assert_ne!(
+        layer_drop_position(LayersPanelNodeKind::Instance, bounds, center),
+        LayersPanelDropPosition::Inside
+    );
+    assert_ne!(
+        layer_drop_position(LayersPanelNodeKind::Rectangle, bounds, center),
+        LayersPanelDropPosition::Inside
+    );
 }

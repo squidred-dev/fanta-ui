@@ -106,6 +106,26 @@ impl EditorToolbar {
         self.zoom_percent
     }
 
+    /// Returns the last Draw-mode values supplied by the host.
+    pub fn draw_options(&self) -> &DrawToolbarOptions {
+        &self.draw_options
+    }
+
+    /// Returns the last Dev-mode values supplied by the host.
+    pub fn dev_options(&self) -> &DevToolbarOptions {
+        &self.dev_options
+    }
+
+    /// Returns the last Motion-mode values supplied by the host.
+    pub fn motion_options(&self) -> &MotionToolbarOptions {
+        &self.motion_options
+    }
+
+    /// Returns the last Agent context copy supplied by the host.
+    pub fn agent_options(&self) -> &AgentToolbarOptions {
+        &self.agent_options
+    }
+
     /// Replaces the controlled mode and closes any transient overlay.
     pub fn set_mode(&mut self, mode: ToolbarMode, cx: &mut Context<Self>) {
         self.mode = mode;

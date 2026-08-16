@@ -55,10 +55,10 @@ pub mod prelude {
     pub use crate::design::*;
     pub use crate::layers::{
         CloseLayersOverlay, CollapseLayer, ConfirmLayersTextEntry, ExpandLayer, FocusNextLayer,
-        FocusPreviousLayer, LAYERS_PANEL_MIN_HEIGHT, LAYERS_PANEL_MIN_WIDTH, LayersPanel,
-        LayersPanelAction, LayersPanelContextAction, LayersPanelDropPosition, LayersPanelItem,
-        LayersPanelNodeKind, LayersPanelSelectionMode, OpenLayerContextMenu, ToggleLayerLock,
-        ToggleLayerVisibility,
+        FocusPreviousLayer, LAYERS_PANEL_MIN_HEIGHT, LAYERS_PANEL_MIN_WIDTH, LayersDropValidator,
+        LayersPanel, LayersPanelAction, LayersPanelContextAction, LayersPanelDropPosition,
+        LayersPanelItem, LayersPanelNodeKind, LayersPanelSelectionMode, OpenLayerContextMenu,
+        ToggleLayerLock, ToggleLayerVisibility,
     };
     // Shared chrome molecules (ARCHITECTURE.md §16).
     pub use crate::molecules::{

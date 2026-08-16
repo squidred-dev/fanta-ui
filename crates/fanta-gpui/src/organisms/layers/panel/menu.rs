@@ -27,7 +27,7 @@ impl LayersPanel {
         let (Some(panel_bounds), Some(menu)) = (self.panel_bounds, self.menu.as_ref()) else {
             return div().into_any_element();
         };
-        let sections = menu_sections_for(menu.item.kind);
+        let sections = menu_sections_for(menu.node.kind);
         let row_count = sections.iter().map(Vec::len).sum::<usize>();
         let separator_count = sections.len().saturating_sub(1);
         let estimated_height =

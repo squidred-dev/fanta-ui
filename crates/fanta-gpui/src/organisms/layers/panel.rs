@@ -1,10 +1,11 @@
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, AppContext as _, Bounds, Context, Entity, EventEmitter, FocusHandle,
     Focusable, InteractiveElement as _, IntoElement, ParentElement as _, Pixels, Point, Render,
-    ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, Subscription, Window,
-    div, prelude::FluentBuilder as _, px,
+    ScrollHandle, ScrollStrategy, SharedString, StatefulInteractiveElement as _, Styled as _,
+    Subscription, UniformListScrollHandle, Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_component::{
     ActiveTheme as _, Icon, IconName, Sizable as _, StyledExt as _, h_flex,
@@ -41,9 +42,140 @@ pub const LAYERS_PANEL_MIN_WIDTH: f32 = 240.;
 pub const LAYERS_PANEL_MIN_HEIGHT: f32 = 400.;
 
 const HEADER_HEIGHT: f32 = 40.;
+/// Every tree row — plain, editing, or dragging preview — is this tall. The
+/// tree is virtualized with `uniform_list`, which measures the first row and
+/// positions the rest arithmetically, so the height must be uniform.
 const LAYER_ROW_HEIGHT: f32 = 28.;
-const LAYER_INDENT: f32 = 16.;
+/// Indent per nesting level. Figma uses a compact step so deep trees keep a
+/// legible title column inside a narrow rail.
+const LAYER_INDENT: f32 = 12.;
+/// Horizontal room a row always keeps for its icon slots, title, and
+/// satellites: the indent is capped so a deeply nested row never pushes its
+/// content out of the panel.
+const LAYER_ROW_MIN_CONTENT_WIDTH: f32 = 132.;
 const LAYER_ICON_SLOT: f32 = 18.;
+
+/// Host hook consulted while a row is dragged over another: `(dragged id,
+/// target id, placement)` -> whether the drop would be accepted. Lets the
+/// drop highlight tell the truth about document rules (page roots, component
+/// masters, recursive instances, …) the panel cannot know from the tree alone.
+pub type LayersDropValidator =
+    Rc<dyn Fn(&SharedString, &SharedString, LayersPanelDropPosition, &App) -> bool>;
+
+/// One flattened tree entry: the host item's scalar fields plus its
+/// pre-order position. Ancestry, subtree membership, and visibility are all
+/// answered from indices, so per-frame work never walks (or clones) the
+/// host's tree.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct LayerNode {
+    pub(super) id: SharedString,
+    pub(super) title: SharedString,
+    pub(super) kind: LayersPanelNodeKind,
+    pub(super) visible: bool,
+    pub(super) locked: bool,
+    pub(super) depth: usize,
+    pub(super) parent: Option<usize>,
+    /// One past the last pre-order index of this node's subtree; the subtree
+    /// is exactly `index + 1..subtree_end`.
+    pub(super) subtree_end: usize,
+}
+
+/// The host tree flattened in pre-order (parents before children, siblings in
+/// render order) with an id → index map. Built once per `set_nodes`.
+#[derive(Default, Debug)]
+pub(super) struct LayerArena {
+    nodes: Vec<LayerNode>,
+    index_by_id: HashMap<SharedString, usize>,
+}
+
+impl LayerArena {
+    pub(super) fn from_items(items: &[LayersPanelItem]) -> Self {
+        let mut arena = Self::default();
+        for item in items {
+            arena.push_item(item, 0, None);
+        }
+        arena
+    }
+
+    fn push_item(&mut self, item: &LayersPanelItem, depth: usize, parent: Option<usize>) {
+        let index = self.nodes.len();
+        self.nodes.push(LayerNode {
+            id: item.id.clone(),
+            title: item.title.clone(),
+            kind: item.kind,
+            visible: item.visible,
+            locked: item.locked,
+            depth,
+            parent,
+            subtree_end: index + 1,
+        });
+        self.index_by_id.insert(item.id.clone(), index);
+        for child in &item.children {
+            self.push_item(child, depth + 1, Some(index));
+        }
+        self.nodes[index].subtree_end = self.nodes.len();
+    }
+
+    #[cfg(test)]
+    pub(super) fn len(&self) -> usize {
+        self.nodes.len()
+    }
+
+    pub(super) fn get(&self, index: usize) -> Option<&LayerNode> {
+        self.nodes.get(index)
+    }
+
+    pub(super) fn index_of(&self, id: &SharedString) -> Option<usize> {
+        self.index_by_id.get(id).copied()
+    }
+
+    pub(super) fn contains(&self, id: &SharedString) -> bool {
+        self.index_by_id.contains_key(id)
+    }
+
+    pub(super) fn has_children(&self, index: usize) -> bool {
+        self.nodes
+            .get(index)
+            .is_some_and(|node| node.subtree_end > index + 1)
+    }
+
+    /// Whether `index` is `ancestor` itself or lies inside its subtree.
+    pub(super) fn is_within(&self, index: usize, ancestor: usize) -> bool {
+        self.nodes
+            .get(ancestor)
+            .is_some_and(|node| ancestor <= index && index < node.subtree_end)
+    }
+
+    /// Ancestor ids of `index`, root first.
+    #[cfg(test)]
+    pub(super) fn ancestor_ids(&self, index: usize) -> Vec<SharedString> {
+        let mut ancestors = Vec::new();
+        let mut cursor = self.nodes.get(index).and_then(|node| node.parent);
+        while let Some(parent) = cursor {
+            let node = &self.nodes[parent];
+            ancestors.push(node.id.clone());
+            cursor = node.parent;
+        }
+        ancestors.reverse();
+        ancestors
+    }
+
+    /// Pre-order indices of the rows a tree with `expanded` containers shows.
+    pub(super) fn visible_indices(&self, expanded: &HashSet<SharedString>) -> Vec<usize> {
+        let mut visible = Vec::new();
+        let mut index = 0;
+        while index < self.nodes.len() {
+            let node = &self.nodes[index];
+            visible.push(index);
+            if node.subtree_end > index + 1 && !expanded.contains(&node.id) {
+                index = node.subtree_end;
+            } else {
+                index += 1;
+            }
+        }
+        visible
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct LayerEditorTarget {
@@ -53,25 +185,19 @@ struct LayerEditorTarget {
 
 #[derive(Clone, Debug)]
 struct LayerMenuState {
-    item: LayersPanelItem,
+    node: LayerNode,
     anchor: Point<Pixels>,
     return_focus: Option<FocusHandle>,
 }
 
+/// The drag payload: identity and preview data only. Validity is decided at
+/// hover/drop time from the arena (and the host validator), never by carrying
+/// the dragged subtree around.
 #[derive(Clone, Debug)]
 struct LayerDrag {
     node_id: SharedString,
     title: SharedString,
     kind: LayersPanelNodeKind,
-    invalid_target_ids: Vec<SharedString>,
-}
-
-#[derive(Clone, Debug)]
-struct VisibleLayer {
-    item: LayersPanelItem,
-    depth: usize,
-    has_children: bool,
-    ancestor_ids: Vec<SharedString>,
 }
 
 /// Stateful, host-controlled Figma-like Layers panel.
@@ -79,14 +205,20 @@ struct VisibleLayer {
 /// The host supplies the node tree, selection, expanded identifiers, visibility,
 /// and lock state. The panel owns only interaction continuity such as hover,
 /// focus, rename drafts, scrolling, and the open contextual menu.
+///
+/// The tree is virtualized: only the rows inside the viewport are built each
+/// frame, so 30k-node pages render at the same cost as 30-node ones.
 pub struct LayersPanel {
     id: SharedString,
     focus_handle: FocusHandle,
     menu_focus_handle: FocusHandle,
-    nodes: Vec<LayersPanelItem>,
+    arena: LayerArena,
+    /// Arena indices of the rows currently shown, top to bottom. Rebuilt when
+    /// the tree or the expansion set changes — never per frame.
+    visible_rows: Vec<usize>,
     panel_expanded: bool,
-    selected_node_ids: Vec<SharedString>,
-    expanded_node_ids: Vec<SharedString>,
+    selected_node_ids: HashSet<SharedString>,
+    expanded_node_ids: HashSet<SharedString>,
     editing: Option<LayerEditorTarget>,
     select_editor_after_render: bool,
     rename_input: Entity<InputState>,
@@ -94,9 +226,10 @@ pub struct LayersPanel {
     panel_bounds: Option<Bounds<Pixels>>,
     node_row_bounds: HashMap<SharedString, Bounds<Pixels>>,
     row_focus_handles: HashMap<SharedString, FocusHandle>,
-    scroll_handle: ScrollHandle,
+    list_scroll_handle: UniformListScrollHandle,
     menu_scroll_handle: ScrollHandle,
     hovered_node: Option<SharedString>,
+    drop_validator: Option<LayersDropValidator>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -120,19 +253,22 @@ impl LayersPanel {
                 InputEvent::Change | InputEvent::Focus => {}
             },
         );
-        let expanded_node_ids = nodes
+        let expanded_node_ids: HashSet<SharedString> = nodes
             .iter()
             .filter(|node| !node.children.is_empty())
             .map(|node| node.id.clone())
             .collect();
+        let arena = LayerArena::from_items(&nodes);
+        let visible_rows = arena.visible_indices(&expanded_node_ids);
 
         Self {
             id: id.into(),
             focus_handle: cx.focus_handle(),
             menu_focus_handle: cx.focus_handle(),
-            nodes,
+            arena,
+            visible_rows,
             panel_expanded: true,
-            selected_node_ids: Vec::new(),
+            selected_node_ids: HashSet::new(),
             expanded_node_ids,
             editing: None,
             select_editor_after_render: false,
@@ -141,46 +277,43 @@ impl LayersPanel {
             panel_bounds: None,
             node_row_bounds: HashMap::new(),
             row_focus_handles: HashMap::new(),
-            scroll_handle: ScrollHandle::new(),
+            list_scroll_handle: UniformListScrollHandle::new(),
             menu_scroll_handle: ScrollHandle::new(),
             hovered_node: None,
+            drop_validator: None,
             _subscriptions: vec![subscription],
         }
     }
 
     /// Replaces the host-controlled tree.
     pub fn set_nodes(&mut self, nodes: Vec<LayersPanelItem>, cx: &mut Context<Self>) {
-        self.nodes = nodes;
-        let mut live_ids = Vec::new();
-        for node in &self.nodes {
-            collect_layer_ids(node, &mut live_ids);
-        }
-        let live_ids: HashSet<SharedString> = live_ids.into_iter().collect();
+        self.arena = LayerArena::from_items(&nodes);
         self.node_row_bounds
-            .retain(|node_id, _| live_ids.contains(node_id));
+            .retain(|node_id, _| self.arena.contains(node_id));
         self.row_focus_handles
-            .retain(|node_id, _| live_ids.contains(node_id));
+            .retain(|node_id, _| self.arena.contains(node_id));
         if self
             .editing
             .as_ref()
-            .is_some_and(|target| find_item(&self.nodes, &target.node_id).is_none())
+            .is_some_and(|target| !self.arena.contains(&target.node_id))
         {
             self.editing = None;
         }
         if self
             .menu
             .as_ref()
-            .is_some_and(|menu| find_item(&self.nodes, &menu.item.id).is_none())
+            .is_some_and(|menu| !self.arena.contains(&menu.node.id))
         {
             self.menu = None;
         }
         if self
             .hovered_node
             .as_ref()
-            .is_some_and(|node_id| find_item(&self.nodes, node_id).is_none())
+            .is_some_and(|node_id| !self.arena.contains(node_id))
         {
             self.hovered_node = None;
         }
+        self.rebuild_visible_rows();
         cx.notify();
     }
 
@@ -190,7 +323,7 @@ impl LayersPanel {
         selected_node_ids: Vec<SharedString>,
         cx: &mut Context<Self>,
     ) {
-        self.selected_node_ids = selected_node_ids;
+        self.selected_node_ids = selected_node_ids.into_iter().collect();
         cx.notify();
     }
 
@@ -204,26 +337,78 @@ impl LayersPanel {
         cx.notify();
     }
 
+    /// Whether the panel body is disclosed (`false` shows only the header).
+    pub fn is_expanded(&self) -> bool {
+        self.panel_expanded
+    }
+
     /// Replaces the host-controlled expanded node identifiers.
     pub fn set_expanded_node_ids(
         &mut self,
         expanded_node_ids: Vec<SharedString>,
         cx: &mut Context<Self>,
     ) {
-        self.expanded_node_ids = expanded_node_ids;
+        let expanded_node_ids: HashSet<SharedString> = expanded_node_ids.into_iter().collect();
+        // Hosts echo expansion on every document event (each canvas click);
+        // an unchanged set keeps the cached rows.
+        if expanded_node_ids != self.expanded_node_ids {
+            self.expanded_node_ids = expanded_node_ids;
+            self.rebuild_visible_rows();
+        }
         cx.notify();
     }
 
     /// Returns the current expanded identifiers, including locally-triggered
     /// presentation updates that a host may accept or replace.
-    pub fn expanded_node_ids(&self) -> &[SharedString] {
-        &self.expanded_node_ids
+    pub fn expanded_node_ids(&self) -> Vec<SharedString> {
+        self.expanded_node_ids.iter().cloned().collect()
     }
 
-    fn visible_layers(&self) -> Vec<VisibleLayer> {
-        let mut visible = Vec::new();
-        flatten_visible(&self.nodes, 0, &self.expanded_node_ids, &mut visible);
-        visible
+    /// Installs (or clears) the host's drop validator. While a row is dragged
+    /// over a target, the panel first rejects self/descendant targets and
+    /// `Inside` on non-container kinds, then asks the validator; a target the
+    /// validator refuses shows no drop highlight and never emits `MoveRequested`.
+    pub fn set_drop_validator(
+        &mut self,
+        validator: Option<LayersDropValidator>,
+        cx: &mut Context<Self>,
+    ) {
+        self.drop_validator = validator;
+        cx.notify();
+    }
+
+    /// Scrolls the row for `node_id` into the middle of the viewport. Returns
+    /// `false` (and does nothing) when the node is not currently shown —
+    /// unknown, or under a collapsed ancestor; expand ancestors first through
+    /// `set_expanded_node_ids`.
+    pub fn reveal_node(&mut self, node_id: &SharedString, cx: &mut Context<Self>) -> bool {
+        let Some(row) = self.visible_row_of(node_id) else {
+            return false;
+        };
+        self.list_scroll_handle
+            .scroll_to_item(row, ScrollStrategy::Center);
+        cx.notify();
+        true
+    }
+
+    /// Ids of the rows currently shown, top to bottom — the order a host needs
+    /// for shift-click range selection over what the user actually sees.
+    pub fn visible_row_ids(&self) -> Vec<SharedString> {
+        self.visible_rows
+            .iter()
+            .filter_map(|index| self.arena.get(*index))
+            .map(|node| node.id.clone())
+            .collect()
+    }
+
+    fn rebuild_visible_rows(&mut self) {
+        self.visible_rows = self.arena.visible_indices(&self.expanded_node_ids);
+    }
+
+    /// Position of `node_id` in the shown rows, if it is shown.
+    pub(super) fn visible_row_of(&self, node_id: &SharedString) -> Option<usize> {
+        let index = self.arena.index_of(node_id)?;
+        self.visible_rows.binary_search(&index).ok()
     }
 
     fn render_header(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -340,65 +525,5 @@ impl Render for LayersPanel {
             .when(self.panel_expanded && self.menu.is_some(), |panel| {
                 panel.child(self.render_context_menu(window, cx))
             })
-    }
-}
-
-fn flatten_visible(
-    nodes: &[LayersPanelItem],
-    depth: usize,
-    expanded_node_ids: &[SharedString],
-    visible: &mut Vec<VisibleLayer>,
-) {
-    flatten_visible_with_ancestors(nodes, depth, expanded_node_ids, &[], visible);
-}
-
-fn flatten_visible_with_ancestors(
-    nodes: &[LayersPanelItem],
-    depth: usize,
-    expanded_node_ids: &[SharedString],
-    ancestor_ids: &[SharedString],
-    visible: &mut Vec<VisibleLayer>,
-) {
-    for node in nodes {
-        let has_children = !node.children.is_empty();
-        visible.push(VisibleLayer {
-            item: node.clone(),
-            depth,
-            has_children,
-            ancestor_ids: ancestor_ids.to_vec(),
-        });
-        if has_children && expanded_node_ids.contains(&node.id) {
-            let mut child_ancestors = ancestor_ids.to_vec();
-            child_ancestors.push(node.id.clone());
-            flatten_visible_with_ancestors(
-                &node.children,
-                depth + 1,
-                expanded_node_ids,
-                &child_ancestors,
-                visible,
-            );
-        }
-    }
-}
-
-fn find_item<'a>(
-    nodes: &'a [LayersPanelItem],
-    node_id: &SharedString,
-) -> Option<&'a LayersPanelItem> {
-    for node in nodes {
-        if node.id == *node_id {
-            return Some(node);
-        }
-        if let Some(found) = find_item(&node.children, node_id) {
-            return Some(found);
-        }
-    }
-    None
-}
-
-fn collect_layer_ids(node: &LayersPanelItem, ids: &mut Vec<SharedString>) {
-    ids.push(node.id.clone());
-    for child in &node.children {
-        collect_layer_ids(child, ids);
     }
 }

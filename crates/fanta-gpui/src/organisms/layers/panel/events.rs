@@ -56,16 +56,23 @@ impl LayersPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some((visible, index)) = self.focused_visible_layer(window) else {
+        let Some(row) = self.focused_visible_row(window) else {
             return;
         };
-        let layer = &visible[index];
-        if layer.has_children && self.expanded_node_ids.contains(&layer.item.id) {
+        let arena_index = self.visible_rows[row];
+        let Some(node) = self.arena.get(arena_index).cloned() else {
+            return;
+        };
+        if self.arena.has_children(arena_index) && self.expanded_node_ids.contains(&node.id) {
             cx.stop_propagation();
-            self.toggle_expansion(layer.item.id.clone(), cx);
-        } else if let Some(parent_id) = layer.ancestor_ids.last() {
+            self.toggle_expansion(node.id, cx);
+        } else if let Some(parent_id) = node
+            .parent
+            .and_then(|parent| self.arena.get(parent))
+            .map(|parent| parent.id.clone())
+        {
             cx.stop_propagation();
-            self.focus_row(parent_id, window, cx);
+            self.focus_row(&parent_id, window, cx);
         }
     }
 
@@ -75,76 +82,101 @@ impl LayersPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some((visible, index)) = self.focused_visible_layer(window) else {
+        let Some(row) = self.focused_visible_row(window) else {
             return;
         };
-        let layer = &visible[index];
-        if !layer.has_children {
+        let arena_index = self.visible_rows[row];
+        if !self.arena.has_children(arena_index) {
             return;
         }
-        if self.expanded_node_ids.contains(&layer.item.id) {
-            if let Some(first_child) = visible.get(index + 1) {
+        let Some(node_id) = self.arena.get(arena_index).map(|node| node.id.clone()) else {
+            return;
+        };
+        if self.expanded_node_ids.contains(&node_id) {
+            // The first child of an expanded container is the next shown row.
+            if let Some(first_child) = self
+                .visible_rows
+                .get(row + 1)
+                .and_then(|index| self.arena.get(*index))
+                .map(|child| child.id.clone())
+            {
                 cx.stop_propagation();
-                self.focus_row(&first_child.item.id, window, cx);
+                self.focus_row(&first_child, window, cx);
             }
         } else {
             cx.stop_propagation();
-            self.toggle_expansion(layer.item.id.clone(), cx);
+            self.toggle_expansion(node_id, cx);
         }
     }
 
     fn move_row_focus(&mut self, offset: isize, window: &mut Window, cx: &mut Context<Self>) {
-        let Some((visible, index)) = self.focused_visible_layer(window) else {
+        let Some(row) = self.focused_visible_row(window) else {
             return;
         };
-        let target = index as isize + offset;
-        if target < 0 || target as usize >= visible.len() {
+        let target = row as isize + offset;
+        if target < 0 || target as usize >= self.visible_rows.len() {
             return;
         }
+        let Some(target_id) = self
+            .arena
+            .get(self.visible_rows[target as usize])
+            .map(|node| node.id.clone())
+        else {
+            return;
+        };
         cx.stop_propagation();
-        self.focus_row(&visible[target as usize].item.id, window, cx);
+        self.focus_row(&target_id, window, cx);
     }
 
-    /// Returns the visible rows and the index of the keyboard-focused row, or
-    /// `None` while an overlay or the rename editor owns the keyboard.
-    fn focused_visible_layer(&self, window: &Window) -> Option<(Vec<VisibleLayer>, usize)> {
+    /// Returns the position (in the shown rows) of the keyboard-focused row,
+    /// or `None` while an overlay or the rename editor owns the keyboard.
+    fn focused_visible_row(&self, window: &Window) -> Option<usize> {
         if self.menu.is_some() || self.editing.is_some() {
             return None;
         }
-        let visible = self.visible_layers();
-        let index = visible.iter().position(|layer| {
-            self.row_focus_handles
-                .get(&layer.item.id)
-                .is_some_and(|handle| handle.is_focused(window))
-        })?;
-        Some((visible, index))
+        self.visible_rows.iter().position(|index| {
+            self.arena.get(*index).is_some_and(|node| {
+                self.row_focus_handles
+                    .get(&node.id)
+                    .is_some_and(|handle| handle.is_focused(window))
+            })
+        })
     }
 
-    fn focus_row(&self, node_id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(handle) = self.row_focus_handles.get(node_id) {
-            handle.focus(window, cx);
-        }
+    /// Focuses a shown row, scrolling it into view. Rows outside the viewport
+    /// have no element yet (the tree is virtualized), so the focus handle is
+    /// created here and the row picks it up when it renders.
+    fn focus_row(&mut self, node_id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(row) = self.visible_row_of(node_id) else {
+            return;
+        };
+        let handle = self
+            .row_focus_handles
+            .entry(node_id.clone())
+            .or_insert_with(|| cx.focus_handle())
+            .clone();
+        handle.focus(window, cx);
+        self.list_scroll_handle
+            .scroll_to_item(row, ScrollStrategy::Nearest);
+        cx.notify();
     }
 
     pub(super) fn collapse_all(&mut self, cx: &mut Context<Self>) {
         self.menu = None;
         self.expanded_node_ids.clear();
+        self.rebuild_visible_rows();
         cx.emit(LayersPanelAction::CollapseAllRequested);
         cx.notify();
     }
 
     pub(super) fn toggle_expansion(&mut self, node_id: SharedString, cx: &mut Context<Self>) {
-        let expanded = if let Some(index) = self
-            .expanded_node_ids
-            .iter()
-            .position(|expanded| *expanded == node_id)
-        {
-            self.expanded_node_ids.remove(index);
+        let expanded = if self.expanded_node_ids.remove(&node_id) {
             false
         } else {
-            self.expanded_node_ids.push(node_id.clone());
+            self.expanded_node_ids.insert(node_id.clone());
             true
         };
+        self.rebuild_visible_rows();
         self.menu = None;
         cx.emit(LayersPanelAction::ExpansionChanged { node_id, expanded });
         cx.notify();
@@ -165,14 +197,12 @@ impl LayersPanel {
         &mut self,
         node_id: SharedString,
         target_node_id: SharedString,
-        target_kind: LayersPanelNodeKind,
         pointer: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
-        let Some(target_bounds) = self.node_row_bounds.get(&target_node_id).copied() else {
+        let Some(position) = self.drop_placement(&node_id, &target_node_id, pointer, cx) else {
             return;
         };
-        let position = layer_drop_position(target_kind, target_bounds, pointer);
         self.menu = None;
         cx.emit(LayersPanelAction::MoveRequested {
             node_id,
@@ -227,21 +257,21 @@ impl LayersPanel {
 
     pub(super) fn open_menu(
         &mut self,
-        item: LayersPanelItem,
+        node: LayerNode,
         anchor: Point<Pixels>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         self.editing = None;
         let return_focus = window.focused(cx);
-        if !self.selected_node_ids.contains(&item.id) {
+        if !self.selected_node_ids.contains(&node.id) {
             cx.emit(LayersPanelAction::SelectRequested {
-                node_id: item.id.clone(),
+                node_id: node.id.clone(),
                 mode: LayersPanelSelectionMode::Replace,
             });
         }
         self.menu = Some(LayerMenuState {
-            item,
+            node,
             anchor,
             return_focus,
         });
@@ -255,15 +285,15 @@ impl LayersPanel {
 
     pub(super) fn open_menu_from_keyboard(
         &mut self,
-        item: LayersPanelItem,
+        node: LayerNode,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(bounds) = self.node_row_bounds.get(&item.id).copied() else {
+        let Some(bounds) = self.node_row_bounds.get(&node.id).copied() else {
             return;
         };
         self.open_menu(
-            item,
+            node,
             bounds.bottom_left() + gpui::point(px(0.), px(4.)),
             window,
             cx,
@@ -281,25 +311,25 @@ impl LayersPanel {
         };
         match action {
             LayersPanelContextAction::Rename => {
-                self.begin_rename(menu.item.id, menu.item.title, window, cx);
+                self.begin_rename(menu.node.id, menu.node.title, window, cx);
             }
             LayersPanelContextAction::ShowHide => {
                 cx.emit(LayersPanelAction::VisibilityChanged {
-                    node_id: menu.item.id,
-                    visible: !menu.item.visible,
+                    node_id: menu.node.id,
+                    visible: !menu.node.visible,
                 });
                 self.focus_panel_after_action(window, cx);
             }
             LayersPanelContextAction::LockUnlock => {
                 cx.emit(LayersPanelAction::LockChanged {
-                    node_id: menu.item.id,
-                    locked: !menu.item.locked,
+                    node_id: menu.node.id,
+                    locked: !menu.node.locked,
                 });
                 self.focus_panel_after_action(window, cx);
             }
             action => {
                 cx.emit(LayersPanelAction::ContextActionRequested {
-                    node_id: menu.item.id,
+                    node_id: menu.node.id,
                     action,
                 });
                 self.focus_panel_after_action(window, cx);
@@ -308,18 +338,18 @@ impl LayersPanel {
         cx.notify();
     }
 
-    pub(super) fn request_visibility(&mut self, item: LayersPanelItem, cx: &mut Context<Self>) {
+    pub(super) fn request_visibility(&mut self, node: &LayerNode, cx: &mut Context<Self>) {
         cx.emit(LayersPanelAction::VisibilityChanged {
-            node_id: item.id,
-            visible: !item.visible,
+            node_id: node.id.clone(),
+            visible: !node.visible,
         });
         cx.notify();
     }
 
-    pub(super) fn request_lock(&mut self, item: LayersPanelItem, cx: &mut Context<Self>) {
+    pub(super) fn request_lock(&mut self, node: &LayerNode, cx: &mut Context<Self>) {
         cx.emit(LayersPanelAction::LockChanged {
-            node_id: item.id,
-            locked: !item.locked,
+            node_id: node.id.clone(),
+            locked: !node.locked,
         });
         cx.notify();
     }
@@ -344,7 +374,7 @@ pub(super) fn layer_drop_position(
         LayersPanelDropPosition::Before
     } else if pointer.y > lower_edge {
         LayersPanelDropPosition::After
-    } else if target_kind.is_container() {
+    } else if target_kind.accepts_dropped_children() {
         LayersPanelDropPosition::Inside
     } else if pointer.y < bounds.center().y {
         LayersPanelDropPosition::Before
