@@ -1,9 +1,9 @@
 use gpui::SharedString;
+use gpui_component::{IconName, IconNamed as _};
 
-/// The four editing surfaces exposed by the Figma-style mode tray.
+/// The three editing surfaces exposed by the Figma-style mode tray.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ToolbarMode {
-    Draw,
     #[default]
     Design,
     Motion,
@@ -11,12 +11,11 @@ pub enum ToolbarMode {
 }
 
 impl ToolbarMode {
-    /// Modes in the same order as the current Figma toolbar.
-    pub const ALL: &'static [Self] = &[Self::Draw, Self::Design, Self::Motion, Self::Dev];
+    /// Modes in tray order: Design, Motion, Dev.
+    pub const ALL: &'static [Self] = &[Self::Design, Self::Motion, Self::Dev];
 
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Draw => "Draw",
             Self::Design => "Design",
             Self::Motion => "Motion",
             Self::Dev => "Dev",
@@ -25,7 +24,6 @@ impl ToolbarMode {
 
     pub const fn description(self) -> &'static str {
         match self {
-            Self::Draw => "Illustrate with expressive vector tools",
             Self::Design => "Create and edit interface designs",
             Self::Motion => "Animate layers on a keyframe timeline",
             Self::Dev => "Inspect, annotate, measure, and hand off",
@@ -41,7 +39,6 @@ impl ToolbarMode {
 
     pub const fn layout(self) -> &'static [ToolbarItem] {
         match self {
-            Self::Draw => DRAW_LAYOUT,
             Self::Design => DESIGN_LAYOUT,
             Self::Motion => MOTION_LAYOUT,
             Self::Dev => DEV_LAYOUT,
@@ -80,11 +77,6 @@ pub enum ToolbarTool {
     Measure,
     Resources,
     Actions,
-    Brush,
-    PaintBucket,
-    ShapeBuilder,
-    Lasso,
-    VariableWidth,
     Inspect,
     ColorPicker,
     Code,
@@ -125,11 +117,6 @@ impl ToolbarTool {
         Self::Measure,
         Self::Resources,
         Self::Actions,
-        Self::Brush,
-        Self::PaintBucket,
-        Self::ShapeBuilder,
-        Self::Lasso,
-        Self::VariableWidth,
         Self::Inspect,
         Self::ColorPicker,
         Self::Code,
@@ -170,11 +157,6 @@ impl ToolbarTool {
             Self::Measure => "Measurement",
             Self::Resources => "Resources",
             Self::Actions => "Actions",
-            Self::Brush => "Brush",
-            Self::PaintBucket => "Paint bucket",
-            Self::ShapeBuilder => "Shape builder",
-            Self::Lasso => "Lasso",
-            Self::VariableWidth => "Variable width",
             Self::Inspect => "Inspect",
             Self::ColorPicker => "Color picker",
             Self::Code => "Code",
@@ -216,11 +198,6 @@ impl ToolbarTool {
             Self::Measure => "Add a persistent measurement",
             Self::Resources => "Search components, libraries, plugins, and widgets",
             Self::Actions => "Search actions, AI tools, plugins, and widgets",
-            Self::Brush => "Paint with a vector brush",
-            Self::PaintBucket => "Fill an enclosed vector region",
-            Self::ShapeBuilder => "Combine or subtract overlapping shapes",
-            Self::Lasso => "Select an irregular group of vector points",
-            Self::VariableWidth => "Edit width along a vector stroke",
             Self::Inspect => "Inspect layer properties",
             Self::ColorPicker => "Sample colors and variables from the canvas",
             Self::Code => "View generated or connected code",
@@ -277,8 +254,6 @@ pub enum ToolbarToolGroup {
     Shape,
     Creation,
     Feedback,
-    Illustration,
-    VectorEdit,
     DevHandoff,
     MotionTimeline,
 }
@@ -290,8 +265,6 @@ impl ToolbarToolGroup {
         Self::Shape,
         Self::Creation,
         Self::Feedback,
-        Self::Illustration,
-        Self::VectorEdit,
         Self::DevHandoff,
         Self::MotionTimeline,
     ];
@@ -303,8 +276,6 @@ impl ToolbarToolGroup {
             Self::Shape => "Shape tools",
             Self::Creation => "Creation tools",
             Self::Feedback => "Comment tools",
-            Self::Illustration => "Illustration tools",
-            Self::VectorEdit => "Vector editing tools",
             Self::DevHandoff => "Developer handoff tools",
             Self::MotionTimeline => "Motion tools",
         }
@@ -338,12 +309,6 @@ impl ToolbarToolGroup {
                 ToolbarTool::Comment,
                 ToolbarTool::Annotation,
                 ToolbarTool::Measure,
-            ],
-            Self::Illustration => &[ToolbarTool::Brush, ToolbarTool::PaintBucket],
-            Self::VectorEdit => &[
-                ToolbarTool::ShapeBuilder,
-                ToolbarTool::Lasso,
-                ToolbarTool::VariableWidth,
             ],
             Self::DevHandoff => &[
                 ToolbarTool::Inspect,
@@ -397,21 +362,6 @@ const DESIGN_LAYOUT: &[ToolbarItem] = &[
     ToolbarItem::Tool(ToolbarTool::Actions),
 ];
 
-const DRAW_LAYOUT: &[ToolbarItem] = &[
-    ToolbarItem::Group(ToolbarToolGroup::Move),
-    ToolbarItem::Separator,
-    ToolbarItem::Tool(ToolbarTool::Pen),
-    ToolbarItem::Group(ToolbarToolGroup::Illustration),
-    ToolbarItem::Tool(ToolbarTool::Pencil),
-    ToolbarItem::Group(ToolbarToolGroup::VectorEdit),
-    ToolbarItem::Separator,
-    ToolbarItem::Group(ToolbarToolGroup::Region),
-    ToolbarItem::Group(ToolbarToolGroup::Shape),
-    ToolbarItem::Tool(ToolbarTool::Text),
-    ToolbarItem::Group(ToolbarToolGroup::Feedback),
-    ToolbarItem::Tool(ToolbarTool::Actions),
-];
-
 const DEV_LAYOUT: &[ToolbarItem] = &[
     ToolbarItem::Group(ToolbarToolGroup::Move),
     ToolbarItem::Separator,
@@ -436,11 +386,6 @@ const MOTION_LAYOUT: &[ToolbarItem] = &[
 /// Context controls displayed in the secondary toolbar for specialized modes.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ToolbarSecondaryControl {
-    DrawStrokeColor,
-    DrawBrushStyle,
-    DrawStrokeWeight,
-    DrawSmoothing,
-    DrawPressure,
     DevInspect,
     DevAnnotate,
     DevMeasure,
@@ -457,11 +402,6 @@ pub enum ToolbarSecondaryControl {
 impl ToolbarSecondaryControl {
     pub const fn label(self) -> &'static str {
         match self {
-            Self::DrawStrokeColor => "Stroke color",
-            Self::DrawBrushStyle => "Brush style",
-            Self::DrawStrokeWeight => "Stroke weight",
-            Self::DrawSmoothing => "Smoothing",
-            Self::DrawPressure => "Pressure",
             Self::DevInspect => "Inspect",
             Self::DevAnnotate => "Annotate",
             Self::DevMeasure => "Measure",
@@ -478,6 +418,10 @@ impl ToolbarSecondaryControl {
 }
 
 /// A controlled value associated with a mode-specific secondary control.
+///
+/// `Toggle` and `Choice` are the kinds the built-in Dev and Motion controls
+/// emit; `Integer`, `Text`, and `Color` remain part of the intent vocabulary
+/// for host-defined controls.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ToolbarControlValue {
     Toggle(bool),
@@ -485,61 +429,6 @@ pub enum ToolbarControlValue {
     Text(SharedString),
     Color(SharedString),
     Choice(SharedString),
-}
-
-/// Host-provided Draw toolbar values.
-///
-/// Alongside the accepted current values, the host supplies every candidate
-/// the option editors may offer: the swatch palette, the weight and smoothing
-/// ranges, and the brush-style catalog. The toolbar presents these candidates
-/// and emits [`ToolbarAction::ControlChangeRequested`]; it never invents a
-/// value outside them.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DrawToolbarOptions {
-    pub stroke_color: SharedString,
-    pub brush_style: SharedString,
-    pub stroke_weight: u16,
-    pub smoothing: u8,
-    pub pressure: bool,
-    /// Swatches offered by the stroke-color editor, as hex strings.
-    pub available_colors: Vec<SharedString>,
-    pub weight_min: u16,
-    pub weight_max: u16,
-    pub weight_step: u16,
-    pub smoothing_min: u8,
-    pub smoothing_max: u8,
-    pub smoothing_step: u8,
-    /// Brush styles offered by the style menu.
-    pub available_styles: Vec<SharedString>,
-}
-
-impl Default for DrawToolbarOptions {
-    fn default() -> Self {
-        Self {
-            stroke_color: "#1E1E1E".into(),
-            brush_style: "Solid".into(),
-            stroke_weight: 8,
-            smoothing: 32,
-            pressure: true,
-            available_colors: [
-                "#1E1E1E", "#FFFFFF", "#F24822", "#FFA629", "#FFCD29", "#14AE5C", "#0D99FF",
-                "#9747FF",
-            ]
-            .into_iter()
-            .map(Into::into)
-            .collect(),
-            weight_min: 1,
-            weight_max: 40,
-            weight_step: 1,
-            smoothing_min: 0,
-            smoothing_max: 100,
-            smoothing_step: 10,
-            available_styles: ["Solid", "Charcoal", "Ink", "Marker"]
-                .into_iter()
-                .map(Into::into)
-                .collect(),
-        }
-    }
 }
 
 /// Host-provided Dev Mode toolbar values.
@@ -624,6 +513,87 @@ impl Default for AgentToolbarOptions {
     }
 }
 
+/// One host-supplied chrome control shown in the dock's trailing capsule.
+///
+/// The toolbar owns the dock and the host owns its chrome (§12): fit-to-view,
+/// sidebar toggles, and similar editor-level affordances live outside the
+/// tool model, so hosts describe them with this small typed record and the
+/// toolbar renders them at the end of the utility row. Activation emits
+/// [`ToolbarAction::ChromeControlInvoked`] with the control's `id`; the host
+/// applies the effect and echoes any new `active` state through
+/// [`super::EditorToolbar::set_chrome_controls`].
+#[derive(Clone)]
+pub struct ToolbarChromeControl {
+    /// Stable host identifier echoed in `ChromeControlInvoked`.
+    pub id: SharedString,
+    /// Lucide asset rendered on the control; resolves against the host's
+    /// asset source (§5).
+    pub icon: IconName,
+    /// Tooltip label (also the accessible name).
+    pub label: SharedString,
+    /// Whether the control's toggle state is on (for example "sidebar
+    /// visible"); rendered as the raised tile treatment.
+    pub active: bool,
+    /// Optional shortcut hint appended to the tooltip.
+    pub shortcut: Option<SharedString>,
+}
+
+impl ToolbarChromeControl {
+    pub fn new(
+        id: impl Into<SharedString>,
+        icon: IconName,
+        label: impl Into<SharedString>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            icon,
+            label: label.into(),
+            active: false,
+            shortcut: None,
+        }
+    }
+
+    pub fn active(mut self, active: bool) -> Self {
+        self.active = active;
+        self
+    }
+
+    pub fn shortcut(mut self, shortcut: impl Into<SharedString>) -> Self {
+        self.shortcut = Some(shortcut.into());
+        self
+    }
+
+    /// The icon's asset path; `IconName` itself is not comparable, so this is
+    /// what equality and debug output use.
+    pub fn icon_path(&self) -> SharedString {
+        self.icon.clone().path()
+    }
+}
+
+impl PartialEq for ToolbarChromeControl {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.icon_path() == other.icon_path()
+            && self.label == other.label
+            && self.active == other.active
+            && self.shortcut == other.shortcut
+    }
+}
+
+impl Eq for ToolbarChromeControl {}
+
+impl std::fmt::Debug for ToolbarChromeControl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ToolbarChromeControl")
+            .field("id", &self.id)
+            .field("icon", &self.icon_path())
+            .field("label", &self.label)
+            .field("active", &self.active)
+            .field("shortcut", &self.shortcut)
+            .finish()
+    }
+}
+
 /// Searchable actions available from the Actions command bar.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ToolbarCommand {
@@ -667,7 +637,6 @@ pub enum ToolbarCommand {
     GenerateImage,
     MakePrototype,
     OpenDesignMode,
-    OpenDrawMode,
     OpenMotionMode,
     OpenDevMode,
     ViewVersionHistory,
@@ -720,7 +689,6 @@ impl ToolbarCommand {
         Self::OpenWidgets,
         Self::OpenVariables,
         Self::OpenDesignMode,
-        Self::OpenDrawMode,
         Self::OpenMotionMode,
         Self::OpenDevMode,
         Self::ViewVersionHistory,
@@ -773,7 +741,6 @@ impl ToolbarCommand {
             Self::GenerateImage => "Generate an image",
             Self::MakePrototype => "Make a prototype",
             Self::OpenDesignMode => "Switch to Design",
-            Self::OpenDrawMode => "Switch to Draw",
             Self::OpenMotionMode => "Switch to Motion",
             Self::OpenDevMode => "Switch to Dev Mode",
             Self::ViewVersionHistory => "Show version history",
@@ -806,10 +773,7 @@ impl ToolbarCommand {
             | Self::MinimizeUi
             | Self::ZoomToFit
             | Self::ZoomToSelection => "View",
-            Self::OpenDesignMode
-            | Self::OpenDrawMode
-            | Self::OpenMotionMode
-            | Self::OpenDevMode => "Modes",
+            Self::OpenDesignMode | Self::OpenMotionMode | Self::OpenDevMode => "Modes",
             Self::Import
             | Self::Export
             | Self::PlaceImageVideo
@@ -901,6 +865,10 @@ pub enum ToolbarAction {
     ZoomChangeRequested {
         percent: u16,
     },
+    /// A host-supplied [`ToolbarChromeControl`] was activated.
+    ChromeControlInvoked {
+        id: SharedString,
+    },
 }
 
 #[cfg(test)]
@@ -963,17 +931,49 @@ mod tests {
     #[test]
     fn specialist_modes_expose_their_flyout_groups() {
         assert!(
-            ToolbarMode::Draw
-                .layout()
-                .contains(&ToolbarItem::Group(ToolbarToolGroup::Illustration))
-        );
-        assert!(
             ToolbarMode::Motion
                 .layout()
                 .contains(&ToolbarItem::Group(ToolbarToolGroup::MotionTimeline))
         );
-        assert!(ToolbarTool::PaintBucket.is_available_in(ToolbarMode::Draw));
         assert!(ToolbarTool::MotionPath.is_available_in(ToolbarMode::Motion));
+        assert!(!ToolbarTool::MotionPath.is_available_in(ToolbarMode::Design));
+    }
+
+    #[test]
+    fn mode_tray_is_design_motion_dev() {
+        assert_eq!(
+            ToolbarMode::ALL,
+            &[ToolbarMode::Design, ToolbarMode::Motion, ToolbarMode::Dev]
+        );
+        // Every catalogued tool is reachable from at least one mode layout
+        // or a flyout group, so no tool exists solely for a retired mode.
+        for tool in ToolbarTool::ALL {
+            let in_layout = ToolbarMode::ALL
+                .iter()
+                .any(|mode| tool.is_available_in(*mode));
+            let in_group = ToolbarToolGroup::ALL
+                .iter()
+                .any(|group| group.tools().contains(tool));
+            assert!(
+                in_layout || in_group,
+                "{} is unreachable from every mode and group",
+                tool.label()
+            );
+        }
+    }
+
+    #[test]
+    fn chrome_controls_compare_by_icon_path_and_state() {
+        let fit =
+            ToolbarChromeControl::new("fit", IconName::Maximize, "Fit to view").shortcut("⇧ 1");
+        assert_eq!(fit, fit.clone());
+        assert_ne!(fit, fit.clone().active(true));
+        assert_ne!(
+            fit,
+            ToolbarChromeControl::new("fit", IconName::Minimize, "Fit to view").shortcut("⇧ 1")
+        );
+        assert_eq!(fit.icon_path(), IconName::Maximize.path());
+        assert!(format!("{fit:?}").contains("icons/maximize.svg"));
     }
 
     #[test]
@@ -984,12 +984,6 @@ mod tests {
 
     #[test]
     fn default_option_candidates_contain_the_accepted_values() {
-        let draw = DrawToolbarOptions::default();
-        assert!(draw.available_colors.contains(&draw.stroke_color));
-        assert!(draw.available_styles.contains(&draw.brush_style));
-        assert!((draw.weight_min..=draw.weight_max).contains(&draw.stroke_weight));
-        assert!((draw.smoothing_min..=draw.smoothing_max).contains(&draw.smoothing));
-
         let motion = MotionToolbarOptions::default();
         assert!(
             motion

@@ -1,7 +1,7 @@
 use gpui::{
-    App, AppContext as _, Bounds, Context, Entity, EventEmitter, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, ParentElement as _, Pixels, Render, ScrollHandle,
-    SharedString, Styled as _, Subscription, Window, div, prelude::FluentBuilder as _, px,
+    App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
+    InteractiveElement as _, IntoElement, ParentElement as _, Render, ScrollHandle, SharedString,
+    Styled as _, Subscription, Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_component::{
     ActiveTheme as _,
@@ -11,13 +11,13 @@ use gpui_component::{
 
 use super::{
     AgentToolbarOptions, CloseToolbarOverlay, ConfirmToolbarTextEntry, DecrementToolbarControl,
-    DevToolbarOptions, DrawToolbarOptions, EnterDevMode, FirstToolbarCommand,
-    IncrementToolbarControl, LastToolbarCommand, MotionToolbarOptions, NextToolbarCommand,
-    OpenToolbarActions, OpenToolbarAgent, PreviousToolbarCommand, SelectAnnotationTool,
-    SelectArrowTool, SelectCommentTool, SelectEllipseTool, SelectFrameTool, SelectHandTool,
-    SelectImageVideoTool, SelectLineTool, SelectMeasureTool, SelectMoveTool, SelectPenTool,
-    SelectPencilTool, SelectRectangleTool, SelectResourcesTool, SelectScaleTool, SelectSectionTool,
-    SelectSliceTool, SelectTextTool, ToolbarAction, ToolbarCommand, ToolbarMode,
+    DevToolbarOptions, EnterDevMode, FirstToolbarCommand, IncrementToolbarControl,
+    LastToolbarCommand, MotionToolbarOptions, NextToolbarCommand, OpenToolbarActions,
+    OpenToolbarAgent, PreviousToolbarCommand, SelectAnnotationTool, SelectArrowTool,
+    SelectCommentTool, SelectEllipseTool, SelectFrameTool, SelectHandTool, SelectImageVideoTool,
+    SelectLineTool, SelectMeasureTool, SelectMoveTool, SelectPenTool, SelectPencilTool,
+    SelectRectangleTool, SelectResourcesTool, SelectScaleTool, SelectSectionTool, SelectSliceTool,
+    SelectTextTool, ToolbarAction, ToolbarChromeControl, ToolbarCommand, ToolbarMode,
     ToolbarSecondaryControl, ToolbarTool, ToolbarToolGroup, ZoomCanvasTo100, ZoomCanvasToFit,
     ZoomCanvasToSelection,
     commands::{TOOLBAR_KEY_CONTEXT, TOOLBAR_TEXT_ENTRY_KEY_CONTEXT},
@@ -30,17 +30,24 @@ mod state;
 
 const TOOL_SIZE: f32 = 32.;
 const POPOVER_GAP: f32 = 8.;
+/// Square size of one host chrome control in the utility row's trailing
+/// capsule; the capsule adds `px_1` around them and 2 px between them.
+const CHROME_CONTROL_SIZE: f32 = 28.;
 
-/// Measured utility-row width below which the zoom cluster sheds its − / +
-/// steppers, keeping the percent trigger and its menu. The full row (mode
-/// tray, zoom cluster, Agent launcher) needs ~311 px; the steppers save
-/// 50 px, so the dock reflows before its bottom row has to scroll.
-pub const TOOLBAR_ZOOM_STEPPERS_MIN_WIDTH: f32 = 320.;
-/// Measured utility-row width below which the zoom cluster collapses
-/// entirely, leaving the mode tray and Agent launcher (~186 px). Zoom stays
-/// reachable through the Actions palette, the shift-zoom shortcuts, and the
-/// host; below this the row's overflow scroll is the last resort.
-pub const TOOLBAR_ZOOM_CLUSTER_MIN_WIDTH: f32 = 268.;
+/// Utility-row width the full row needs, excluding any host chrome capsule:
+/// the three-tile mode tray, the − / + steppers, the percent trigger, and
+/// the Agent launcher with their dividers, gaps, and row padding. Below it
+/// the zoom cluster sheds its steppers (50 px) so the dock reflows before
+/// its bottom row has to scroll. The dock is intrinsic, so an unconstrained
+/// host always meets this; only a host narrower than the dock's natural
+/// width triggers the reflow.
+pub const TOOLBAR_ZOOM_STEPPERS_MIN_WIDTH: f32 = 281.;
+/// Utility-row width the percent-only row needs, excluding any host chrome
+/// capsule. Below it the zoom cluster collapses entirely, leaving the mode
+/// tray and Agent launcher (156 px). Zoom stays reachable through the
+/// Actions palette, the shift-zoom shortcuts, and the host; below this the
+/// row's overflow scroll is the last resort.
+pub const TOOLBAR_ZOOM_CLUSTER_MIN_WIDTH: f32 = 231.;
 
 /// How much of the zoom cluster the utility row presents, derived from the
 /// measured dock width so narrow hosts reflow instead of overflowing.
@@ -60,8 +67,8 @@ enum ToolbarOverlay {
     Actions,
     Agent,
     Zoom,
-    /// Anchored editor for one secondary chip: a swatch grid, a candidate
-    /// menu, or a range slider, always fed by host-supplied candidates.
+    /// Anchored candidate menu for one secondary chip, always fed by
+    /// host-supplied candidates.
     OptionEditor(ToolbarSecondaryControl),
 }
 
@@ -155,10 +162,12 @@ pub struct EditorToolbar {
     mode: ToolbarMode,
     active_tool: ToolbarTool,
     zoom_percent: u16,
-    draw_options: DrawToolbarOptions,
     dev_options: DevToolbarOptions,
     motion_options: MotionToolbarOptions,
     agent_options: AgentToolbarOptions,
+    /// Host chrome rendered in the utility row's trailing capsule (§12: the
+    /// host owns chrome, the toolbar owns the dock).
+    chrome_controls: Vec<ToolbarChromeControl>,
     commands: Vec<ToolbarCommand>,
     overlay: Option<ToolbarOverlay>,
     command_scope: CommandScope,
@@ -168,7 +177,6 @@ pub struct EditorToolbar {
     ai_input: Entity<InputState>,
     menu_cursor: usize,
     menu_scroll_handle: ScrollHandle,
-    slider_track_bounds: Bounds<Pixels>,
     /// Measured inner width of the dock's utility row; the zoom cluster
     /// derives its collapse tier from it so the dock reflows on narrow
     /// hosts instead of overflowing.
@@ -234,10 +242,10 @@ impl EditorToolbar {
             mode,
             active_tool,
             zoom_percent: zoom_percent.clamp(1, 3_200),
-            draw_options: DrawToolbarOptions::default(),
             dev_options: DevToolbarOptions::default(),
             motion_options: MotionToolbarOptions::default(),
             agent_options: AgentToolbarOptions::default(),
+            chrome_controls: Vec::new(),
             commands: ToolbarCommand::ALL.to_vec(),
             overlay: None,
             command_scope: CommandScope::default(),
@@ -247,7 +255,6 @@ impl EditorToolbar {
             ai_input,
             menu_cursor: 0,
             menu_scroll_handle: ScrollHandle::new(),
-            slider_track_bounds: Bounds::default(),
             utility_width: None,
             primary_scroll_handle: ScrollHandle::new(),
             secondary_scroll_handle: ScrollHandle::new(),
@@ -261,13 +268,33 @@ impl EditorToolbar {
 
     /// The zoom cluster's presentation at the measured dock width. An
     /// unmeasured dock renders in full; the first frame's measurement
-    /// schedules the corrective re-render.
+    /// schedules the corrective re-render. Host chrome occupies row width
+    /// the zoom cluster cannot use, so its capsule is subtracted first. The
+    /// half-pixel tolerance keeps a row that fits exactly from shedding on
+    /// layout rounding.
     fn zoom_cluster_tier(&self) -> ZoomClusterTier {
-        match self.utility_width {
-            Some(width) if width < TOOLBAR_ZOOM_CLUSTER_MIN_WIDTH => ZoomClusterTier::Hidden,
-            Some(width) if width < TOOLBAR_ZOOM_STEPPERS_MIN_WIDTH => ZoomClusterTier::PercentOnly,
-            _ => ZoomClusterTier::Full,
+        let Some(width) = self.utility_width else {
+            return ZoomClusterTier::Full;
+        };
+        let available = width - self.chrome_cluster_width() + 0.5;
+        if available >= TOOLBAR_ZOOM_STEPPERS_MIN_WIDTH {
+            ZoomClusterTier::Full
+        } else if available >= TOOLBAR_ZOOM_CLUSTER_MIN_WIDTH {
+            ZoomClusterTier::PercentOnly
+        } else {
+            ZoomClusterTier::Hidden
         }
+    }
+
+    /// Row width claimed by the host chrome capsule and its separator: the
+    /// capsule's `px_1`, its controls and 2 px gaps, plus the 1 px divider
+    /// and the row's two 4 px gaps around it. Zero without chrome.
+    fn chrome_cluster_width(&self) -> f32 {
+        let count = self.chrome_controls.len();
+        if count == 0 {
+            return 0.;
+        }
+        8. + count as f32 * CHROME_CONTROL_SIZE + (count as f32 - 1.) * 2. + 1. + 8.
     }
 }
 
@@ -398,6 +425,13 @@ impl Render for EditorToolbar {
                 v_flex()
                     .id(SharedString::from(format!("{}-surface", self.id)))
                     .debug_selector(|| "editor-toolbar-surface".to_owned())
+                    // The dock floats over the host canvas: every pointer
+                    // event on it — clicks, presses, hovers, and wheel — stops
+                    // here so a tool press never also reaches the canvas
+                    // underneath. The dock's own overflow rows sit above this
+                    // hitbox and keep scrolling; the transient popups block
+                    // on their own surfaces.
+                    .occlude()
                     .relative()
                     .min_w(px(0.))
                     .max_w_full()

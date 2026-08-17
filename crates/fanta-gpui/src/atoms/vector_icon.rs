@@ -8,13 +8,20 @@
 //! the same machinery via [`render_icon_canvas`].
 
 use gpui::{
-    AnyElement, Hsla, IntoElement as _, Path, PathBuilder, Pixels, Point, Styled as _, canvas,
-    point, px,
+    AnyElement, Hsla, IntoElement as _, Path, PathBuilder, PathStyle, Pixels, Point, StrokeOptions,
+    Styled as _, canvas, point, px,
 };
+use lyon::tessellation::{LineCap, LineJoin};
 
 /// The shared icon design grid, in logical units.
 pub(crate) const ICON_SIZE: f32 = 16.;
 const STROKE_WIDTH: f32 = 1.25;
+/// Lucide's design grid: icons are authored on 24 units with a 2-unit stroke
+/// and round caps/joins, then scaled to the rendered size. Toolbar drawings
+/// that have no Lucide asset use this idiom so they read as one set next to
+/// the `IconName` SVGs (§5).
+pub(crate) const LUCIDE_GRID: f32 = 24.;
+const LUCIDE_STROKE_WIDTH: f32 = 2.;
 
 /// Semantic icons shared by Fanta control surfaces.
 ///
@@ -104,6 +111,28 @@ pub(crate) fn render_icon_canvas(
     render_wide_icon_canvas(color, size, ICON_SIZE, draw)
 }
 
+/// Renders a stroke-path icon authored on Lucide's 24-unit grid with the
+/// Lucide stroke idiom (2-unit stroke scaled, round caps and joins).
+pub(crate) fn render_lucide_icon_canvas(
+    color: Hsla,
+    size: f32,
+    draw: impl Fn(&mut IconPath) + 'static,
+) -> AnyElement {
+    let size = size.max(1.);
+    canvas(
+        |_, _, _| {},
+        move |bounds, _, window, _| {
+            let mut path = IconPath::lucide(bounds.origin, size);
+            draw(&mut path);
+            if let Some(path) = path.build() {
+                window.paint_path(path, color);
+            }
+        },
+    )
+    .size(px(size))
+    .into_any_element()
+}
+
 /// Renders a non-square stroke-path icon: `grid_width` columns of the shared
 /// grid at the standard 16-unit height. `size` remains the rendered height.
 pub(crate) fn render_wide_icon_canvas(
@@ -140,6 +169,21 @@ impl IconPath {
         let scale = size / ICON_SIZE;
         Self {
             builder: PathBuilder::stroke(px(STROKE_WIDTH * scale)),
+            origin,
+            scale,
+        }
+    }
+
+    /// A builder over Lucide's 24-unit grid: coordinates are Lucide's own,
+    /// the stroke is 2 units scaled to `size`, and caps/joins are round.
+    pub(crate) fn lucide(origin: Point<Pixels>, size: f32) -> Self {
+        let scale = size / LUCIDE_GRID;
+        let options = StrokeOptions::default()
+            .with_line_width(LUCIDE_STROKE_WIDTH * scale)
+            .with_line_cap(LineCap::Round)
+            .with_line_join(LineJoin::Round);
+        Self {
+            builder: PathBuilder::default().with_style(PathStyle::Stroke(options)),
             origin,
             scale,
         }
@@ -215,6 +259,32 @@ impl IconPath {
         );
     }
 
+    /// An axis-aligned rectangle with `radius` corners, drawn clockwise from
+    /// the top edge (Lucide's `rx` idiom).
+    pub(crate) fn rounded_rect(
+        &mut self,
+        left: f32,
+        top: f32,
+        right: f32,
+        bottom: f32,
+        radius: f32,
+    ) {
+        let radius = radius
+            .min((right - left) / 2.)
+            .min((bottom - top) / 2.)
+            .max(0.);
+        self.move_to(left + radius, top);
+        self.line_to(right - radius, top);
+        self.arc_to(radius, radius, false, true, (right, top + radius));
+        self.line_to(right, bottom - radius);
+        self.arc_to(radius, radius, false, true, (right - radius, bottom));
+        self.line_to(left + radius, bottom);
+        self.arc_to(radius, radius, false, true, (left, bottom - radius));
+        self.line_to(left, top + radius);
+        self.arc_to(radius, radius, false, true, (left + radius, top));
+        self.builder.close();
+    }
+
     pub(crate) fn diamond(&mut self, center_x: f32, center_y: f32, radius: f32) {
         self.poly(
             [
@@ -241,29 +311,9 @@ impl IconPath {
         self.ellipse(center_x, center_y, radius, radius);
     }
 
-    pub(crate) fn node(&mut self, center_x: f32, center_y: f32) {
-        self.rect(
-            center_x - 0.9,
-            center_y - 0.9,
-            center_x + 0.9,
-            center_y + 0.9,
-        );
-    }
-
     pub(crate) fn plus(&mut self, center_x: f32, center_y: f32, radius: f32) {
         self.line((center_x - radius, center_y), (center_x + radius, center_y));
         self.line((center_x, center_y - radius), (center_x, center_y + radius));
-    }
-
-    pub(crate) fn check(&mut self, left: f32, top: f32) {
-        self.poly(
-            [
-                (left, top + 2.5),
-                (left + 2.2, top + 4.7),
-                (left + 6.2, top),
-            ],
-            false,
-        );
     }
 
     pub(crate) fn close(&mut self) {

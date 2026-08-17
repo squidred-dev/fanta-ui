@@ -36,20 +36,62 @@ const STORY_INSPECTOR_MIN_WIDTH: f32 = 1020.;
 const STORY_SIDEBAR_MIN_WIDTH: f32 = 760.;
 
 /// The launch-mode order is also the knob's chip order.
-pub(crate) const TOOLBAR_MODE_KNOB_ORDER: [ToolbarMode; 4] = [
-    ToolbarMode::Design,
-    ToolbarMode::Draw,
-    ToolbarMode::Dev,
-    ToolbarMode::Motion,
-];
+pub(crate) const TOOLBAR_MODE_KNOB_ORDER: [ToolbarMode; 3] =
+    [ToolbarMode::Design, ToolbarMode::Motion, ToolbarMode::Dev];
 
 pub(crate) fn parse_toolbar_mode(value: Option<&str>) -> ToolbarMode {
     match value.unwrap_or_default().to_ascii_lowercase().as_str() {
-        "draw" => ToolbarMode::Draw,
         "motion" => ToolbarMode::Motion,
         "dev" => ToolbarMode::Dev,
         _ => ToolbarMode::Design,
     }
+}
+
+/// Ids of the three example host chrome controls the story seeds into the
+/// dock's trailing capsule (§12: the host owns chrome, the toolbar owns the
+/// dock).
+pub(crate) const TOOLBAR_CHROME_FIT: &str = "fit-to-view";
+pub(crate) const TOOLBAR_CHROME_LEFT: &str = "toggle-left-sidebar";
+pub(crate) const TOOLBAR_CHROME_RIGHT: &str = "toggle-right-sidebar";
+
+/// The mock host's chrome read model: fit-to-view plus the two sidebar
+/// toggles, whose active state mirrors the story's mock columns.
+pub(crate) fn toolbar_chrome_controls(
+    left_visible: bool,
+    right_visible: bool,
+) -> Vec<ToolbarChromeControl> {
+    vec![
+        ToolbarChromeControl::new(TOOLBAR_CHROME_FIT, IconName::Maximize, "Fit to view")
+            .shortcut("⇧ 1"),
+        ToolbarChromeControl::new(
+            TOOLBAR_CHROME_LEFT,
+            if left_visible {
+                IconName::PanelLeftClose
+            } else {
+                IconName::PanelLeftOpen
+            },
+            if left_visible {
+                "Hide layers sidebar"
+            } else {
+                "Show layers sidebar"
+            },
+        )
+        .active(left_visible),
+        ToolbarChromeControl::new(
+            TOOLBAR_CHROME_RIGHT,
+            if right_visible {
+                IconName::PanelRightClose
+            } else {
+                IconName::PanelRightOpen
+            },
+            if right_visible {
+                "Hide inspector sidebar"
+            } else {
+                "Show inspector sidebar"
+            },
+        )
+        .active(right_visible),
+    ]
 }
 
 pub(crate) fn parse_toolbar_overlay(value: Option<&str>) -> ToolbarOverlay {
@@ -65,10 +107,13 @@ pub(crate) struct ToolbarScreen {
     pub(crate) mode: ToolbarMode,
     pub(crate) tool: ToolbarTool,
     pub(crate) zoom: u16,
-    pub(crate) draw_options: DrawToolbarOptions,
     pub(crate) dev_options: DevToolbarOptions,
     pub(crate) motion_options: MotionToolbarOptions,
     pub(crate) overlay: ToolbarOverlay,
+    /// Mock host chrome state echoed into the dock's trailing capsule and
+    /// mirrored by the story's mock sidebar / inspector columns.
+    pub(crate) left_sidebar_visible: bool,
+    pub(crate) right_sidebar_visible: bool,
     pub(crate) last_action: SharedString,
     /// Measured width of the story surface; the mock chrome columns hide
     /// below the named story breakpoints so the dock keeps its canvas host.
@@ -79,34 +124,13 @@ impl ToolbarScreen {
     pub(crate) fn new(window: &mut Window, cx: &mut Context<Storybook>) -> Self {
         let mode = parse_toolbar_mode(std::env::var("FANTA_TOOLBAR_MODE").ok().as_deref());
         let tool = match mode {
-            ToolbarMode::Draw => ToolbarTool::Brush,
             ToolbarMode::Design => ToolbarTool::Move,
             ToolbarMode::Motion => ToolbarTool::MotionSelect,
             ToolbarMode::Dev => ToolbarTool::Inspect,
         };
         let zoom = 100;
-        // The mock host seeds every candidate the Draw and Motion option
-        // editors may offer; the toolbar only presents these host values.
-        let draw_options = DrawToolbarOptions {
-            available_colors: [
-                "#1E1E1E", "#FFFFFF", "#F24822", "#FFA629", "#FFCD29", "#14AE5C", "#0D99FF",
-                "#9747FF",
-            ]
-            .into_iter()
-            .map(Into::into)
-            .collect(),
-            weight_min: 1,
-            weight_max: 40,
-            weight_step: 1,
-            smoothing_min: 0,
-            smoothing_max: 100,
-            smoothing_step: 10,
-            available_styles: ["Solid", "Charcoal", "Ink", "Marker"]
-                .into_iter()
-                .map(Into::into)
-                .collect(),
-            ..DrawToolbarOptions::default()
-        };
+        // The mock host seeds every candidate the Motion option editor may
+        // offer; the toolbar only presents these host values.
         let dev_options = DevToolbarOptions::default();
         let motion_options = MotionToolbarOptions {
             available_animation_styles: ["Fade in", "Spring", "Slide up", "Pop"]
@@ -126,9 +150,9 @@ impl ToolbarScreen {
                 ]),
                 cx,
             );
-            toolbar.set_draw_options(draw_options.clone(), cx);
             toolbar.set_motion_options(motion_options.clone(), cx);
             toolbar.set_dev_options(dev_options, cx);
+            toolbar.set_chrome_controls(toolbar_chrome_controls(true, true), cx);
         });
         toolbar.focus_handle(cx).focus(window, cx);
         let overlay = parse_toolbar_overlay(std::env::var("FANTA_TOOLBAR_OVERLAY").ok().as_deref());
@@ -146,11 +170,12 @@ impl ToolbarScreen {
             mode,
             tool,
             zoom,
-            draw_options,
             dev_options,
             motion_options,
             overlay,
-            last_action: "Ready — open every split tool, Actions, Agent, zoom, and all four modes"
+            left_sidebar_visible: true,
+            right_sidebar_visible: true,
+            last_action: "Ready — open every split tool, Actions, Agent, zoom, the chrome capsule, and all three modes"
                 .into(),
             story_width: None,
         }
@@ -169,7 +194,6 @@ impl Storybook {
                 self.toolbar_screen.mode = *mode;
                 self.toolbar_screen.tool = match mode {
                     ToolbarMode::Design => ToolbarTool::Move,
-                    ToolbarMode::Draw => ToolbarTool::Pencil,
                     ToolbarMode::Motion => ToolbarTool::MotionSelect,
                     ToolbarMode::Dev => ToolbarTool::Inspect,
                 };
@@ -177,15 +201,6 @@ impl Storybook {
                     toolbar.set_mode(*mode, cx);
                     toolbar.set_active_tool(self.toolbar_screen.tool, cx);
                 });
-                self.design_screen.set_workspace_mode(
-                    if *mode == ToolbarMode::Draw {
-                        DesignPanelWorkspaceMode::Draw
-                    } else {
-                        DesignPanelWorkspaceMode::Design
-                    },
-                    "Toolbar",
-                    cx,
-                );
                 self.toolbar_screen.last_action =
                     format!("Host switched to {} mode", mode.label()).into();
             }
@@ -196,15 +211,6 @@ impl Storybook {
                     toolbar.set_mode(*mode, cx);
                     toolbar.set_active_tool(*tool, cx);
                 });
-                self.design_screen.set_workspace_mode(
-                    if *mode == ToolbarMode::Draw {
-                        DesignPanelWorkspaceMode::Draw
-                    } else {
-                        DesignPanelWorkspaceMode::Design
-                    },
-                    "Toolbar",
-                    cx,
-                );
                 self.toolbar_screen.last_action =
                     format!("Host selected {} in {}", tool.label(), mode.label()).into();
             }
@@ -237,35 +243,6 @@ impl Storybook {
             } => {
                 match (control, value) {
                     (
-                        ToolbarSecondaryControl::DrawStrokeColor,
-                        ToolbarControlValue::Color(value),
-                    ) => self.toolbar_screen.draw_options.stroke_color = value.clone(),
-                    (
-                        ToolbarSecondaryControl::DrawBrushStyle,
-                        ToolbarControlValue::Choice(value),
-                    ) => self.toolbar_screen.draw_options.brush_style = value.clone(),
-                    (
-                        ToolbarSecondaryControl::DrawStrokeWeight,
-                        ToolbarControlValue::Integer(value),
-                    ) => {
-                        let options = &mut self.toolbar_screen.draw_options;
-                        options.stroke_weight = u16::try_from((*value).max(0))
-                            .unwrap_or(options.weight_min)
-                            .clamp(options.weight_min, options.weight_max);
-                    }
-                    (
-                        ToolbarSecondaryControl::DrawSmoothing,
-                        ToolbarControlValue::Integer(value),
-                    ) => {
-                        let options = &mut self.toolbar_screen.draw_options;
-                        options.smoothing = u8::try_from((*value).max(0))
-                            .unwrap_or(options.smoothing_min)
-                            .clamp(options.smoothing_min, options.smoothing_max);
-                    }
-                    (ToolbarSecondaryControl::DrawPressure, ToolbarControlValue::Toggle(value)) => {
-                        self.toolbar_screen.draw_options.pressure = *value
-                    }
-                    (
                         ToolbarSecondaryControl::DevReadyForDevelopment,
                         ToolbarControlValue::Toggle(value),
                     ) => self.toolbar_screen.dev_options.ready_for_development = *value,
@@ -287,7 +264,6 @@ impl Storybook {
                     _ => {}
                 }
                 toolbar.update(cx, |toolbar, cx| {
-                    toolbar.set_draw_options(self.toolbar_screen.draw_options.clone(), cx);
                     toolbar.set_dev_options(self.toolbar_screen.dev_options, cx);
                     toolbar.set_motion_options(self.toolbar_screen.motion_options.clone(), cx);
                 });
@@ -308,7 +284,6 @@ impl Storybook {
             ToolbarAction::CommandInvoked { command } => {
                 let requested_mode = match command {
                     ToolbarCommand::OpenDesignMode => Some(ToolbarMode::Design),
-                    ToolbarCommand::OpenDrawMode => Some(ToolbarMode::Draw),
                     ToolbarCommand::OpenMotionMode => Some(ToolbarMode::Motion),
                     ToolbarCommand::OpenDevMode => Some(ToolbarMode::Dev),
                     _ => None,
@@ -317,7 +292,6 @@ impl Storybook {
                     self.toolbar_screen.mode = mode;
                     self.toolbar_screen.tool = match mode {
                         ToolbarMode::Design => ToolbarTool::Move,
-                        ToolbarMode::Draw => ToolbarTool::Pencil,
                         ToolbarMode::Motion => ToolbarTool::MotionSelect,
                         ToolbarMode::Dev => ToolbarTool::Inspect,
                     };
@@ -325,15 +299,6 @@ impl Storybook {
                         toolbar.set_mode(mode, cx);
                         toolbar.set_active_tool(self.toolbar_screen.tool, cx);
                     });
-                    self.design_screen.set_workspace_mode(
-                        if mode == ToolbarMode::Draw {
-                            DesignPanelWorkspaceMode::Draw
-                        } else {
-                            DesignPanelWorkspaceMode::Design
-                        },
-                        "Toolbar command",
-                        cx,
-                    );
                 }
                 self.toolbar_screen.last_action =
                     format!("Host ran {} · {}", command.category(), command.label()).into();
@@ -370,6 +335,47 @@ impl Storybook {
                 });
                 self.toolbar_screen.last_action =
                     format!("Host set canvas zoom to {percent}%").into();
+            }
+            // Host chrome: the toolbar reports the press; this mock host owns
+            // the effect and echoes the new active state back into the dock.
+            ToolbarAction::ChromeControlInvoked { id } => {
+                match id.as_ref() {
+                    TOOLBAR_CHROME_FIT => {
+                        self.toolbar_screen.zoom = 100;
+                        toolbar.update(cx, |toolbar, cx| toolbar.set_zoom_percent(100, cx));
+                        self.toolbar_screen.last_action =
+                            "Host fit the canvas to the Hero frame".into();
+                    }
+                    TOOLBAR_CHROME_LEFT => {
+                        self.toolbar_screen.left_sidebar_visible =
+                            !self.toolbar_screen.left_sidebar_visible;
+                        self.toolbar_screen.last_action =
+                            if self.toolbar_screen.left_sidebar_visible {
+                                "Host showed the layers sidebar".into()
+                            } else {
+                                "Host hid the layers sidebar".into()
+                            };
+                    }
+                    TOOLBAR_CHROME_RIGHT => {
+                        self.toolbar_screen.right_sidebar_visible =
+                            !self.toolbar_screen.right_sidebar_visible;
+                        self.toolbar_screen.last_action =
+                            if self.toolbar_screen.right_sidebar_visible {
+                                "Host showed the inspector sidebar".into()
+                            } else {
+                                "Host hid the inspector sidebar".into()
+                            };
+                    }
+                    other => {
+                        self.toolbar_screen.last_action =
+                            format!("Host received unknown chrome control “{other}”").into();
+                    }
+                }
+                let controls = toolbar_chrome_controls(
+                    self.toolbar_screen.left_sidebar_visible,
+                    self.toolbar_screen.right_sidebar_visible,
+                );
+                toolbar.update(cx, |toolbar, cx| toolbar.set_chrome_controls(controls, cx));
             }
         }
         cx.notify();
@@ -410,237 +416,181 @@ impl Storybook {
 
         // These fixed colors belong to the mock document artwork inside the selected frame.
         // Editor chrome around the artwork uses active theme tokens below.
-        let artwork = match self.toolbar_screen.mode {
-            ToolbarMode::Draw => h_flex()
-                .size_full()
-                .relative()
-                .overflow_hidden()
-                .bg(rgba(0xfff8ebff))
-                .child(
-                    div()
-                        .absolute()
-                        .left(px(72.))
-                        .top(px(54.))
-                        .size(px(142.))
-                        .rounded_full()
-                        .bg(rgba(0xff6b4aff)),
-                )
-                .child(
-                    div()
-                        .absolute()
-                        .left(px(164.))
-                        .top(px(112.))
-                        .size(px(176.))
-                        .rounded_full()
-                        .bg(rgba(0x7c3aeddd)),
-                )
-                .child(
-                    div()
-                        .absolute()
-                        .right(px(42.))
-                        .top(px(44.))
-                        .w(px(132.))
-                        .h(px(220.))
-                        .rounded(px(68.))
-                        .bg(rgba(0xffd028ff)),
-                )
-                .child(
-                    div()
-                        .absolute()
-                        .left(px(58.))
-                        .bottom(px(52.))
-                        .text_size(px(42.))
-                        .font_semibold()
-                        .text_color(rgba(0x1e1e1eff))
-                        .child("MAKE"),
-                )
-                .child(
-                    div()
-                        .absolute()
-                        .left(px(178.))
-                        .bottom(px(18.))
-                        .text_size(px(52.))
-                        .font_semibold()
-                        .text_color(rgba(0xffffffff))
-                        .child("WAVES"),
-                )
-                .into_any_element(),
-            _ => h_flex()
-                .size_full()
-                .bg(rgba(0xf7f8faff))
-                .child(
-                    v_flex()
-                        .w(px(118.))
-                        .h_full()
-                        .p_3()
-                        .gap_2()
-                        .bg(rgba(0x111827ff))
-                        .child(div().size(px(24.)).rounded(px(7.)).bg(rgba(0x6366f1ff)))
-                        .child(
-                            div()
-                                .h(px(8.))
-                                .w(px(68.))
-                                .rounded_full()
-                                .bg(rgba(0xffffff66)),
-                        )
-                        .child(
-                            div()
-                                .h(px(8.))
-                                .w(px(82.))
-                                .rounded_full()
-                                .bg(rgba(0xffffff33)),
-                        )
-                        .child(
-                            div()
-                                .h(px(8.))
-                                .w(px(56.))
-                                .rounded_full()
-                                .bg(rgba(0xffffff33)),
-                        )
-                        .child(div().flex_1())
-                        .child(
-                            h_flex()
-                                .h(px(30.))
-                                .px_2()
-                                .rounded(px(8.))
-                                .bg(rgba(0x6366f1ff))
-                                .text_xs()
-                                .text_color(rgba(0xffffffff))
-                                .child("Upgrade"),
-                        ),
-                )
-                .child(
-                    v_flex()
-                        .flex_1()
-                        .min_w(px(0.))
-                        .h_full()
-                        .p_5()
-                        .gap_3()
-                        .child(
-                            h_flex()
-                                .child(
-                                    v_flex()
-                                        .gap_1()
-                                        .child(
-                                            div()
-                                                .text_xs()
-                                                .text_color(rgba(0x6b7280ff))
-                                                .child("OVERVIEW"),
-                                        )
-                                        .child(
-                                            div()
-                                                .text_size(px(22.))
-                                                .font_semibold()
-                                                .text_color(rgba(0x111827ff))
-                                                .child("Good morning, Maya"),
-                                        ),
-                                )
-                                .child(div().flex_1())
-                                .child(div().size(px(32.)).rounded_full().bg(rgba(0xf59e0bff))),
-                        )
-                        .child(
-                            h_flex()
-                                .h(px(92.))
-                                .gap_3()
-                                .child(
-                                    v_flex()
-                                        .flex_1()
-                                        .h_full()
-                                        .p_3()
-                                        .rounded(px(12.))
-                                        .bg(rgba(0x6366f1ff))
-                                        .text_color(rgba(0xffffffff))
-                                        .child(div().text_xs().child("Revenue"))
-                                        .child(
-                                            div()
-                                                .mt_2()
-                                                .text_size(px(20.))
-                                                .font_semibold()
-                                                .child("$48.2k"),
-                                        ),
-                                )
-                                .child(
-                                    v_flex()
-                                        .flex_1()
-                                        .h_full()
-                                        .p_3()
-                                        .rounded(px(12.))
-                                        .bg(rgba(0xffffffff))
-                                        .border_1()
-                                        .border_color(rgba(0x00000010))
-                                        .text_color(rgba(0x111827ff))
-                                        .child(div().text_xs().child("Customers"))
-                                        .child(
-                                            div()
-                                                .mt_2()
-                                                .text_size(px(20.))
-                                                .font_semibold()
-                                                .child("1,429"),
-                                        ),
-                                )
-                                .child(
-                                    v_flex()
-                                        .flex_1()
-                                        .h_full()
-                                        .p_3()
-                                        .rounded(px(12.))
-                                        .bg(rgba(0xffffffff))
-                                        .border_1()
-                                        .border_color(rgba(0x00000010))
-                                        .text_color(rgba(0x111827ff))
-                                        .child(div().text_xs().child("Conversion"))
-                                        .child(
-                                            div()
-                                                .mt_2()
-                                                .text_size(px(20.))
-                                                .font_semibold()
-                                                .child("12.8%"),
-                                        ),
-                                ),
-                        )
-                        .child(
-                            v_flex()
-                                .flex_1()
-                                .min_h(px(0.))
-                                .p_3()
-                                .rounded(px(12.))
-                                .bg(rgba(0xffffffff))
-                                .border_1()
-                                .border_color(rgba(0x00000010))
-                                .child(
-                                    h_flex()
-                                        .child(
-                                            div()
-                                                .text_sm()
-                                                .font_semibold()
-                                                .text_color(rgba(0x111827ff))
-                                                .child("Activity"),
-                                        )
-                                        .child(div().flex_1())
-                                        .child(
-                                            div()
-                                                .px_2()
-                                                .py_1()
-                                                .rounded(px(6.))
-                                                .bg(rgba(0xf3f4f6ff))
-                                                .text_xs()
-                                                .text_color(rgba(0x6b7280ff))
-                                                .child("Last 30 days"),
-                                        ),
-                                )
-                                .child(h_flex().flex_1().items_end().gap_2().pt_3().children(
-                                    [44., 68., 38., 82., 58., 94., 74.].map(|height| {
+        let artwork = h_flex()
+            .size_full()
+            .bg(rgba(0xf7f8faff))
+            .child(
+                v_flex()
+                    .w(px(118.))
+                    .h_full()
+                    .p_3()
+                    .gap_2()
+                    .bg(rgba(0x111827ff))
+                    .child(div().size(px(24.)).rounded(px(7.)).bg(rgba(0x6366f1ff)))
+                    .child(
+                        div()
+                            .h(px(8.))
+                            .w(px(68.))
+                            .rounded_full()
+                            .bg(rgba(0xffffff66)),
+                    )
+                    .child(
+                        div()
+                            .h(px(8.))
+                            .w(px(82.))
+                            .rounded_full()
+                            .bg(rgba(0xffffff33)),
+                    )
+                    .child(
+                        div()
+                            .h(px(8.))
+                            .w(px(56.))
+                            .rounded_full()
+                            .bg(rgba(0xffffff33)),
+                    )
+                    .child(div().flex_1())
+                    .child(
+                        h_flex()
+                            .h(px(30.))
+                            .px_2()
+                            .rounded(px(8.))
+                            .bg(rgba(0x6366f1ff))
+                            .text_xs()
+                            .text_color(rgba(0xffffffff))
+                            .child("Upgrade"),
+                    ),
+            )
+            .child(
+                v_flex()
+                    .flex_1()
+                    .min_w(px(0.))
+                    .h_full()
+                    .p_5()
+                    .gap_3()
+                    .child(
+                        h_flex()
+                            .child(
+                                v_flex()
+                                    .gap_1()
+                                    .child(
                                         div()
-                                            .flex_1()
-                                            .h(px(height))
-                                            .rounded_t(px(4.))
-                                            .bg(rgba(0x6366f1cc))
-                                    }),
-                                )),
-                        ),
-                )
-                .into_any_element(),
-        };
+                                            .text_xs()
+                                            .text_color(rgba(0x6b7280ff))
+                                            .child("OVERVIEW"),
+                                    )
+                                    .child(
+                                        div()
+                                            .text_size(px(22.))
+                                            .font_semibold()
+                                            .text_color(rgba(0x111827ff))
+                                            .child("Good morning, Maya"),
+                                    ),
+                            )
+                            .child(div().flex_1())
+                            .child(div().size(px(32.)).rounded_full().bg(rgba(0xf59e0bff))),
+                    )
+                    .child(
+                        h_flex()
+                            .h(px(92.))
+                            .gap_3()
+                            .child(
+                                v_flex()
+                                    .flex_1()
+                                    .h_full()
+                                    .p_3()
+                                    .rounded(px(12.))
+                                    .bg(rgba(0x6366f1ff))
+                                    .text_color(rgba(0xffffffff))
+                                    .child(div().text_xs().child("Revenue"))
+                                    .child(
+                                        div()
+                                            .mt_2()
+                                            .text_size(px(20.))
+                                            .font_semibold()
+                                            .child("$48.2k"),
+                                    ),
+                            )
+                            .child(
+                                v_flex()
+                                    .flex_1()
+                                    .h_full()
+                                    .p_3()
+                                    .rounded(px(12.))
+                                    .bg(rgba(0xffffffff))
+                                    .border_1()
+                                    .border_color(rgba(0x00000010))
+                                    .text_color(rgba(0x111827ff))
+                                    .child(div().text_xs().child("Customers"))
+                                    .child(
+                                        div()
+                                            .mt_2()
+                                            .text_size(px(20.))
+                                            .font_semibold()
+                                            .child("1,429"),
+                                    ),
+                            )
+                            .child(
+                                v_flex()
+                                    .flex_1()
+                                    .h_full()
+                                    .p_3()
+                                    .rounded(px(12.))
+                                    .bg(rgba(0xffffffff))
+                                    .border_1()
+                                    .border_color(rgba(0x00000010))
+                                    .text_color(rgba(0x111827ff))
+                                    .child(div().text_xs().child("Conversion"))
+                                    .child(
+                                        div()
+                                            .mt_2()
+                                            .text_size(px(20.))
+                                            .font_semibold()
+                                            .child("12.8%"),
+                                    ),
+                            ),
+                    )
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .min_h(px(0.))
+                            .p_3()
+                            .rounded(px(12.))
+                            .bg(rgba(0xffffffff))
+                            .border_1()
+                            .border_color(rgba(0x00000010))
+                            .child(
+                                h_flex()
+                                    .child(
+                                        div()
+                                            .text_sm()
+                                            .font_semibold()
+                                            .text_color(rgba(0x111827ff))
+                                            .child("Activity"),
+                                    )
+                                    .child(div().flex_1())
+                                    .child(
+                                        div()
+                                            .px_2()
+                                            .py_1()
+                                            .rounded(px(6.))
+                                            .bg(rgba(0xf3f4f6ff))
+                                            .text_xs()
+                                            .text_color(rgba(0x6b7280ff))
+                                            .child("Last 30 days"),
+                                    ),
+                            )
+                            .child(h_flex().flex_1().items_end().gap_2().pt_3().children(
+                                [44., 68., 38., 82., 58., 94., 74.].map(|height| {
+                                    div()
+                                        .flex_1()
+                                        .h(px(height))
+                                        .rounded_t(px(4.))
+                                        .bg(rgba(0x6366f1cc))
+                                }),
+                            )),
+                    ),
+            )
+            .into_any_element();
 
         div()
             .relative()
@@ -813,8 +763,10 @@ impl Storybook {
         let mode_accent = cx.theme().selection;
         let story = cx.entity();
         let story_width = self.toolbar_screen.story_width;
-        let show_sidebar = story_width.is_none_or(|width| width >= STORY_SIDEBAR_MIN_WIDTH);
-        let show_inspector = story_width.is_none_or(|width| width >= STORY_INSPECTOR_MIN_WIDTH);
+        let show_sidebar = self.toolbar_screen.left_sidebar_visible
+            && story_width.is_none_or(|width| width >= STORY_SIDEBAR_MIN_WIDTH);
+        let show_inspector = self.toolbar_screen.right_sidebar_visible
+            && story_width.is_none_or(|width| width >= STORY_INSPECTOR_MIN_WIDTH);
 
         h_flex()
             .relative()
@@ -1108,7 +1060,6 @@ impl Storybook {
                                         .gap_2()
                                         .child(div().text_sm().font_semibold().child(
                                             match self.toolbar_screen.mode {
-                                                ToolbarMode::Draw => "Stroke",
                                                 ToolbarMode::Design => "Layout",
                                                 ToolbarMode::Motion => "Animation",
                                                 ToolbarMode::Dev => "Inspect",
@@ -1122,15 +1073,6 @@ impl Storybook {
                                                 .bg(cx.theme().secondary)
                                                 .text_xs()
                                                 .child(match self.toolbar_screen.mode {
-                                                    ToolbarMode::Draw => format!(
-                                                        "{} · {} px",
-                                                        self.toolbar_screen
-                                                            .draw_options
-                                                            .brush_style,
-                                                        self.toolbar_screen
-                                                            .draw_options
-                                                            .stroke_weight
-                                                    ),
                                                     ToolbarMode::Design => {
                                                         "Auto layout · Vertical".to_owned()
                                                     }
@@ -1223,7 +1165,11 @@ mod tests {
     #[test]
     fn toolbar_env_vars_seed_the_runtime_knob_defaults() {
         assert_eq!(parse_toolbar_mode(None), ToolbarMode::Design);
-        assert_eq!(parse_toolbar_mode(Some("draw")), ToolbarMode::Draw);
+        assert_eq!(
+            parse_toolbar_mode(Some("draw")),
+            ToolbarMode::Design,
+            "the retired Draw mode falls back to Design"
+        );
         assert_eq!(parse_toolbar_mode(Some("MOTION")), ToolbarMode::Motion);
         assert_eq!(parse_toolbar_mode(Some("dev")), ToolbarMode::Dev);
         assert_eq!(parse_toolbar_mode(Some("unknown")), ToolbarMode::Design);
@@ -1255,5 +1201,26 @@ mod tests {
             assert!(seen.insert(mode.label()));
         }
         assert_eq!(seen.len(), ToolbarMode::ALL.len());
+    }
+
+    #[test]
+    fn story_chrome_controls_mirror_the_mock_sidebar_state() {
+        let controls = toolbar_chrome_controls(true, false);
+        assert_eq!(
+            controls
+                .iter()
+                .map(|control| control.id.as_ref())
+                .collect::<Vec<_>>(),
+            [
+                TOOLBAR_CHROME_FIT,
+                TOOLBAR_CHROME_LEFT,
+                TOOLBAR_CHROME_RIGHT
+            ]
+        );
+        assert!(!controls[0].active);
+        assert!(controls[1].active);
+        assert!(!controls[2].active);
+        assert_eq!(controls[1].icon_path(), "icons/panel-left-close.svg");
+        assert_eq!(controls[2].icon_path(), "icons/panel-right-open.svg");
     }
 }

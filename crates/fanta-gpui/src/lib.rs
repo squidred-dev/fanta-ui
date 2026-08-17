@@ -87,16 +87,16 @@ pub mod prelude {
     pub use crate::timeline::{TIMELINE_MIN_WIDTH, Timeline, TimelineAction, TimelineViewData};
     pub use crate::toolbar::{
         AgentToolbarOptions, CloseToolbarOverlay, ConfirmToolbarTextEntry, DecrementToolbarControl,
-        DevToolbarOptions, DrawToolbarOptions, EditorToolbar, EnterDevMode, FirstToolbarCommand,
+        DevToolbarOptions, EditorToolbar, EnterDevMode, FirstToolbarCommand,
         IncrementToolbarControl, LastToolbarCommand, MotionToolbarOptions, NextToolbarCommand,
         OpenToolbarActions, OpenToolbarAgent, PreviousToolbarCommand, SelectAnnotationTool,
         SelectArrowTool, SelectCommentTool, SelectEllipseTool, SelectFrameTool, SelectHandTool,
         SelectImageVideoTool, SelectLineTool, SelectMeasureTool, SelectMoveTool, SelectPenTool,
         SelectPencilTool, SelectRectangleTool, SelectResourcesTool, SelectScaleTool,
         SelectSectionTool, SelectSliceTool, SelectTextTool, TOOLBAR_ZOOM_CLUSTER_MIN_WIDTH,
-        TOOLBAR_ZOOM_STEPPERS_MIN_WIDTH, ToolbarAction, ToolbarCommand, ToolbarControlValue,
-        ToolbarItem, ToolbarMode, ToolbarSecondaryControl, ToolbarTool, ToolbarToolGroup,
-        ZoomCanvasTo100, ZoomCanvasToFit, ZoomCanvasToSelection,
+        TOOLBAR_ZOOM_STEPPERS_MIN_WIDTH, ToolbarAction, ToolbarChromeControl, ToolbarCommand,
+        ToolbarControlValue, ToolbarItem, ToolbarMode, ToolbarSecondaryControl, ToolbarTool,
+        ToolbarToolGroup, ZoomCanvasTo100, ZoomCanvasToFit, ZoomCanvasToSelection,
     };
     pub use crate::variables::{
         VARIABLES_PAGE_MIN_HEIGHT, VARIABLES_PAGE_MIN_WIDTH, VariableKind, VariableModeValue,

@@ -1,11 +1,12 @@
 //! Transient trigger-anchored surfaces: the split-tool flyout, the Actions
-//! command palette, the Agent composer, and the zoom menu. All four ride the
-//! shared anchored-popup molecule (`crate::molecules::popup`).
+//! command palette, the Agent composer, the zoom menu, and the secondary
+//! chips' choice editor. All ride the shared anchored-popup molecule
+//! (`crate::molecules::popup`).
 
 use gpui::{
     Anchor, AnyElement, Context, FontWeight, HighlightStyle, InteractiveElement as _, IntoElement,
-    MouseButton, MouseDownEvent, ParentElement as _, SharedString, StatefulInteractiveElement as _,
-    Styled as _, StyledText, Window, div, point, prelude::FluentBuilder as _, px, relative,
+    MouseDownEvent, ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _,
+    StyledText, Window, div, point, prelude::FluentBuilder as _, px,
 };
 use gpui_component::{
     ActiveTheme as _, Icon, IconName, Sizable as _, StyledExt as _, h_flex, input::Input, v_flex,
@@ -13,7 +14,7 @@ use gpui_component::{
 
 use super::state::CommandMatch;
 use super::{CommandScope, EditorToolbar, POPOVER_GAP, TOOL_SIZE, ZoomMenuEntry};
-use crate::atoms::{CONTROL_KEY_CONTEXT, ControlExt as _, icon_button, track_bounds};
+use crate::atoms::{CONTROL_KEY_CONTEXT, ControlExt as _, icon_button};
 use crate::molecules::{
     POPUP_SAFE_MARGIN, anchored_popup, popup_height, popup_max_height, popup_surface, popup_width,
 };
@@ -727,106 +728,20 @@ impl EditorToolbar {
     /// Debug-selector prefix for one secondary chip's anchored editor.
     fn editor_selector_prefix(control: ToolbarSecondaryControl) -> &'static str {
         match control {
-            ToolbarSecondaryControl::DrawStrokeColor => "toolbar-draw-color",
-            ToolbarSecondaryControl::DrawBrushStyle => "toolbar-draw-style",
-            ToolbarSecondaryControl::DrawStrokeWeight => "toolbar-draw-weight",
-            ToolbarSecondaryControl::DrawSmoothing => "toolbar-draw-smoothing",
             ToolbarSecondaryControl::MotionAnimationStyle => "toolbar-motion-style",
             _ => "toolbar-option",
         }
     }
 
-    /// Anchored editor for one secondary chip: a swatch grid for the stroke
-    /// color, a slider for the ranged values, and a candidate menu otherwise.
-    /// Every candidate it offers comes from the host's options (§12).
+    /// Anchored candidate menu for one secondary chip. Every candidate it
+    /// offers comes from the host's options (§12).
     pub(super) fn render_option_editor(
         &self,
         control: ToolbarSecondaryControl,
         window: &Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        match control {
-            ToolbarSecondaryControl::DrawStrokeColor => {
-                self.render_color_editor(control, window, cx)
-            }
-            ToolbarSecondaryControl::DrawStrokeWeight | ToolbarSecondaryControl::DrawSmoothing => {
-                self.render_slider_editor(control, window, cx)
-            }
-            _ => self.render_choice_editor(control, window, cx),
-        }
-    }
-
-    fn render_color_editor(
-        &self,
-        control: ToolbarSecondaryControl,
-        window: &Window,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let prefix = Self::editor_selector_prefix(control);
-        let mut grid = h_flex().flex_wrap().gap_1();
-        for (index, color) in self.choice_candidates(control).iter().enumerate() {
-            let candidate = color.clone();
-            let selected = self.draw_options.stroke_color == *color;
-            let highlighted = self.menu_cursor == index;
-            let swatch_color = Self::parse_color(color.as_ref())
-                .map(gpui::Hsla::from)
-                .unwrap_or(cx.theme().foreground);
-            let selector = format!(
-                "{prefix}-option-{}",
-                color.trim_start_matches('#').to_ascii_lowercase()
-            );
-            grid = grid.child(
-                icon_button(
-                    SharedString::from(format!("{}-{prefix}-option-{index}", self.id)),
-                    px(24.),
-                    px(6.),
-                    cx,
-                )
-                .debug_selector(move || selector.clone())
-                .flex_none()
-                .when(highlighted, |swatch| swatch.bg(cx.theme().list_active))
-                .on_hover(cx.listener(move |this, hovered, _, cx| {
-                    if *hovered && this.menu_cursor != index {
-                        this.menu_cursor = index;
-                        cx.notify();
-                    }
-                }))
-                .on_activate(cx.listener(move |this, _, window, cx| {
-                    this.choose_option_candidate(control, candidate.clone(), window, cx);
-                }))
-                .child(
-                    div()
-                        .size(px(16.))
-                        .rounded_full()
-                        .bg(swatch_color)
-                        .border_1()
-                        .border_color(if selected {
-                            cx.theme().primary
-                        } else {
-                            cx.theme().border
-                        }),
-                ),
-            );
-        }
-        let editor = popup_surface(
-            SharedString::from(format!("{}-{prefix}-editor", self.id)),
-            px(10.),
-            cx,
-        )
-        .debug_selector(move || format!("{prefix}-editor"))
-        .w(popup_width(window, 240.))
-        .max_h(popup_max_height(window))
-        .p_2()
-        .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _, cx| {
-            this.dismiss_overlay_for_pointer(cx);
-        }))
-        .child(grid);
-        anchored_popup(
-            Anchor::BottomLeft,
-            point(px(0.), px(-POPOVER_GAP)),
-            10,
-            editor,
-        )
+        self.render_choice_editor(control, window, cx)
     }
 
     fn render_choice_editor(
@@ -837,10 +752,7 @@ impl EditorToolbar {
     ) -> AnyElement {
         let prefix = Self::editor_selector_prefix(control);
         let candidates = self.choice_candidates(control).to_vec();
-        let current = match control {
-            ToolbarSecondaryControl::DrawBrushStyle => self.draw_options.brush_style.clone(),
-            _ => self.motion_options.animation_style.clone(),
-        };
+        let current = self.current_choice(control);
         let mut menu = popup_surface(
             SharedString::from(format!("{}-{prefix}-editor", self.id)),
             px(10.),
@@ -859,7 +771,7 @@ impl EditorToolbar {
         }));
         for (index, candidate) in candidates.into_iter().enumerate() {
             let highlighted = self.menu_cursor == index;
-            let selected = candidate == current;
+            let selected = current.as_ref() == Some(&candidate);
             let selector = format!(
                 "{prefix}-option-{}",
                 candidate.to_lowercase().replace(' ', "-")
@@ -914,117 +826,6 @@ impl EditorToolbar {
             point(px(0.), px(-POPOVER_GAP)),
             10,
             menu,
-        )
-    }
-
-    fn render_slider_editor(
-        &self,
-        control: ToolbarSecondaryControl,
-        window: &Window,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let prefix = Self::editor_selector_prefix(control);
-        let Some((value, min, max, _)) = self.slider_params(control) else {
-            return div().into_any_element();
-        };
-        let fraction = if max > min {
-            (value - min) as f32 / (max - min) as f32
-        } else {
-            0.
-        };
-        let value_label = match control {
-            ToolbarSecondaryControl::DrawSmoothing => format!("{value}%"),
-            _ => format!("{value} px"),
-        };
-        let editor = popup_surface(
-            SharedString::from(format!("{}-{prefix}-editor", self.id)),
-            px(10.),
-            cx,
-        )
-        .debug_selector(move || format!("{prefix}-editor"))
-        .w(popup_width(window, 220.))
-        .max_h(popup_max_height(window))
-        .p_3()
-        .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _, cx| {
-            this.dismiss_overlay_for_pointer(cx);
-        }))
-        .child(
-            h_flex()
-                .gap_2()
-                .child(
-                    div()
-                        .id(SharedString::from(format!("{}-{prefix}-slider", self.id)))
-                        .debug_selector(move || format!("{prefix}-slider"))
-                        .key_context(CONTROL_KEY_CONTEXT)
-                        .tab_index(0)
-                        .relative()
-                        .flex_1()
-                        .h(px(20.))
-                        .rounded(px(5.))
-                        .cursor_pointer()
-                        .border_1()
-                        .border_color(cx.theme().transparent)
-                        .focus(|style| style.border_color(cx.theme().selection))
-                        // Contract (§16): the pointer path needs the event
-                        // position to map the press onto the host-supplied
-                        // range; Left/Right keyboard stepping converges on the
-                        // same `ControlChangeRequested` intent through
-                        // `Increment`/`DecrementToolbarControl`.
-                        .on_mouse_down(
-                            MouseButton::Left,
-                            cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                                this.set_slider_from_pointer(control, event.position.x, cx);
-                            }),
-                        )
-                        .child(
-                            div()
-                                .absolute()
-                                .top(px(8.))
-                                .left_0()
-                                .right_0()
-                                .h(px(3.))
-                                .rounded_full()
-                                .bg(cx.theme().border),
-                        )
-                        .child(
-                            div()
-                                .absolute()
-                                .top(px(8.))
-                                .left_0()
-                                .w(relative(fraction))
-                                .h(px(3.))
-                                .rounded_full()
-                                .bg(cx.theme().primary),
-                        )
-                        .child(
-                            div()
-                                .absolute()
-                                .top(px(4.))
-                                .left(relative(fraction))
-                                .ml(px(-5.))
-                                .size(px(11.))
-                                .rounded_full()
-                                .bg(cx.theme().primary),
-                        )
-                        .child(track_bounds(cx.entity(), |this, bounds| {
-                            this.slider_track_bounds = bounds;
-                        })),
-                )
-                .child(
-                    div()
-                        .flex_none()
-                        .w(px(44.))
-                        .text_right()
-                        .text_xs()
-                        .font_medium()
-                        .child(value_label),
-                ),
-        );
-        anchored_popup(
-            Anchor::BottomLeft,
-            point(px(0.), px(-POPOVER_GAP)),
-            10,
-            editor,
         )
     }
 }

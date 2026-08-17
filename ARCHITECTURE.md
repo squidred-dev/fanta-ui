@@ -820,21 +820,26 @@ Storybook rejects compatibility-only paths before reducer dispatch.
 `EditorToolbar` is a stateful, intrinsic editor-chrome dock. It renders its
 persistent controls as one contained, content-sized surface; it does not claim
 full-canvas bounds, choose viewport coordinates, or apply its own outer
-positioning. A host supplies the active mode, selected tool, zoom, and
-Draw/Dev/Motion option read models. The toolbar emits `ToolbarAction` intents
-and never creates layers, changes a selection, runs a command, advances a
-timeline, or invokes an AI service.
+positioning. A host supplies the active mode, selected tool, zoom, the
+Dev/Motion option read models, and its chrome controls. The toolbar emits
+`ToolbarAction` intents and never creates layers, changes a selection, runs a
+command, advances a timeline, or invokes an AI service.
 
 Host-controlled state:
 
-- the active Draw, Design, Motion, or Dev mode;
+- the active Design, Motion, or Dev mode;
 - the selected primary tool and accepted mode-specific control values;
-- canvas zoom, Draw stroke options, Dev readiness, and Motion transport state;
-- every candidate the Draw and Motion option editors may offer: the swatch
-  palette, weight and smoothing min/max/step ranges, brush styles, and
-  animation styles — the toolbar presents these and never invents a value
-  outside them;
+- canvas zoom, Dev readiness, and Motion transport state;
+- every candidate the Motion option editor may offer (the animation-style
+  catalog) — the toolbar presents these and never invents a value outside
+  them;
 - Agent context copy and suggestions, plus the allowed command subset/order;
+- the host chrome controls shown in the dock's trailing capsule
+  (`ToolbarChromeControl`: id, `IconName`, label, shortcut hint, and the
+  `active` flag), supplied via `set_chrome_controls` — fit-to-view and
+  sidebar toggles are host chrome, so the toolbar renders them but only ever
+  reports `ChromeControlInvoked { id }`; the host applies the effect and
+  echoes any new `active` state;
 - command execution, plugins, widgets, media placement, undo, present, share,
   generated content, document mutations, and timeline data.
 
@@ -850,8 +855,17 @@ Each transient surface is anchored to the exact disclosure, Actions, Agent, or
 zoom trigger that opened it. It may render in a deferred layer above the dock,
 but it must not position itself against an unrelated full-canvas root or canvas
 center. Component-owned popups snap inside the window with an 8 px edge margin.
-Persistent primary, secondary, mode, zoom, and Agent controls remain inside the
-dock; constrained hosts may let the dock's internal rows scroll.
+Persistent primary, secondary, mode, zoom, Agent, and chrome controls remain
+inside the dock; constrained hosts may let the dock's internal rows scroll.
+
+The dock occludes the pointer: hosts float it over the canvas, so every mouse
+event on the dock surface — clicks, presses, hovers, wheel — stops there and a
+tool press never also reaches the canvas beneath. The dock's own overflow rows
+sit above that surface and keep scrolling; transient popups block on their own
+surfaces. Tool and mode icons are Lucide: gpui-component `IconName` assets
+where a fitting one exists (resolved against the host asset source, §5) and
+stroke paths authored on Lucide's 24-unit grid with its round-capped 2-unit
+stroke otherwise, so assets and drawings read as one set.
 
 Pointer controls, Enter/Space activation, and the command actions registered by
 `fanta_gpui::init` converge on the same methods and typed intents. Hosts accept

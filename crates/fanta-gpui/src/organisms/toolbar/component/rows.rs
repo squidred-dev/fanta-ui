@@ -1,6 +1,6 @@
 //! Persistent dock assembly: the mode-specific secondary strip, the primary
-//! tool strip, and the utility row with the mode tray, zoom cluster, and
-//! Agent launcher.
+//! tool strip, and the utility row with the mode tray, zoom cluster, Agent
+//! launcher, and the host chrome capsule.
 
 use gpui::{
     AnyElement, Context, InteractiveElement as _, IntoElement, MouseButton, MouseDownEvent,
@@ -11,13 +11,13 @@ use gpui_component::{
     ActiveTheme as _, Icon, IconName, Sizable as _, StyledExt as _, h_flex, tooltip::Tooltip,
 };
 
-use super::{EditorToolbar, TOOL_SIZE, ToolbarOverlay, ZoomClusterTier};
+use super::{CHROME_CONTROL_SIZE, EditorToolbar, TOOL_SIZE, ToolbarOverlay, ZoomClusterTier};
 use crate::atoms::{ActivateControl, CONTROL_KEY_CONTEXT, ControlExt as _, icon_button};
 use crate::molecules::{horizontal_fade_overlays, track_horizontal_edge_fades};
-use crate::toolbar::icons::{render_mode_icon, render_tool_icon};
+use crate::toolbar::icons::{render_icon_asset, render_mode_icon, render_tool_icon};
 use crate::toolbar::{
-    ToolbarControlValue, ToolbarItem, ToolbarMode, ToolbarSecondaryControl, ToolbarTool,
-    ToolbarToolGroup,
+    ToolbarChromeControl, ToolbarControlValue, ToolbarItem, ToolbarMode, ToolbarSecondaryControl,
+    ToolbarTool, ToolbarToolGroup,
 };
 
 /// Width of the pointer-transparent edge fades that mark clipped row content.
@@ -417,7 +417,13 @@ impl EditorToolbar {
                                     div().w(px(1.)).h(px(22.)).flex_none().bg(cx.theme().border),
                                 )
                             })
-                            .child(self.render_agent_launcher(window, cx)),
+                            .child(self.render_agent_launcher(window, cx))
+                            .when(!self.chrome_controls.is_empty(), |row| {
+                                row.child(
+                                    div().w(px(1.)).h(px(22.)).flex_none().bg(cx.theme().border),
+                                )
+                                .child(self.render_chrome_cluster(cx))
+                            }),
                     ),
             )
             .children(horizontal_fade_overlays(
@@ -602,97 +608,6 @@ impl EditorToolbar {
             .into_any_element()
     }
 
-    fn render_draw_color_chip(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
-        let control = ToolbarSecondaryControl::DrawStrokeColor;
-        let open = self.overlay == Some(ToolbarOverlay::OptionEditor(control));
-        let stroke_color = Self::parse_color(self.draw_options.stroke_color.as_ref())
-            .unwrap_or_else(|| cx.theme().foreground.into());
-        h_flex()
-            .relative()
-            .h(px(28.))
-            .flex_none()
-            .items_start()
-            .child(
-                icon_button(
-                    SharedString::from(format!("{}-secondary-draw-color", self.id)),
-                    px(28.),
-                    px(7.),
-                    cx,
-                )
-                .debug_selector(|| "toolbar-secondary-draw-color".to_owned())
-                // Contract (§16): press-activation so the swatch wins the race
-                // against its editor's capture-phase outside-dismiss; a click
-                // handler would reopen the editor it just closed. Enter/Space
-                // on an open grid commit its highlighted swatch.
-                .on_action(cx.listener(move |this, _: &ActivateControl, window, cx| {
-                    if !(open && this.commit_open_menu_entry(window, cx)) {
-                        this.toggle_option_editor(control, open, cx);
-                    }
-                }))
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(move |this, _: &MouseDownEvent, _, cx| {
-                        this.toggle_option_editor(control, open, cx);
-                    }),
-                )
-                .child(
-                    div()
-                        .size(px(16.))
-                        .rounded_full()
-                        .bg(stroke_color)
-                        .border_2()
-                        .border_color(cx.theme().popover),
-                ),
-            )
-            .when(open, |chip| {
-                chip.child(self.render_option_editor(control, window, cx))
-            })
-            .into_any_element()
-    }
-
-    fn render_draw_secondary(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
-        h_flex()
-            .flex_none()
-            .h(px(40.))
-            .px_1()
-            .gap_1()
-            .rounded(px(10.))
-            .bg(cx.theme().secondary)
-            .text_color(cx.theme().popover_foreground)
-            .child(self.render_draw_color_chip(window, cx))
-            .child(self.render_editor_chip(
-                "draw-style",
-                self.draw_options.brush_style.clone(),
-                ToolbarSecondaryControl::DrawBrushStyle,
-                window,
-                cx,
-            ))
-            .child(self.render_editor_chip(
-                "draw-weight",
-                format!("{} px", self.draw_options.stroke_weight),
-                ToolbarSecondaryControl::DrawStrokeWeight,
-                window,
-                cx,
-            ))
-            .child(div().w(px(1.)).h(px(22.)).bg(cx.theme().border))
-            .child(self.render_editor_chip(
-                "draw-smoothing",
-                format!("Smooth {}%", self.draw_options.smoothing),
-                ToolbarSecondaryControl::DrawSmoothing,
-                window,
-                cx,
-            ))
-            .child(self.render_value_button(
-                "draw-pressure",
-                "Pressure",
-                ToolbarSecondaryControl::DrawPressure,
-                ToolbarControlValue::Toggle(!self.draw_options.pressure),
-                self.draw_options.pressure,
-                cx,
-            ))
-            .into_any_element()
-    }
-
     fn render_dev_secondary(&self, cx: &mut Context<Self>) -> AnyElement {
         h_flex()
             .flex_none()
@@ -827,18 +742,6 @@ impl EditorToolbar {
     ) -> AnyElement {
         let content = match self.mode {
             ToolbarMode::Design => return div().into_any_element(),
-            ToolbarMode::Draw
-                if matches!(
-                    self.active_tool,
-                    ToolbarTool::Brush
-                        | ToolbarTool::Pencil
-                        | ToolbarTool::VariableWidth
-                        | ToolbarTool::PaintBucket
-                ) =>
-            {
-                self.render_draw_secondary(window, cx)
-            }
-            ToolbarMode::Draw => return div().into_any_element(),
             ToolbarMode::Dev => self.render_dev_secondary(cx),
             ToolbarMode::Motion => self.render_motion_secondary(window, cx),
         };
@@ -984,6 +887,81 @@ impl EditorToolbar {
                 cluster.child(self.render_zoom_stepper(true, cx))
             })
             .into_any_element()
+    }
+
+    /// One host chrome control: a compact icon tile whose active state uses
+    /// the same raised-tile treatment as the selected mode.
+    fn render_chrome_control(
+        &self,
+        control: &ToolbarChromeControl,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let id = control.id.clone();
+        let selector_id = control.id.to_string();
+        let state_selector = format!(
+            "toolbar-chrome-{}-{}",
+            control.id,
+            if control.active { "active" } else { "inactive" }
+        );
+        let tooltip: SharedString = match &control.shortcut {
+            Some(shortcut) => format!("{}  {shortcut}", control.label).into(),
+            None => control.label.clone(),
+        };
+        let active = control.active;
+        icon_button(
+            SharedString::from(format!("{}-chrome-{}", self.id, control.id)),
+            px(CHROME_CONTROL_SIZE),
+            px(8.),
+            cx,
+        )
+        .debug_selector(move || format!("toolbar-chrome-{selector_id}"))
+        .flex_none()
+        .when(active, |button| {
+            button
+                .bg(cx.theme().background)
+                .when(cx.theme().shadow, |button| button.shadow_sm())
+        })
+        .text_color(if active {
+            cx.theme().foreground
+        } else {
+            cx.theme().muted_foreground
+        })
+        .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
+        .on_activate(cx.listener(move |this, _, _, cx| {
+            this.request_chrome_control(id.clone(), cx);
+        }))
+        .child(
+            div()
+                .debug_selector(move || state_selector.clone())
+                .flex()
+                .child(render_icon_asset(
+                    control.icon.clone(),
+                    if active {
+                        cx.theme().foreground
+                    } else {
+                        cx.theme().muted_foreground
+                    },
+                    15.,
+                )),
+        )
+        .into_any_element()
+    }
+
+    /// The host chrome capsule at the end of the utility row (§12): a
+    /// secondary-filled pill matching the mode tray, one tile per control.
+    fn render_chrome_cluster(&self, cx: &mut Context<Self>) -> AnyElement {
+        let mut cluster = h_flex()
+            .debug_selector(|| "toolbar-chrome-cluster".to_owned())
+            .h(px(36.))
+            .flex_none()
+            .px_1()
+            .gap(px(2.))
+            .rounded(px(10.))
+            .bg(cx.theme().secondary);
+        for control in &self.chrome_controls {
+            cluster = cluster.child(self.render_chrome_control(control, cx));
+        }
+        cluster.into_any_element()
     }
 
     fn render_agent_launcher(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {

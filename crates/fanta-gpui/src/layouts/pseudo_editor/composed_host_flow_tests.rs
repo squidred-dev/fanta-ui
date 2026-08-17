@@ -24,9 +24,10 @@ enum WorkflowIntent {
 
 /// A minimal application host for the composed editor.
 ///
-/// It deliberately owns the accepted toolbar and timeline snapshots. Toolbar
-/// mode changes are also adapted into the Design panel's workspace projection,
-/// mirroring the cross-component orchestration a production host performs.
+/// It deliberately owns the accepted toolbar and timeline snapshots and the
+/// Design panel's workspace projection, mirroring the cross-component
+/// orchestration a production host performs: a toolbar mode change re-seeds
+/// the tool, and the host alone decides what the inspector projects.
 struct WorkflowHost {
     editor: Entity<PseudoEditor>,
     toolbar: Entity<EditorToolbar>,
@@ -108,7 +109,6 @@ impl WorkflowHost {
                     host.toolbar_mode = *mode;
                     host.toolbar_tool = match mode {
                         ToolbarMode::Design => ToolbarTool::Move,
-                        ToolbarMode::Draw => ToolbarTool::Pencil,
                         ToolbarMode::Motion => ToolbarTool::MotionSelect,
                         ToolbarMode::Dev => ToolbarTool::Inspect,
                     };
@@ -116,15 +116,10 @@ impl WorkflowHost {
                         toolbar.set_mode(*mode, cx);
                         toolbar.set_active_tool(host.toolbar_tool, cx);
                     });
+                    // The inspector projection is host policy: this host
+                    // keeps the Design workspace across every toolbar mode.
                     host.design.update(cx, |design, cx| {
-                        design.set_workspace_mode(
-                            if *mode == ToolbarMode::Draw {
-                                DesignPanelWorkspaceMode::Draw
-                            } else {
-                                DesignPanelWorkspaceMode::Design
-                            },
-                            cx,
-                        );
+                        design.set_workspace_mode(DesignPanelWorkspaceMode::Design, cx);
                     });
                 }
             });
@@ -196,11 +191,11 @@ fn composed_host_routes_intents_and_echoes_state_across_components(cx: &mut Test
         "the host's initial Design projection should render",
     );
 
-    let draw = cx
-        .debug_bounds("toolbar-mode-draw")
-        .expect("the composed toolbar should expose Draw")
+    let motion = cx
+        .debug_bounds("toolbar-mode-motion")
+        .expect("the composed toolbar should expose Motion")
         .center();
-    cx.simulate_click(draw, Modifiers::none());
+    cx.simulate_click(motion, Modifiers::none());
     cx.run_until_parked();
 
     assert_eq!(
@@ -208,7 +203,7 @@ fn composed_host_routes_intents_and_echoes_state_across_components(cx: &mut Test
             let host = host.read(app);
             (host.toolbar_mode, host.toolbar_tool)
         }),
-        (ToolbarMode::Draw, ToolbarTool::Pencil),
+        (ToolbarMode::Motion, ToolbarTool::MotionSelect),
     );
     assert_eq!(
         cx.read(|app| {
@@ -220,15 +215,19 @@ fn composed_host_routes_intents_and_echoes_state_across_components(cx: &mut Test
             )
         }),
         (
-            ToolbarMode::Draw,
-            ToolbarTool::Pencil,
-            DesignPanelWorkspaceMode::Draw,
+            ToolbarMode::Motion,
+            ToolbarTool::MotionSelect,
+            DesignPanelWorkspaceMode::Design,
         ),
     );
     assert!(
+        cx.debug_bounds("toolbar-secondary-motion-play").is_some(),
+        "the host echo should mount the Motion transport row in the toolbar",
+    );
+    assert!(
         cx.debug_bounds("flow-design-draw-workspace-heading")
-            .is_some(),
-        "the toolbar intent should cause the host to mount the Draw projection",
+            .is_none(),
+        "the host keeps its Design projection across toolbar modes",
     );
 
     let play = cx
@@ -273,7 +272,7 @@ fn composed_host_routes_intents_and_echoes_state_across_components(cx: &mut Test
             DesignPanelWorkspaceMode::Design,
             vec![
                 WorkflowIntent::Toolbar(ToolbarAction::ModeChangeRequested {
-                    mode: ToolbarMode::Draw,
+                    mode: ToolbarMode::Motion,
                 }),
                 WorkflowIntent::Timeline(TimelineAction::PlayStateChangeRequested {
                     playing: true,

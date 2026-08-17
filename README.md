@@ -308,12 +308,13 @@ surface directly.
 ## Use the editor toolbar
 
 `EditorToolbar` recreates Figma's floating editor toolbar as controlled GPUI
-chrome. It includes the complete Design split-tool groups, Draw illustration
-controls, Dev handoff tools, Motion transport/keyframing controls, the Actions
-command palette, contextual Agent composer, zoom controls, tooltips, focus
-navigation, and registered shortcuts. The toolbar is intrinsic; the host places
-it in a canvas-relative wrapper (typically bottom center) rather than asking the
-component to fill the canvas:
+chrome. It includes the complete Design split-tool groups, Dev handoff tools,
+Motion transport/keyframing controls, the Actions command palette, contextual
+Agent composer, zoom controls, a capsule for host chrome controls (fit to view,
+sidebar toggles), tooltips, focus navigation, and registered shortcuts. The
+toolbar is intrinsic and occludes the pointer over the canvas beneath it; the
+host places it in a canvas-relative wrapper (typically bottom center) rather
+than asking the component to fill the canvas:
 
 ```rust
 use fanta_gpui::prelude::*;
@@ -345,16 +346,16 @@ cx.subscribe(&toolbar, |host, toolbar, action: &ToolbarAction, cx| {
         toolbar.set_mode(host.toolbar_mode(), cx);
         toolbar.set_active_tool(host.toolbar_tool(), cx);
         toolbar.set_zoom_percent(host.canvas_zoom(), cx);
-        toolbar.set_draw_options(host.draw_toolbar_options(), cx);
         toolbar.set_motion_options(host.motion_toolbar_options(), cx);
         toolbar.set_dev_options(host.dev_toolbar_options(), cx);
         toolbar.set_agent_options(host.agent_toolbar_options(), cx);
+        toolbar.set_chrome_controls(host.chrome_controls(), cx);
     });
 });
 ```
 
-Mode and tool selection, stroke settings, developer readiness, Motion
-transport, commands, and Agent submissions are typed intents. Only flyouts,
+Mode and tool selection, developer readiness, Motion transport, commands,
+chrome-control presses, and Agent submissions are typed intents. Only flyouts,
 search/prompt drafts, highlighted results, and focus continuity are local
 presentation state. See [`docs/toolbar.md`](docs/toolbar.md) for the full tool
 matrix and ownership contract.

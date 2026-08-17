@@ -11,6 +11,9 @@ repository.workspace = true
 [dependencies]
 gpui.workspace = true
 gpui-component.workspace = true
+# Stroke cap/join styles for the Lucide-idiom vector icons; the same lyon
+# gpui itself tessellates with, so no new code is compiled.
+lyon = "1.0"
 
 [dev-dependencies]
 gpui = { workspace = true, features = ["test-support"] }

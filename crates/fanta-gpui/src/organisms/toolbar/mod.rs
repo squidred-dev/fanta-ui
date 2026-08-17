@@ -19,8 +19,8 @@ pub use component::{
     EditorToolbar, TOOLBAR_ZOOM_CLUSTER_MIN_WIDTH, TOOLBAR_ZOOM_STEPPERS_MIN_WIDTH,
 };
 pub use model::{
-    AgentToolbarOptions, DevToolbarOptions, DrawToolbarOptions, MotionToolbarOptions,
-    ToolbarAction, ToolbarCommand, ToolbarControlValue, ToolbarItem, ToolbarMode,
+    AgentToolbarOptions, DevToolbarOptions, MotionToolbarOptions, ToolbarAction,
+    ToolbarChromeControl, ToolbarCommand, ToolbarControlValue, ToolbarItem, ToolbarMode,
     ToolbarSecondaryControl, ToolbarTool, ToolbarToolGroup,
 };
 

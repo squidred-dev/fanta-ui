@@ -2,15 +2,14 @@
 //! restoration, Actions command filtering/invocation, and value/styling
 //! helpers for [`EditorToolbar`].
 
-use gpui::{App, Context, Pixels, SharedString, Window, px, rgba};
+use gpui::{App, Context, SharedString, Window};
 use gpui_component::ActiveTheme as _;
 
 use super::{CommandScope, EditorToolbar, ToolbarOverlay, ZoomMenuEntry};
-use crate::color::parse_hex_rgba;
 use crate::toolbar::{
-    AgentToolbarOptions, DevToolbarOptions, DrawToolbarOptions, MotionToolbarOptions,
-    ToolbarAction, ToolbarCommand, ToolbarControlValue, ToolbarMode, ToolbarSecondaryControl,
-    ToolbarTool, ToolbarToolGroup,
+    AgentToolbarOptions, DevToolbarOptions, MotionToolbarOptions, ToolbarAction,
+    ToolbarChromeControl, ToolbarCommand, ToolbarControlValue, ToolbarMode,
+    ToolbarSecondaryControl, ToolbarTool, ToolbarToolGroup,
 };
 
 /// Figma's multiplicative zoom ladder: the doubling 25→50→100→200→400 spine
@@ -106,11 +105,6 @@ impl EditorToolbar {
         self.zoom_percent
     }
 
-    /// Returns the last Draw-mode values supplied by the host.
-    pub fn draw_options(&self) -> &DrawToolbarOptions {
-        &self.draw_options
-    }
-
     /// Returns the last Dev-mode values supplied by the host.
     pub fn dev_options(&self) -> &DevToolbarOptions {
         &self.dev_options
@@ -124,6 +118,12 @@ impl EditorToolbar {
     /// Returns the last Agent context copy supplied by the host.
     pub fn agent_options(&self) -> &AgentToolbarOptions {
         &self.agent_options
+    }
+
+    /// Returns the host chrome controls currently shown in the dock's
+    /// trailing capsule.
+    pub fn chrome_controls(&self) -> &[ToolbarChromeControl] {
+        &self.chrome_controls
     }
 
     /// Replaces the controlled mode and closes any transient overlay.
@@ -146,12 +146,6 @@ impl EditorToolbar {
         cx.notify();
     }
 
-    /// Replaces the controlled Draw-mode values.
-    pub fn set_draw_options(&mut self, options: DrawToolbarOptions, cx: &mut Context<Self>) {
-        self.draw_options = options;
-        cx.notify();
-    }
-
     /// Replaces the controlled Dev-mode values.
     pub fn set_dev_options(&mut self, options: DevToolbarOptions, cx: &mut Context<Self>) {
         self.dev_options = options;
@@ -168,6 +162,27 @@ impl EditorToolbar {
     pub fn set_agent_options(&mut self, options: AgentToolbarOptions, cx: &mut Context<Self>) {
         self.agent_options = options;
         cx.notify();
+    }
+
+    /// Replaces the host chrome controls rendered in the dock's trailing
+    /// capsule (§12). Order is preserved; a later duplicate `id` is dropped
+    /// so every emitted `ChromeControlInvoked` names one control. An empty
+    /// list removes the capsule.
+    pub fn set_chrome_controls(
+        &mut self,
+        controls: impl IntoIterator<Item = ToolbarChromeControl>,
+        cx: &mut Context<Self>,
+    ) {
+        let mut next: Vec<ToolbarChromeControl> = Vec::new();
+        for control in controls {
+            if !next.iter().any(|existing| existing.id == control.id) {
+                next.push(control);
+            }
+        }
+        if next != self.chrome_controls {
+            self.chrome_controls = next;
+            cx.notify();
+        }
     }
 
     /// Replaces the ordered command subset available in Actions.
@@ -428,23 +443,17 @@ impl EditorToolbar {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let value = match control {
-            ToolbarSecondaryControl::DrawStrokeColor => ToolbarControlValue::Color(candidate),
-            _ => ToolbarControlValue::Choice(candidate),
-        };
         self.set_overlay(None, cx);
-        self.request_control_value(control, value, cx);
+        self.request_control_value(control, ToolbarControlValue::Choice(candidate), cx);
         let focus_handle = self.focus_handle.clone();
         window.defer(cx, move |window, cx| focus_handle.focus(window, cx));
         cx.notify();
     }
 
-    /// Host-supplied candidates behind a chip's choice editor; empty for the
-    /// slider-driven controls.
+    /// Host-supplied candidates behind a chip's choice editor; empty for
+    /// controls without one.
     pub(super) fn choice_candidates(&self, control: ToolbarSecondaryControl) -> &[SharedString] {
         match control {
-            ToolbarSecondaryControl::DrawStrokeColor => &self.draw_options.available_colors,
-            ToolbarSecondaryControl::DrawBrushStyle => &self.draw_options.available_styles,
             ToolbarSecondaryControl::MotionAnimationStyle => {
                 &self.motion_options.available_animation_styles
             }
@@ -452,12 +461,8 @@ impl EditorToolbar {
         }
     }
 
-    fn current_choice(&self, control: ToolbarSecondaryControl) -> Option<SharedString> {
+    pub(super) fn current_choice(&self, control: ToolbarSecondaryControl) -> Option<SharedString> {
         match control {
-            ToolbarSecondaryControl::DrawStrokeColor => {
-                Some(self.draw_options.stroke_color.clone())
-            }
-            ToolbarSecondaryControl::DrawBrushStyle => Some(self.draw_options.brush_style.clone()),
             ToolbarSecondaryControl::MotionAnimationStyle => {
                 Some(self.motion_options.animation_style.clone())
             }
@@ -465,70 +470,12 @@ impl EditorToolbar {
         }
     }
 
-    /// `(value, min, max, step)` for a slider-driven control, normalized so an
-    /// inverted host range cannot panic the clamp.
-    pub(super) fn slider_params(
-        &self,
-        control: ToolbarSecondaryControl,
-    ) -> Option<(i32, i32, i32, i32)> {
-        let (value, min, max, step) = match control {
-            ToolbarSecondaryControl::DrawStrokeWeight => (
-                i32::from(self.draw_options.stroke_weight),
-                i32::from(self.draw_options.weight_min),
-                i32::from(self.draw_options.weight_max),
-                i32::from(self.draw_options.weight_step),
-            ),
-            ToolbarSecondaryControl::DrawSmoothing => (
-                i32::from(self.draw_options.smoothing),
-                i32::from(self.draw_options.smoothing_min),
-                i32::from(self.draw_options.smoothing_max),
-                i32::from(self.draw_options.smoothing_step),
-            ),
-            _ => return None,
-        };
-        let (min, max) = (min.min(max), min.max(max));
-        Some((value.clamp(min, max), min, max, step.max(1)))
-    }
-
-    /// Steps an open slider editor by one host-supplied increment, or moves
-    /// the highlight of an open choice editor.
+    /// Left/Right inside an open choice editor move its highlight, the same
+    /// way Up/Down do.
     pub(super) fn adjust_option_control(&mut self, direction: i32, cx: &mut Context<Self>) {
-        let Some(ToolbarOverlay::OptionEditor(control)) = self.overlay else {
-            return;
-        };
-        if let Some((value, min, max, step)) = self.slider_params(control) {
-            let next = (value + direction * step).clamp(min, max);
-            if next != value {
-                self.request_control_value(control, ToolbarControlValue::Integer(next), cx);
-            }
-        } else {
+        if matches!(self.overlay, Some(ToolbarOverlay::OptionEditor(_))) {
             self.move_command_cursor(direction as isize, cx);
         }
-    }
-
-    /// Maps a pointer position on a slider's tracked bounds to the nearest
-    /// host-supplied step and requests that value.
-    pub(super) fn set_slider_from_pointer(
-        &mut self,
-        control: ToolbarSecondaryControl,
-        position_x: Pixels,
-        cx: &mut Context<Self>,
-    ) {
-        let Some((_, min, max, step)) = self.slider_params(control) else {
-            return;
-        };
-        let bounds = self.slider_track_bounds;
-        if bounds.size.width <= px(0.) {
-            return;
-        }
-        let fraction = ((position_x - bounds.left()) / bounds.size.width).clamp(0., 1.);
-        let raw = min as f32 + fraction * (max - min) as f32;
-        let stepped = min + ((raw - min as f32) / step as f32).round() as i32 * step;
-        self.request_control_value(
-            control,
-            ToolbarControlValue::Integer(stepped.clamp(min, max)),
-            cx,
-        );
     }
 
     /// Number of highlightable rows in the open non-Actions menu overlay.
@@ -814,6 +761,12 @@ impl EditorToolbar {
         });
     }
 
+    /// Emits the typed intent for one host chrome control; the host applies
+    /// the effect and echoes any new active state via `set_chrome_controls`.
+    pub(super) fn request_chrome_control(&mut self, id: SharedString, cx: &mut Context<Self>) {
+        cx.emit(ToolbarAction::ChromeControlInvoked { id });
+    }
+
     pub(super) fn control_tooltip(
         label: &'static str,
         shortcut: Option<&'static str>,
@@ -826,7 +779,6 @@ impl EditorToolbar {
 
     pub(super) fn mode_accent(mode: ToolbarMode, cx: &App) -> gpui::Hsla {
         match mode {
-            ToolbarMode::Draw => cx.theme().cyan,
             ToolbarMode::Design => cx.theme().blue,
             ToolbarMode::Motion => cx.theme().magenta,
             ToolbarMode::Dev => cx.theme().green,
@@ -835,7 +787,6 @@ impl EditorToolbar {
 
     pub(super) fn mode_accent_pale(mode: ToolbarMode, cx: &App) -> gpui::Hsla {
         match mode {
-            ToolbarMode::Draw => cx.theme().cyan_light,
             ToolbarMode::Design => cx.theme().blue_light,
             ToolbarMode::Motion => cx.theme().magenta_light,
             ToolbarMode::Dev => cx.theme().green_light,
@@ -850,10 +801,6 @@ impl EditorToolbar {
         } else {
             background
         }
-    }
-
-    pub(super) fn parse_color(value: &str) -> Option<gpui::Rgba> {
-        parse_hex_rgba(value).map(rgba)
     }
 }
 
@@ -911,18 +858,5 @@ mod tests {
         assert_eq!(EditorToolbar::zoom_ladder_step(1, false), 1);
         assert_eq!(EditorToolbar::zoom_ladder_step(26, true), 50);
         assert_eq!(EditorToolbar::zoom_ladder_step(26, false), 25);
-    }
-
-    #[test]
-    fn controlled_draw_colors_accept_rgb_and_rgba_hex() {
-        assert_eq!(
-            EditorToolbar::parse_color("#0D99FF"),
-            Some(rgba(0x0d99ffff))
-        );
-        assert_eq!(
-            EditorToolbar::parse_color("0D99FF80"),
-            Some(rgba(0x0d99ff80))
-        );
-        assert_eq!(EditorToolbar::parse_color("not-a-color"), None);
     }
 }

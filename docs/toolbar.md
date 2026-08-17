@@ -1,9 +1,10 @@
 # Editor toolbar
 
 `EditorToolbar` is Fanta GPUI's reusable, host-controlled implementation of
-Figma's floating editor toolbar. It covers Design, Draw, Motion, and Dev modes,
+Figma's floating editor toolbar. It covers Design, Motion, and Dev modes,
 split-tool flyouts, contextual secondary controls, zoom, the Actions command
-bar, and a contextual Agent composer.
+bar, a contextual Agent composer, and a capsule for host-supplied chrome
+controls.
 
 The component is editor chrome only. It never imports `fanta-engine`, mutates a
 document, advances an animation, runs a plugin, or calls an AI service.
@@ -16,11 +17,21 @@ All persistent chrome is contained by the dock:
 
 1. a mode-specific secondary row when applicable;
 2. a horizontally constrained primary-tool row;
-3. a utility row containing the Draw, Design, Motion, and Dev mode tray, zoom,
-   and Agent launcher.
+3. a utility row containing the Design, Motion, and Dev mode tray, zoom, the
+   Agent launcher, and — when the host supplies any — the trailing chrome
+   capsule.
 
 The dock coordinates at most one transient tool-group, Actions, Agent, or zoom
 surface at a time.
+
+The dock occludes the pointer. Because hosts float it over the canvas, every
+mouse event on the dock — clicks, presses, hovers, and wheel — stops at the
+dock surface, so pressing a tool never also reaches the canvas underneath and
+wheel gestures over the dock never pan or zoom it. The dock's own overflow
+rows keep scrolling because they sit above that surface, and the transient
+popups block on their own surfaces. Hosts whose canvas listens for pointer
+events through GPUI hitboxes need no extra guard; a host that installs raw
+window-level mouse handlers must still consult its hitbox hover state.
 
 The host owns outer positioning. `PseudoEditor` and the standalone Toolbar
 story mount the dock in a canvas-relative wrapper positioned at bottom center.
@@ -38,9 +49,22 @@ use a deferred layer so they are not clipped by the dock, but they are never
 centered against a full-canvas toolbar root. Popup widths respond to the window
 and snap to an 8 px viewport margin when their preferred side would overflow.
 
-Mode accents are cyan for Draw, blue for Design, purple for Motion, and green
-for Dev. Mode selection is also expressed by a raised tile, not color alone.
-Tool and mode artwork uses vector icons, not font-dependent Unicode glyphs.
+Mode accents are blue for Design, purple for Motion, and green for Dev. Mode
+selection is also expressed by a raised tile, not color alone.
+
+Tool and mode artwork is Lucide. Where gpui-component's `IconName` set has a
+fitting Lucide asset the toolbar renders that SVG (Frame, Star, Resources →
+`layout-dashboard`, Inspect → `search`, Ready-for-dev → `circle-check`, the
+Design mode tile → `square-dashed-mouse-pointer`); those assets resolve
+against the host's asset source (ARCHITECTURE §5). Every other tool and mode
+is a stroke path authored on Lucide's 24-unit grid with its 2-unit
+round-capped stroke — `mouse-pointer-2`, `hand`, `scaling`, `scan`, `square`,
+`arrow-up-right`, `circle`, `pentagon`, `image`, `pen-tool`, `pencil`,
+`spline`, `type`, `message-square`, `sticky-note`, `ruler`, `sparkles`,
+`pipette`, `code-xml`, `variable`, `refresh-cw`, `circle-play`,
+`clapperboard`, plus Fanta's own section, path-select, text-on-path, and
+motion glyphs in the same idiom — so mixed assets and drawings read as one
+set. Font-dependent Unicode glyphs are never an icon source.
 
 ## Mode layouts
 
@@ -61,34 +85,6 @@ Design follows Figma's grouped primary strip:
 
 Design has no persistent secondary strip. Selection-specific properties remain
 the responsibility of the host's inspector.
-
-### Draw
-
-Draw keeps navigation and creation tools visible while adding illustration and
-vector-edit flyouts:
-
-- Move/Hand/Scale;
-- Pen;
-- Brush/Paint bucket;
-- Pencil;
-- Shape builder/Lasso/Variable width;
-- Region and Shape groups;
-- Text, Feedback, and Actions.
-
-For Brush, Pencil, Paint bucket, and Variable width, the secondary strip shows
-the controlled stroke color, brush style, weight, smoothing, and pressure
-state. `DrawToolbarOptions` carries the accepted current values plus every
-candidate the option editors may offer:
-
-- `available_colors` backs the stroke-color chip's anchored swatch grid;
-- `weight_min`/`weight_max`/`weight_step` and the matching `smoothing_*`
-  fields back anchored sliders (pointer presses map onto the range;
-  Left/Right step by the host increment);
-- `available_styles` backs the brush-style menu.
-
-Choosing a candidate emits `ControlChangeRequested`; the host accepts it by
-supplying a new `DrawToolbarOptions`. The toolbar never invents a value
-outside the host-supplied candidates.
 
 ### Motion
 
@@ -115,6 +111,38 @@ Dev presents Move, color picker, measurement, annotation, comment, and Actions.
 Its secondary handoff strip contains Inspect, Annotate, Measure, and
 Ready-for-dev. Readiness is supplied through `DevToolbarOptions`; every other
 operation is a typed intent for the host.
+
+## Host chrome capsule
+
+Editor-level affordances such as fit-to-view and the sidebar toggles are host
+chrome, not canvas tools (§12: the host owns chrome, the toolbar owns the
+dock). Rather than rendering a second bubble beside the dock, a host describes
+them with `ToolbarChromeControl` records and the toolbar renders them as one
+capsule at the end of the utility row, after the Agent launcher:
+
+```rust
+toolbar.set_chrome_controls(
+    [
+        ToolbarChromeControl::new("fit", IconName::Maximize, "Fit to view").shortcut("⇧ 1"),
+        ToolbarChromeControl::new("layers", IconName::PanelLeftClose, "Hide layers")
+            .active(true),
+        ToolbarChromeControl::new("inspector", IconName::PanelRightOpen, "Show inspector"),
+    ],
+    cx,
+);
+```
+
+Each record carries a stable `id`, an `IconName` (resolved against the host's
+asset source), a tooltip `label`, an optional `shortcut` hint, and an `active`
+flag rendered as the same raised tile the selected mode uses. Activating a
+control — pointer, Enter, or Space — emits
+`ToolbarAction::ChromeControlInvoked { id }`; the toolbar never flips
+`active` itself. The host applies the effect and echoes the new state through
+`set_chrome_controls`, which preserves order, drops later duplicate ids, and
+removes the capsule when given an empty list. Chrome controls sit inside the
+dock's pointer occlusion like every other control, and the capsule's width is
+subtracted before the zoom cluster picks its collapse tier, so a narrow host
+sheds zoom steppers rather than scrolling the row.
 
 ## Zoom cluster
 
@@ -144,7 +172,7 @@ rather than percentages.
 
 ## Actions command bar
 
-Actions is available in all four modes and through Command/Ctrl+K or the legacy
+Actions is available in all three modes and through Command/Ctrl+K or the legacy
 Command/Ctrl+/ shortcut. The palette contains:
 
 - a focused search field with an explicit clear affordance;
@@ -185,10 +213,10 @@ inside `fanta-gpui`.
 | --- | --- |
 | `ToolbarMode` and `ToolbarTool` | Hover, pressed, focus, and tooltip styling |
 | Canvas zoom | Open overlay: flyout, option editor, Actions, Agent, or zoom |
-| `DrawToolbarOptions` values and candidate sets | Menu and option-editor highlight cursor |
-| `MotionToolbarOptions` values and animation-style catalog | Actions query, scope, result cursor, and scroll |
-| `DevToolbarOptions` | Unsent Agent prompt |
-| `AgentToolbarOptions` | Input focus continuity |
+| `MotionToolbarOptions` values and animation-style catalog | Menu and option-editor highlight cursor |
+| `DevToolbarOptions` | Actions query, scope, result cursor, and scroll |
+| `AgentToolbarOptions` | Unsent Agent prompt |
+| `ToolbarChromeControl` list, including each `active` flag | Input focus continuity |
 | Allowed `ToolbarCommand` order/subset | Row scroll offsets and overflow-fade visibility |
 
 The main intent families are:
@@ -199,7 +227,8 @@ The main intent families are:
 - `ControlChangeRequested`;
 - `CommandQueryChanged` and `CommandInvoked`;
 - `AiPromptSubmitted`, Agent attachment/voice/visibility;
-- `ZoomChangeRequested`.
+- `ZoomChangeRequested`;
+- `ChromeControlInvoked`.
 
 Hosts accept an intent by updating their model and calling the corresponding
 setter. Rejecting an intent simply means continuing to provide the old value.
@@ -243,6 +272,7 @@ toolbar.update(cx, |toolbar, cx| {
         cx,
     );
     toolbar.set_commands(ToolbarCommand::ALL.iter().copied(), cx);
+    toolbar.set_chrome_controls(host.chrome_controls(), cx);
 });
 
 cx.subscribe(&toolbar, |host, toolbar, action: &ToolbarAction, cx| {
@@ -251,10 +281,10 @@ cx.subscribe(&toolbar, |host, toolbar, action: &ToolbarAction, cx| {
         toolbar.set_mode(host.toolbar_mode(), cx);
         toolbar.set_active_tool(host.toolbar_tool(), cx);
         toolbar.set_zoom_percent(host.canvas_zoom(), cx);
-        toolbar.set_draw_options(host.draw_toolbar_options(), cx);
         toolbar.set_motion_options(host.motion_toolbar_options(), cx);
         toolbar.set_dev_options(host.dev_toolbar_options(), cx);
         toolbar.set_agent_options(host.agent_toolbar_options(), cx);
+        toolbar.set_chrome_controls(host.chrome_controls(), cx);
     });
 });
 ```
@@ -272,7 +302,8 @@ restoring the complete component keymap.
 ## Keyboard behavior
 
 - Tab and Shift-Tab reach primary tools, split disclosures, modes, secondary
-  controls, zoom, Actions scopes/results, Agent controls, and the launcher.
+  controls, zoom, Actions scopes/results, Agent controls, the launcher, and
+  the host chrome controls.
 - Enter and Space activate a focused toolbar control. While a split-tool
   flyout, the zoom menu, or a chip's choice editor is open, they commit the
   highlighted row instead.
@@ -280,8 +311,8 @@ restoring the complete component keymap.
 - Up and Down wrap through all filtered Actions results and keep the active row
   scrolled into view. The same keys, plus Home and End, move the highlight in
   split-tool flyouts, the zoom menu, and chip choice editors.
-- Left and Right step an open weight or smoothing slider by the host-supplied
-  increment and move the highlight in the color swatch grid.
+- Left and Right move the highlight in an open chip choice editor, like Up
+  and Down.
 - Command/Ctrl+K and Command/Ctrl+/ open Actions.
 - Command/Ctrl+Enter opens Agent.
 - Tool shortcuts include V, H, K, F, Shift+S, S, R, L, Shift+L, O,
@@ -308,11 +339,12 @@ cargo run -p fanta-gpui-storybook
 ```
 
 The Toolbar story is the mock host and applies every emitted intent back
-through the controlled setters. Deterministic screenshot states are available
+through the controlled setters; it seeds three chrome controls (fit to view
+plus the two sidebar toggles, whose active state mirrors the story's mock
+columns) and logs every intent. Deterministic screenshot states are available
 for local QA:
 
 ```sh
-FANTA_TOOLBAR_MODE=draw cargo run -p fanta-gpui-storybook
 FANTA_TOOLBAR_MODE=motion cargo run -p fanta-gpui-storybook
 FANTA_TOOLBAR_MODE=dev cargo run -p fanta-gpui-storybook
 FANTA_TOOLBAR_OVERLAY=actions cargo run -p fanta-gpui-storybook
