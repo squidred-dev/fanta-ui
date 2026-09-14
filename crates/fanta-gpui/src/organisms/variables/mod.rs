@@ -9,6 +9,7 @@ use gpui::{
 use gpui_component::{
     ActiveTheme as _, Icon, IconName, Sizable as _, StyledExt as _, h_flex,
     input::{Input, InputEvent, InputState},
+    scroll::Scrollbar,
     v_flex,
 };
 
@@ -22,7 +23,7 @@ const SIDEBAR_WIDTH: f32 = 282.;
 /// Floor the sidebar compresses to on narrow pages.
 const SIDEBAR_MIN_WIDTH: f32 = 180.;
 /// Fixed width of the search cluster on the right of the header row.
-const HEADER_TOOLS_WIDTH: f32 = 220.;
+const HEADER_TOOLS_WIDTH: f32 = 320.;
 /// Collection-title width preserved before the sidebar starts compressing.
 const HEADER_TITLE_MIN_WIDTH: f32 = 120.;
 /// Reference design width of the table's name and value columns.
@@ -30,11 +31,13 @@ const NAME_COLUMN_WIDTH: f32 = 201.;
 const VALUE_COLUMN_WIDTH: f32 = 201.;
 /// Floor the name column compresses to on narrow tables.
 const NAME_COLUMN_MIN_WIDTH: f32 = 140.;
+const VALUE_COLUMN_MIN_WIDTH: f32 = 160.;
 /// Fixed width of the pinned actions column.
 const ACTIONS_COLUMN_WIDTH: f32 = 40.;
+const TABLE_SCROLLBAR_WIDTH: f32 = 16.;
 
 /// The smallest width the variables manager reflows to honestly: the
-/// floored sidebar, the fixed header search/share cluster, and a usable
+/// floored sidebar, the fixed header search cluster, and a usable
 /// collection title. Below this the table's mode columns already scroll;
 /// narrower pages would clip header chrome instead of compressing it.
 pub const VARIABLES_PAGE_MIN_WIDTH: f32 = SIDEBAR_MIN_WIDTH + HEADER_TOOLS_WIDTH + 60.;
@@ -278,18 +281,27 @@ impl VariablesPage {
     /// width while the table is wide enough, compressing toward
     /// [`NAME_COLUMN_MIN_WIDTH`] before the mode columns start scrolling.
     fn name_column_width(&self) -> f32 {
-        self.page_width.map_or(NAME_COLUMN_WIDTH, |width| {
-            let table_width = width
-                - if self.sidebar_visible {
-                    self.sidebar_width()
-                } else {
-                    0.
-                };
-            (table_width
-                - VALUE_COLUMN_WIDTH * self.view_data.modes.len() as f32
-                - ACTIONS_COLUMN_WIDTH)
-                .clamp(NAME_COLUMN_MIN_WIDTH, NAME_COLUMN_WIDTH)
-        })
+        (self.table_viewport_width() * 0.25).clamp(NAME_COLUMN_MIN_WIDTH, NAME_COLUMN_WIDTH)
+    }
+
+    fn table_viewport_width(&self) -> f32 {
+        self.page_width.map_or(
+            SIDEBAR_WIDTH + NAME_COLUMN_WIDTH + VALUE_COLUMN_WIDTH + ACTIONS_COLUMN_WIDTH,
+            |width| {
+                width
+                    - if self.sidebar_visible {
+                        self.sidebar_width()
+                    } else {
+                        0.
+                    }
+            },
+        )
+    }
+
+    fn mode_column_width(&self) -> f32 {
+        let count = self.view_data.modes.len().max(1) as f32;
+        ((self.table_viewport_width() - self.name_column_width() - ACTIONS_COLUMN_WIDTH) / count)
+            .max(VALUE_COLUMN_MIN_WIDTH)
     }
 
     fn toggle_sidebar(&mut self, cx: &mut Context<Self>) {
@@ -494,6 +506,7 @@ impl VariablesPage {
         &self,
         variable: &VariableRow,
         mode: &VariablesMode,
+        mode_width: f32,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let value = variable
@@ -514,12 +527,13 @@ impl VariablesPage {
             })
             .key_context(CONTROL_KEY_CONTEXT)
             .tab_index(0)
-            .w(px(VALUE_COLUMN_WIDTH))
-            .h(px(41.))
+            .w(px(mode_width))
+            .h_full()
             .flex_none()
             .px(px(16.))
             .gap(px(4.))
             .border_r_1()
+            .border_b_1()
             .border_color(cx.theme().border)
             .cursor_pointer()
             .hover(|style| style.bg(cx.theme().accent.opacity(0.55)))
@@ -554,69 +568,63 @@ impl VariablesPage {
     }
 
     fn render_table(&self, cx: &mut Context<Self>) -> AnyElement {
-        let mut mode_headers = h_flex().h_full();
+        let name_width = self.name_column_width();
+        let mode_width = self.mode_column_width();
+        let modes_width = mode_width * self.view_data.modes.len() as f32;
+        let name_header = h_flex()
+            .debug_selector(|| "variables-name-header".to_owned())
+            .w_full()
+            .h(px(41.))
+            .flex_none()
+            .px(px(16.))
+            .border_r_1()
+            .border_b_1()
+            .border_color(cx.theme().border)
+            .font_semibold()
+            .text_size(px(11.))
+            .child("Name");
+        let mut names = v_flex().w(px(name_width)).flex_none();
+        let mut modes = v_flex().w(px(modes_width)).flex_none();
+        let mut mode_headers = h_flex().w(px(modes_width)).h(px(41.)).flex_none();
         for mode in &self.view_data.modes {
             mode_headers = mode_headers.child(
                 h_flex()
-                    .w(px(VALUE_COLUMN_WIDTH))
+                    .debug_selector({
+                        let mode_id = mode.id.clone();
+                        move || format!("variables-mode-header-{mode_id}")
+                    })
+                    .w(px(mode_width))
                     .h_full()
                     .flex_none()
                     .px(px(16.))
                     .border_r_1()
+                    .border_b_1()
                     .border_color(cx.theme().border)
                     .font_semibold()
                     .text_size(px(11.))
                     .child(mode.name.clone()),
             );
         }
-        let header = h_flex()
-            .h(px(41.))
+        let action_header = h_flex()
+            .id(SharedString::from(format!("{}-add-mode", self.id)))
+            .debug_selector(|| "variables-add-mode".to_owned())
+            .key_context(CONTROL_KEY_CONTEXT)
+            .tab_index(0)
             .w_full()
+            .h(px(41.))
+            .flex_none()
+            .items_center()
+            .justify_center()
             .border_b_1()
             .border_color(cx.theme().border)
-            .child(
-                h_flex()
-                    .debug_selector(|| "variables-name-header".to_owned())
-                    .w(px(self.name_column_width()))
-                    .h_full()
-                    .flex_none()
-                    .px(px(16.))
-                    .border_r_1()
-                    .border_color(cx.theme().border)
-                    .font_semibold()
-                    .text_size(px(11.))
-                    .child("Name"),
-            )
-            .child(
-                div()
-                    .flex_1()
-                    .min_w(px(0.))
-                    .h_full()
-                    .overflow_x_scroll()
-                    .track_scroll(&self.table_horizontal_scroll_handle)
-                    .child(mode_headers),
-            )
-            .child(
-            div()
-                .id(SharedString::from(format!("{}-create-variable", self.id)))
-                .debug_selector(|| "variables-create-variable".to_owned())
-                .key_context(CONTROL_KEY_CONTEXT)
-                .tab_index(0)
-                .w(px(ACTIONS_COLUMN_WIDTH))
-                .h_full()
-                .flex_none()
-                .items_center()
-                .justify_center()
-                .border_l_1()
-                .border_color(cx.theme().border)
-                .cursor_pointer()
-                .hover(|style| style.bg(cx.theme().accent))
-                .focus(|style| style.border_1().border_color(cx.theme().selection))
-                .on_activate(cx.listener(|_, _, _, cx| {
-                    cx.emit(VariablesAction::CreateVariableRequested);
-                }))
-                .child(Icon::new(IconName::Plus).small()),
-        );
+            .cursor_pointer()
+            .hover(|style| style.bg(cx.theme().accent))
+            .focus(|style| style.border_1().border_color(cx.theme().selection))
+            .on_activate(cx.listener(|_, _, _, cx| {
+                cx.emit(VariablesAction::AddModeRequested);
+            }))
+            .child(Icon::new(IconName::Plus).small());
+        let mut actions = v_flex().w(px(ACTIONS_COLUMN_WIDTH)).flex_none();
 
         let query = self.search_input.read(cx).value().to_lowercase();
         let selected_group_is_aggregate = self
@@ -625,58 +633,60 @@ impl VariablesPage {
             .iter()
             .find(|group| group.id == self.view_data.selected_group_id)
             .is_some_and(|group| group.is_aggregate);
-        let mut names = v_flex().w(px(self.name_column_width())).flex_none();
-        let mut values = v_flex();
-        let mut actions = v_flex().w(px(ACTIONS_COLUMN_WIDTH)).flex_none();
         for variable in self.view_data.variables.iter().filter(|variable| {
             (selected_group_is_aggregate || variable.group_id == self.view_data.selected_group_id)
                 && (query.is_empty() || variable.name.to_lowercase().contains(&query))
         }) {
             names = names.child(
                 h_flex()
-                        .debug_selector({
-                            let variable_id = variable.id.clone();
-                            move || format!("variables-name-cell-{variable_id}")
-                        })
-                        .w(px(self.name_column_width()))
-                        .h_full()
-                        .flex_none()
-                        .px(px(16.))
-                        .gap_3()
-                        .border_r_1()
-                        .border_color(cx.theme().border)
-                        .text_size(px(12.))
-                        .child(
-                            div()
-                                .w(px(16.))
-                                .text_color(cx.theme().muted_foreground)
-                                .child(Self::render_kind_glyph(variable.kind, cx)),
-                        )
-                        .border_b_1()
-                        .child(div().truncate().child(variable.name.clone())),
-                );
-            let mut value_row = h_flex().h(px(41.)).border_b_1().border_color(cx.theme().border);
+                    .debug_selector({
+                        let variable_id = variable.id.clone();
+                        move || format!("variables-name-cell-{variable_id}")
+                    })
+                    .w_full()
+                    .h(px(41.))
+                    .flex_none()
+                    .px(px(16.))
+                    .gap_3()
+                    .border_r_1()
+                    .border_b_1()
+                    .border_color(cx.theme().border)
+                    .text_size(px(12.))
+                    .child(
+                        div()
+                            .w(px(16.))
+                            .text_color(cx.theme().muted_foreground)
+                            .child(Self::render_kind_glyph(variable.kind, cx)),
+                    )
+                    .child(div().truncate().child(variable.name.clone())),
+            );
+
+            let mut mode_cells = h_flex().w(px(modes_width)).h(px(41.)).flex_none();
             for mode in &self.view_data.modes {
-                value_row = value_row.child(self.render_value(variable, mode, cx));
+                mode_cells = mode_cells.child(self.render_value(variable, mode, mode_width, cx));
             }
-            values = values.child(value_row);
+            modes = modes.child(mode_cells);
+
             let variable_id = variable.id.clone();
             actions = actions.child(
-                div()
-                    .id(SharedString::from(format!("{}-variable-settings-{}", self.id, variable.id)))
+                h_flex()
+                    .id(SharedString::from(format!(
+                        "{}-variable-settings-{}",
+                        self.id, variable.id
+                    )))
                     .debug_selector({
                         let variable_id = variable.id.clone();
                         move || format!("variables-variable-settings-{variable_id}")
                     })
                     .key_context(CONTROL_KEY_CONTEXT)
                     .tab_index(0)
-                    .w(px(ACTIONS_COLUMN_WIDTH))
+                    .w_full()
                     .h(px(41.))
-                    .items_center()
-                    .justify_center()
-                    .border_l_1()
+                    .flex_none()
                     .border_b_1()
                     .border_color(cx.theme().border)
+                    .items_center()
+                    .justify_center()
                     .cursor_pointer()
                     .hover(|style| style.bg(cx.theme().accent))
                     .focus(|style| style.border_1().border_color(cx.theme().selection))
@@ -690,31 +700,114 @@ impl VariablesPage {
         }
 
         v_flex()
+            .relative()
             .flex_1()
             .min_w(px(0.))
             .h_full()
-            .child(header)
             .child(
-                div()
-                    .id(SharedString::from(format!("{}-table-scroll", self.id)))
+                h_flex()
                     .flex_1()
                     .min_h(px(0.))
-                    .overflow_y_scroll()
-                    .track_scroll(&self.table_scroll_handle)
+                    .items_start()
                     .child(
-                        h_flex()
-                            .items_start()
-                            .child(names)
+                        v_flex()
+                            .w(px(name_width))
+                            .h_full()
+                            .flex_none()
+                            .child(name_header)
                             .child(
                                 div()
+                                    .id(SharedString::from(format!(
+                                        "{}-table-names-scroll",
+                                        self.id
+                                    )))
                                     .flex_1()
-                                    .min_w(px(0.))
-                                    .overflow_x_scroll()
-                                    .track_scroll(&self.table_horizontal_scroll_handle)
-                                    .child(values),
-                            )
-                            .child(actions),
+                                    .min_h(px(0.))
+                                    .overflow_y_scroll()
+                                    .track_scroll(&self.table_scroll_handle)
+                                    .child(names),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .id(SharedString::from(format!(
+                                "{}-table-horizontal-scroll",
+                                self.id
+                            )))
+                            .flex_1()
+                            .min_w(px(0.))
+                            .h_full()
+                            .overflow_x_scroll()
+                            .track_scroll(&self.table_horizontal_scroll_handle)
+                            .child(
+                                v_flex()
+                                    .w(px(modes_width))
+                                    .h_full()
+                                    .flex_none()
+                                    .child(mode_headers)
+                                    .child(
+                                        div()
+                                            .id(SharedString::from(format!(
+                                                "{}-table-scroll",
+                                                self.id
+                                            )))
+                                            .flex_1()
+                                            .min_h(px(0.))
+                                            .overflow_y_scroll()
+                                            .track_scroll(&self.table_scroll_handle)
+                                            .child(modes),
+                                    ),
+                            ),
+                    )
+                    .child(
+                        v_flex()
+                            .w(px(ACTIONS_COLUMN_WIDTH))
+                            .h_full()
+                            .flex_none()
+                            .child(action_header)
+                            .child(
+                                div()
+                                    .id(SharedString::from(format!(
+                                        "{}-table-actions-scroll",
+                                        self.id
+                                    )))
+                                    .flex_1()
+                                    .min_h(px(0.))
+                                    .overflow_y_scroll()
+                                    .track_scroll(&self.table_scroll_handle)
+                                    .child(actions),
+                            ),
                     ),
+            )
+            .child(
+                h_flex()
+                    .id(SharedString::from(format!("{}-create-variable", self.id)))
+                    .debug_selector(|| "variables-create-variable".to_owned())
+                    .key_context(CONTROL_KEY_CONTEXT)
+                    .tab_index(0)
+                    .h(px(41.))
+                    .w_full()
+                    .px(px(16.))
+                    .gap_3()
+                    .border_t_1()
+                    .border_color(cx.theme().border)
+                    .cursor_pointer()
+                    .hover(|style| style.bg(cx.theme().accent))
+                    .focus(|style| style.border_1().border_color(cx.theme().selection))
+                    .on_activate(cx.listener(|_, _, _, cx| {
+                        cx.emit(VariablesAction::CreateVariableRequested);
+                    }))
+                    .child(Icon::new(IconName::Plus).small())
+                    .child(div().text_size(px(11.)).child("Create variable")),
+            )
+            .child(
+                div()
+                    .absolute()
+                    .left(px(name_width))
+                    .right(px(ACTIONS_COLUMN_WIDTH))
+                    .bottom(px(41.))
+                    .h(px(TABLE_SCROLLBAR_WIDTH))
+                    .child(Scrollbar::horizontal(&self.table_horizontal_scroll_handle)),
             )
             .into_any_element()
     }
@@ -735,9 +828,6 @@ impl Render for VariablesPage {
             .relative()
             .size_full()
             .min_h(px(0.))
-            .pt(px(1.))
-            .pb(px(1.))
-            .pl(px(5.))
             .bg(cx.theme().background)
             .text_color(cx.theme().foreground)
             .child(
@@ -773,38 +863,74 @@ impl Render for VariablesPage {
                     .flex_none()
                     .border_b_1()
                     .border_color(cx.theme().border)
+                    .when(self.sidebar_visible, |header| {
+                        header.child(
+                            h_flex()
+                                .w(px(self.sidebar_width()))
+                                .h_full()
+                                .flex_none()
+                                .px(px(20.))
+                                .border_r_1()
+                                .border_color(cx.theme().border)
+                                .font_semibold()
+                                .text_size(px(13.))
+                                .child(self.view_data.document_name.clone())
+                                .child(div().flex_1())
+                                .child(
+                                    icon_button(
+                                        SharedString::from(format!("{}-toggle-sidebar", self.id)),
+                                        px(24.),
+                                        px(4.),
+                                        cx,
+                                    )
+                                    .debug_selector(|| "variables-toggle-sidebar".to_owned())
+                                    .on_activate(
+                                        cx.listener(|this, _, _, cx| this.toggle_sidebar(cx)),
+                                    )
+                                    .child(Icon::new(IconName::PanelLeft).small()),
+                                ),
+                        )
+                    })
                     .child(
                         h_flex()
-                            .w(px(self.sidebar_width()))
-                            .h_full()
-                            .flex_none()
-                            .px(px(20.))
-                            .border_r_1()
-                            .border_color(cx.theme().border)
-                            .font_semibold()
-                            .text_size(px(13.))
-                            .child(self.view_data.document_name.clone())
-                            .child(div().flex_1())
-                            .child(Icon::new(IconName::PanelLeft).small()),
-                    )
-                    .child(
-                        div()
                             .flex_1()
                             .min_w(px(0.))
                             .px(px(20.))
                             .font_semibold()
                             .text_size(px(13.))
-                            .truncate()
-                            .child(
-                                self.view_data
-                                    .collections
-                                    .iter()
-                                    .find(|collection| {
-                                        collection.id == self.view_data.selected_collection_id
+                            .gap_2()
+                            .when(!self.sidebar_visible, |title| {
+                                title.child(
+                                    icon_button(
+                                        SharedString::from(format!(
+                                            "{}-toggle-sidebar-collapsed",
+                                            self.id
+                                        )),
+                                        px(24.),
+                                        px(4.),
+                                        cx,
+                                    )
+                                    .debug_selector(|| {
+                                        "variables-toggle-sidebar-collapsed".to_owned()
                                     })
-                                    .map_or_else(SharedString::default, |collection| {
-                                        collection.name.clone()
-                                    }),
+                                    .on_activate(
+                                        cx.listener(|this, _, _, cx| this.toggle_sidebar(cx)),
+                                    )
+                                    .child(Icon::new(IconName::PanelLeft).small()),
+                                )
+                            })
+                            .child(
+                                div().min_w(px(0.)).truncate().child(
+                                    self.view_data
+                                        .collections
+                                        .iter()
+                                        .find(|collection| {
+                                            collection.id == self.view_data.selected_collection_id
+                                        })
+                                        .map_or_else(SharedString::default, |collection| {
+                                            collection.name.clone()
+                                        }),
+                                ),
                             ),
                     )
                     .child(
@@ -860,31 +986,6 @@ impl Render for VariablesPage {
                                             }))
                                             .child(Icon::new(IconName::Settings2).xsmall()),
                                     ),
-                            )
-                            .child(Icon::new(IconName::Maximize).small())
-                            .child(
-                                div()
-                                    .id(SharedString::from(format!("{}-share", self.id)))
-                                    .debug_selector(|| "variables-share".to_owned())
-                                    .key_context(CONTROL_KEY_CONTEXT)
-                                    .tab_index(0)
-                                    .h(px(32.))
-                                    .px(px(11.))
-                                    .items_center()
-                                    .rounded(px(6.))
-                                    .border_1()
-                                    .border_color(cx.theme().transparent)
-                                    .bg(cx.theme().primary)
-                                    .text_color(cx.theme().primary_foreground)
-                                    .cursor_pointer()
-                                    .font_semibold()
-                                    .text_size(px(11.))
-                                    .hover(|style| style.bg(cx.theme().primary_hover))
-                                    .focus(|style| style.border_color(cx.theme().selection))
-                                    .on_activate(cx.listener(|_, _, _, cx| {
-                                        cx.emit(VariablesAction::ShareRequested);
-                                    }))
-                                    .child("Share"),
                             ),
                     ),
             )
@@ -893,7 +994,9 @@ impl Render for VariablesPage {
                     .flex_1()
                     .min_h(px(0.))
                     .items_start()
-                    .child(self.render_sidebar(cx))
+                    .when(self.sidebar_visible, |body| {
+                        body.child(self.render_sidebar(cx))
+                    })
                     .child(self.render_table(cx)),
             )
             .child(
@@ -920,42 +1023,6 @@ impl Render for VariablesPage {
                     cx.theme().foreground,
                     16.,
                 )),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .left(px(5.))
-                    .top(px(1.))
-                    .bottom(px(1.))
-                    .w(px(1.))
-                    .bg(cx.theme().border),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .left(px(5.))
-                    .right_0()
-                    .top(px(1.))
-                    .h(px(1.))
-                    .bg(cx.theme().border),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .left(px(5.))
-                    .right_0()
-                    .bottom(px(1.))
-                    .h(px(1.))
-                    .bg(cx.theme().border),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .right_0()
-                    .top(px(1.))
-                    .bottom(px(1.))
-                    .w(px(1.))
-                    .bg(cx.theme().border),
             )
     }
 }

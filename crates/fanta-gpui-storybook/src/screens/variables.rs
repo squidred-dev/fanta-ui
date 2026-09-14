@@ -241,8 +241,8 @@ impl VariablesScreen {
                 self.last_action =
                     format!("Edited {variable_id} in {mode_id} through the host adapter").into();
             }
-            VariablesAction::ShareRequested => {
-                self.last_action = "Host opened Variables sharing".into();
+            VariablesAction::VariableSettingsRequested { variable_id } => {
+                self.last_action = format!("Host opened settings for {variable_id}").into();
             }
             VariablesAction::HelpRequested => {
                 self.last_action = "Host opened Variables help".into();
