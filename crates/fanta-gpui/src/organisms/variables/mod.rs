@@ -19,6 +19,7 @@ use crate::{
         render_control_icon,
     },
     color::parse_hex_rgba,
+    molecules::menu_item,
 };
 
 /// Reference design width of the collections/groups sidebar.
@@ -615,6 +616,7 @@ impl VariablesPage {
         variable: &VariableRow,
         mode: &VariablesMode,
         mode_width: f32,
+        draw_right_border: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let value = variable
@@ -640,9 +642,9 @@ impl VariablesPage {
             .flex_none()
             .px(px(16.))
             .gap(px(4.))
-            .border_r_1()
             .border_b_1()
             .border_color(cx.theme().border)
+            .when(draw_right_border, |cell| cell.border_r_1())
             .cursor_pointer()
             .hover(|style| {
                 style
@@ -685,37 +687,39 @@ impl VariablesPage {
 
     fn render_filter_menu(&self, cx: &mut Context<Self>) -> AnyElement {
         let mut menu = v_flex()
+            .debug_selector(|| "variables-filter-menu".to_owned())
             .absolute()
-            .top(px(30.))
-            .right_0()
+            .top(px(42.))
+            .right(px(8.))
             .w(px(210.))
-            .p_2()
-            .gap_1()
+            .py_2()
             .rounded(px(10.))
             .border_1()
             .border_color(cx.theme().border)
             .bg(cx.theme().popover)
+            .text_color(cx.theme().popover_foreground)
             .shadow_lg()
-            .occlude();
+            .occlude()
+            .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _, cx| {
+                this.filter_menu_open = false;
+                cx.notify();
+            }));
         let all_selected = self.visible_kinds.iter().all(|selected| *selected);
         menu = menu.child(
-            h_flex()
-                .id(SharedString::from(format!("{}-filter-all", self.id)))
-                .debug_selector(|| "variables-filter-all".to_owned())
-                .key_context(CONTROL_KEY_CONTEXT)
-                .tab_index(0)
-                .h(px(30.))
-                .px_2()
-                .gap_2()
-                .rounded(px(5.))
-                .cursor_pointer()
-                .hover(|style| style.bg(cx.theme().accent))
-                .on_activate(cx.listener(|this, _, _, cx| {
-                    this.visible_kinds = [true; 4];
-                    cx.notify();
-                }))
-                .child(div().w(px(16.)).child(if all_selected { "✓" } else { "" }))
-                .child("All"),
+            menu_item(
+                SharedString::from(format!("{}-filter-all", self.id)),
+                px(30.),
+                cx,
+            )
+            .debug_selector(|| "variables-filter-all".to_owned())
+            .on_activate(cx.listener(|this, _, _, cx| {
+                this.visible_kinds = [true; 4];
+                cx.notify();
+            }))
+            .child(div().w(px(16.)).when(all_selected, |slot| {
+                slot.child(Icon::new(IconName::Check).xsmall())
+            }))
+            .child("All"),
         );
         for (kind, label) in [
             (VariableKind::Color, "Colors"),
@@ -726,27 +730,21 @@ impl VariablesPage {
             let index = Self::kind_index(kind);
             let selected = self.visible_kinds[index];
             menu = menu.child(
-                h_flex()
-                    .id(SharedString::from(format!(
-                        "{}-filter-kind-{index}",
-                        self.id
-                    )))
-                    .debug_selector(move || format!("variables-filter-kind-{index}"))
-                    .key_context(CONTROL_KEY_CONTEXT)
-                    .tab_index(0)
-                    .h(px(30.))
-                    .px_2()
-                    .gap_2()
-                    .rounded(px(5.))
-                    .cursor_pointer()
-                    .hover(|style| style.bg(cx.theme().accent))
-                    .on_activate(cx.listener(move |this, _, _, cx| {
-                        this.visible_kinds[index] = !this.visible_kinds[index];
-                        cx.notify();
-                    }))
-                    .child(div().w(px(16.)).child(if selected { "✓" } else { "" }))
-                    .child(Self::render_kind_glyph(kind, cx))
-                    .child(label),
+                menu_item(
+                    SharedString::from(format!("{}-filter-kind-{index}", self.id)),
+                    px(30.),
+                    cx,
+                )
+                .debug_selector(move || format!("variables-filter-kind-{index}"))
+                .on_activate(cx.listener(move |this, _, _, cx| {
+                    this.visible_kinds[index] = !this.visible_kinds[index];
+                    cx.notify();
+                }))
+                .child(div().w(px(16.)).when(selected && !all_selected, |slot| {
+                    slot.child(Icon::new(IconName::Check).xsmall())
+                }))
+                .child(Self::render_kind_glyph(kind, cx))
+                .child(label),
             );
         }
         menu.into_any_element()
@@ -870,7 +868,7 @@ impl VariablesPage {
         let mut names = v_flex().w(px(name_width)).flex_none();
         let mut modes = v_flex().w(px(modes_width)).flex_none();
         let mut mode_headers = h_flex().w(px(modes_width)).h(px(41.)).flex_none();
-        for mode in &self.view_data.modes {
+        for (index, mode) in self.view_data.modes.iter().enumerate() {
             mode_headers = mode_headers.child(
                 h_flex()
                     .debug_selector({
@@ -881,9 +879,11 @@ impl VariablesPage {
                     .h_full()
                     .flex_none()
                     .px(px(16.))
-                    .border_r_1()
                     .border_b_1()
                     .border_color(cx.theme().border)
+                    .when(index + 1 < self.view_data.modes.len(), |header| {
+                        header.border_r_1()
+                    })
                     .font_semibold()
                     .text_size(px(11.))
                     .child(mode.name.clone()),
@@ -901,6 +901,7 @@ impl VariablesPage {
             .justify_center()
             .border_b_1()
             .border_color(cx.theme().border)
+            .bg(cx.theme().background)
             .cursor_pointer()
             .hover(|style| style.bg(cx.theme().accent))
             .focus(|style| style.border_1().border_color(cx.theme().selection))
@@ -959,8 +960,14 @@ impl VariablesPage {
             );
 
             let mut mode_cells = h_flex().w(px(modes_width)).h(px(41.)).flex_none();
-            for mode in &self.view_data.modes {
-                mode_cells = mode_cells.child(self.render_value(variable, mode, mode_width, cx));
+            for (index, mode) in self.view_data.modes.iter().enumerate() {
+                mode_cells = mode_cells.child(self.render_value(
+                    variable,
+                    mode,
+                    mode_width,
+                    index + 1 < self.view_data.modes.len(),
+                    cx,
+                ));
             }
             modes = modes.child(mode_cells);
 
@@ -982,6 +989,7 @@ impl VariablesPage {
                     .flex_none()
                     .border_b_1()
                     .border_color(cx.theme().border)
+                    .bg(cx.theme().background)
                     .items_center()
                     .justify_center()
                     .cursor_pointer()
@@ -1061,6 +1069,10 @@ impl VariablesPage {
                             .w(px(ACTIONS_COLUMN_WIDTH))
                             .h_full()
                             .flex_none()
+                            .border_l_1()
+                            .border_color(cx.theme().border)
+                            .bg(cx.theme().background)
+                            .occlude()
                             .child(action_header)
                             .child(
                                 div()
@@ -1294,10 +1306,7 @@ impl Render for VariablesPage {
                                             }))
                                             .child(Icon::new(IconName::Settings2).xsmall()),
                                     ),
-                            )
-                            .when(self.filter_menu_open, |tools| {
-                                tools.child(self.render_filter_menu(cx))
-                            }),
+                            ),
                     ),
             )
             .child(
@@ -1310,31 +1319,9 @@ impl Render for VariablesPage {
                     })
                     .child(self.render_table(cx)),
             )
-            .child(
-                icon_button(
-                    SharedString::from(format!("{}-help", self.id)),
-                    px(40.),
-                    px(20.),
-                    cx,
-                )
-                .debug_selector(|| "variables-help".to_owned())
-                .absolute()
-                .right(px(24.))
-                .bottom(px(20.))
-                .occlude()
-                .border_color(cx.theme().border)
-                .bg(cx.theme().background)
-                .shadow_md()
-                .focus(|style| style.border_color(cx.theme().selection))
-                .on_activate(cx.listener(|_, _, _, cx| {
-                    cx.emit(VariablesAction::HelpRequested);
-                }))
-                .child(render_control_icon(
-                    ControlIcon::Help,
-                    cx.theme().foreground,
-                    16.,
-                )),
-            )
+            .when(self.filter_menu_open, |page| {
+                page.child(self.render_filter_menu(cx))
+            })
     }
 }
 

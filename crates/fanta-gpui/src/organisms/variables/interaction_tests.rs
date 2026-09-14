@@ -245,6 +245,20 @@ fn type_filter_menu_filters_without_mutating_host_data(cx: &mut TestAppContext) 
 }
 
 #[gpui::test]
+fn clicking_outside_dismisses_the_type_filter_menu(cx: &mut TestAppContext) {
+    let (_host, _actions, cx) = mount(cx);
+    let trigger = cx.debug_bounds("variables-search-options").unwrap();
+    cx.simulate_click(trigger.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("variables-filter-menu").is_some());
+
+    let name_header = cx.debug_bounds("variables-name-header").unwrap();
+    cx.simulate_click(name_header.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("variables-filter-menu").is_none());
+}
+
+#[gpui::test]
 fn group_rows_share_pointer_enter_and_space_activation(cx: &mut TestAppContext) {
     let (_host, actions, cx) = mount(cx);
 
@@ -401,7 +415,7 @@ fn value_cells_request_edits_for_their_variable_and_mode(cx: &mut TestAppContext
 }
 
 #[gpui::test]
-fn variable_settings_and_help_controls_emit_their_intents(cx: &mut TestAppContext) {
+fn variable_settings_controls_emit_their_intents(cx: &mut TestAppContext) {
     let (_host, actions, cx) = mount(cx);
 
     assert_pointer_and_keyboard_parity(
@@ -412,12 +426,7 @@ fn variable_settings_and_help_controls_emit_their_intents(cx: &mut TestAppContex
             variable_id: "color".into(),
         },
     );
-    assert_pointer_and_keyboard_parity(
-        cx,
-        "variables-help",
-        &actions,
-        VariablesAction::HelpRequested,
-    );
+    assert!(cx.debug_bounds("variables-help").is_none());
 }
 
 #[gpui::test]

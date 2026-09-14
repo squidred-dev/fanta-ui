@@ -6287,6 +6287,43 @@ fn variables_story_reflows_to_its_minimum_viewport(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn variables_story_supplies_the_selected_collections_table(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_gallery_storybook(cx);
+    cx.update(|window, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook.activate_gallery_story(StoryKind::Variables, window, cx);
+        });
+    });
+    cx.run_until_parked();
+
+    assert!(cx.debug_bounds("variables-value-color-mode-1").is_some());
+    let second_collection = cx
+        .debug_bounds("variables-collection-collection-2")
+        .expect("the second collection should render");
+    cx.simulate_click(second_collection.center(), Modifiers::none());
+    cx.run_until_parked();
+
+    assert!(cx.debug_bounds("variables-value-color-mode-1").is_none());
+    assert!(cx.debug_bounds("variables-empty-create").is_some());
+    cx.update(|_, app| {
+        storybook.update(app, |storybook, _| {
+            assert_eq!(
+                storybook.variables_screen.view_data.selected_collection_id,
+                "collection-2"
+            );
+            assert!(storybook.variables_screen.view_data.variables.is_empty());
+        });
+    });
+
+    let first_collection = cx
+        .debug_bounds("variables-collection-collection-1")
+        .expect("the first collection should remain available");
+    cx.simulate_click(first_collection.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("variables-value-color-mode-1").is_some());
+}
+
+#[gpui::test]
 fn gallery_sidebar_auto_collapses_below_the_narrow_threshold(cx: &mut TestAppContext) {
     let (storybook, cx) = setup_gallery_storybook(cx);
     assert!(

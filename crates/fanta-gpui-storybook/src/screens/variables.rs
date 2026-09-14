@@ -60,11 +60,47 @@ pub(crate) fn empty_variables_view_data() -> VariablesViewData {
     }
 }
 
+#[derive(Clone)]
+struct VariablesCollectionTable {
+    groups: Vec<VariablesGroup>,
+    selected_group_id: SharedString,
+    modes: Vec<VariablesMode>,
+    variables: Vec<VariableRow>,
+}
+
+impl VariablesCollectionTable {
+    fn from_view_data(view_data: &VariablesViewData) -> Self {
+        Self {
+            groups: view_data.groups.clone(),
+            selected_group_id: view_data.selected_group_id.clone(),
+            modes: view_data.modes.clone(),
+            variables: view_data.variables.clone(),
+        }
+    }
+
+    fn empty(modes: Vec<VariablesMode>) -> Self {
+        Self {
+            groups: vec![VariablesGroup::new("all", "All", 0).aggregate()],
+            selected_group_id: "all".into(),
+            modes,
+            variables: Vec::new(),
+        }
+    }
+
+    fn apply_to(&self, view_data: &mut VariablesViewData) {
+        view_data.groups.clone_from(&self.groups);
+        view_data.selected_group_id = self.selected_group_id.clone();
+        view_data.modes.clone_from(&self.modes);
+        view_data.variables.clone_from(&self.variables);
+    }
+}
+
 pub(crate) struct VariablesScreen {
     pub(crate) page: Entity<VariablesPage>,
     pub(crate) view_data: VariablesViewData,
     pub(crate) last_action: SharedString,
     pub(crate) named_state: VariablesNamedState,
+    collection_tables: HashMap<SharedString, VariablesCollectionTable>,
 }
 
 impl VariablesScreen {
@@ -72,12 +108,48 @@ impl VariablesScreen {
         let view_data = seed_variables_view_data();
         let page =
             cx.new(|cx| VariablesPage::new("storybook-variables", view_data.clone(), window, cx));
+        let collection_tables = Self::collection_tables(&view_data);
         Self {
             page,
             view_data,
             last_action: "Ready — switch collections and groups, edit values, or add a mode".into(),
             named_state: VariablesNamedState::Default,
+            collection_tables,
         }
+    }
+
+    fn collection_tables(
+        view_data: &VariablesViewData,
+    ) -> HashMap<SharedString, VariablesCollectionTable> {
+        let mut tables = HashMap::new();
+        tables.insert(
+            view_data.selected_collection_id.clone(),
+            VariablesCollectionTable::from_view_data(view_data),
+        );
+        for collection in &view_data.collections {
+            tables
+                .entry(collection.id.clone())
+                .or_insert_with(|| VariablesCollectionTable::empty(view_data.modes.clone()));
+        }
+        tables
+    }
+
+    fn save_selected_collection(&mut self) {
+        self.collection_tables.insert(
+            self.view_data.selected_collection_id.clone(),
+            VariablesCollectionTable::from_view_data(&self.view_data),
+        );
+    }
+
+    fn select_collection(&mut self, collection_id: SharedString) {
+        self.save_selected_collection();
+        self.view_data.selected_collection_id = collection_id.clone();
+        let table = self
+            .collection_tables
+            .entry(collection_id)
+            .or_insert_with(|| VariablesCollectionTable::empty(self.view_data.modes.clone()))
+            .clone();
+        table.apply_to(&mut self.view_data);
     }
 
     fn fixture(state: VariablesNamedState) -> VariablesViewData {
@@ -94,6 +166,7 @@ impl VariablesScreen {
     ) {
         self.named_state = state;
         self.view_data = Self::fixture(state);
+        self.collection_tables = Self::collection_tables(&self.view_data);
         let view_data = self.view_data.clone();
         self.page
             .update(cx, |page, cx| page.set_view_data(view_data, cx));
@@ -109,8 +182,7 @@ impl VariablesScreen {
     ) {
         match action {
             VariablesAction::CollectionSelected { collection_id } => {
-                self.view_data.selected_collection_id = collection_id.clone();
-                self.view_data.selected_group_id = "all".into();
+                self.select_collection(collection_id.clone());
                 self.last_action = format!("Selected collection {collection_id}").into();
             }
             VariablesAction::CollectionRenameRequested {
@@ -142,14 +214,19 @@ impl VariablesScreen {
                 self.last_action = "Host opened Variables search options".into();
             }
             VariablesAction::CreateCollectionRequested => {
+                self.save_selected_collection();
                 let ordinal = self.view_data.collections.len() + 1;
                 let collection_id: SharedString = format!("collection-{ordinal}").into();
                 self.view_data.collections.push(VariablesCollection::new(
                     collection_id.clone(),
                     format!("Collection {ordinal}"),
-                    self.view_data.variables.len(),
+                    0,
                 ));
-                self.view_data.selected_collection_id = collection_id.clone();
+                self.collection_tables.insert(
+                    collection_id.clone(),
+                    VariablesCollectionTable::empty(self.view_data.modes.clone()),
+                );
+                self.select_collection(collection_id.clone());
                 self.last_action =
                     format!("Created and selected {collection_id} through the host adapter").into();
             }
@@ -277,6 +354,7 @@ impl VariablesScreen {
                 self.last_action = "Host opened Variables help".into();
             }
         }
+        self.save_selected_collection();
         page.update(cx, |page, cx| {
             page.set_view_data(self.view_data.clone(), cx);
         });
