@@ -11,7 +11,7 @@ use crate::{
     prototype::{PrototypePanel, PrototypeViewData},
     timeline::{Timeline, TimelineViewData},
     toolbar::{EditorToolbar, ToolbarMode, ToolbarTool},
-    variables::{VariablesPage, VariablesViewData},
+    variables::{VariablesScreen, VariablesViewData},
 };
 
 fn mount(
@@ -43,7 +43,7 @@ fn mount(
             )
         });
         let variables = cx.new(|cx| {
-            VariablesPage::new(
+            VariablesScreen::new(
                 "variables",
                 VariablesViewData {
                     document_name: "Test".into(),

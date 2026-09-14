@@ -19,12 +19,12 @@ const ROW_PANEL_WIDTH: f32 = 337.;
 
 /// The specimen rows: label, leading node-kind icon, and the state tag
 /// naming what each row demonstrates.
-pub(crate) const LIST_ROW_SPECIMENS: [(&str, ControlIcon, Option<&str>); 5] = [
-    ("Navigation frame", ControlIcon::Frame, Some("hover me")),
-    ("Hero component", ControlIcon::Component, Some("selected")),
-    ("Body copy", ControlIcon::Text, Some("Tab focuses")),
-    ("Cover image", ControlIcon::Image, Some("locked")),
-    ("Boolean union", ControlIcon::BooleanOperation, None),
+pub(crate) const LIST_ROW_SPECIMENS: [(&str, LucideIcon, Option<&str>); 5] = [
+    ("Navigation frame", LucideIcon::Frame, Some("hover me")),
+    ("Hero component", LucideIcon::Component, Some("selected")),
+    ("Body copy", LucideIcon::TypeIcon, Some("Tab focuses")),
+    ("Cover image", LucideIcon::Image, Some("locked")),
+    ("Boolean union", LucideIcon::Combine, None),
 ];
 
 pub(crate) struct ListRowsScreen {
@@ -78,7 +78,7 @@ impl Storybook {
             .into();
             cx.notify();
         }))
-        .child(render_control_icon(icon, cx.theme().muted_foreground, 13.))
+        .child(render_lucide_icon(icon, cx.theme().muted_foreground, 13.))
         .child(truncating_label(label).text_sm())
         .when_some(state_tag, |row, tag| {
             row.child(
@@ -112,11 +112,11 @@ impl Storybook {
                     .into();
                     cx.notify();
                 }))
-                .child(render_control_icon(
+                .child(render_lucide_icon(
                     if locked {
-                        ControlIcon::Lock
+                        LucideIcon::Lock
                     } else {
-                        ControlIcon::Unlock
+                        LucideIcon::LockOpen
                     },
                     if locked {
                         cx.theme().foreground

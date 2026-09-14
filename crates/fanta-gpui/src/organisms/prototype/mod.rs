@@ -11,7 +11,7 @@ use gpui_component::{
 
 use crate::{
     atoms::{
-        CONTROL_KEY_CONTEXT, ControlExt as _, ControlIcon, icon_button, render_control_icon,
+        CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon,
         truncating_label,
     },
     color::parse_hex_rgba,
@@ -151,7 +151,7 @@ impl PrototypePanel {
         hint: PrototypeHint,
         title: &'static str,
         body: &'static str,
-        icon: ControlIcon,
+        icon: LucideIcon,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let dismiss_selector = match hint {
@@ -197,7 +197,7 @@ impl PrototypePanel {
                     .min_w(px(0.))
                     .items_start()
                     .gap(px(16.))
-                    .child(div().w(px(16.)).flex_none().child(render_control_icon(
+                    .child(div().w(px(16.)).flex_none().child(render_lucide_icon(
                         icon,
                         cx.theme().foreground,
                         16.,
@@ -369,7 +369,7 @@ impl Render for PrototypePanel {
                             PrototypeHint::CreatingConnection,
                             "Creating a connection",
                             "Select a frame or object in a frame and use the circular node to drag a connection to another frame.",
-                            ControlIcon::JumpArrow,
+                            LucideIcon::CornerUpRight,
                             cx,
                         ))
                     })
@@ -378,7 +378,7 @@ impl Render for PrototypePanel {
                             PrototypeHint::RunningPrototype,
                             "Running your prototype",
                             "Use the play button in the toolbar to play your prototype. If there are no connections, the play button can be used to play a presentation of your frames.",
-                            ControlIcon::Play,
+                            LucideIcon::Play,
                             cx,
                         ))
                     }),

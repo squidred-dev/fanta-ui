@@ -1,4 +1,5 @@
 use super::*;
+use crate::atoms::LucideIcon;
 
 #[test]
 fn draw_slider_ranges_validate_and_snap_without_inventing_a_corner_maximum() {
@@ -4095,13 +4096,15 @@ fn host_defined_header_controls_preserve_presentation_menu_and_access() {
         "plugin-action",
         DesignSelectionHeaderControlKind::HostDefined,
     )
-    .with_icon(DesignSelectionHeaderControlIcon::Glyph("AC".into()))
+    .with_icon(DesignSelectionHeaderControlIcon::Lucide(
+        LucideIcon::Sparkles,
+    ))
     .with_tooltip("Run Acme action")
     .viewer_safe();
 
     assert_eq!(
         control.icon,
-        DesignSelectionHeaderControlIcon::Glyph("AC".into())
+        DesignSelectionHeaderControlIcon::Lucide(LucideIcon::Sparkles)
     );
     assert_eq!(
         control.access,

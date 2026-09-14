@@ -386,22 +386,14 @@ impl DesignPanel {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let color = cx.theme().muted_foreground;
-        render_icon_canvas(color, 16., move |path| match icon {
-            ValueFieldIcon::Opacity => {
-                path.rect(2.5, 2.5, 13.5, 13.5);
-                for dot_y in [5., 8., 11.] {
-                    for dot_x in [5., 8., 11.] {
-                        path.line((dot_x - 0.25, dot_y), (dot_x + 0.25, dot_y));
-                    }
-                }
-            }
-            ValueFieldIcon::Corners => {
-                path.poly([(6., 2.5), (2.5, 2.5), (2.5, 6.)], false);
-                path.poly([(10., 2.5), (13.5, 2.5), (13.5, 6.)], false);
-                path.poly([(2.5, 10.), (2.5, 13.5), (6., 13.5)], false);
-                path.poly([(13.5, 10.), (13.5, 13.5), (10., 13.5)], false);
-            }
-        })
+        render_lucide_icon(
+            match icon {
+                ValueFieldIcon::Opacity => LucideIcon::Blend,
+                ValueFieldIcon::Corners => LucideIcon::Scan,
+            },
+            color,
+            16.,
+        )
     }
 
     pub(super) fn render_icon_value_cell(

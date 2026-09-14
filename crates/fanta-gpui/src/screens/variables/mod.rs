@@ -1,4 +1,4 @@
-//! Host-controlled variables manager with Figma UI3 table geometry.
+//! Host-controlled Variables screen with Figma UI3 table geometry.
 
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
@@ -17,8 +17,8 @@ use gpui_component::{
 
 use crate::{
     atoms::{
-        ActivateEvent, ButtonControlExt as _, CONTROL_KEY_CONTEXT, ControlExt as _, ControlIcon,
-        icon_button, render_control_icon,
+        ActivateEvent, ButtonControlExt as _, CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon,
+        icon_button, render_lucide_icon,
     },
     color::parse_hex_rgba,
     molecules::menu_item,
@@ -46,11 +46,11 @@ const TABLE_SCROLLBAR_WIDTH: f32 = 16.;
 /// floored sidebar, the fixed header search cluster, and a usable
 /// collection title. Below this the table's mode columns already scroll;
 /// narrower pages would clip header chrome instead of compressing it.
-pub const VARIABLES_PAGE_MIN_WIDTH: f32 = SIDEBAR_MIN_WIDTH + HEADER_TOOLS_WIDTH + 60.;
+pub const VARIABLES_SCREEN_MIN_WIDTH: f32 = SIDEBAR_MIN_WIDTH + HEADER_TOOLS_WIDTH + 60.;
 /// The smallest height the variables manager reflows to honestly: the
 /// page header, the table header, one variable row, the create-variable
 /// row, and a short scrollable sidebar/table region.
-pub const VARIABLES_PAGE_MIN_HEIGHT: f32 = 400.;
+pub const VARIABLES_SCREEN_MIN_HEIGHT: f32 = 400.;
 
 /// A collection listed in the variables manager sidebar.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -181,7 +181,7 @@ impl VariableRow {
     }
 }
 
-/// Immutable host snapshot rendered by [`VariablesPage`].
+/// Immutable host snapshot rendered by [`VariablesScreen`].
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VariablesViewData {
     pub document_name: SharedString,
@@ -225,7 +225,7 @@ pub enum VariablesAction {
 }
 
 /// Stateful presentation for the host-controlled variables manager.
-pub struct VariablesPage {
+pub struct VariablesScreen {
     id: SharedString,
     focus_handle: FocusHandle,
     view_data: VariablesViewData,
@@ -244,9 +244,9 @@ pub struct VariablesPage {
     _subscriptions: Vec<Subscription>,
 }
 
-impl EventEmitter<VariablesAction> for VariablesPage {}
+impl EventEmitter<VariablesAction> for VariablesScreen {}
 
-impl VariablesPage {
+impl VariablesScreen {
     pub fn new(
         id: impl Into<SharedString>,
         view_data: VariablesViewData,
@@ -601,12 +601,12 @@ impl VariablesPage {
 
     fn render_kind_glyph(kind: VariableKind, cx: &mut Context<Self>) -> AnyElement {
         let icon = match kind {
-            VariableKind::Color => ControlIcon::VariableColor,
-            VariableKind::Number => ControlIcon::VariableNumber,
-            VariableKind::String => ControlIcon::VariableText,
-            VariableKind::Boolean => ControlIcon::VariableBoolean,
+            VariableKind::Color => LucideIcon::Palette,
+            VariableKind::Number => LucideIcon::Hash,
+            VariableKind::String => LucideIcon::TypeIcon,
+            VariableKind::Boolean => LucideIcon::ToggleLeft,
         };
-        render_control_icon(icon, cx.theme().muted_foreground, 12.)
+        render_lucide_icon(icon, cx.theme().muted_foreground, 12.)
     }
 
     fn parse_hex(value: &str) -> Option<gpui::Hsla> {
@@ -1133,13 +1133,13 @@ impl VariablesPage {
     }
 }
 
-impl Focusable for VariablesPage {
+impl Focusable for VariablesScreen {
     fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
 
-impl Render for VariablesPage {
+impl Render for VariablesScreen {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let page = cx.entity();
         v_flex()

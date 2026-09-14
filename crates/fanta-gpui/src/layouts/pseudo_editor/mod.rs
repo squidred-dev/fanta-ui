@@ -8,12 +8,12 @@ use gpui::{
 use gpui_component::{ActiveTheme as _, StyledExt as _, h_flex, v_flex};
 
 use crate::atoms::{
-    CONTROL_KEY_CONTEXT, ControlExt as _, ControlIcon, icon_button, render_control_icon,
+    CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon,
 };
 use crate::{
     assets::AssetsPanel, design::DesignPanel, layers::LayersPanel, pages::PagesPanel,
     prototype::PrototypePanel, timeline::Timeline, toolbar::EditorToolbar,
-    variables::VariablesPage,
+    variables::VariablesScreen,
 };
 
 /// Reference design width of the left rail (§14).
@@ -75,7 +75,7 @@ pub struct PseudoEditorChildren {
     pub prototype: Entity<PrototypePanel>,
     pub timeline: Entity<Timeline>,
     pub toolbar: Entity<EditorToolbar>,
-    pub variables: Entity<VariablesPage>,
+    pub variables: Entity<VariablesScreen>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -484,13 +484,11 @@ impl Render for PseudoEditor {
                                         });
                                         cx.notify();
                                     }))
-                                    .child(
-                                        render_control_icon(
-                                            ControlIcon::Close,
-                                            cx.theme().foreground,
-                                            12.,
-                                        ),
-                                    ),
+                                    .child(render_lucide_icon(
+                                        LucideIcon::X,
+                                        cx.theme().foreground,
+                                        12.,
+                                    )),
                                 ),
                         )
                         .child(

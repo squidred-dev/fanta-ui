@@ -42,19 +42,19 @@ pub(crate) fn truncation_inventory() -> Vec<LayersPanelItem> {
 }
 
 /// The direct `truncating_label` demo rows: icon + label + fixed satellite.
-pub(crate) fn label_demo_rows() -> [(&'static str, ControlIcon); 3] {
+pub(crate) fn label_demo_rows() -> [(&'static str, LucideIcon); 3] {
     [
         (
             "A very long navigation frame title that ellipsizes as the viewport narrows",
-            ControlIcon::Frame,
+            LucideIcon::Frame,
         ),
         (
             "Body copy layer with an unreasonably verbose editorial name for the demo",
-            ControlIcon::Text,
+            LucideIcon::TypeIcon,
         ),
         (
             "Primary action component · desktop · hover · localized · 2026 refresh",
-            ControlIcon::Component,
+            LucideIcon::Component,
         ),
     ]
 }
@@ -109,7 +109,7 @@ impl Storybook {
                     .border_1()
                     .border_color(cx.theme().border)
                     .bg(cx.theme().secondary.opacity(0.35))
-                    .child(render_control_icon(icon, cx.theme().muted_foreground, 13.))
+                    .child(render_lucide_icon(icon, cx.theme().muted_foreground, 13.))
                     .child(truncating_label(text).text_sm())
                     .child(
                         div()

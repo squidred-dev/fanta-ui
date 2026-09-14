@@ -13,7 +13,7 @@ use crate::{
     prototype::{PrototypePanel, PrototypeViewData},
     timeline::{Timeline, TimelineAction, TimelineViewData},
     toolbar::{EditorToolbar, ToolbarAction, ToolbarMode, ToolbarTool},
-    variables::{VariablesPage, VariablesViewData},
+    variables::{VariablesScreen, VariablesViewData},
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -67,7 +67,7 @@ impl WorkflowHost {
             )
         });
         let variables = cx.new(|cx| {
-            VariablesPage::new(
+            VariablesScreen::new(
                 "flow-variables",
                 VariablesViewData {
                     document_name: "Workflow test".into(),

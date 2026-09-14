@@ -109,7 +109,9 @@ pub(super) fn storybook_plugin_header_controls() -> [DesignSelectionHeaderContro
         "storybook-plugin-menu",
         DesignSelectionHeaderControlKind::HostDefined,
     )
-    .with_icon(DesignSelectionHeaderControlIcon::Glyph("FX".into()))
+    .with_icon(DesignSelectionHeaderControlIcon::Lucide(
+        LucideIcon::Sparkles,
+    ))
     .with_tooltip("Plugin actions")
     .with_menu_items([
         DesignSelectionHeaderMenuItem::new(
@@ -132,7 +134,9 @@ pub(super) fn storybook_plugin_header_controls() -> [DesignSelectionHeaderContro
         "storybook-plugin-action",
         DesignSelectionHeaderControlKind::HostDefined,
     )
-    .with_icon(DesignSelectionHeaderControlIcon::Glyph("FX".into()))
+    .with_icon(DesignSelectionHeaderControlIcon::Lucide(
+        LucideIcon::Sparkles,
+    ))
     .with_tooltip("Inspect host plugin state")
     .viewer_safe();
     [menu, direct]

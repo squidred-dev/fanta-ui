@@ -1684,7 +1684,10 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "gpui-component",
+ "lucide-static-svg",
  "lyon",
+ "roxmltree 0.20.0",
+ "svgtypes",
 ]
 
 [[package]]
@@ -2189,7 +2192,7 @@ dependencies = [
  "log",
  "presser",
  "thiserror 2.0.19",
- "windows 0.61.3",
+ "windows 0.62.2",
 ]
 
 [[package]]
@@ -3348,6 +3351,12 @@ dependencies = [
  "serde_json",
  "serde_repr",
 ]
+
+[[package]]
+name = "lucide-static-svg"
+version = "1.45.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2fa74f26dfbf67015b0ae59c21390b46e0e23515e5ae986fe44f9e8851edfc36"
 
 [[package]]
 name = "lyon"

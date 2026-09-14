@@ -1,8 +1,7 @@
 //! The Getting-started Welcome story: the atomic-design map of the library.
 //!
-//! One card per library tier — Atoms, Molecules, Organisms, Layouts — plus
-//! the Screens card explaining that the storybook itself is the screens
-//! tier. Each card carries its story count, a one-line description of what
+//! One card per library tier — Atoms, Molecules, Organisms, Layouts, and
+//! Screens. Each card carries its story count, a one-line description of what
 //! the tier owns, and that tier's stories as plain labels sourced from the
 //! registry, so the sidebar taxonomy and this overview can never drift
 //! apart: registering a story adds it to both. The map is a map, not a
@@ -33,7 +32,7 @@ fn tier_copy(section: screens::StorySection) -> &'static str {
         Section::GettingStarted => "",
         Section::Atoms => {
             "The smallest shared interaction units — the single activation path, \
-             icon_button, the stroke-path vector icons, and truncating labels — \
+             icon_button, pinned Lucide icons, and truncating labels — \
              imported from fanta_gpui::atoms."
         }
         Section::Molecules => {
@@ -48,6 +47,10 @@ fn tier_copy(section: screens::StorySection) -> &'static str {
         Section::Layouts => {
             "Composition shells that arrange organisms into a working surface \
              without owning any domain state."
+        }
+        Section::Screens => {
+            "Complete application-sized workflows that compose the shared tiers, \
+             render host-controlled data, and emit typed intents."
         }
     }
 }
@@ -148,7 +151,8 @@ impl Storybook {
                                 "The sidebar mirrors the library source tree: Atoms and \
                                  Molecules are the shared control layer every surface is \
                                  built from, Organisms are the host-facing feature panels, \
-                                 and Layouts compose organisms into whole surfaces. Each \
+                                 Layouts compose organisms, and Screens provide complete \
+                                 application-sized workflows. Each \
                                  tier card below lists its stories; the sidebar opens them.",
                             ),
                     ),
@@ -158,34 +162,11 @@ impl Storybook {
             screens::StorySection::Molecules,
             screens::StorySection::Organisms,
             screens::StorySection::Layouts,
+            screens::StorySection::Screens,
         ] {
             root = root.child(self.render_welcome_tier_card(section, cx));
         }
-        root.child(
-            v_flex()
-                .w_full()
-                .p_3()
-                .gap_2()
-                .rounded(px(8.))
-                .border_1()
-                .border_color(cx.theme().border)
-                .bg(cx.theme().sidebar)
-                .child(div().text_sm().font_semibold().child("Screens"))
-                .child(
-                    div()
-                        .max_w(px(720.))
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
-                        .child(
-                            "The fifth tier lives outside the library: a screen is an \
-                             application surface that feeds real data into the tiers \
-                             above. This storybook is itself the screens tier — every \
-                             story is a screen module owning mock host state and a \
-                             reducer for the typed intents its component emits.",
-                        ),
-                ),
-        )
-        .into_any_element()
+        root.into_any_element()
     }
 
     pub(crate) fn render_welcome_reference(&self, cx: &mut Context<Self>) -> AnyElement {

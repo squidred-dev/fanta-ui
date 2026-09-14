@@ -10,4 +10,3 @@ pub mod pages;
 pub mod prototype;
 pub mod timeline;
 pub mod toolbar;
-pub mod variables;

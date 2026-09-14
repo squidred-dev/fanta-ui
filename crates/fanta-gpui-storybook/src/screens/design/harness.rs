@@ -317,7 +317,11 @@ impl Storybook {
                                     .w(px(16.))
                                     .text_center()
                                     .text_color(cx.theme().muted_foreground)
-                                    .child(kind.glyph()),
+                                    .child(render_lucide_icon(
+                                        kind.lucide_icon(),
+                                        cx.theme().muted_foreground,
+                                        16.,
+                                    )),
                             )
                             .child(div().text_xs().child(label)),
                     ),
@@ -435,7 +439,11 @@ impl Storybook {
                                 div()
                                     .text_size(px(24.))
                                     .text_color(cx.theme().selection)
-                                    .child(selected_kind.glyph()),
+                                    .child(render_lucide_icon(
+                                        selected_kind.lucide_icon(),
+                                        cx.theme().selection,
+                                        24.,
+                                    )),
                             )
                             .child(
                                 div()

@@ -103,20 +103,21 @@ host state and is not part of any reusable component contract.
 The sidebar mirrors the library's atomic tiers (§16). The Atoms and
 Molecules sections carry per-piece specimen stories built on the curated
 public `fanta_gpui::atoms` / `fanta_gpui::molecules` API — the icon_button
-activation matrix, the labeled ControlIcon grid, truncation, context menus
+activation matrix, truncation, context menus
 with two-axis clamping, list rows, and anchored popups with edge fades —
 each wired into the shared intent log. The Atoms section also includes the
-Icon assets page covering every `IconName` provided by the installed
-`gpui-component` asset bundle; that catalog belongs to the Storybook because
-it documents application-level assets rather than adding domain or document
-state to `fanta-gpui`. The Getting started Welcome story renders the tier
-map itself, and the screens tier is the storybook: every story is a screen
-module feeding mock host data into the tiers above.
+Lucide icons page covering every `IconName` provided by the installed
+`gpui-component` asset bundle. Fanta-owned controls use `LucideIcon` and
+`render_lucide_icon`, backed by one pinned upstream release rather than a
+parallel glyph set. The Getting started Welcome story renders the tier
+map itself. Reusable Screens are complete application-sized workflows; each
+Storybook screen module remains a mock host adapter that feeds data into the
+reusable tier it demonstrates.
 
 Stories are registered in one `StoryDescriptor` table
 (`storybook/src/screens/mod.rs`). The registry is the single source for
-sidebar grouping into the five fixed sections — Getting started, Atoms,
-Molecules, Organisms, Layouts — plus render/focus/last-intent dispatch,
+sidebar grouping into the six fixed sections — Getting started, Atoms,
+Molecules, Organisms, Layouts, Screens — plus render/focus/last-intent dispatch,
 launch-name parsing, and
 window sizing; `FANTA_STORYBOOK_STORY` rejects unknown names with the valid id
 list instead of falling back. Each story is one screen module owning its mock
@@ -207,9 +208,11 @@ roving navigation instead of per-control stops: a row is one tab stop, Up/Down
 rows, and per-row satellite controls such as lock and visibility are
 pointer-plus-command surfaces reachable through row-scoped key bindings that
 emit the same typed intents. Focus styling is part of the component
-presentation state — the shared atoms reserve their focus-ring border so
-keyboard focus never shifts layout — and command actions remain public so a
-host can replace key bindings or expose them in its own command palette.
+presentation state. Compact panel rows use the same themed background
+treatment as hover/selection so focus never adds a second inset border;
+controls that use a focus ring reserve its border width so keyboard focus
+never shifts layout. Command actions remain public so a host can replace key
+bindings or expose them in its own command palette.
 
 ## §10 Layers panel integration contract
 
@@ -242,6 +245,13 @@ emit `LayersPanelAction::ExpansionChanged` and can be accepted or replaced
 through `set_expanded_node_ids`. Selection, visibility, lock, rename, and
 contextual menu operations always emit typed intents. They do not modify the
 supplied node tree.
+
+Expanded Pages and Layers headers follow the application sidebar treatment:
+the title is semibold, disclosure chevrons appear only while a whole section
+is collapsed, and hover/focus use active-theme sidebar backgrounds rather than
+adding inset borders. Layer-kind, visibility, and lock glyphs use canonical
+Lucide assets or Lucide's official 24-unit path geometry with its round-capped
+two-unit stroke; the panel does not invent a second icon language.
 
 Dragging a row is presentation-only until it is dropped. A valid drop emits
 `LayersPanelAction::MoveRequested` with opaque source and target identifiers
@@ -875,9 +885,9 @@ storybook is the mock host and is the only layer that applies those requests.
 The host owns the dock's outer placement, canvas inset, and surrounding canvas
 clipping; the toolbar owns collision handling for its transient surfaces.
 
-## §13 Variables, assets, prototype, and timeline contracts
+## §13 Variables screen, assets, prototype, and timeline contracts
 
-`VariablesPage`, `AssetsPanel`, `PrototypePanel`, and `Timeline` follow the
+`VariablesScreen`, `AssetsPanel`, `PrototypePanel`, and `Timeline` follow the
 same controlled seam as the established editor surfaces. Hosts supply
 collections, libraries, prototype settings, and transport values as immutable
 view data. Every operation that can affect a document, external library,
@@ -888,7 +898,15 @@ position, dismissed educational hints, focus, and open/closed empty-state
 guidance. They do not create variables, import libraries, change prototype
 settings, add keyframes, seek, or run an agent.
 
-## §14 Pseudo editor composition contract
+## §14 Layout composition contracts
+
+`FileInspectorSidebar` places the existing `PagesPanel` above the existing
+`LayersPanel` in one left-sidebar surface. Pages keeps its compact, intrinsic
+section height and Layers receives the remaining height. The composition owns
+no document or child-panel state, does not add a second event stream, and does
+not intercept either child's typed intents; hosts continue subscribing to the
+original Pages and Layers entities. The child borders overlap at their shared
+edge so the composition renders one seam rather than a double rule.
 
 `PseudoEditor` is a presentation-only integration shell. A host constructs and
 subscribes to each child component, then passes those entities through
@@ -941,19 +959,22 @@ The library source is organized by atomic design tier:
 
 ```text
 crates/fanta-gpui/src/
-  atoms/        activation, buttons, vector icons, truncation, bounds tracking
+  atoms/        activation, buttons, pinned Lucide icons, truncation, bounds tracking
   molecules/    menu chrome + clamping, anchored popups, list rows, edge fades
-  organisms/    assets, design, layers, pages, prototype, timeline, toolbar,
-                variables — the host-facing feature surfaces
-  layouts/      pseudo_editor — composition shells that arrange organisms
+  organisms/    assets, design, layers, pages, prototype, timeline, toolbar —
+                the host-facing feature surfaces
+  layouts/      file_inspector, pseudo_editor — composition shells that
+                arrange organisms
+  screens/      variables — complete application-sized workflows
 ```
 
-Organism and layout modules are re-exported at the crate root, so hosts import
-`fanta_gpui::pages`, never a tier path. The atoms and molecules tiers are
+Organism, layout, and screen modules are re-exported at the crate root, so
+hosts import `fanta_gpui::file_inspector` or `fanta_gpui::variables`, never a
+tier path. The atoms and molecules tiers are
 curated public API: hosts (and the storybook) import `fanta_gpui::atoms` and
 `fanta_gpui::molecules` — or the prelude — to build custom chrome that shares
 the library's activation, focus-ring, icon, and clamping contracts, while
-drawing internals such as the icon stroke-path builder stay crate-private.
+drawing internals stay crate-private.
 The storybook mirrors the taxonomy
 with one screen module per story. Feature surfaces compose the shared tiers
 instead of re-implementing key contexts, focus rings, activation wiring,
@@ -976,9 +997,13 @@ icons, or menu chrome per control:
   and two-axis window clamping. Transient surfaces must stay inside the window
   on both axes (§12 established the rule for toolbar popups; pointer-anchored
   context menus follow it through this molecule).
-- `vector_icon` renders theme-colored stroke paths on a 16-unit grid and is
-  the sanctioned §5 icon source, shared with the toolbar's tool/mode drawings.
-  Unicode characters and hand-assembled div art are not icons.
+- `LucideIcon` plus `render_lucide_icon` is the sanctioned §5 icon source for
+  Fanta-owned controls. The renderer consumes complete SVG geometry from the
+  exact `lucide-static-svg` version pinned in `Cargo.toml`; toolbar, layer,
+  variable, timeline, and inspector icons only provide semantic mappings.
+  Unicode characters, custom stroke paths, and hand-assembled div art are not
+  icons. A host-defined design-header control may select any `LucideIcon`, but
+  may not inject a platform glyph.
 - `track_bounds` and `truncating_label` replace hand-rolled measurement
   canvases and character-count width heuristics; labels truncate rather than
   forcing horizontal scroll extents.

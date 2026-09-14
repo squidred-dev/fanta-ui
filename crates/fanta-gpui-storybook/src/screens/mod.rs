@@ -9,6 +9,7 @@
 pub(crate) mod assets;
 pub(crate) mod buttons;
 pub(crate) mod design;
+pub(crate) mod file_inspector;
 pub(crate) mod harness;
 pub(crate) mod icons;
 pub(crate) mod intent;
@@ -25,13 +26,13 @@ pub(crate) mod specimen;
 pub(crate) mod timeline;
 pub(crate) mod toolbar;
 pub(crate) mod variables;
-pub(crate) mod vector_icons;
 pub(crate) mod viewport;
 pub(crate) mod welcome;
 
 pub(crate) use assets::AssetsScreen;
 pub(crate) use buttons::ButtonsScreen;
 pub(crate) use design::DesignScreen;
+pub(crate) use file_inspector::FileInspectorScreen;
 pub(crate) use icons::IconsScreen;
 pub(crate) use labels::LabelsScreen;
 pub(crate) use layers::LayersScreen;
@@ -43,8 +44,7 @@ pub(crate) use prototype::PrototypeScreen;
 pub(crate) use pseudo_editor::PseudoEditorScreen;
 pub(crate) use timeline::TimelineScreen;
 pub(crate) use toolbar::ToolbarScreen;
-pub(crate) use variables::VariablesScreen;
-pub(crate) use vector_icons::VectorIconsScreen;
+pub(crate) use variables::VariablesStory;
 pub(crate) use viewport::ViewportPreset;
 pub(crate) use welcome::WelcomeScreen;
 
@@ -52,7 +52,7 @@ use crate::*;
 
 /// The sidebar sections, mirroring the library's atomic design tiers
 /// (ARCHITECTURE.md §16). Sections render in [`StorySection::ALL`] order:
-/// Getting started, then Atoms → Molecules → Organisms → Layouts.
+/// Getting started, then Atoms → Molecules → Organisms → Layouts → Screens.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum StorySection {
     GettingStarted,
@@ -60,15 +60,17 @@ pub(crate) enum StorySection {
     Molecules,
     Organisms,
     Layouts,
+    Screens,
 }
 
 impl StorySection {
-    pub(crate) const ALL: [Self; 5] = [
+    pub(crate) const ALL: [Self; 6] = [
         Self::GettingStarted,
         Self::Atoms,
         Self::Molecules,
         Self::Organisms,
         Self::Layouts,
+        Self::Screens,
     ];
 
     pub(crate) const fn label(self) -> &'static str {
@@ -78,6 +80,7 @@ impl StorySection {
             Self::Molecules => "Molecules",
             Self::Organisms => "Organisms",
             Self::Layouts => "Layouts",
+            Self::Screens => "Screens",
         }
     }
 }
@@ -251,41 +254,6 @@ static REGISTRY: [StoryDescriptor; 17] = [
         last_action: |story| story.buttons_screen.last_action.clone(),
     },
     StoryDescriptor {
-        kind: StoryKind::VectorIcons,
-        id: "vector-icons",
-        // "foundations" and "atoms" survive as launch names from the
-        // retired Foundations catalog this story absorbed.
-        aliases: &["foundations", "atoms", "control-icons"],
-        title: "Vector icons",
-        nav_label: "Vector icons",
-        description: "Every ControlIcon labeled in a grid, plus the node-kind and transport \
-                      drawings rendered in organism context.",
-        section: StorySection::Atoms,
-        reference_window_size: (1240., 820.),
-        gallery_surface_size: (1200., 860.),
-        gallery_fluid_width: true,
-        viewport_presets: &[
-            ViewportPreset::new("Narrow", 860., 700.),
-            ViewportPreset::new("Default", 1200., 860.),
-        ],
-        keyboard_hints: &[
-            KeyboardHint::new("↑ / ↓", "Focus the previous / next specimen row"),
-            KeyboardHint::new("Esc", "Close a specimen context menu"),
-        ],
-        render_story: |story, cx| story.render_vector_icons_story(cx),
-        render_gallery: None,
-        render_reference: |story, cx| story.render_vector_icons_reference(cx),
-        render_knobs: None,
-        focus: |story, window, cx| {
-            story
-                .vector_icons_screen
-                .node_kinds
-                .focus_handle(cx)
-                .focus(window, cx);
-        },
-        last_action: |story| story.vector_icons_screen.last_action.clone(),
-    },
-    StoryDescriptor {
         kind: StoryKind::Labels,
         id: "labels",
         aliases: &["truncation", "truncating-label"],
@@ -318,12 +286,19 @@ static REGISTRY: [StoryDescriptor; 17] = [
     StoryDescriptor {
         kind: StoryKind::Icons,
         id: "icons",
-        aliases: &["icon", "icon-gallery", "icon-catalog", "icon-assets"],
-        title: "Icon assets",
-        nav_label: "Icon assets",
-        description: "Every icon bundled by gpui-component, with canonical names and asset \
-                      paths. These are application-level assets documented by the storybook \
-                      host (ARCHITECTURE.md §6), not fanta-gpui vector icons.",
+        aliases: &[
+            "icon",
+            "icon-gallery",
+            "icon-catalog",
+            "icon-assets",
+            "foundations",
+            "atoms",
+            "control-icons",
+        ],
+        title: "Lucide icons",
+        nav_label: "Lucide icons",
+        description: "The Lucide icons bundled by gpui-component, with canonical names and \
+                      asset paths. Fanta-owned controls use the same pinned Lucide catalog.",
         section: StorySection::Atoms,
         reference_window_size: (1240., 820.),
         gallery_surface_size: (1200., 900.),
@@ -668,36 +643,80 @@ static REGISTRY: [StoryDescriptor; 17] = [
     StoryDescriptor {
         kind: StoryKind::Variables,
         id: "variables",
-        aliases: &["variable", "variables-page"],
-        title: "Variables",
+        aliases: &["variable", "variables-screen", "variables-page"],
+        title: "Variables screen",
         nav_label: "Variables",
         description: "A full variables workspace with collections, groups, modes, values, and creation intents.",
-        section: StorySection::Organisms,
+        section: StorySection::Screens,
         reference_window_size: (1677., 1048.),
         gallery_surface_size: (1200., 760.),
         gallery_fluid_width: true,
         viewport_presets: &[
             ViewportPreset::new(
                 "Minimum",
-                VARIABLES_PAGE_MIN_WIDTH,
-                VARIABLES_PAGE_MIN_HEIGHT,
+                VARIABLES_SCREEN_MIN_WIDTH,
+                VARIABLES_SCREEN_MIN_HEIGHT,
             ),
             ViewportPreset::new("Compact", 720., 520.),
             ViewportPreset::new("Default", 1200., 760.),
         ],
         keyboard_hints: &[],
-        render_story: |story, _| story.variables_screen.page.clone().into_any_element(),
+        render_story: |story, _| story.variables_screen.screen.clone().into_any_element(),
         render_gallery: None,
         render_reference: |story, cx| story.render_variables_reference(cx),
         render_knobs: Some(|story, cx| story.render_variables_knobs(cx)),
         focus: |story, window, cx| {
             story
                 .variables_screen
-                .page
+                .screen
                 .focus_handle(cx)
                 .focus(window, cx);
         },
         last_action: |story| story.variables_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::FileInspector,
+        id: "file-inspector",
+        aliases: &["file-sidebar"],
+        title: "File inspector",
+        nav_label: "File inspector",
+        description: "One unified sidebar containing the Pages and Layers panels.",
+        section: StorySection::Layouts,
+        reference_window_size: (1240., 820.),
+        gallery_surface_size: (337., 716.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new(
+                "Minimum",
+                FILE_INSPECTOR_MIN_WIDTH,
+                FILE_INSPECTOR_MIN_HEIGHT,
+            ),
+            ViewportPreset::new("Default", 337., 716.),
+            ViewportPreset::new("Wide", 472., 820.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("⌘F", "Find in pages"),
+            KeyboardHint::new("↑ / ↓", "Move through the focused Pages or Layers list"),
+            KeyboardHint::new("Esc", "Close the active child-panel overlay"),
+        ],
+        render_story: |story, _| {
+            story
+                .file_inspector_screen
+                .sidebar
+                .clone()
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| story.render_file_inspector_reference(cx),
+        render_knobs: None,
+        focus: |story, window, cx| {
+            story
+                .file_inspector_screen
+                .sidebar
+                .focus_handle(cx)
+                .focus(window, cx);
+        },
+        last_action: |story| story.file_inspector_last_action(),
     },
     StoryDescriptor {
         kind: StoryKind::PseudoEditor,
@@ -769,8 +788,8 @@ mod tests {
         assert_eq!(story_from_name("TOOLBAR"), Some(StoryKind::Toolbar));
         // Launch names of the retired Foundations catalog keep resolving to
         // the specimen stories that absorbed it.
-        assert_eq!(story_from_name("foundations"), Some(StoryKind::VectorIcons));
-        assert_eq!(story_from_name("atoms"), Some(StoryKind::VectorIcons));
+        assert_eq!(story_from_name("foundations"), Some(StoryKind::Icons));
+        assert_eq!(story_from_name("atoms"), Some(StoryKind::Icons));
         assert_eq!(story_from_name("molecules"), Some(StoryKind::Menus));
         assert_eq!(story_from_name("not-a-story"), None);
     }
@@ -798,10 +817,11 @@ mod tests {
                 "Molecules",
                 "Organisms",
                 "Layouts",
+                "Screens",
             ],
             "the sidebar sections name the §16 tiers in fixed order"
         );
-        // The organism and layout stories sit in their matching tiers.
+        // Feature stories sit in their matching reusable tiers.
         for (kind, section) in [
             (StoryKind::Assets, StorySection::Organisms),
             (StoryKind::Design, StorySection::Organisms),
@@ -810,7 +830,8 @@ mod tests {
             (StoryKind::Prototype, StorySection::Organisms),
             (StoryKind::Timeline, StorySection::Organisms),
             (StoryKind::Toolbar, StorySection::Organisms),
-            (StoryKind::Variables, StorySection::Organisms),
+            (StoryKind::FileInspector, StorySection::Layouts),
+            (StoryKind::Variables, StorySection::Screens),
             (StoryKind::PseudoEditor, StorySection::Layouts),
             (StoryKind::Icons, StorySection::Atoms),
         ] {

@@ -14,7 +14,7 @@ use gpui_component::{
 };
 
 use crate::atoms::{
-    CONTROL_KEY_CONTEXT, ControlExt as _, ControlIcon, icon_button, render_control_icon,
+    CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon,
 };
 
 /// Width of the fixed left navigation rail: intentional chrome
@@ -228,8 +228,8 @@ impl AssetsPanel {
 
         match item {
             AssetsRailItem::File => Icon::new(IconName::File).small().into_any_element(),
-            AssetsRailItem::Agents => render_control_icon(
-                ControlIcon::Sparkle,
+            AssetsRailItem::Agents => render_lucide_icon(
+                LucideIcon::Sparkles,
                 if self.view_data.active_rail_item == item {
                     cx.theme().sidebar_accent_foreground
                 } else {

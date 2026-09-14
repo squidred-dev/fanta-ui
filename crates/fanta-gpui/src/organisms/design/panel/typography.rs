@@ -967,25 +967,15 @@ impl DesignPanel {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let color = cx.theme().foreground;
-        render_icon_canvas(color, 16., move |path| match icon {
-            TextResizeIcon::AutoWidth => {
-                path.line((3., 2.5), (3., 13.5));
-                path.line((5., 8.), (13., 8.));
-                path.poly([(10., 5.), (13., 8.), (10., 11.)], false);
-            }
-            TextResizeIcon::AutoHeight => {
-                path.line((3., 2.5), (3., 13.5));
-                path.line((13., 2.5), (13., 13.5));
-                for (line_y, width) in [(5., 6.), (8., 8.), (11., 5.)] {
-                    path.line((5., line_y), (5. + width, line_y));
-                }
-            }
-            TextResizeIcon::FixedSize => {
-                path.rect(2.5, 2.5, 13.5, 13.5);
-                path.line((5., 6.), (11., 6.));
-                path.line((5., 9.), (9., 9.));
-            }
-        })
+        render_lucide_icon(
+            match icon {
+                TextResizeIcon::AutoWidth => LucideIcon::MoveHorizontal,
+                TextResizeIcon::AutoHeight => LucideIcon::Rows3,
+                TextResizeIcon::FixedSize => LucideIcon::SquareDashed,
+            },
+            color,
+            16.,
+        )
     }
 
     pub(super) fn render_text_resize_control(
@@ -1059,40 +1049,20 @@ impl DesignPanel {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let color = cx.theme().foreground;
-        render_icon_canvas(color, 16., move |path| match icon {
-            TypographyAlignmentIcon::Horizontal(alignment) => {
-                let middle_x = match alignment {
-                    DesignTextHorizontalAlignment::Left => 2.,
-                    DesignTextHorizontalAlignment::Center => 4.,
-                    DesignTextHorizontalAlignment::Right => 6.,
-                    DesignTextHorizontalAlignment::Justified => 2.,
-                };
-                let middle_width = if alignment == DesignTextHorizontalAlignment::Justified {
-                    12.
-                } else {
-                    8.
-                };
-                for (line_y, line_x, width) in
-                    [(3., 2., 12.), (7., middle_x, middle_width), (11., 2., 12.)]
-                {
-                    path.line((line_x, line_y), (line_x + width, line_y));
-                }
-            }
-            TypographyAlignmentIcon::Vertical(alignment) => {
-                let start_y = match alignment {
-                    DesignTextVerticalAlignment::Top => 1.,
-                    DesignTextVerticalAlignment::Center => 4.,
-                    DesignTextVerticalAlignment::Bottom => 7.,
-                };
-                for (line_y, line_x, width) in [
-                    (start_y, 2., 12.),
-                    (start_y + 3., 4., 8.),
-                    (start_y + 6., 2., 12.),
-                ] {
-                    path.line((line_x, line_y), (line_x + width, line_y));
-                }
-            }
-        })
+        let icon = match icon {
+            TypographyAlignmentIcon::Horizontal(alignment) => match alignment {
+                DesignTextHorizontalAlignment::Left => LucideIcon::TextAlignStart,
+                DesignTextHorizontalAlignment::Center => LucideIcon::TextAlignCenter,
+                DesignTextHorizontalAlignment::Right => LucideIcon::TextAlignEnd,
+                DesignTextHorizontalAlignment::Justified => LucideIcon::TextAlignJustify,
+            },
+            TypographyAlignmentIcon::Vertical(alignment) => match alignment {
+                DesignTextVerticalAlignment::Top => LucideIcon::AlignVerticalJustifyStart,
+                DesignTextVerticalAlignment::Center => LucideIcon::AlignVerticalJustifyCenter,
+                DesignTextVerticalAlignment::Bottom => LucideIcon::AlignVerticalJustifyEnd,
+            },
+        };
+        render_lucide_icon(icon, color, 16.)
     }
 
     pub(super) fn render_typography_alignment_segment(

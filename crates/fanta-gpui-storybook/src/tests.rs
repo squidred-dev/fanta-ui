@@ -273,7 +273,6 @@ fn every_reference_fixture_renders_through_the_registry(cx: &mut TestAppContext)
     let fixture_selectors: &[(StoryKind, &str)] = &[
         (StoryKind::Welcome, "storybook-reference-welcome"),
         (StoryKind::Buttons, "storybook-reference-buttons"),
-        (StoryKind::VectorIcons, "storybook-reference-vector-icons"),
         (StoryKind::Labels, "storybook-reference-labels"),
         (StoryKind::Icons, "storybook-icon-gallery"),
         (StoryKind::Menus, "storybook-reference-menus"),
@@ -282,6 +281,10 @@ fn every_reference_fixture_renders_through_the_registry(cx: &mut TestAppContext)
         (StoryKind::Toolbar, "storybook-reference-toolbar"),
         (StoryKind::Pages, "storybook-reference-pages"),
         (StoryKind::Layers, "storybook-reference-layers"),
+        (
+            StoryKind::FileInspector,
+            "storybook-reference-file-inspector",
+        ),
         (StoryKind::Design, "design-fixture-rail-scroll"),
         (StoryKind::Variables, "storybook-reference-variables"),
         (StoryKind::Assets, "storybook-reference-assets"),
@@ -6210,7 +6213,7 @@ fn variables_story_reflows_to_its_minimum_viewport(cx: &mut TestAppContext) {
         storybook.update(app, |storybook, cx| {
             storybook
                 .story_viewport
-                .apply_preset(VARIABLES_PAGE_MIN_WIDTH, VARIABLES_PAGE_MIN_HEIGHT);
+                .apply_preset(VARIABLES_SCREEN_MIN_WIDTH, VARIABLES_SCREEN_MIN_HEIGHT);
             cx.notify();
         });
     });
@@ -6222,8 +6225,8 @@ fn variables_story_reflows_to_its_minimum_viewport(cx: &mut TestAppContext) {
     let surface = cx
         .debug_bounds("storybook-gallery-story-surface")
         .expect("the Variables story surface should render at its floor");
-    assert_eq!(surface.size.width, px(VARIABLES_PAGE_MIN_WIDTH));
-    assert_eq!(surface.size.height, px(VARIABLES_PAGE_MIN_HEIGHT));
+    assert_eq!(surface.size.width, px(VARIABLES_SCREEN_MIN_WIDTH));
+    assert_eq!(surface.size.height, px(VARIABLES_SCREEN_MIN_HEIGHT));
     let sidebar = cx
         .debug_bounds("variables-sidebar")
         .expect("the sidebar stays mounted at the floor");

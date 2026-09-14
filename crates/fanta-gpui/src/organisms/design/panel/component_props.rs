@@ -5779,11 +5779,13 @@ impl DesignPanel {
                                 .child(
                                     h_flex()
                                         .gap_2()
-                                        .child(
-                                            div()
-                                                .text_color(cx.theme().selection)
-                                                .child(child.kind.glyph()),
-                                        )
+                                        .child(div().text_color(cx.theme().selection).child(
+                                            render_lucide_icon(
+                                                child.kind.lucide_icon(),
+                                                cx.theme().selection,
+                                                16.,
+                                            ),
+                                        ))
                                         .child(
                                             div()
                                                 .flex_1()

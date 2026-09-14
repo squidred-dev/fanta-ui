@@ -95,22 +95,22 @@ impl VariablesCollectionTable {
     }
 }
 
-pub(crate) struct VariablesScreen {
-    pub(crate) page: Entity<VariablesPage>,
+pub(crate) struct VariablesStory {
+    pub(crate) screen: Entity<VariablesScreen>,
     pub(crate) view_data: VariablesViewData,
     pub(crate) last_action: SharedString,
     pub(crate) named_state: VariablesNamedState,
     collection_tables: HashMap<SharedString, VariablesCollectionTable>,
 }
 
-impl VariablesScreen {
+impl VariablesStory {
     pub(crate) fn new(window: &mut Window, cx: &mut Context<Storybook>) -> Self {
         let view_data = seed_variables_view_data();
-        let page =
-            cx.new(|cx| VariablesPage::new("storybook-variables", view_data.clone(), window, cx));
+        let screen =
+            cx.new(|cx| VariablesScreen::new("storybook-variables", view_data.clone(), window, cx));
         let collection_tables = Self::collection_tables(&view_data);
         Self {
-            page,
+            screen,
             view_data,
             last_action: "Ready — switch collections and groups, edit values, or add a mode".into(),
             named_state: VariablesNamedState::Default,
@@ -168,15 +168,15 @@ impl VariablesScreen {
         self.view_data = Self::fixture(state);
         self.collection_tables = Self::collection_tables(&self.view_data);
         let view_data = self.view_data.clone();
-        self.page
-            .update(cx, |page, cx| page.set_view_data(view_data, cx));
+        self.screen
+            .update(cx, |screen, cx| screen.set_view_data(view_data, cx));
         self.last_action = format!("Story applied the {} Variables state", state.label()).into();
         cx.notify();
     }
 
     pub(crate) fn handle_action(
         &mut self,
-        page: Entity<VariablesPage>,
+        screen: Entity<VariablesScreen>,
         action: &VariablesAction,
         cx: &mut Context<Storybook>,
     ) {
@@ -355,8 +355,8 @@ impl VariablesScreen {
             }
         }
         self.save_selected_collection();
-        page.update(cx, |page, cx| {
-            page.set_view_data(self.view_data.clone(), cx);
+        screen.update(cx, |screen, cx| {
+            screen.set_view_data(self.view_data.clone(), cx);
         });
         cx.notify();
     }
@@ -366,7 +366,7 @@ impl Storybook {
     pub(crate) fn render_variables_reference(&self, cx: &mut Context<Self>) -> AnyElement {
         self.render_reference_component_fixture(
             "storybook-reference-variables",
-            self.variables_screen.page.clone().into_any_element(),
+            self.variables_screen.screen.clone().into_any_element(),
             self.variables_screen.last_action.clone(),
             cx,
         )
@@ -394,9 +394,9 @@ mod tests {
 
     #[test]
     fn variables_named_states_return_reseedable_fixtures() {
-        let default = VariablesScreen::fixture(VariablesNamedState::Default);
+        let default = VariablesStory::fixture(VariablesNamedState::Default);
         assert!(!default.variables.is_empty());
-        let empty = VariablesScreen::fixture(VariablesNamedState::Empty);
+        let empty = VariablesStory::fixture(VariablesNamedState::Empty);
         assert!(empty.variables.is_empty());
         assert!(
             empty

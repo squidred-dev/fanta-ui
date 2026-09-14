@@ -7,7 +7,6 @@ use gpui_component::ThemeMode;
 pub(super) enum StoryKind {
     Welcome,
     Buttons,
-    VectorIcons,
     Labels,
     Icons,
     Menus,
@@ -21,6 +20,7 @@ pub(super) enum StoryKind {
     Assets,
     Prototype,
     Timeline,
+    FileInspector,
     PseudoEditor,
 }
 

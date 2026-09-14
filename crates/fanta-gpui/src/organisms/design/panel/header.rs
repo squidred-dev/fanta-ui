@@ -154,17 +154,8 @@ impl DesignPanel {
         use DesignSelectionHeaderControlIcon as IconPresentation;
 
         let kind = control.kind;
-        if let IconPresentation::Glyph(glyph) = &control.icon {
-            return div()
-                .w(px(16.))
-                .h(px(16.))
-                .flex()
-                .items_center()
-                .justify_center()
-                .text_xs()
-                .text_color(cx.theme().foreground)
-                .child(glyph.clone())
-                .into_any_element();
+        if let IconPresentation::Lucide(icon) = &control.icon {
+            return render_lucide_icon(*icon, cx.theme().foreground, 16.);
         }
         let named_icon = match &control.icon {
             IconPresentation::Default if kind == DesignSelectionHeaderControlKind::HostDefined => {
@@ -180,64 +171,23 @@ impl DesignPanel {
             IconPresentation::File => Some(IconName::File),
             IconPresentation::Inspector => Some(IconName::Inspector),
             IconPresentation::Layout => Some(IconName::LayoutDashboard),
-            IconPresentation::Glyph(_) => unreachable!(),
+            IconPresentation::Lucide(_) => unreachable!(),
         };
         if let Some(icon) = named_icon {
             return Icon::new(icon).xsmall().into_any_element();
         }
         let color = cx.theme().foreground;
-        let icon_width = if kind == DesignSelectionHeaderControlKind::BooleanFlattenMenu {
-            21.
-        } else {
-            16.
-        };
-        render_wide_icon_canvas(color, 16., icon_width, move |path| match kind {
-            DesignSelectionHeaderControlKind::SelectMatchingLayers => {
-                for (left, top, horizontal, vertical) in [
-                    (1.5, 1.5, 4., 4.),
-                    (14.5, 1.5, -4., 4.),
-                    (1.5, 14.5, 4., -4.),
-                    (14.5, 14.5, -4., -4.),
-                ] {
-                    path.move_to(left + horizontal, top);
-                    path.line_to(left, top);
-                    path.line_to(left, top + vertical);
-                }
-                path.diamond(8., 8., 3.);
-            }
-            DesignSelectionHeaderControlKind::CreateLink => {
-                path.poly([(3., 5.), (6., 2.), (10., 6.), (7., 9.)], true);
-                path.poly([(6., 10.), (9., 7.), (13., 11.), (10., 14.)], true);
-                path.line((6., 10.), (10., 6.));
-            }
-            DesignSelectionHeaderControlKind::ApplyTextContentVariable => {
-                path.line((1.5, 3.), (8., 3.));
-                path.line((4.75, 3.), (4.75, 13.));
-                path.diamond(11.5, 10.5, 3.5);
-            }
-            DesignSelectionHeaderControlKind::CreateComponent => {
-                for (center_x, center_y) in [(8., 2.8), (3.5, 8.), (12.5, 8.), (8., 13.2)] {
-                    path.diamond(center_x, center_y, 1.9);
-                }
-            }
-            DesignSelectionHeaderControlKind::UseAsMask => {
-                for center_x in [5.8, 10.2] {
-                    path.circle(center_x, 8., 5.2);
-                }
-            }
-            DesignSelectionHeaderControlKind::BooleanFlattenMenu => {
-                path.rect(1., 2., 9., 10.);
-                path.rect(5., 6., 13., 14.);
-                path.poly([(16., 7.), (18.25, 9.25), (20.5, 7.)], false);
-            }
-            DesignSelectionHeaderControlKind::EditObject => {
-                path.rect(3., 3., 13., 13.);
-                for (node_x, node_y) in [(3., 3.), (13., 3.), (13., 13.), (3., 13.)] {
-                    path.rect(node_x - 1., node_y - 1., node_x + 1., node_y + 1.);
-                }
-            }
+        let icon = match kind {
+            DesignSelectionHeaderControlKind::SelectMatchingLayers => LucideIcon::ScanSearch,
+            DesignSelectionHeaderControlKind::CreateLink => LucideIcon::Link,
+            DesignSelectionHeaderControlKind::ApplyTextContentVariable => LucideIcon::TypeIcon,
+            DesignSelectionHeaderControlKind::CreateComponent => LucideIcon::Component,
+            DesignSelectionHeaderControlKind::UseAsMask => LucideIcon::Blend,
+            DesignSelectionHeaderControlKind::BooleanFlattenMenu => LucideIcon::Combine,
+            DesignSelectionHeaderControlKind::EditObject => LucideIcon::SquareDashedMousePointer,
             DesignSelectionHeaderControlKind::HostDefined => unreachable!(),
-        })
+        };
+        render_lucide_icon(icon, color, 16.)
     }
 
     pub(super) fn render_selection_header_title(

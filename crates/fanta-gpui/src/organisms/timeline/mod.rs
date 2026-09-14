@@ -11,8 +11,7 @@ use gpui_component::{
 };
 
 use crate::atoms::{
-    CONTROL_KEY_CONTEXT, ControlExt as _, ControlIcon, icon_button, render_control_icon,
-    track_bounds,
+    CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon, track_bounds,
 };
 
 /// Width of the gutter before the ruler/track content, in pixels.
@@ -196,11 +195,11 @@ impl Timeline {
                         playing: !this.view_data.playing,
                     });
                 }))
-                .child(render_control_icon(
+                .child(render_lucide_icon(
                     if self.view_data.playing {
-                        ControlIcon::Pause
+                        LucideIcon::Pause
                     } else {
-                        ControlIcon::Play
+                        LucideIcon::Play
                     },
                     cx.theme().foreground,
                     12.,
@@ -219,8 +218,8 @@ impl Timeline {
                         time_ms: this.view_data.current_time_ms,
                     });
                 }))
-                .child(render_control_icon(
-                    ControlIcon::KeyframeDiamond,
+                .child(render_lucide_icon(
+                    LucideIcon::Diamond,
                     cx.theme().foreground,
                     12.,
                 )),
@@ -272,8 +271,8 @@ impl Timeline {
                         looping: !this.view_data.looping,
                     });
                 }))
-                .child(render_control_icon(
-                    ControlIcon::Loop,
+                .child(render_lucide_icon(
+                    LucideIcon::Repeat2,
                     cx.theme().foreground,
                     12.,
                 )),
@@ -536,8 +535,8 @@ impl Timeline {
                     .on_activate(cx.listener(|_, _, _, cx| {
                         cx.emit(TimelineAction::AskAgentRequested);
                     }))
-                    .child(render_control_icon(
-                        ControlIcon::Sparkle,
+                    .child(render_lucide_icon(
+                        LucideIcon::Sparkles,
                         cx.theme().foreground,
                         12.,
                     ))
@@ -648,8 +647,8 @@ impl Render for Timeline {
                                 .on_activate(cx.listener(|_, _, _, cx| {
                                     cx.emit(TimelineAction::HelpRequested);
                                 }))
-                                .child(render_control_icon(
-                                    ControlIcon::Help,
+                                .child(render_lucide_icon(
+                                    LucideIcon::CircleQuestionMark,
                                     cx.theme().foreground,
                                     14.,
                                 )),

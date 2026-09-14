@@ -37,12 +37,12 @@ pub(crate) const BUTTON_ROW_SPECS: [(&str, &str, f32); 4] = [
 pub(crate) const BUTTON_COMPACT_SIZE: f32 = 18.;
 
 /// The mini toolbar strip's live tools: slug, icon, and intent label.
-const CONTEXT_TOOLBAR_TOOLS: [(&str, ControlIcon, &str); 5] = [
-    ("play", ControlIcon::Play, "Play"),
-    ("pause", ControlIcon::Pause, "Pause"),
-    ("keyframe", ControlIcon::KeyframeDiamond, "Keyframe"),
-    ("agent", ControlIcon::Sparkle, "Agent"),
-    ("help", ControlIcon::Help, "Help"),
+const CONTEXT_TOOLBAR_TOOLS: [(&str, LucideIcon, &str); 5] = [
+    ("play", LucideIcon::Play, "Play"),
+    ("pause", LucideIcon::Pause, "Pause"),
+    ("keyframe", LucideIcon::Diamond, "Keyframe"),
+    ("agent", LucideIcon::Sparkles, "Agent"),
+    ("help", LucideIcon::CircleQuestionMark, "Help"),
 ];
 
 pub(crate) struct ButtonsScreen {
@@ -113,8 +113,8 @@ impl Storybook {
 
         let default_cell = {
             let specimen = live_button_specimen("default", "default", size, cx)
-                .child(render_control_icon(
-                    ControlIcon::Play,
+                .child(render_lucide_icon(
+                    LucideIcon::Play,
                     cx.theme().foreground,
                     icon_size,
                 ))
@@ -123,8 +123,8 @@ impl Storybook {
         };
         let hover_cell = {
             let specimen = live_button_specimen("hover", "hover", size, cx)
-                .child(render_control_icon(
-                    ControlIcon::Sparkle,
+                .child(render_lucide_icon(
+                    LucideIcon::Sparkles,
                     cx.theme().foreground,
                     icon_size,
                 ))
@@ -137,8 +137,8 @@ impl Storybook {
             // atom reserves the border width while unfocused.
             let specimen = live_button_specimen("focus", "focus-ring", size, cx)
                 .border_color(cx.theme().selection)
-                .child(render_control_icon(
-                    ControlIcon::KeyframeDiamond,
+                .child(render_lucide_icon(
+                    LucideIcon::Diamond,
                     cx.theme().foreground,
                     icon_size,
                 ))
@@ -166,11 +166,11 @@ impl Storybook {
                     );
                     cx.notify();
                 }))
-                .child(render_control_icon(
+                .child(render_lucide_icon(
                     if selected {
-                        ControlIcon::Eye
+                        LucideIcon::Eye
                     } else {
-                        ControlIcon::EyeClosed
+                        LucideIcon::EyeOff
                     },
                     cx.theme().foreground,
                     icon_size,
@@ -193,8 +193,8 @@ impl Storybook {
             // holding any other cell down shows the same deepened fill.
             let specimen = live_button_specimen("pressed", "pressed", size, cx)
                 .bg(cx.theme().secondary_active)
-                .child(render_control_icon(
-                    ControlIcon::Loop,
+                .child(render_lucide_icon(
+                    LucideIcon::Repeat2,
                     cx.theme().foreground,
                     icon_size,
                 ))
@@ -215,8 +215,8 @@ impl Storybook {
                 .border_1()
                 .border_color(cx.theme().transparent)
                 .opacity(0.4)
-                .child(render_control_icon(
-                    ControlIcon::Lock,
+                .child(render_lucide_icon(
+                    LucideIcon::Lock,
                     cx.theme().muted_foreground,
                     icon_size,
                 ))
@@ -245,7 +245,7 @@ impl Storybook {
         strip: &'static str,
         slug: &'static str,
         description: &'static str,
-        icon: ControlIcon,
+        icon: LucideIcon,
         size: f32,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -261,7 +261,7 @@ impl Storybook {
                 );
                 cx.notify();
             }))
-            .child(render_control_icon(icon, cx.theme().foreground, icon_size))
+            .child(render_lucide_icon(icon, cx.theme().foreground, icon_size))
             .into_any_element()
     }
 
@@ -305,8 +305,8 @@ impl Storybook {
                             );
                             cx.notify();
                         }))
-                        .child(render_control_icon(
-                            ControlIcon::Loop,
+                        .child(render_lucide_icon(
+                            LucideIcon::Repeat2,
                             if looping {
                                 cx.theme().foreground
                             } else {
@@ -353,16 +353,23 @@ impl Storybook {
                 "header",
                 "jump",
                 "Jump to selection",
-                ControlIcon::JumpArrow,
+                LucideIcon::CornerUpRight,
                 24.,
                 cx,
             ))
-            .child(self.context_strip_button("header", "help", "Help", ControlIcon::Help, 24., cx))
+            .child(self.context_strip_button(
+                "header",
+                "help",
+                "Help",
+                LucideIcon::CircleQuestionMark,
+                24.,
+                cx,
+            ))
             .child(self.context_strip_button(
                 "header",
                 "close",
                 "Close panel",
-                ControlIcon::Close,
+                LucideIcon::X,
                 24.,
                 cx,
             ))

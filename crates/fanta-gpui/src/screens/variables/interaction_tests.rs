@@ -42,9 +42,9 @@ fn fixture() -> VariablesViewData {
 
 fn mount(
     cx: &mut TestAppContext,
-) -> crate::test_support::Mounted<'_, VariablesPage, VariablesAction> {
+) -> crate::test_support::Mounted<'_, VariablesScreen, VariablesAction> {
     mount_component(cx, |window, cx| {
-        VariablesPage::new("test-variables", fixture(), window, cx)
+        VariablesScreen::new("test-variables", fixture(), window, cx)
     })
 }
 
@@ -112,8 +112,8 @@ fn the_page_reflows_to_its_published_minimum_size(cx: &mut TestAppContext) {
     let (_host, actions, cx) = mount(cx);
 
     cx.simulate_resize(size(
-        px(VARIABLES_PAGE_MIN_WIDTH),
-        px(VARIABLES_PAGE_MIN_HEIGHT),
+        px(VARIABLES_SCREEN_MIN_WIDTH),
+        px(VARIABLES_SCREEN_MIN_HEIGHT),
     ));
     cx.run_until_parked();
     cx.run_until_parked();
@@ -130,13 +130,13 @@ fn the_page_reflows_to_its_published_minimum_size(cx: &mut TestAppContext) {
         .debug_bounds("variables-add-mode")
         .expect("the add-mode header should render at the published minimum");
     assert!(
-        f32::from(add_mode.right()) <= VARIABLES_PAGE_MIN_WIDTH + 1.,
+        f32::from(add_mode.right()) <= VARIABLES_SCREEN_MIN_WIDTH + 1.,
         "the actions header must stay pinned inside the page"
     );
     let create_variable = cx
         .debug_bounds("variables-create-variable")
         .expect("the fixed create-variable row should render");
-    assert!(f32::from(create_variable.bottom()) <= VARIABLES_PAGE_MIN_HEIGHT + 1.);
+    assert!(f32::from(create_variable.bottom()) <= VARIABLES_SCREEN_MIN_HEIGHT + 1.);
 
     // The pinned header cell keeps its full activation contract at the floor.
     assert_pointer_and_keyboard_parity(
@@ -241,8 +241,8 @@ fn empty_and_no_match_states_offer_recovery_actions(cx: &mut TestAppContext) {
 fn empty_states_keep_content_inset_on_narrow_pages(cx: &mut TestAppContext) {
     let (host, _actions, cx) = mount(cx);
     cx.simulate_resize(size(
-        px(VARIABLES_PAGE_MIN_WIDTH),
-        px(VARIABLES_PAGE_MIN_HEIGHT),
+        px(VARIABLES_SCREEN_MIN_WIDTH),
+        px(VARIABLES_SCREEN_MIN_HEIGHT),
     ));
     let component = cx.read(|app| host.read(app).component.clone());
     component.update(cx, |page, cx| {

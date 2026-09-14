@@ -30,8 +30,10 @@ use gpui_component::{
     v_flex,
 };
 
-use crate::atoms::vector_icon::{render_icon_canvas, render_wide_icon_canvas};
-use crate::atoms::{ActivateControl, ButtonControlExt as _, CONTROL_KEY_CONTEXT, ControlExt as _};
+use crate::atoms::{
+    ActivateControl, ButtonControlExt as _, CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon,
+    render_lucide_icon,
+};
 use crate::color::{parse_hex_rgba, rgba_channels};
 use crate::molecules::{popup_height, popup_width};
 

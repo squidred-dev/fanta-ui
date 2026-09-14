@@ -7,10 +7,11 @@ use super::intent;
 
 /// The reference fixtures keep their historical navigation order; the
 /// entries themselves come from the registry.
-const REFERENCE_NAV_ORDER: [StoryKind; 9] = [
+const REFERENCE_NAV_ORDER: [StoryKind; 10] = [
     StoryKind::Toolbar,
     StoryKind::Pages,
     StoryKind::Layers,
+    StoryKind::FileInspector,
     StoryKind::Design,
     StoryKind::Variables,
     StoryKind::Assets,

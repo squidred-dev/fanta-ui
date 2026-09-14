@@ -24,15 +24,15 @@ The library source is organized by atomic design tier (`ARCHITECTURE.md` §16):
 
 ```text
 crates/fanta-gpui/src/
-  atoms/        activation, buttons, vector icons, truncation, bounds tracking
+  atoms/        activation, buttons, pinned Lucide icons, truncation, bounds tracking
   molecules/    menu chrome + clamping, anchored popups, list rows, edge fades
-  organisms/    assets, design, layers, pages, prototype, timeline, toolbar,
-                variables
-  layouts/      pseudo_editor
+  organisms/    assets, design, layers, pages, prototype, timeline, toolbar
+  layouts/      file_inspector, pseudo_editor
+  screens/      variables
 ```
 
-Organism and layout modules are re-exported at the crate root, so hosts import
-`fanta_gpui::pages`, never a tier path. The atoms and molecules tiers are
+Organism, layout, and screen modules are re-exported at the crate root, so
+hosts import `fanta_gpui::file_inspector` or `fanta_gpui::variables`, never a tier path. The atoms and molecules tiers are
 curated public API — hosts build custom chrome from `fanta_gpui::atoms`,
 `fanta_gpui::molecules`, or the prelude.
 
@@ -43,10 +43,10 @@ cargo run -p fanta-gpui-storybook
 ```
 
 The Gallery sidebar mirrors the atomic tiers — Getting started, Atoms,
-Molecules, Organisms, Layouts — with per-atom and per-molecule specimen
-stories (buttons and activation, vector icons, truncation, menus, list rows,
-popups and edge fades) beside the searchable Icon assets catalog of every
-bundled `gpui-component` icon. Use **Open window** on any story to keep the
+Molecules, Organisms, Layouts, Screens — with per-atom and per-molecule specimen
+stories (buttons and activation, truncation, menus, list rows, popups and edge
+fades) beside the searchable Lucide icon catalog. Fanta-owned controls render
+the same pinned upstream Lucide geometry. Use **Open window** on any story to keep the
 Gallery and its mock data in place while opening that component in its own
 maximized, full-window surface.
 
@@ -186,7 +186,7 @@ cx.subscribe(&panel, |host, panel, action: &LayersPanelAction, cx| {
 });
 ```
 
-The panel includes Figma-like nested rows, vector node-kind icons,
+The panel includes Figma-like nested rows, canonical Lucide node-kind icons,
 multi-selection modifiers, arrow-key tree navigation, disclosure, inline
 rename, hover lock/visibility controls, and
 capability-specific menus for containers, components, instances, text, media,

@@ -224,14 +224,7 @@ impl DesignPanel {
         } else {
             cx.theme().foreground
         };
-        render_icon_canvas(color, 16., |path| {
-            path.move_to(8., 1.5);
-            path.cubic_to((14., 10.), (8.5, 3.5), (14., 6.5));
-            path.cubic_to((8., 15.5), (14., 13.5), (11.4, 15.5));
-            path.cubic_to((2., 10.), (4.6, 15.5), (2., 13.5));
-            path.cubic_to((8., 1.5), (2., 6.5), (7.5, 3.5));
-            path.close();
-        })
+        render_lucide_icon(LucideIcon::Blend, color, 16.)
     }
 
     pub(super) fn render_appearance_blend_popover(&self, cx: &mut Context<Self>) -> AnyElement {

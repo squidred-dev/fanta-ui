@@ -33,8 +33,8 @@ use super::{
     TogglePagesPanel, ToggleSearchSettings,
 };
 use crate::atoms::{
-    ActivateControl, ActivateEvent, CONTROL_KEY_CONTEXT, ControlExt as _, ControlIcon,
-    render_control_icon, track_bounds, truncating_label,
+    ActivateControl, ActivateEvent, CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon,
+    render_lucide_icon, track_bounds, truncating_label,
 };
 use crate::molecules::{clamp_menu_origin, list_row, menu_item, menu_surface};
 use crate::toolbar::{ToolbarTool, render_tool_icon};
@@ -57,7 +57,7 @@ pub const PAGES_PANEL_MIN_HEIGHT: f32 = 400.;
 
 const HEADER_HEIGHT: f32 = 40.;
 const PAGE_ROW_HEIGHT: f32 = 32.;
-const PAGE_ROW_GAP: f32 = 4.;
+const PAGE_ROW_GAP: f32 = 0.;
 const PAGE_PADDING: f32 = 8.;
 const MAX_PAGE_LIST_HEIGHT: f32 = 320.;
 const DOUBLE_ENTER_INTERVAL: Duration = Duration::from_millis(500);

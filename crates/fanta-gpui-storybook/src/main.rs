@@ -36,9 +36,9 @@ use gpui_component::{
     v_flex,
 };
 use screens::{
-    AssetsScreen, ButtonsScreen, DesignScreen, IconsScreen, LabelsScreen, LayersScreen,
-    ListRowsScreen, MenusScreen, PagesScreen, PopupsScreen, PrototypeScreen, PseudoEditorScreen,
-    TimelineScreen, ToolbarScreen, VariablesScreen, VectorIconsScreen, WelcomeScreen,
+    AssetsScreen, ButtonsScreen, DesignScreen, FileInspectorScreen, IconsScreen, LabelsScreen,
+    LayersScreen, ListRowsScreen, MenusScreen, PagesScreen, PopupsScreen, PrototypeScreen,
+    PseudoEditorScreen, TimelineScreen, ToolbarScreen, VariablesStory, WelcomeScreen,
     viewport::StoryViewport,
 };
 use themes::{apply_zed_theme, initial_zed_theme_index, zed_themes};
@@ -66,16 +66,16 @@ struct Storybook {
     knobs_user_expanded: Option<bool>,
     welcome_screen: WelcomeScreen,
     buttons_screen: ButtonsScreen,
-    vector_icons_screen: VectorIconsScreen,
     labels_screen: LabelsScreen,
     icons_screen: IconsScreen,
     menus_screen: MenusScreen,
     list_rows_screen: ListRowsScreen,
     popups_screen: PopupsScreen,
-    variables_screen: VariablesScreen,
+    variables_screen: VariablesStory,
     assets_screen: AssetsScreen,
     prototype_screen: PrototypeScreen,
     timeline_screen: TimelineScreen,
+    file_inspector_screen: FileInspectorScreen,
     pseudo_screen: PseudoEditorScreen,
     pages_screen: PagesScreen,
     layers_screen: LayersScreen,
@@ -94,13 +94,12 @@ impl Storybook {
         let gallery_story_scroll_handle = ScrollHandle::new();
         let welcome_screen = WelcomeScreen::new(cx);
         let buttons_screen = ButtonsScreen::new(cx);
-        let vector_icons_screen = VectorIconsScreen::new(window, cx);
         let labels_screen = LabelsScreen::new(window, cx);
         let icons_screen = IconsScreen::new(window, cx);
         let menus_screen = MenusScreen::new(cx);
         let list_rows_screen = ListRowsScreen::new(cx);
         let popups_screen = PopupsScreen::new(cx);
-        let variables_screen = VariablesScreen::new(window, cx);
+        let variables_screen = VariablesStory::new(window, cx);
         let assets_screen = AssetsScreen::new(
             launch.mode == StorybookLaunchMode::ReferenceFixture,
             window,
@@ -110,6 +109,8 @@ impl Storybook {
         let timeline_screen = TimelineScreen::new(cx);
         let pages_screen = PagesScreen::new(window, cx);
         let layers_screen = LayersScreen::new(window, cx);
+        let file_inspector_screen =
+            FileInspectorScreen::new(pages_screen.panel.clone(), layers_screen.panel.clone(), cx);
         let design_screen = DesignScreen::new(window, cx);
         let toolbar_screen = ToolbarScreen::new(window, cx);
 
@@ -122,7 +123,7 @@ impl Storybook {
                 prototype: prototype_screen.panel.clone(),
                 timeline: timeline_screen.timeline.clone(),
                 toolbar: toolbar_screen.toolbar.clone(),
-                variables: variables_screen.page.clone(),
+                variables: variables_screen.screen.clone(),
             },
             cx,
         );
@@ -134,9 +135,9 @@ impl Storybook {
                 }
             }),
             cx.subscribe(
-                &variables_screen.page,
-                |story, page, action: &VariablesAction, cx| {
-                    story.variables_screen.handle_action(page, action, cx);
+                &variables_screen.screen,
+                |story, screen, action: &VariablesAction, cx| {
+                    story.variables_screen.handle_action(screen, action, cx);
                 },
             ),
             cx.subscribe(
@@ -188,27 +189,11 @@ impl Storybook {
                 },
             ),
             cx.subscribe(
-                &vector_icons_screen.node_kinds,
-                |story, panel, action: &LayersPanelAction, cx| {
-                    story
-                        .vector_icons_screen
-                        .handle_node_kinds_action(panel, action, cx);
-                },
-            ),
-            cx.subscribe(
                 &labels_screen.truncation,
                 |story, panel, action: &LayersPanelAction, cx| {
                     story
                         .labels_screen
                         .handle_truncation_action(panel, action, cx);
-                },
-            ),
-            cx.subscribe(
-                &vector_icons_screen.transport,
-                |story, timeline, action: &TimelineAction, cx| {
-                    story
-                        .vector_icons_screen
-                        .handle_transport_action(timeline, action, cx);
                 },
             ),
         ];
@@ -253,7 +238,6 @@ impl Storybook {
             knobs_user_expanded: None,
             welcome_screen,
             buttons_screen,
-            vector_icons_screen,
             labels_screen,
             icons_screen,
             menus_screen,
@@ -263,6 +247,7 @@ impl Storybook {
             assets_screen,
             prototype_screen,
             timeline_screen,
+            file_inspector_screen,
             pseudo_screen,
             pages_screen,
             layers_screen,

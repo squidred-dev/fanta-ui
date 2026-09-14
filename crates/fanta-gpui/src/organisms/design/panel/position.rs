@@ -1032,70 +1032,19 @@ impl DesignPanel {
         } else {
             cx.theme().muted_foreground
         };
-        render_icon_canvas(color, 16., move |path| match icon {
-            PositionActionIcon::AlignLeft
-            | PositionActionIcon::AlignHorizontalCenter
-            | PositionActionIcon::AlignRight => {
-                let anchor_x = match icon {
-                    PositionActionIcon::AlignLeft => 2.,
-                    PositionActionIcon::AlignHorizontalCenter => 8.,
-                    PositionActionIcon::AlignRight => 14.,
-                    _ => unreachable!(),
-                };
-                path.line((anchor_x, 1.5), (anchor_x, 14.5));
-                for (line_y, width) in [(4., 10.), (8., 7.), (12., 11.)] {
-                    let start_x = match icon {
-                        PositionActionIcon::AlignLeft => anchor_x + 2.,
-                        PositionActionIcon::AlignHorizontalCenter => anchor_x - width / 2.,
-                        PositionActionIcon::AlignRight => anchor_x - width - 2.,
-                        _ => unreachable!(),
-                    };
-                    path.line((start_x, line_y), (start_x + width, line_y));
-                }
-            }
-            PositionActionIcon::AlignTop
-            | PositionActionIcon::AlignVerticalCenter
-            | PositionActionIcon::AlignBottom => {
-                let anchor_y = match icon {
-                    PositionActionIcon::AlignTop => 2.,
-                    PositionActionIcon::AlignVerticalCenter => 8.,
-                    PositionActionIcon::AlignBottom => 14.,
-                    _ => unreachable!(),
-                };
-                path.line((1.5, anchor_y), (14.5, anchor_y));
-                for (line_x, height) in [(4., 10.), (8., 7.), (12., 11.)] {
-                    let start_y = match icon {
-                        PositionActionIcon::AlignTop => anchor_y + 2.,
-                        PositionActionIcon::AlignVerticalCenter => anchor_y - height / 2.,
-                        PositionActionIcon::AlignBottom => anchor_y - height - 2.,
-                        _ => unreachable!(),
-                    };
-                    path.line((line_x, start_y), (line_x, start_y + height));
-                }
-            }
-            PositionActionIcon::RotateClockwise90 => {
-                path.diamond(8., 9., 5.);
-                path.move_to(3., 5.);
-                path.cubic_to((12., 3.), (5., 1.), (10., 1.));
-                path.line((10., 1.), (8., 3.));
-                path.line((10., 1.), (12., 3.));
-            }
-            PositionActionIcon::FlipHorizontal => {
-                path.line((8., 1.5), (8., 14.5));
-                path.poly([(2., 4.), (6.5, 8.), (2., 12.)], true);
-                path.poly([(14., 4.), (9.5, 8.), (14., 12.)], true);
-            }
-            PositionActionIcon::FlipVertical => {
-                path.line((1.5, 8.), (14.5, 8.));
-                path.poly([(4., 2.), (8., 6.5), (12., 2.)], true);
-                path.poly([(4., 14.), (8., 9.5), (12., 14.)], true);
-            }
-            PositionActionIcon::LockAspectRatio => {
-                path.rect(2., 2., 14., 14.);
-                path.poly([(7., 5.), (5., 5.), (5., 7.)], false);
-                path.poly([(9., 11.), (11., 11.), (11., 9.)], false);
-            }
-        })
+        let icon = match icon {
+            PositionActionIcon::AlignLeft => LucideIcon::AlignHorizontalJustifyStart,
+            PositionActionIcon::AlignHorizontalCenter => LucideIcon::AlignHorizontalJustifyCenter,
+            PositionActionIcon::AlignRight => LucideIcon::AlignHorizontalJustifyEnd,
+            PositionActionIcon::AlignTop => LucideIcon::AlignVerticalJustifyStart,
+            PositionActionIcon::AlignVerticalCenter => LucideIcon::AlignVerticalJustifyCenter,
+            PositionActionIcon::AlignBottom => LucideIcon::AlignVerticalJustifyEnd,
+            PositionActionIcon::RotateClockwise90 => LucideIcon::RotateCw,
+            PositionActionIcon::FlipHorizontal => LucideIcon::FoldHorizontal,
+            PositionActionIcon::FlipVertical => LucideIcon::FoldVertical,
+            PositionActionIcon::LockAspectRatio => LucideIcon::Ratio,
+        };
+        render_lucide_icon(icon, color, 16.)
     }
 
     pub(super) fn render_position_action_button(

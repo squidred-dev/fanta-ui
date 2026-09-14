@@ -166,11 +166,7 @@ impl DesignPanel {
     }
 
     pub(super) fn render_color_styles_icon(&self, cx: &mut Context<Self>) -> AnyElement {
-        render_icon_canvas(cx.theme().foreground, 16., |path| {
-            for (center_x, center_y) in [(4., 4.), (12., 4.), (4., 12.), (12., 12.)] {
-                path.circle(center_x, center_y, 2.5);
-            }
-        })
+        render_lucide_icon(LucideIcon::Palette, cx.theme().foreground, 16.)
     }
 
     pub(super) fn normalized_style_browser_query(&self, cx: &App) -> String {
