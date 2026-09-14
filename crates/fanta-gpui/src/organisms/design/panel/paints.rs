@@ -1562,7 +1562,7 @@ impl DesignPanel {
                         .gap_1()
                         .child(div().flex_1().min_w(px(0.)).child(self.render_value_cell(
                             "stroke-weight",
-                            "—",
+                            "Weight",
                             format_number(stroke.weights.active()),
                             DesignPanelProperty::StrokeWeight,
                             DesignPanelValue::Number(stroke.weights.active() + 1.),
@@ -1605,7 +1605,7 @@ impl DesignPanel {
                                         .child(self.render_group_label("Position", cx))
                                         .child(self.render_value_cell(
                                             "stroke-align",
-                                            "▣",
+                                            "Align",
                                             stroke.align.label(),
                                             DesignPanelProperty::StrokeAlign,
                                             DesignPanelValue::StrokeAlign(
@@ -1716,7 +1716,7 @@ impl DesignPanel {
                                         )
                                         .child(self.render_value_cell(
                                             "stroke-dash-cap",
-                                            "•",
+                                            "Cap",
                                             stroke.dash_cap.label(),
                                             DesignPanelProperty::StrokeDashCap,
                                             DesignPanelValue::StrokeCap(DesignStrokeCap::Round),
@@ -1776,7 +1776,7 @@ impl DesignPanel {
                             DesignStrokeEndpointControl::Aggregate => {
                                 geometry.child(self.render_value_cell(
                                     "stroke-endpoint-cap",
-                                    "↔",
+                                    "Ends",
                                     format!("End points · {}", stroke.endpoint_cap.label()),
                                     DesignPanelProperty::StrokeEndpointCap,
                                     DesignPanelValue::StrokeCap(DesignStrokeCap::Round),
@@ -1786,7 +1786,7 @@ impl DesignPanel {
                             DesignStrokeEndpointControl::SelectedVertices => {
                                 geometry.child(self.render_value_cell(
                                     "stroke-selected-endpoint-cap",
-                                    "◆",
+                                    "Selection",
                                     format!("Selection · {}", stroke.endpoint_cap.label()),
                                     DesignPanelProperty::StrokeEndpointCap,
                                     DesignPanelValue::StrokeCap(DesignStrokeCap::Round),
@@ -1801,7 +1801,7 @@ impl DesignPanel {
                                     .gap_2()
                                     .child(self.render_value_cell(
                                         "stroke-join",
-                                        "⌁",
+                                        "Join",
                                         stroke.join.label(),
                                         DesignPanelProperty::StrokeJoin,
                                         DesignPanelValue::StrokeJoin(DesignStrokeJoin::Round),
@@ -1893,7 +1893,7 @@ impl DesignPanel {
                         };
                         geometry = geometry.child(self.render_value_cell(
                             "stroke-type",
-                            "⌁",
+                            "Type",
                             stroke.complex_stroke.label(),
                             DesignPanelProperty::StrokeType,
                             DesignPanelValue::StrokeType(next_type),
@@ -2935,7 +2935,7 @@ impl DesignPanel {
         let trigger = Button::new(SharedString::from(format!(
             "{panel_id}-selection-color-{selection_color_id}-variable"
         )))
-        .label("◇")
+        .label("Select")
         .tooltip(tooltip)
         .xsmall()
         .compact()

@@ -914,7 +914,11 @@ impl DesignPanel {
         .w(px(24.))
         .h(px(24.))
         .selected(active || binding.is_some())
-        .child(div().text_xs().child("◇"))
+        .child(render_lucide_icon(
+            LucideIcon::Variable,
+            cx.theme().foreground,
+            14.,
+        ))
         .on_activate(cx.listener(move |this, _, _, cx| {
             cx.stop_propagation();
             this.open_layout_grid_variable_browser(target_for_open.clone(), cx);
@@ -1174,7 +1178,7 @@ impl DesignPanel {
                             )
                             .child(self.render_value_cell(
                                 format!("layout-guide-kind-{index}"),
-                                "▦",
+                                "Grid",
                                 grid.kind().label(),
                                 DesignPanelProperty::LayoutGridKind(index),
                                 DesignPanelValue::GridKind(next_kind),

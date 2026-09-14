@@ -679,7 +679,7 @@ impl DesignPanel {
                     .w(px(12.))
                     .text_xs()
                     .text_color(cx.theme().muted_foreground)
-                    .child(if custom { "⛓" } else { "↕" }),
+                    .child(if custom { "Custom" } else { "V" }),
             )
             .child(div().flex_1().truncate().text_xs().child(if custom {
                 "Custom"
@@ -694,7 +694,7 @@ impl DesignPanel {
             .when_some(spacing, |row, spacing| {
                 row.child(self.render_value_cell(
                     "layout-counter-axis-spacing-value",
-                    "↕",
+                    "V",
                     format_number(spacing),
                     DesignPanelProperty::CounterAxisGap,
                     DesignPanelValue::OptionalNumber(Some(spacing + 2.)),
@@ -2491,7 +2491,7 @@ impl DesignPanel {
                     |controls| {
                         controls.child(self.render_value_cell(
                             "layout-gap",
-                            "↔",
+                            "H",
                             format_number(layout.gap),
                             DesignPanelProperty::Gap,
                             DesignPanelValue::Number(layout.gap + 2.),
@@ -2502,7 +2502,7 @@ impl DesignPanel {
                 .when(layout.mode == DesignLayoutMode::Grid, |controls| {
                     controls.child(self.render_value_cell(
                         "layout-counter-axis-gap",
-                        "↕",
+                        "V",
                         format_optional_number(layout.counter_axis_gap),
                         DesignPanelProperty::CounterAxisGap,
                         DesignPanelValue::OptionalNumber(Some(
@@ -2560,7 +2560,7 @@ impl DesignPanel {
                                 .gap_1()
                                 .child(self.render_value_cell(
                                     "layout-counter-axis-align-content",
-                                    "↕",
+                                    "V",
                                     layout.counter_axis_align_content.label(),
                                     DesignPanelProperty::CounterAxisAlignContent,
                                     DesignPanelValue::CounterAxisAlignContent(next_alignment),
@@ -2586,7 +2586,7 @@ impl DesignPanel {
                     .gap_2()
                     .child(self.render_value_cell(
                         "layout-padding-vertical",
-                        "↕",
+                        "V",
                         format_number(layout.padding[0]),
                         DesignPanelProperty::PaddingVertical,
                         DesignPanelValue::Number(layout.padding[0] + 4.),
@@ -2594,7 +2594,7 @@ impl DesignPanel {
                     ))
                     .child(self.render_value_cell(
                         "layout-padding-horizontal",
-                        "↔",
+                        "H",
                         format_number(layout.padding[3]),
                         DesignPanelProperty::PaddingHorizontal,
                         DesignPanelValue::Number(layout.padding[3] + 4.),
@@ -2663,7 +2663,7 @@ impl DesignPanel {
                                 .gap_0p5()
                                 .child(self.render_padding_mode_button(
                                     PaddingEditorMode::Axes,
-                                    "↔↕",
+                                    "H/V",
                                     "Horizontal and vertical padding",
                                     cx,
                                 ))
@@ -2797,7 +2797,7 @@ impl DesignPanel {
                         ))
                         .child(self.render_value_cell(
                             "layout-align-self",
-                            "↔",
+                            "H",
                             layout.item.align_self.label(),
                             DesignPanelProperty::LayoutAlignSelf,
                             DesignPanelValue::LayoutAlignSelf(match layout.item.align_self {
@@ -2809,7 +2809,7 @@ impl DesignPanel {
                 )
                 .child(h_flex().gap_2().child(self.render_value_cell(
                     "layout-grow",
-                    "↗",
+                    "Grow",
                     format_number(layout.item.layout_grow),
                     DesignPanelProperty::LayoutGrow,
                     DesignPanelValue::Number(layout.item.layout_grow + 1.),

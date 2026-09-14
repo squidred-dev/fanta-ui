@@ -715,9 +715,9 @@ impl DesignPanel {
             self.id
         )))
         .label(if explicit_count == 0 {
-            "◇".into()
+            "Modes".into()
         } else {
-            SharedString::from(format!("◇ {explicit_count}"))
+            SharedString::from(format!("Modes {explicit_count}"))
         })
         .tooltip("Variable modes")
         .xsmall()

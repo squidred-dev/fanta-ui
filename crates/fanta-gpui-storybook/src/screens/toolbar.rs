@@ -684,7 +684,7 @@ impl Storybook {
                         .text_xs()
                         .font_semibold()
                         .text_color(cx.theme().primary_foreground)
-                        .child("◆  3 keyframes"),
+                        .child("3 keyframes"),
                 )
             })
             .into_any_element()
@@ -720,7 +720,11 @@ impl Storybook {
                                     .left(px(68. + index as f32 * 26.))
                                     .top(px(4.))
                                     .text_color(cx.theme().selection)
-                                    .child("◆"),
+                                    .child(render_lucide_icon(
+                                        LucideIcon::Diamond,
+                                        cx.theme().selection,
+                                        14.,
+                                    )),
                             )
                             .child(
                                 div()
@@ -728,7 +732,11 @@ impl Storybook {
                                     .left(px(218. + index as f32 * 34.))
                                     .top(px(4.))
                                     .text_color(cx.theme().selection)
-                                    .child("◆"),
+                                    .child(render_lucide_icon(
+                                        LucideIcon::Diamond,
+                                        cx.theme().selection,
+                                        14.,
+                                    )),
                             ),
                     ),
             );
@@ -891,7 +899,11 @@ impl Storybook {
                                         .w(px(20.))
                                         .text_center()
                                         .text_color(cx.theme().muted_foreground)
-                                        .child("◇"),
+                                        .child(render_lucide_icon(
+                                            LucideIcon::Diamond,
+                                            cx.theme().muted_foreground,
+                                            14.,
+                                        )),
                                 )
                                 .child(div().text_sm().child("Assets")),
                         )

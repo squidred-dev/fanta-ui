@@ -3156,7 +3156,7 @@ impl PaintPicker {
                                         "{}-contrast-correct",
                                         self.id
                                     )))
-                                    .label(if passes { "✓" } else { "!" })
+                                    .label(if passes { "Pass" } else { "Fail" })
                                     .tooltip(leaf.disabled_reason.clone().unwrap_or_else(|| {
                                         if passes {
                                             "Contrast passes".into()
@@ -3719,7 +3719,7 @@ impl PaintPicker {
                         .child(self.render_gradient_kind_selector(paint, cx))
                         .child(
                             Button::new(SharedString::from(format!("{}-gradient-flip", self.id)))
-                                .label("↔")
+                                .icon(IconName::Replace)
                                 .tooltip("Flip gradient")
                                 .xsmall()
                                 .compact()

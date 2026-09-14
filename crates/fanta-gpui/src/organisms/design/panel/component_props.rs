@@ -709,7 +709,7 @@ impl DesignPanel {
             property.id,
             target.field.api_name()
         )))
-        .label("◇")
+        .label("Select")
         .tooltip(trigger_tooltip)
         .xsmall()
         .compact()
@@ -3346,7 +3346,11 @@ impl DesignPanel {
                                     .items_center()
                                     .justify_center()
                                     .text_color(cx.theme().selection)
-                                    .child("◇"),
+                                    .child(render_lucide_icon(
+                                        LucideIcon::Diamond,
+                                        cx.theme().selection,
+                                        16.,
+                                    )),
                             )
                             .child(
                                 div()
@@ -3388,7 +3392,11 @@ impl DesignPanel {
                                     "component-property-instance-preferred-{}",
                                     reference.id
                                 )))
-                                .label(if is_preferred { "✓" } else { "+" })
+                                .icon(if is_preferred {
+                                    IconName::Check
+                                } else {
+                                    IconName::Plus
+                                })
                                 .tooltip("Preferred instance")
                                 .xsmall()
                                 .compact()
@@ -3581,11 +3589,7 @@ impl DesignPanel {
                             "component-property-slot-preferred-{}",
                             reference.id
                         )))
-                        .label(format!(
-                            "{}  {}",
-                            if selected { "✓" } else { "◇" },
-                            reference.name
-                        ))
+                        .label(reference.name.clone())
                         .xsmall()
                         .compact()
                         .ghost()
@@ -3970,7 +3974,11 @@ impl DesignPanel {
                                     .items_center()
                                     .justify_center()
                                     .text_color(cx.theme().selection)
-                                    .child("◇"),
+                                    .child(render_lucide_icon(
+                                        LucideIcon::Diamond,
+                                        cx.theme().selection,
+                                        16.,
+                                    )),
                             )
                             .child(
                                 div()
@@ -4016,7 +4024,11 @@ impl DesignPanel {
                                         "component-property-edit-instance-preferred-{}",
                                         reference.id
                                     )))
-                                    .label(if is_preferred { "✓" } else { "+" })
+                                    .icon(if is_preferred {
+                                        IconName::Check
+                                    } else {
+                                        IconName::Plus
+                                    })
                                     .tooltip("Preferred instance")
                                     .xsmall()
                                     .compact()
@@ -4220,11 +4232,7 @@ impl DesignPanel {
                             "component-property-edit-slot-preferred-{}",
                             reference.id
                         )))
-                        .label(format!(
-                            "{}  {}",
-                            if selected { "✓" } else { "◇" },
-                            reference.name
-                        ))
+                        .label(reference.name.clone())
                         .xsmall()
                         .compact()
                         .ghost()
@@ -4709,11 +4717,11 @@ impl DesignPanel {
                             .text_xs()
                             .text_color(cx.theme().selection)
                             .child(match kind {
-                                DesignComponentPropertyKind::Variant => "◆",
+                                DesignComponentPropertyKind::Variant => "V",
                                 DesignComponentPropertyKind::Text => "T",
-                                DesignComponentPropertyKind::Boolean => "✓",
-                                DesignComponentPropertyKind::InstanceSwap => "◇",
-                                DesignComponentPropertyKind::Slot => "◈",
+                                DesignComponentPropertyKind::Boolean => "B",
+                                DesignComponentPropertyKind::InstanceSwap => "I",
+                                DesignComponentPropertyKind::Slot => "S",
                             }),
                     );
                 if editing {
@@ -5065,7 +5073,11 @@ impl DesignPanel {
                                 this.emit_component_authoring_action(action, cx);
                             });
                         })
-                        .child(div().w(px(16.)).text_color(cx.theme().selection).child("◇"))
+                        .child(render_lucide_icon(
+                            LucideIcon::Diamond,
+                            cx.theme().selection,
+                            16.,
+                        ))
                         .child(
                             v_flex()
                                 .flex_1()
@@ -5151,7 +5163,13 @@ impl DesignPanel {
                     div()
                         .w(px(14.))
                         .text_color(cx.theme().warning)
-                        .child(if unmet { "⚠" } else { "" }),
+                        .when(unmet, |warning| {
+                            warning.child(render_lucide_icon(
+                                LucideIcon::TriangleAlert,
+                                cx.theme().warning,
+                                14.,
+                            ))
+                        }),
                 )
                 .child(div().flex_1().font_semibold().child("Limits"))
                 .child(
@@ -5183,9 +5201,9 @@ impl DesignPanel {
                 .bg(cx.theme().secondary);
             for guideline in guidelines {
                 let (icon, color) = match guideline.status {
-                    SlotLimitGuidelineStatus::Met => ("✓", cx.theme().green),
-                    SlotLimitGuidelineStatus::Unmet => ("⚠", cx.theme().warning),
-                    SlotLimitGuidelineStatus::Unknown => ("–", cx.theme().muted_foreground),
+                    SlotLimitGuidelineStatus::Met => ("Met", cx.theme().green),
+                    SlotLimitGuidelineStatus::Unmet => ("Unmet", cx.theme().warning),
+                    SlotLimitGuidelineStatus::Unknown => ("Unknown", cx.theme().muted_foreground),
                 };
                 details = details.child(
                     h_flex()
@@ -5266,12 +5284,14 @@ impl DesignPanel {
                         .border_1()
                         .border_color(cx.theme().border)
                         .bg(cx.theme().secondary)
-                        .child(div().text_color(cx.theme().selection).child(
+                        .child(render_lucide_icon(
                             if role.uses_instance_section() {
-                                "◇"
+                                LucideIcon::Diamond
                             } else {
-                                "◆"
+                                LucideIcon::Component
                             },
+                            cx.theme().selection,
+                            16.,
                         ))
                         .child(
                             v_flex()
@@ -5314,7 +5334,11 @@ impl DesignPanel {
                 content = content.child(
                     h_flex()
                         .gap_2()
-                        .child(div().text_color(cx.theme().selection).child("↗"))
+                        .child(render_lucide_icon(
+                            LucideIcon::ExternalLink,
+                            cx.theme().selection,
+                            16.,
+                        ))
                         .child(
                             div()
                                 .flex_1()
@@ -5366,7 +5390,11 @@ impl DesignPanel {
                         .pt_2()
                         .border_t_1()
                         .border_color(cx.theme().border)
-                        .child(div().text_color(cx.theme().selection).child("◇"))
+                        .child(render_lucide_icon(
+                            LucideIcon::Diamond,
+                            cx.theme().selection,
+                            16.,
+                        ))
                         .child(
                             v_flex()
                                 .flex_1()
@@ -5459,11 +5487,11 @@ impl DesignPanel {
                 _ => self.render_value_cell(
                     format!("component-property-{index}"),
                     match kind {
-                        DesignComponentPropertyKind::Variant => "◆",
+                        DesignComponentPropertyKind::Variant => "V",
                         DesignComponentPropertyKind::Text => "T",
-                        DesignComponentPropertyKind::Boolean => "✓",
-                        DesignComponentPropertyKind::InstanceSwap => "◇",
-                        DesignComponentPropertyKind::Slot => "◈",
+                        DesignComponentPropertyKind::Boolean => "B",
+                        DesignComponentPropertyKind::InstanceSwap => "I",
+                        DesignComponentPropertyKind::Slot => "S",
                     },
                     value.display_value(),
                     DesignPanelProperty::ComponentProperty(index),
@@ -5588,7 +5616,11 @@ impl DesignPanel {
                         .gap_1()
                         .text_xs()
                         .text_color(cx.theme().selection)
-                        .child("↗")
+                        .child(render_lucide_icon(
+                            LucideIcon::ExternalLink,
+                            cx.theme().selection,
+                            14.,
+                        ))
                         .child(link.label.clone()),
                 );
             }
@@ -5728,7 +5760,11 @@ impl DesignPanel {
                         property_content = property_content.child(
                             h_flex()
                                 .gap_2()
-                                .child(div().text_color(cx.theme().selection).child("◇"))
+                                .child(render_lucide_icon(
+                                    LucideIcon::Diamond,
+                                    cx.theme().selection,
+                                    16.,
+                                ))
                                 .child(
                                     div()
                                         .flex_1()

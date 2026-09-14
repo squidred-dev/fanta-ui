@@ -1264,7 +1264,7 @@ impl DesignPanel {
                     .gap_1()
                     .child(self.render_value_cell(
                         format!("export-sizing-{index}"),
-                        "↔",
+                        "Size",
                         configuration.sizing.to_string(),
                         DesignPanelProperty::ExportSizing(index),
                         DesignPanelValue::ExportSizing(configuration.sizing),
@@ -1272,7 +1272,7 @@ impl DesignPanel {
                     ))
                     .child(self.render_value_cell(
                         format!("export-format-{index}"),
-                        "▧",
+                        "Format",
                         configuration.format().label(),
                         DesignPanelProperty::ExportFormat(index),
                         DesignPanelValue::ExportFormat(configuration.format()),

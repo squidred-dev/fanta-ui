@@ -101,7 +101,7 @@ impl DesignPanel {
                 has_geometry = true;
                 rows = rows.child(self.render_value_cell(
                     "boolean-operation",
-                    "∩",
+                    "Op",
                     operation.label(),
                     DesignPanelProperty::BooleanOperation,
                     DesignPanelValue::BooleanOperation(DesignBooleanOperation::Subtract),
@@ -146,7 +146,7 @@ impl DesignPanel {
                 ))
                 .child(self.render_value_cell(
                     "mask-type",
-                    "◐",
+                    "Mask",
                     mask_type.label(),
                     DesignPanelProperty::MaskType,
                     DesignPanelValue::MaskType(DesignMaskType::Luminance),
@@ -202,7 +202,7 @@ impl DesignPanel {
                 )
                 .child(self.render_value_cell(
                     "arc-inner",
-                    "○",
+                    "R",
                     format!("{}%", format_number(arc.inner_radius * 100.)),
                     DesignPanelProperty::ArcInnerRadius,
                     DesignPanelValue::Ratio((arc.inner_radius + 0.1).min(1.)),
@@ -292,7 +292,7 @@ impl DesignPanel {
         if section.capabilities.set_dev_status {
             content = content.child(self.render_value_cell(
                 "section-dev-status",
-                "✓",
+                "Status",
                 status_label,
                 DesignPanelProperty::SectionDevStatus,
                 DesignPanelValue::SectionDevStatus(next_status),
@@ -409,7 +409,7 @@ impl DesignPanel {
                             .when_some(modifier.mode.axis(), |row, axis| {
                                 row.child(self.render_value_cell(
                                     format!("transform-axis-{index}"),
-                                    "↔",
+                                    "Axis",
                                     axis.label(),
                                     DesignPanelProperty::TransformRepeatAxis(index),
                                     DesignPanelValue::RepeatAxis(match axis {
@@ -444,7 +444,7 @@ impl DesignPanel {
                     )
                     .child(self.render_value_cell(
                         format!("transform-offset-{index}"),
-                        "↔",
+                        "Offset",
                         format!(
                             "{}{}",
                             format_number(modifier.offset),

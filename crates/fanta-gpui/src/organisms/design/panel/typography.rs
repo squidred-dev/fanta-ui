@@ -1779,7 +1779,7 @@ impl DesignPanel {
                         .collect();
                     let decoration_options = DesignTextDecoration::ALL
                         .into_iter()
-                        .zip(["—", "U̲", "S̶"])
+                        .zip(["None", "Underline", "Strike"])
                         .map(|(candidate, label)| {
                             (
                                 SharedString::from(label),
@@ -1796,7 +1796,7 @@ impl DesignPanel {
                         DesignTextCase::SmallCaps,
                     ]
                     .into_iter()
-                    .zip(["—", "AG", "ag", "Ag", "Aɢ"])
+                    .zip(["None", "AG", "ag", "Ag", "Aɢ"])
                     .map(|(candidate, label)| {
                         (
                             SharedString::from(label),
@@ -1807,7 +1807,7 @@ impl DesignPanel {
                     .collect();
                     let list_options = DesignTextList::ALL
                         .into_iter()
-                        .zip(["—", "•≡", "1≡"])
+                        .zip(["None", "Bullets", "Numbers"])
                         .map(|(candidate, label)| {
                             (
                                 SharedString::from(label),
@@ -1829,7 +1829,7 @@ impl DesignPanel {
                         .collect();
                     let truncate_options = [
                         (
-                            SharedString::from("—"),
+                            SharedString::from("None"),
                             !truncate,
                             DesignPanelValue::Bool(false),
                         ),
@@ -2007,12 +2007,12 @@ impl DesignPanel {
                     let bool_options = |enabled: bool| {
                         vec![
                             (
-                                SharedString::from("—"),
+                                SharedString::from("Off"),
                                 !enabled,
                                 DesignPanelValue::Bool(false),
                             ),
                             (
-                                SharedString::from("✓"),
+                                SharedString::from("On"),
                                 enabled,
                                 DesignPanelValue::Bool(true),
                             ),
@@ -2020,7 +2020,7 @@ impl DesignPanel {
                     };
                     let case_options = DesignTextCase::ALL
                         .into_iter()
-                        .zip(["—", "AG", "ag", "Ag", "Aɢ", "Aɢ⁺"])
+                        .zip(["None", "AG", "ag", "Ag", "Aɢ", "Aɢ⁺"])
                         .map(|(candidate, label)| {
                             (
                                 SharedString::from(label),
@@ -2583,7 +2583,7 @@ impl DesignPanel {
                                 .child(self.render_group_label("Size", cx))
                                 .child(self.render_value_cell(
                                     "font-size",
-                                    "↕",
+                                    "Size",
                                     format_number(typography.size),
                                     DesignPanelProperty::FontSize,
                                     DesignPanelValue::Number((typography.size + 1.).max(1.)),
@@ -2602,7 +2602,7 @@ impl DesignPanel {
                                 .child(self.render_group_label("Line height", cx))
                                 .child(self.render_value_cell(
                                     "line-height",
-                                    "↕",
+                                    "Line",
                                     format_line_height(typography.line_height),
                                     DesignPanelProperty::LineHeight,
                                     DesignPanelValue::LineHeight(next_line_height(
@@ -2619,7 +2619,7 @@ impl DesignPanel {
                                 .child(self.render_group_label("Letter spacing", cx))
                                 .child(self.render_value_cell(
                                     "letter-spacing",
-                                    "↔",
+                                    "Track",
                                     format_letter_spacing(typography.letter_spacing),
                                     DesignPanelProperty::LetterSpacing,
                                     DesignPanelValue::LetterSpacing(next_letter_spacing(

@@ -322,7 +322,7 @@ impl DesignPanel {
                     DesignSmartSelectionAxis::Horizontal => "smart-selection-horizontal-spacing",
                     DesignSmartSelectionAxis::Vertical => "smart-selection-vertical-spacing",
                 },
-                axis.glyph(),
+                axis.short_label(),
                 value,
                 property,
                 DesignPanelValue::Number(next),
@@ -351,10 +351,10 @@ impl DesignPanel {
         };
         let (id_suffix, label) = match operation {
             DesignSmartSelectionOperation::DistributeHorizontal => {
-                ("smart-selection-distribute-horizontal", "↔")
+                ("smart-selection-distribute-horizontal", "H")
             }
             DesignSmartSelectionOperation::DistributeVertical => {
-                ("smart-selection-distribute-vertical", "↕")
+                ("smart-selection-distribute-vertical", "V")
             }
             DesignSmartSelectionOperation::TidyUp => ("smart-selection-tidy-up", "Tidy up"),
         };
@@ -849,7 +849,7 @@ impl DesignPanel {
                     .gap_2()
                     .child(self.render_value_cell(
                         "horizontal-constraint",
-                        "↔",
+                        "H",
                         self.node.horizontal_constraint.label(),
                         DesignPanelProperty::HorizontalConstraint,
                         DesignPanelValue::Constraint(horizontal),
@@ -857,7 +857,7 @@ impl DesignPanel {
                     ))
                     .child(self.render_value_cell(
                         "vertical-constraint",
-                        "↕",
+                        "V",
                         self.node.vertical_constraint.label(),
                         DesignPanelProperty::VerticalConstraint,
                         DesignPanelValue::Constraint(vertical),

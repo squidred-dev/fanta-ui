@@ -663,7 +663,7 @@ impl DesignPanel {
                 .gap_2()
                 .child(self.render_value_cell(
                     "polygon-count",
-                    "△",
+                    "Sides",
                     geometry.point_count.to_string(),
                     DesignPanelProperty::PolygonCount,
                     DesignPanelValue::Integer(i64::from(
@@ -677,7 +677,7 @@ impl DesignPanel {
                 .gap_2()
                 .child(self.render_value_cell(
                     "star-points",
-                    "☆",
+                    "Points",
                     geometry.point_count.to_string(),
                     DesignPanelProperty::StarPointCount,
                     DesignPanelValue::Integer(i64::from(
@@ -722,7 +722,7 @@ impl DesignPanel {
                 )
                 .child(self.render_value_cell(
                     "arc-ratio",
-                    "○",
+                    "R",
                     format!("{}%", format_number(arc.inner_radius * 100.)),
                     DesignPanelProperty::ArcInnerRadius,
                     DesignPanelValue::Ratio((arc.inner_radius + 0.1).min(1.)),
@@ -802,7 +802,7 @@ impl DesignPanel {
             content = content.child(self.render_group_label("Corners", cx)).child(
                 self.render_value_cell(
                     "draw-independent-corners",
-                    "⁙",
+                    "Corners",
                     if self.node.independent_corners {
                         "Individual"
                     } else {
@@ -820,7 +820,7 @@ impl DesignPanel {
                 .child(self.render_group_label("Corner smoothing", cx))
                 .child(self.render_value_cell(
                     "draw-corner-smoothing",
-                    "⌁",
+                    "Smooth",
                     format!("{}%", format_number(smoothing * 100.)),
                     DesignPanelProperty::CornerSmoothing,
                     DesignPanelValue::Ratio((smoothing + 0.1).min(1.)),
@@ -887,7 +887,7 @@ impl DesignPanel {
                 .child(self.render_group_label("Blend mode", cx))
                 .child(self.render_value_cell(
                     "draw-blend-mode",
-                    "◇",
+                    "Blend",
                     self.node.blend_mode.label(),
                     DesignPanelProperty::BlendMode,
                     DesignPanelValue::BlendMode(next_blend),
@@ -978,7 +978,7 @@ impl DesignPanel {
             content = content.child(self.render_group_label("Corners", cx)).child(
                 self.render_value_cell(
                     "independent-corners",
-                    "⁙",
+                    "Corners",
                     if self.node.independent_corners {
                         "Individual"
                     } else {
@@ -996,7 +996,7 @@ impl DesignPanel {
                 .child(self.render_group_label("Corner smoothing", cx))
                 .child(self.render_value_cell(
                     "corner-smoothing",
-                    "⌁",
+                    "Smooth",
                     format!("{}%", format_number(smoothing * 100.)),
                     DesignPanelProperty::CornerSmoothing,
                     DesignPanelValue::Ratio((smoothing + 0.1).min(1.)),
@@ -1082,7 +1082,7 @@ impl DesignPanel {
             .gap_2()
             .child(self.render_value_cell(
                 "mask-type",
-                "◐",
+                "Mask",
                 mask_type.label(),
                 DesignPanelProperty::MaskType,
                 DesignPanelValue::MaskType(next_mask_type),

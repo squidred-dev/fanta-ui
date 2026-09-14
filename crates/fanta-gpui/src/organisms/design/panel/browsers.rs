@@ -402,7 +402,7 @@ impl DesignPanel {
             "{}-property-variable-{property:?}",
             panel_id
         )))
-        .label("◇")
+        .label("Select")
         .tooltip(trigger_tooltip)
         .xsmall()
         .compact()
