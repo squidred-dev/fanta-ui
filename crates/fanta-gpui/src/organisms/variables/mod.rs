@@ -554,7 +554,22 @@ impl VariablesPage {
     }
 
     fn render_table(&self, cx: &mut Context<Self>) -> AnyElement {
-        let mut header = h_flex()
+        let mut mode_headers = h_flex().h_full();
+        for mode in &self.view_data.modes {
+            mode_headers = mode_headers.child(
+                h_flex()
+                    .w(px(VALUE_COLUMN_WIDTH))
+                    .h_full()
+                    .flex_none()
+                    .px(px(16.))
+                    .border_r_1()
+                    .border_color(cx.theme().border)
+                    .font_semibold()
+                    .text_size(px(11.))
+                    .child(mode.name.clone()),
+            );
+        }
+        let header = h_flex()
             .h(px(41.))
             .w_full()
             .border_b_1()
@@ -571,32 +586,24 @@ impl VariablesPage {
                     .font_semibold()
                     .text_size(px(11.))
                     .child("Name"),
-            );
-        // The mode headers clip inside a shrinkable region so the add-mode
-        // cell stays pinned inside the page on narrow tables (the body's
-        // value columns scroll horizontally below).
-        let mut mode_headers = h_flex().h_full().flex_1().min_w(px(0.)).overflow_hidden();
-        for mode in &self.view_data.modes {
-            mode_headers = mode_headers.child(
-                h_flex()
-                    .w(px(VALUE_COLUMN_WIDTH))
+            )
+            .child(
+                div()
+                    .flex_1()
+                    .min_w(px(0.))
                     .h_full()
-                    .flex_none()
-                    .px(px(16.))
-                    .border_r_1()
-                    .border_color(cx.theme().border)
-                    .font_semibold()
-                    .text_size(px(11.))
-                    .child(mode.name.clone()),
-            );
-        }
-        header = header.child(mode_headers).child(
+                    .overflow_x_scroll()
+                    .track_scroll(&self.table_horizontal_scroll_handle)
+                    .child(mode_headers),
+            )
+            .child(
             div()
-                .id(SharedString::from(format!("{}-add-mode", self.id)))
-                .debug_selector(|| "variables-add-mode".to_owned())
+                .id(SharedString::from(format!("{}-create-variable", self.id)))
+                .debug_selector(|| "variables-create-variable".to_owned())
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
-                .size(px(40.))
+                .w(px(ACTIONS_COLUMN_WIDTH))
+                .h_full()
                 .flex_none()
                 .items_center()
                 .justify_center()
@@ -606,7 +613,7 @@ impl VariablesPage {
                 .hover(|style| style.bg(cx.theme().accent))
                 .focus(|style| style.border_1().border_color(cx.theme().selection))
                 .on_activate(cx.listener(|_, _, _, cx| {
-                    cx.emit(VariablesAction::AddModeRequested);
+                    cx.emit(VariablesAction::CreateVariableRequested);
                 }))
                 .child(Icon::new(IconName::Plus).small()),
         );
@@ -618,18 +625,15 @@ impl VariablesPage {
             .iter()
             .find(|group| group.id == self.view_data.selected_group_id)
             .is_some_and(|group| group.is_aggregate);
-        let mut rows = v_flex().w_full();
+        let mut names = v_flex().w(px(self.name_column_width())).flex_none();
+        let mut values = v_flex();
+        let mut actions = v_flex().w(px(ACTIONS_COLUMN_WIDTH)).flex_none();
         for variable in self.view_data.variables.iter().filter(|variable| {
             (selected_group_is_aggregate || variable.group_id == self.view_data.selected_group_id)
                 && (query.is_empty() || variable.name.to_lowercase().contains(&query))
         }) {
-            let mut row = h_flex()
-                .h(px(41.))
-                .w_full()
-                .border_b_1()
-                .border_color(cx.theme().border)
-                .child(
-                    h_flex()
+            names = names.child(
+                h_flex()
                         .debug_selector({
                             let variable_id = variable.id.clone();
                             move || format!("variables-name-cell-{variable_id}")
@@ -648,12 +652,41 @@ impl VariablesPage {
                                 .text_color(cx.theme().muted_foreground)
                                 .child(Self::render_kind_glyph(variable.kind, cx)),
                         )
+                        .border_b_1()
                         .child(div().truncate().child(variable.name.clone())),
                 );
+            let mut value_row = h_flex().h(px(41.)).border_b_1().border_color(cx.theme().border);
             for mode in &self.view_data.modes {
-                row = row.child(self.render_value(variable, mode, cx));
+                value_row = value_row.child(self.render_value(variable, mode, cx));
             }
-            rows = rows.child(row);
+            values = values.child(value_row);
+            let variable_id = variable.id.clone();
+            actions = actions.child(
+                div()
+                    .id(SharedString::from(format!("{}-variable-settings-{}", self.id, variable.id)))
+                    .debug_selector({
+                        let variable_id = variable.id.clone();
+                        move || format!("variables-variable-settings-{variable_id}")
+                    })
+                    .key_context(CONTROL_KEY_CONTEXT)
+                    .tab_index(0)
+                    .w(px(ACTIONS_COLUMN_WIDTH))
+                    .h(px(41.))
+                    .items_center()
+                    .justify_center()
+                    .border_l_1()
+                    .border_b_1()
+                    .border_color(cx.theme().border)
+                    .cursor_pointer()
+                    .hover(|style| style.bg(cx.theme().accent))
+                    .focus(|style| style.border_1().border_color(cx.theme().selection))
+                    .on_activate(cx.listener(move |_, _, _, cx| {
+                        cx.emit(VariablesAction::VariableSettingsRequested {
+                            variable_id: variable_id.clone(),
+                        });
+                    }))
+                    .child(Icon::new(IconName::Settings2).xsmall()),
+            );
         }
 
         v_flex()
@@ -666,30 +699,22 @@ impl VariablesPage {
                     .id(SharedString::from(format!("{}-table-scroll", self.id)))
                     .flex_1()
                     .min_h(px(0.))
-                    .overflow_scroll()
+                    .overflow_y_scroll()
                     .track_scroll(&self.table_scroll_handle)
-                    .child(rows),
-            )
-            .child(
-                h_flex()
-                    .id(SharedString::from(format!("{}-create-variable", self.id)))
-                    .debug_selector(|| "variables-create-variable".to_owned())
-                    .key_context(CONTROL_KEY_CONTEXT)
-                    .tab_index(0)
-                    .h(px(41.))
-                    .w_full()
-                    .px(px(16.))
-                    .gap_3()
-                    .border_t_1()
-                    .border_color(cx.theme().border)
-                    .cursor_pointer()
-                    .hover(|style| style.bg(cx.theme().accent))
-                    .focus(|style| style.border_1().border_color(cx.theme().selection))
-                    .on_activate(cx.listener(|_, _, _, cx| {
-                        cx.emit(VariablesAction::CreateVariableRequested);
-                    }))
-                    .child(Icon::new(IconName::Plus).small())
-                    .child(div().text_size(px(11.)).child("Create variable")),
+                    .child(
+                        h_flex()
+                            .items_start()
+                            .child(names)
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w(px(0.))
+                                    .overflow_x_scroll()
+                                    .track_scroll(&self.table_horizontal_scroll_handle)
+                                    .child(values),
+                            )
+                            .child(actions),
+                    ),
             )
             .into_any_element()
     }
