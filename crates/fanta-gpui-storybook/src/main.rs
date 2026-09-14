@@ -5,7 +5,11 @@ mod design_host;
 mod fixtures;
 mod gallery;
 mod screens;
-use std::collections::{HashMap, HashSet};
+mod themes;
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use configuration::*;
 use design_host::*;
@@ -22,7 +26,7 @@ use gpui::{
 };
 use gpui_component::{
     ActiveTheme as _, Icon, IconName, Root, Selectable as _, Sizable as _, StyledExt as _, Theme,
-    ThemeMode,
+    ThemeConfig, ThemeMode,
     button::{Button, ButtonCustomVariant, ButtonVariants as _},
     h_flex,
     input::{Input, InputEvent, InputState},
@@ -37,6 +41,7 @@ use screens::{
     TimelineScreen, ToolbarScreen, VariablesScreen, VectorIconsScreen, WelcomeScreen,
     viewport::StoryViewport,
 };
+use themes::{apply_zed_theme, initial_zed_theme_index, zed_themes};
 
 gpui::actions!(fanta_storybook, [OpenStoryWindow, ToggleGalleryTheme]);
 
@@ -47,6 +52,8 @@ struct Storybook {
     launch_mode: StorybookLaunchMode,
     story_windows: HashMap<WindowId, StoryKind>,
     gallery_theme_mode: ThemeMode,
+    gallery_theme_index: usize,
+    gallery_themes: Vec<Rc<ThemeConfig>>,
     gallery_search_input: Entity<InputState>,
     gallery_menu_bar: Entity<AppMenuBar>,
     gallery_story_scroll_handle: ScrollHandle,
@@ -225,11 +232,18 @@ impl Storybook {
             }
         }));
 
+        let gallery_themes = zed_themes();
+        let gallery_theme_index = gallery_themes
+            .iter()
+            .position(|theme| theme.name == *Theme::global(cx).theme_name())
+            .unwrap_or_else(|| initial_zed_theme_index(Theme::global(cx).mode));
         let storybook = Self {
             active_story: launch.story,
             launch_mode: launch.mode,
             story_windows: HashMap::new(),
             gallery_theme_mode: Theme::global(cx).mode,
+            gallery_theme_index,
+            gallery_themes,
             gallery_search_input,
             gallery_menu_bar,
             gallery_story_scroll_handle,
@@ -358,7 +372,11 @@ fn main() {
             gpui_component::init(cx);
             fanta_gpui::init(cx);
             match launch.mode {
-                StorybookLaunchMode::Gallery => Theme::change(storybook_theme_from_env(), None, cx),
+                StorybookLaunchMode::Gallery => {
+                    let index = initial_zed_theme_index(storybook_theme_from_env());
+                    let themes = zed_themes();
+                    apply_zed_theme(&themes[index], cx);
+                }
                 StorybookLaunchMode::ReferenceFixture => {
                     Theme::change(ThemeMode::Dark, None, cx);
                     apply_figma_ui3_storybook_theme(cx);

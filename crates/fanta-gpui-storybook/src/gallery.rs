@@ -98,12 +98,9 @@ impl Storybook {
         if self.launch_mode != StorybookLaunchMode::Gallery {
             return;
         }
-        self.gallery_theme_mode = if self.gallery_theme_mode.is_dark() {
-            ThemeMode::Light
-        } else {
-            ThemeMode::Dark
-        };
-        Theme::change(self.gallery_theme_mode, None, cx);
+        self.gallery_theme_index = (self.gallery_theme_index + 1) % self.gallery_themes.len();
+        apply_zed_theme(&self.gallery_themes[self.gallery_theme_index], cx);
+        self.gallery_theme_mode = Theme::global(cx).mode;
         cx.refresh_windows();
         cx.notify();
     }
@@ -366,12 +363,8 @@ impl Storybook {
                                         })
                                         .size_4(),
                                     )
-                                    .label(if self.gallery_theme_mode.is_dark() {
-                                        "Dark"
-                                    } else {
-                                        "Light"
-                                    })
-                                    .tooltip("Toggle the active Gallery theme")
+                                    .label(self.gallery_themes[self.gallery_theme_index].name.clone())
+                                    .tooltip("Switch to the next bundled Zed theme")
                                     .on_click(cx.listener(|this, _, _, cx| {
                                         this.toggle_gallery_theme(cx);
                                     })),
@@ -542,9 +535,9 @@ impl Storybook {
                                 .flex_none()
                                 .text_color(cx.theme().muted_foreground)
                                 .child(format!(
-                                    "{} stories · {} theme · typed host intents",
+                                    "{} stories · {} · typed host intents",
                                     screens::registry().len(),
-                                    self.gallery_theme_mode.name()
+                                    self.gallery_themes[self.gallery_theme_index].name
                                 )),
                         )
                     }),

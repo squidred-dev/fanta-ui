@@ -1697,6 +1697,7 @@ dependencies = [
  "gpui-component-assets",
  "gpui_platform",
  "rust-embed",
+ "serde_json",
 ]
 
 [[package]]
@@ -3485,12 +3486,15 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bindgen",
+ "block",
  "core-foundation 0.10.0",
  "core-video",
  "ctor",
  "foreign-types",
+ "futures",
  "metal",
  "objc",
+ "tempfile",
 ]
 
 [[package]]

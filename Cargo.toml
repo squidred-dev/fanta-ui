@@ -24,6 +24,7 @@ gpui_platform = { path = "../fanta-edit/crates/gpui_platform", features = ["font
 # gpui-component-assets' derive uses include/exclude filters; this direct entry
 # intentionally unifies rust-embed's feature set for the storybook build.
 rust-embed = { version = "8.12", features = ["include-exclude"] }
+serde_json = "1"
 
 fanta-gpui = { path = "crates/fanta-gpui" }
 
