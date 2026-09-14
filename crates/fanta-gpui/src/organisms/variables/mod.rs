@@ -7,7 +7,9 @@ use gpui::{
     canvas, div, prelude::FluentBuilder as _, px, rgba,
 };
 use gpui_component::{
-    ActiveTheme as _, Icon, IconName, Sizable as _, StyledExt as _, h_flex,
+    ActiveTheme as _, Icon, IconName, Sizable as _, StyledExt as _,
+    button::Button,
+    h_flex,
     input::{Input, InputEvent, InputState},
     scroll::Scrollbar,
     v_flex,
@@ -15,8 +17,8 @@ use gpui_component::{
 
 use crate::{
     atoms::{
-        ActivateEvent, CONTROL_KEY_CONTEXT, ControlExt as _, ControlIcon, icon_button,
-        render_control_icon,
+        ActivateEvent, ButtonControlExt as _, CONTROL_KEY_CONTEXT, ControlExt as _, ControlIcon,
+        icon_button, render_control_icon,
     },
     color::parse_hex_rgba,
     molecules::menu_item,
@@ -751,12 +753,15 @@ impl VariablesPage {
     }
 
     fn render_empty_state(&self, search_empty: bool, cx: &mut Context<Self>) -> AnyElement {
+        let page = cx.entity();
         let mut state = v_flex()
+            .debug_selector(|| "variables-empty-state".to_owned())
             .absolute()
             .top(px(41.))
             .right_0()
             .bottom(px(41.))
             .left_0()
+            .p(px(16.))
             .items_center()
             .justify_center()
             .gap_4()
@@ -764,7 +769,10 @@ impl VariablesPage {
             .occlude()
             .child(
                 div()
-                    .text_size(px(18.))
+                    .debug_selector(|| "variables-empty-title".to_owned())
+                    .max_w_full()
+                    .text_center()
+                    .text_size(px(14.))
                     .font_semibold()
                     .child(if search_empty {
                         "No variables match search"
@@ -774,6 +782,12 @@ impl VariablesPage {
             )
             .child(
                 div()
+                    .debug_selector(|| "variables-empty-description".to_owned())
+                    .w_full()
+                    .max_w(px(330.))
+                    .text_center()
+                    .text_size(px(12.))
+                    .line_height(px(16.))
                     .text_color(cx.theme().muted_foreground)
                     .child(if search_empty {
                         "Variables that don’t match the current search and filters are hidden."
@@ -782,67 +796,57 @@ impl VariablesPage {
                     }),
             );
         if search_empty {
+            let page = page.clone();
             state = state.child(
-                h_flex()
-                    .id(SharedString::from(format!(
-                        "{}-clear-empty-search",
-                        self.id
-                    )))
-                    .debug_selector(|| "variables-clear-empty-search".to_owned())
-                    .key_context(CONTROL_KEY_CONTEXT)
-                    .tab_index(0)
-                    .h(px(32.))
-                    .px_3()
-                    .rounded(px(6.))
-                    .border_1()
-                    .border_color(cx.theme().border)
-                    .cursor_pointer()
-                    .hover(|style| style.bg(cx.theme().accent))
-                    .on_activate(cx.listener(|this, _, window, cx| {
-                        this.clear_search(window, cx);
-                    }))
-                    .child("Clear search"),
+                Button::new(SharedString::from(format!(
+                    "{}-clear-empty-search",
+                    self.id
+                )))
+                .debug_selector(|| "variables-clear-empty-search".to_owned())
+                .mt(px(8.))
+                .label("Clear search")
+                .icon(IconName::CircleX)
+                .small()
+                .compact()
+                .outline()
+                .on_activate(move |_, window, cx| {
+                    page.update(cx, |this, cx| this.clear_search(window, cx));
+                }),
             );
         } else {
+            let page_for_create = page.clone();
+            let page_for_import = page;
             state = state.child(
                 h_flex()
+                    .max_w_full()
                     .gap_2()
+                    .flex_wrap()
+                    .justify_center()
                     .child(
-                        h_flex()
-                            .id(SharedString::from(format!("{}-empty-create", self.id)))
+                        Button::new(SharedString::from(format!("{}-empty-create", self.id)))
                             .debug_selector(|| "variables-empty-create".to_owned())
-                            .key_context(CONTROL_KEY_CONTEXT)
-                            .tab_index(0)
-                            .h(px(32.))
-                            .px_3()
-                            .gap_2()
-                            .rounded(px(6.))
-                            .bg(cx.theme().primary)
-                            .text_color(cx.theme().primary_foreground)
-                            .cursor_pointer()
-                            .on_activate(cx.listener(|_, _, _, cx| {
-                                cx.emit(VariablesAction::CreateVariableRequested);
-                            }))
-                            .child(Icon::new(IconName::Plus).small())
-                            .child("Create"),
+                            .label("Create")
+                            .icon(IconName::Plus)
+                            .small()
+                            .compact()
+                            .on_activate(move |_, _, cx| {
+                                page_for_create.update(cx, |_, cx| {
+                                    cx.emit(VariablesAction::CreateVariableRequested);
+                                });
+                            }),
                     )
                     .child(
-                        h_flex()
-                            .id(SharedString::from(format!("{}-empty-import", self.id)))
+                        Button::new(SharedString::from(format!("{}-empty-import", self.id)))
                             .debug_selector(|| "variables-empty-import".to_owned())
-                            .key_context(CONTROL_KEY_CONTEXT)
-                            .tab_index(0)
-                            .h(px(32.))
-                            .px_3()
-                            .rounded(px(6.))
-                            .border_1()
-                            .border_color(cx.theme().border)
-                            .cursor_pointer()
-                            .hover(|style| style.bg(cx.theme().accent))
-                            .on_activate(cx.listener(|_, _, _, cx| {
-                                cx.emit(VariablesAction::ImportVariablesRequested);
-                            }))
-                            .child("Import"),
+                            .label("Import")
+                            .small()
+                            .compact()
+                            .outline()
+                            .on_activate(move |_, _, cx| {
+                                page_for_import.update(cx, |_, cx| {
+                                    cx.emit(VariablesAction::ImportVariablesRequested);
+                                });
+                            }),
                     ),
             );
         }

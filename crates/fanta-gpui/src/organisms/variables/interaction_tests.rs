@@ -206,12 +206,16 @@ fn empty_and_no_match_states_offer_recovery_actions(cx: &mut TestAppContext) {
         page.set_view_data(data, cx);
     });
     cx.run_until_parked();
-    assert!(cx.debug_bounds("variables-empty-create").is_some());
-    assert_pointer_and_keyboard_parity(
-        cx,
-        "variables-empty-import",
-        &actions,
-        VariablesAction::ImportVariablesRequested,
+    let create = cx.debug_bounds("variables-empty-create").unwrap();
+    let import = cx.debug_bounds("variables-empty-import").unwrap();
+    assert_eq!(create.size.height, px(24.));
+    assert_eq!(import.size.height, px(24.));
+    actions.borrow_mut().clear();
+    cx.simulate_click(import.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(
+        actions.borrow().as_slice(),
+        &[VariablesAction::ImportVariablesRequested]
     );
 
     component.update(cx, |page, cx| {
@@ -224,11 +228,38 @@ fn empty_and_no_match_states_offer_recovery_actions(cx: &mut TestAppContext) {
     });
     cx.simulate_keystrokes("z z z");
     cx.run_until_parked();
-    assert!(cx.debug_bounds("variables-clear-empty-search").is_some());
+    let description = cx.debug_bounds("variables-empty-description").unwrap();
     let clear = cx.debug_bounds("variables-clear-empty-search").unwrap();
+    assert_eq!(clear.size.height, px(24.));
+    assert!(clear.top() >= description.bottom() + px(20.));
     cx.simulate_click(clear.center(), Modifiers::none());
     cx.run_until_parked();
     assert!(cx.debug_bounds("variables-value-color-light").is_some());
+}
+
+#[gpui::test]
+fn empty_states_keep_content_inset_on_narrow_pages(cx: &mut TestAppContext) {
+    let (host, _actions, cx) = mount(cx);
+    cx.simulate_resize(size(
+        px(VARIABLES_PAGE_MIN_WIDTH),
+        px(VARIABLES_PAGE_MIN_HEIGHT),
+    ));
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |page, cx| {
+        let mut data = page.view_data.clone();
+        data.variables.clear();
+        page.set_view_data(data, cx);
+    });
+    cx.run_until_parked();
+    cx.run_until_parked();
+
+    let state = cx.debug_bounds("variables-empty-state").unwrap();
+    let title = cx.debug_bounds("variables-empty-title").unwrap();
+    let description = cx.debug_bounds("variables-empty-description").unwrap();
+    for content in [title, description] {
+        assert!(content.left() >= state.left() + px(16.));
+        assert!(content.right() <= state.right() - px(16.));
+    }
 }
 
 #[gpui::test]
