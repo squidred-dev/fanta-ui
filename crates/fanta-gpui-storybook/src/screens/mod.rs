@@ -6,7 +6,6 @@
 //! source for sidebar grouping, render/focus dispatch, env-name parsing,
 //! and window sizing; nothing else may hold a per-story match.
 
-pub(crate) mod assets;
 pub(crate) mod buttons;
 pub(crate) mod design;
 pub(crate) mod file_inspector;
@@ -29,7 +28,6 @@ pub(crate) mod variables;
 pub(crate) mod viewport;
 pub(crate) mod welcome;
 
-pub(crate) use assets::AssetsScreen;
 pub(crate) use buttons::ButtonsScreen;
 pub(crate) use design::DesignScreen;
 pub(crate) use file_inspector::FileInspectorScreen;
@@ -197,7 +195,7 @@ impl StoryKind {
     }
 }
 
-static REGISTRY: [StoryDescriptor; 17] = [
+static REGISTRY: [StoryDescriptor; 16] = [
     StoryDescriptor {
         kind: StoryKind::Welcome,
         id: "welcome",
@@ -409,32 +407,6 @@ static REGISTRY: [StoryDescriptor; 17] = [
             story.popups_screen.focus_handle.focus(window, cx);
         },
         last_action: |story| story.popups_screen.last_action.clone(),
-    },
-    StoryDescriptor {
-        kind: StoryKind::Assets,
-        id: "assets",
-        aliases: &["assets-panel"],
-        title: "Assets panel",
-        nav_label: "Assets",
-        description: "A library browser for current-file components, UI kits, filtering, and selection.",
-        section: StorySection::Organisms,
-        reference_window_size: (337., 716.),
-        gallery_surface_size: (337., 716.),
-        gallery_fluid_width: true,
-        viewport_presets: &[
-            ViewportPreset::new("Narrow", ASSETS_PANEL_MIN_WIDTH, ASSETS_PANEL_MIN_HEIGHT),
-            ViewportPreset::new("Default", 337., 716.),
-            ViewportPreset::new("Wide", 472., 716.),
-        ],
-        keyboard_hints: &[],
-        render_story: |story, _| story.assets_screen.panel.clone().into_any_element(),
-        render_gallery: None,
-        render_reference: |story, cx| story.render_assets_reference(cx),
-        render_knobs: Some(|story, cx| story.render_assets_knobs(cx)),
-        focus: |story, window, cx| {
-            story.assets_screen.panel.focus_handle(cx).focus(window, cx);
-        },
-        last_action: |story| story.assets_screen.last_action.clone(),
     },
     StoryDescriptor {
         kind: StoryKind::Design,
@@ -784,7 +756,7 @@ mod tests {
                 );
             }
         }
-        assert_eq!(registry().len(), 17);
+        assert_eq!(registry().len(), 16);
         assert_eq!(story_from_name("TOOLBAR"), Some(StoryKind::Toolbar));
         // Launch names of the retired Foundations catalog keep resolving to
         // the specimen stories that absorbed it.
@@ -823,7 +795,6 @@ mod tests {
         );
         // Feature stories sit in their matching reusable tiers.
         for (kind, section) in [
-            (StoryKind::Assets, StorySection::Organisms),
             (StoryKind::Design, StorySection::Organisms),
             (StoryKind::Layers, StorySection::Organisms),
             (StoryKind::Pages, StorySection::Organisms),

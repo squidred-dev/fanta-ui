@@ -26,7 +26,7 @@ The library source is organized by atomic design tier (`ARCHITECTURE.md` §16):
 crates/fanta-gpui/src/
   atoms/        activation, buttons, pinned Lucide icons, truncation, bounds tracking
   molecules/    menu chrome + clamping, anchored popups, list rows, edge fades
-  organisms/    assets, design, layers, pages, prototype, timeline, toolbar
+  organisms/    design, layers, pages, prototype, timeline, toolbar
   layouts/      file_inspector, pseudo_editor
   screens/      variables
 ```

@@ -11,9 +11,8 @@ use crate::atoms::{
     CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon,
 };
 use crate::{
-    assets::AssetsPanel, design::DesignPanel, layers::LayersPanel, pages::PagesPanel,
-    prototype::PrototypePanel, timeline::Timeline, toolbar::EditorToolbar,
-    variables::VariablesScreen,
+    design::DesignPanel, layers::LayersPanel, pages::PagesPanel, prototype::PrototypePanel,
+    timeline::Timeline, toolbar::EditorToolbar, variables::VariablesScreen,
 };
 
 /// Reference design width of the left rail (§14).
@@ -53,10 +52,9 @@ pub const PSEUDO_EDITOR_PREFERRED_WIDTH: f32 =
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum PseudoEditorLeftSurface {
+    #[default]
     Pages,
     Layers,
-    #[default]
-    Assets,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -70,7 +68,6 @@ pub enum PseudoEditorRightSurface {
 pub struct PseudoEditorChildren {
     pub pages: Entity<PagesPanel>,
     pub layers: Entity<LayersPanel>,
-    pub assets: Entity<AssetsPanel>,
     pub design: Entity<DesignPanel>,
     pub prototype: Entity<PrototypePanel>,
     pub timeline: Entity<Timeline>,
@@ -169,7 +166,6 @@ impl PseudoEditor {
         let panel = match self.left_surface {
             PseudoEditorLeftSurface::Pages => self.children.pages.clone().into_any_element(),
             PseudoEditorLeftSurface::Layers => self.children.layers.clone().into_any_element(),
-            PseudoEditorLeftSurface::Assets => self.children.assets.clone().into_any_element(),
         };
         div()
             .debug_selector(|| "pseudo-editor-left-rail".to_owned())
@@ -304,20 +300,6 @@ impl Render for PseudoEditor {
                             this.left_surface = PseudoEditorLeftSurface::Layers;
                             cx.emit(PseudoEditorAction::LeftSurfaceChanged {
                                 surface: PseudoEditorLeftSurface::Layers,
-                            });
-                            cx.notify();
-                        },
-                        cx,
-                    ))
-                    .child(self.small_tab(
-                        SharedString::from(format!("{}-left-assets", self.id)),
-                        "pseudo-editor-left-assets",
-                        "Assets",
-                        self.left_surface == PseudoEditorLeftSurface::Assets,
-                        |this, cx| {
-                            this.left_surface = PseudoEditorLeftSurface::Assets;
-                            cx.emit(PseudoEditorAction::LeftSurfaceChanged {
-                                surface: PseudoEditorLeftSurface::Assets,
                             });
                             cx.notify();
                         },

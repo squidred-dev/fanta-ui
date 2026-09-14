@@ -50,13 +50,6 @@ fn launch_without_story_env_opens_the_gallery() {
 #[test]
 fn explicit_story_env_opens_a_reference_fixture() {
     assert_eq!(
-        parse_storybook_launch(Some("assets-panel"), None),
-        Ok(StorybookLaunch {
-            story: StoryKind::Assets,
-            mode: StorybookLaunchMode::ReferenceFixture,
-        })
-    );
-    assert_eq!(
         parse_storybook_launch(Some("toolbar"), None),
         Ok(StorybookLaunch {
             story: StoryKind::Toolbar,
@@ -287,7 +280,6 @@ fn every_reference_fixture_renders_through_the_registry(cx: &mut TestAppContext)
         ),
         (StoryKind::Design, "design-fixture-rail-scroll"),
         (StoryKind::Variables, "storybook-reference-variables"),
-        (StoryKind::Assets, "storybook-reference-assets"),
         (StoryKind::Prototype, "storybook-reference-prototype"),
         (StoryKind::Timeline, "storybook-reference-timeline"),
         (StoryKind::PseudoEditor, "storybook-reference-pseudo-editor"),

@@ -17,7 +17,6 @@ pub(super) enum StoryKind {
     Layers,
     Design,
     Variables,
-    Assets,
     Prototype,
     Timeline,
     FileInspector,

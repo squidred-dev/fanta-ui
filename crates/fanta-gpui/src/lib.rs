@@ -27,7 +27,7 @@ mod text_input_fallback;
 
 pub use atoms::ActivateControl;
 pub use layouts::{file_inspector, pseudo_editor};
-pub use organisms::{assets, design, layers, pages, prototype, timeline, toolbar};
+pub use organisms::{design, layers, pages, prototype, timeline, toolbar};
 pub use screens::variables;
 
 /// Registers Fanta GPUI commands and their default key bindings.
@@ -45,11 +45,6 @@ pub fn init(cx: &mut gpui::App) {
 /// Common imports for Fanta GPUI hosts.
 pub mod prelude {
     pub use crate::ActivateControl;
-    pub use crate::assets::{
-        ASSETS_PANEL_MIN_HEIGHT, ASSETS_PANEL_MIN_WIDTH, ASSETS_RAIL_WIDTH, AssetsIconAssets,
-        AssetsLibrary, AssetsLibraryKind, AssetsPanel, AssetsPanelAction, AssetsRailItem,
-        AssetsViewData,
-    };
     // Shared control atoms (ARCHITECTURE.md §16).
     pub use crate::atoms::{
         ActivateEvent, ButtonControlExt, CONTROL_KEY_CONTEXT, ControlExt, LucideIcon, icon_button,

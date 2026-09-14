@@ -36,10 +36,9 @@ use gpui_component::{
     v_flex,
 };
 use screens::{
-    AssetsScreen, ButtonsScreen, DesignScreen, FileInspectorScreen, IconsScreen, LabelsScreen,
-    LayersScreen, ListRowsScreen, MenusScreen, PagesScreen, PopupsScreen, PrototypeScreen,
-    PseudoEditorScreen, TimelineScreen, ToolbarScreen, VariablesStory, WelcomeScreen,
-    viewport::StoryViewport,
+    ButtonsScreen, DesignScreen, FileInspectorScreen, IconsScreen, LabelsScreen, LayersScreen,
+    ListRowsScreen, MenusScreen, PagesScreen, PopupsScreen, PrototypeScreen, PseudoEditorScreen,
+    TimelineScreen, ToolbarScreen, VariablesStory, WelcomeScreen, viewport::StoryViewport,
 };
 use themes::{apply_zed_theme, initial_zed_theme_index, zed_themes};
 
@@ -72,7 +71,6 @@ struct Storybook {
     list_rows_screen: ListRowsScreen,
     popups_screen: PopupsScreen,
     variables_screen: VariablesStory,
-    assets_screen: AssetsScreen,
     prototype_screen: PrototypeScreen,
     timeline_screen: TimelineScreen,
     file_inspector_screen: FileInspectorScreen,
@@ -100,11 +98,6 @@ impl Storybook {
         let list_rows_screen = ListRowsScreen::new(cx);
         let popups_screen = PopupsScreen::new(cx);
         let variables_screen = VariablesStory::new(window, cx);
-        let assets_screen = AssetsScreen::new(
-            launch.mode == StorybookLaunchMode::ReferenceFixture,
-            window,
-            cx,
-        );
         let prototype_screen = PrototypeScreen::new(cx);
         let timeline_screen = TimelineScreen::new(cx);
         let pages_screen = PagesScreen::new(window, cx);
@@ -118,7 +111,6 @@ impl Storybook {
             PseudoEditorChildren {
                 pages: pages_screen.panel.clone(),
                 layers: layers_screen.panel.clone(),
-                assets: assets_screen.panel.clone(),
                 design: design_screen.panel.clone(),
                 prototype: prototype_screen.panel.clone(),
                 timeline: timeline_screen.timeline.clone(),
@@ -138,12 +130,6 @@ impl Storybook {
                 &variables_screen.screen,
                 |story, screen, action: &VariablesAction, cx| {
                     story.variables_screen.handle_action(screen, action, cx);
-                },
-            ),
-            cx.subscribe(
-                &assets_screen.panel,
-                |story, panel, action: &AssetsPanelAction, cx| {
-                    story.assets_screen.handle_action(panel, action, cx);
                 },
             ),
             cx.subscribe(
@@ -244,7 +230,6 @@ impl Storybook {
             list_rows_screen,
             popups_screen,
             variables_screen,
-            assets_screen,
             prototype_screen,
             timeline_screen,
             file_inspector_screen,

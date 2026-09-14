@@ -885,18 +885,17 @@ storybook is the mock host and is the only layer that applies those requests.
 The host owns the dock's outer placement, canvas inset, and surrounding canvas
 clipping; the toolbar owns collision handling for its transient surfaces.
 
-## §13 Variables screen, assets, prototype, and timeline contracts
+## §13 Variables screen, prototype, and timeline contracts
 
-`VariablesScreen`, `AssetsPanel`, `PrototypePanel`, and `Timeline` follow the
-same controlled seam as the established editor surfaces. Hosts supply
-collections, libraries, prototype settings, and transport values as immutable
-view data. Every operation that can affect a document, external library,
-prototype, or animation emits a typed intent.
+`VariablesScreen`, `PrototypePanel`, and `Timeline` follow the same controlled
+seam as the established editor surfaces. Hosts supply collections, prototype
+settings, and transport values as immutable view data. Every operation that
+can affect a document, prototype, or animation emits a typed intent.
 
 The components may retain only presentation continuity: search drafts, scroll
 position, dismissed educational hints, focus, and open/closed empty-state
-guidance. They do not create variables, import libraries, change prototype
-settings, add keyframes, seek, or run an agent.
+guidance. They do not create variables, change prototype settings, add
+keyframes, seek, or run an agent.
 
 ## §14 Layout composition contracts
 
@@ -922,7 +921,7 @@ adapts it when another host-owned surface such as the timeline occupies that
 edge.
 
 This makes the storybook composition useful for visual and integration testing
-without turning it into a document host. Pages, layers, assets, design,
+without turning it into a document host. Pages, layers, design,
 prototype, variables, timeline, and toolbar data remain controlled through
 their individual component contracts.
 
@@ -961,7 +960,7 @@ The library source is organized by atomic design tier:
 crates/fanta-gpui/src/
   atoms/        activation, buttons, pinned Lucide icons, truncation, bounds tracking
   molecules/    menu chrome + clamping, anchored popups, list rows, edge fades
-  organisms/    assets, design, layers, pages, prototype, timeline, toolbar —
+  organisms/    design, layers, pages, prototype, timeline, toolbar —
                 the host-facing feature surfaces
   layouts/      file_inspector, pseudo_editor — composition shells that
                 arrange organisms
