@@ -21,8 +21,8 @@ use crate::{
 const SIDEBAR_WIDTH: f32 = 282.;
 /// Floor the sidebar compresses to on narrow pages.
 const SIDEBAR_MIN_WIDTH: f32 = 180.;
-/// Fixed width of the search/share cluster on the right of the header row.
-const HEADER_TOOLS_WIDTH: f32 = 320.;
+/// Fixed width of the search cluster on the right of the header row.
+const HEADER_TOOLS_WIDTH: f32 = 220.;
 /// Collection-title width preserved before the sidebar starts compressing.
 const HEADER_TITLE_MIN_WIDTH: f32 = 120.;
 /// Reference design width of the table's name and value columns.
@@ -30,8 +30,8 @@ const NAME_COLUMN_WIDTH: f32 = 201.;
 const VALUE_COLUMN_WIDTH: f32 = 201.;
 /// Floor the name column compresses to on narrow tables.
 const NAME_COLUMN_MIN_WIDTH: f32 = 140.;
-/// Fixed width of the add-mode cell at the end of the header row.
-const ADD_MODE_WIDTH: f32 = 40.;
+/// Fixed width of the pinned actions column.
+const ACTIONS_COLUMN_WIDTH: f32 = 40.;
 
 /// The smallest width the variables manager reflows to honestly: the
 /// floored sidebar, the fixed header search/share cluster, and a usable
@@ -204,7 +204,9 @@ pub enum VariablesAction {
         variable_id: SharedString,
         mode_id: SharedString,
     },
-    ShareRequested,
+    VariableSettingsRequested {
+        variable_id: SharedString,
+    },
     HelpRequested,
 }
 
@@ -215,6 +217,8 @@ pub struct VariablesPage {
     view_data: VariablesViewData,
     search_input: Entity<InputState>,
     table_scroll_handle: ScrollHandle,
+    table_horizontal_scroll_handle: ScrollHandle,
+    sidebar_visible: bool,
     /// Measured width of the whole page; the header row and the body derive
     /// shared sidebar and name-column widths from it so their vertical
     /// borders stay aligned while both compress on narrow pages.
@@ -248,6 +252,8 @@ impl VariablesPage {
             view_data,
             search_input,
             table_scroll_handle: ScrollHandle::new(),
+            table_horizontal_scroll_handle: ScrollHandle::new(),
+            sidebar_visible: true,
             page_width: None,
             _subscriptions: subscriptions,
         }
@@ -273,10 +279,22 @@ impl VariablesPage {
     /// [`NAME_COLUMN_MIN_WIDTH`] before the mode columns start scrolling.
     fn name_column_width(&self) -> f32 {
         self.page_width.map_or(NAME_COLUMN_WIDTH, |width| {
-            let table_width = width - self.sidebar_width();
-            (table_width - VALUE_COLUMN_WIDTH * self.view_data.modes.len() as f32 - ADD_MODE_WIDTH)
+            let table_width = width
+                - if self.sidebar_visible {
+                    self.sidebar_width()
+                } else {
+                    0.
+                };
+            (table_width
+                - VALUE_COLUMN_WIDTH * self.view_data.modes.len() as f32
+                - ACTIONS_COLUMN_WIDTH)
                 .clamp(NAME_COLUMN_MIN_WIDTH, NAME_COLUMN_WIDTH)
         })
+    }
+
+    fn toggle_sidebar(&mut self, cx: &mut Context<Self>) {
+        self.sidebar_visible = !self.sidebar_visible;
+        cx.notify();
     }
 
     fn render_collection(
