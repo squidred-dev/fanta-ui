@@ -113,6 +113,20 @@ impl VariablesScreen {
                 self.view_data.selected_group_id = "all".into();
                 self.last_action = format!("Selected collection {collection_id}").into();
             }
+            VariablesAction::CollectionRenameRequested {
+                collection_id,
+                name,
+            } => {
+                if let Some(collection) = self
+                    .view_data
+                    .collections
+                    .iter_mut()
+                    .find(|collection| collection.id == *collection_id)
+                {
+                    collection.name = name.clone();
+                }
+                self.last_action = format!("Renamed collection to {name}").into();
+            }
             VariablesAction::GroupSelected { group_id } => {
                 self.view_data.selected_group_id = group_id.clone();
                 self.last_action = format!("Selected variable group {group_id}").into();
@@ -173,6 +187,21 @@ impl VariablesScreen {
                 }
                 self.last_action =
                     format!("Created variable Spacing {ordinal} through the host adapter").into();
+            }
+            VariablesAction::ImportVariablesRequested => {
+                let mode_id = self
+                    .view_data
+                    .modes
+                    .first()
+                    .map_or_else(|| "mode-1".into(), |mode| mode.id.clone());
+                self.view_data.variables.push(VariableRow::new(
+                    "imported-variable",
+                    "Imported variable",
+                    "all",
+                    VariableKind::String,
+                    [VariableModeValue::new(mode_id, "Imported")],
+                ));
+                self.last_action = "Imported variables through the host adapter".into();
             }
             VariablesAction::AddModeRequested => {
                 let ordinal = self.view_data.modes.len() + 1;

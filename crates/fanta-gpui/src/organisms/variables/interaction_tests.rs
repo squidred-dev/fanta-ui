@@ -1,4 +1,7 @@
-use gpui::{Focusable as _, Modifiers, TestAppContext, point, px, size};
+use gpui::{
+    Focusable as _, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent, TestAppContext, point,
+    px, size,
+};
 
 use crate::test_support::{assert_pointer_and_keyboard_parity, mount_component};
 
@@ -43,6 +46,25 @@ fn mount(
     mount_component(cx, |window, cx| {
         VariablesPage::new("test-variables", fixture(), window, cx)
     })
+}
+
+fn double_click(cx: &mut gpui::VisualTestContext, selector: &'static str) {
+    let position = cx.debug_bounds(selector).unwrap().center();
+    cx.simulate_click(position, Modifiers::none());
+    cx.simulate_event(MouseDownEvent {
+        position,
+        button: MouseButton::Left,
+        modifiers: Modifiers::none(),
+        click_count: 2,
+        first_mouse: false,
+    });
+    cx.simulate_event(MouseUpEvent {
+        position,
+        button: MouseButton::Left,
+        modifiers: Modifiers::none(),
+        click_count: 2,
+    });
+    cx.run_until_parked();
 }
 
 #[gpui::test]
@@ -145,6 +167,81 @@ fn collection_rows_share_pointer_enter_and_space_activation(cx: &mut TestAppCont
             collection_id: "tokens".into(),
         },
     );
+}
+
+#[gpui::test]
+fn collection_double_click_commits_a_typed_rename(cx: &mut TestAppContext) {
+    let (host, actions, cx) = mount(cx);
+    double_click(cx, "variables-collection-collection");
+    actions.borrow_mut().clear();
+
+    let rename_input = cx.read(|app| {
+        host.read(app)
+            .component
+            .read(app)
+            .collection_name_input
+            .clone()
+    });
+    cx.update(|window, app| {
+        rename_input.update(app, |input, cx| input.set_value("Typography", window, cx));
+    });
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    assert_eq!(
+        actions.borrow().as_slice(),
+        &[VariablesAction::CollectionRenameRequested {
+            collection_id: "collection".into(),
+            name: "Typography".into(),
+        }]
+    );
+}
+
+#[gpui::test]
+fn empty_and_no_match_states_offer_recovery_actions(cx: &mut TestAppContext) {
+    let (host, actions, cx) = mount(cx);
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |page, cx| {
+        let mut data = page.view_data.clone();
+        data.variables.clear();
+        page.set_view_data(data, cx);
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("variables-empty-create").is_some());
+    assert_pointer_and_keyboard_parity(
+        cx,
+        "variables-empty-import",
+        &actions,
+        VariablesAction::ImportVariablesRequested,
+    );
+
+    component.update(cx, |page, cx| {
+        page.set_view_data(fixture(), cx);
+    });
+    cx.run_until_parked();
+    let search_input = cx.read(|app| component.read(app).search_input.clone());
+    cx.update(|window, app| {
+        search_input.read(app).focus_handle(app).focus(window, app);
+    });
+    cx.simulate_keystrokes("z z z");
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("variables-clear-empty-search").is_some());
+    let clear = cx.debug_bounds("variables-clear-empty-search").unwrap();
+    cx.simulate_click(clear.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("variables-value-color-light").is_some());
+}
+
+#[gpui::test]
+fn type_filter_menu_filters_without_mutating_host_data(cx: &mut TestAppContext) {
+    let (_host, _actions, cx) = mount(cx);
+    let trigger = cx.debug_bounds("variables-search-options").unwrap();
+    cx.simulate_click(trigger.center(), Modifiers::none());
+    cx.run_until_parked();
+    let colors = cx.debug_bounds("variables-filter-kind-0").unwrap();
+    cx.simulate_click(colors.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("variables-value-color-light").is_none());
+    assert!(cx.debug_bounds("variables-value-radius-light").is_some());
 }
 
 #[gpui::test]

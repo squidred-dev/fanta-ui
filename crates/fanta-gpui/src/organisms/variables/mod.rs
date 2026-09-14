@@ -2,9 +2,9 @@
 
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, ParentElement as _, Render, ScrollHandle, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Subscription, Window, canvas, div,
-    prelude::FluentBuilder as _, px, rgba,
+    InteractiveElement as _, IntoElement, MouseButton, MouseDownEvent, ParentElement as _, Render,
+    ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, Subscription, Window,
+    canvas, div, prelude::FluentBuilder as _, px, rgba,
 };
 use gpui_component::{
     ActiveTheme as _, Icon, IconName, Sizable as _, StyledExt as _, h_flex,
@@ -14,7 +14,10 @@ use gpui_component::{
 };
 
 use crate::{
-    atoms::{CONTROL_KEY_CONTEXT, ControlExt as _, ControlIcon, icon_button, render_control_icon},
+    atoms::{
+        ActivateEvent, CONTROL_KEY_CONTEXT, ControlExt as _, ControlIcon, icon_button,
+        render_control_icon,
+    },
     color::parse_hex_rgba,
 };
 
@@ -193,6 +196,10 @@ pub enum VariablesAction {
     CollectionSelected {
         collection_id: SharedString,
     },
+    CollectionRenameRequested {
+        collection_id: SharedString,
+        name: SharedString,
+    },
     GroupSelected {
         group_id: SharedString,
     },
@@ -202,6 +209,7 @@ pub enum VariablesAction {
     SearchOptionsRequested,
     CreateCollectionRequested,
     CreateVariableRequested,
+    ImportVariablesRequested,
     AddModeRequested,
     ValueEditRequested {
         variable_id: SharedString,
@@ -219,6 +227,10 @@ pub struct VariablesPage {
     focus_handle: FocusHandle,
     view_data: VariablesViewData,
     search_input: Entity<InputState>,
+    collection_name_input: Entity<InputState>,
+    renaming_collection_id: Option<SharedString>,
+    filter_menu_open: bool,
+    visible_kinds: [bool; 4],
     table_scroll_handle: ScrollHandle,
     table_horizontal_scroll_handle: ScrollHandle,
     sidebar_visible: bool,
@@ -239,21 +251,43 @@ impl VariablesPage {
         cx: &mut Context<Self>,
     ) -> Self {
         let search_input = cx.new(|cx| InputState::new(window, cx).placeholder("Search"));
-        let subscriptions =
-            vec![
-                cx.subscribe(&search_input, |_, input, event: &InputEvent, cx| {
-                    if matches!(event, InputEvent::Change) {
-                        cx.emit(VariablesAction::SearchQueryChanged {
-                            query: input.read(cx).value(),
-                        });
+        let collection_name_input = cx.new(|cx| InputState::new(window, cx));
+        let subscriptions = vec![
+            cx.subscribe(&search_input, |_, input, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::Change) {
+                    cx.emit(VariablesAction::SearchQueryChanged {
+                        query: input.read(cx).value(),
+                    });
+                }
+            }),
+            cx.subscribe(
+                &collection_name_input,
+                |this, input, event: &InputEvent, cx| {
+                    if matches!(event, InputEvent::PressEnter { .. } | InputEvent::Blur) {
+                        let Some(collection_id) = this.renaming_collection_id.take() else {
+                            return;
+                        };
+                        let name = input.read(cx).value();
+                        if !name.trim().is_empty() {
+                            cx.emit(VariablesAction::CollectionRenameRequested {
+                                collection_id,
+                                name,
+                            });
+                        }
+                        cx.notify();
                     }
-                }),
-            ];
+                },
+            ),
+        ];
         Self {
             id: id.into(),
             focus_handle: cx.focus_handle(),
             view_data,
             search_input,
+            collection_name_input,
+            renaming_collection_id: None,
+            filter_menu_open: false,
+            visible_kinds: [true; 4],
             table_scroll_handle: ScrollHandle::new(),
             table_horizontal_scroll_handle: ScrollHandle::new(),
             sidebar_visible: true,
@@ -309,6 +343,39 @@ impl VariablesPage {
         cx.notify();
     }
 
+    const fn kind_index(kind: VariableKind) -> usize {
+        match kind {
+            VariableKind::Color => 0,
+            VariableKind::Number => 1,
+            VariableKind::String => 2,
+            VariableKind::Boolean => 3,
+        }
+    }
+
+    fn begin_collection_rename(
+        &mut self,
+        collection_id: SharedString,
+        name: SharedString,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.renaming_collection_id = Some(collection_id);
+        self.collection_name_input
+            .update(cx, |input, cx| input.set_value(name, window, cx));
+        self.collection_name_input
+            .read(cx)
+            .focus_handle(cx)
+            .focus(window, cx);
+        cx.notify();
+    }
+
+    fn clear_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.visible_kinds = [true; 4];
+        self.search_input
+            .update(cx, |input, cx| input.set_value("", window, cx));
+        cx.notify();
+    }
+
     fn render_collection(
         &self,
         collection: &VariablesCollection,
@@ -316,6 +383,9 @@ impl VariablesPage {
     ) -> AnyElement {
         let selected = collection.id == self.view_data.selected_collection_id;
         let collection_id = collection.id.clone();
+        let rename_collection_id = collection.id.clone();
+        let rename_collection_name = collection.name.clone();
+        let renaming = self.renaming_collection_id.as_ref() == Some(&collection.id);
         h_flex()
             .id(SharedString::from(format!(
                 "{}-collection-{}",
@@ -342,22 +412,60 @@ impl VariablesPage {
             })
             .hover(|style| style.bg(cx.theme().accent))
             .focus(|style| style.border_color(cx.theme().selection))
-            .on_activate(cx.listener(move |_, _, _, cx| {
-                cx.emit(VariablesAction::CollectionSelected {
-                    collection_id: collection_id.clone(),
-                });
-            }))
-            .child(
-                div()
-                    .id(SharedString::from(format!(
-                        "{}-collection-name-{}",
-                        self.id, collection.id
-                    )))
-                    .flex_1()
-                    .truncate()
-                    .when(selected, |name| name.font_semibold())
-                    .child(collection.name.clone()),
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                    if event.click_count >= 2 {
+                        this.begin_collection_rename(
+                            rename_collection_id.clone(),
+                            rename_collection_name.clone(),
+                            window,
+                            cx,
+                        );
+                    }
+                }),
             )
+            .on_activate(cx.listener(move |this, event: &ActivateEvent, _, cx| {
+                if event.keyboard && this.renaming_collection_id.as_ref() == Some(&collection_id) {
+                    this.renaming_collection_id = None;
+                    let name = this.collection_name_input.read(cx).value();
+                    if !name.trim().is_empty() {
+                        cx.emit(VariablesAction::CollectionRenameRequested {
+                            collection_id: collection_id.clone(),
+                            name,
+                        });
+                    }
+                    cx.notify();
+                } else if this.renaming_collection_id.is_none() {
+                    cx.emit(VariablesAction::CollectionSelected {
+                        collection_id: collection_id.clone(),
+                    });
+                }
+            }))
+            .when(!renaming, |row| {
+                row.child(
+                    div()
+                        .id(SharedString::from(format!(
+                            "{}-collection-name-{}",
+                            self.id, collection.id
+                        )))
+                        .flex_1()
+                        .truncate()
+                        .when(selected, |name| name.font_semibold())
+                        .child(collection.name.clone()),
+                )
+            })
+            .when(renaming, |row| {
+                row.child(
+                    div().flex_1().min_w(px(0.)).child(
+                        Input::new(&self.collection_name_input)
+                            .appearance(false)
+                            .bordered(false)
+                            .focus_bordered(false)
+                            .small(),
+                    ),
+                )
+            })
             .child(
                 div()
                     .text_color(if selected {
@@ -536,8 +644,16 @@ impl VariablesPage {
             .border_b_1()
             .border_color(cx.theme().border)
             .cursor_pointer()
-            .hover(|style| style.bg(cx.theme().accent.opacity(0.55)))
-            .focus(|style| style.border_1().border_color(cx.theme().selection))
+            .hover(|style| {
+                style
+                    .bg(cx.theme().accent)
+                    .text_color(cx.theme().accent_foreground)
+            })
+            .focus(|style| {
+                style
+                    .bg(cx.theme().accent)
+                    .text_color(cx.theme().accent_foreground)
+            })
             .on_activate(cx.listener(move |_, _, _, cx| {
                 cx.emit(VariablesAction::ValueEditRequested {
                     variable_id: variable_id.clone(),
@@ -565,6 +681,174 @@ impl VariablesPage {
                     .child(value.map_or_else(SharedString::default, |value| value.value.clone())),
             )
             .into_any_element()
+    }
+
+    fn render_filter_menu(&self, cx: &mut Context<Self>) -> AnyElement {
+        let mut menu = v_flex()
+            .absolute()
+            .top(px(30.))
+            .right_0()
+            .w(px(210.))
+            .p_2()
+            .gap_1()
+            .rounded(px(10.))
+            .border_1()
+            .border_color(cx.theme().border)
+            .bg(cx.theme().popover)
+            .shadow_lg()
+            .occlude();
+        let all_selected = self.visible_kinds.iter().all(|selected| *selected);
+        menu = menu.child(
+            h_flex()
+                .id(SharedString::from(format!("{}-filter-all", self.id)))
+                .debug_selector(|| "variables-filter-all".to_owned())
+                .key_context(CONTROL_KEY_CONTEXT)
+                .tab_index(0)
+                .h(px(30.))
+                .px_2()
+                .gap_2()
+                .rounded(px(5.))
+                .cursor_pointer()
+                .hover(|style| style.bg(cx.theme().accent))
+                .on_activate(cx.listener(|this, _, _, cx| {
+                    this.visible_kinds = [true; 4];
+                    cx.notify();
+                }))
+                .child(div().w(px(16.)).child(if all_selected { "✓" } else { "" }))
+                .child("All"),
+        );
+        for (kind, label) in [
+            (VariableKind::Color, "Colors"),
+            (VariableKind::Number, "Numbers"),
+            (VariableKind::String, "Strings"),
+            (VariableKind::Boolean, "Booleans"),
+        ] {
+            let index = Self::kind_index(kind);
+            let selected = self.visible_kinds[index];
+            menu = menu.child(
+                h_flex()
+                    .id(SharedString::from(format!(
+                        "{}-filter-kind-{index}",
+                        self.id
+                    )))
+                    .debug_selector(move || format!("variables-filter-kind-{index}"))
+                    .key_context(CONTROL_KEY_CONTEXT)
+                    .tab_index(0)
+                    .h(px(30.))
+                    .px_2()
+                    .gap_2()
+                    .rounded(px(5.))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(cx.theme().accent))
+                    .on_activate(cx.listener(move |this, _, _, cx| {
+                        this.visible_kinds[index] = !this.visible_kinds[index];
+                        cx.notify();
+                    }))
+                    .child(div().w(px(16.)).child(if selected { "✓" } else { "" }))
+                    .child(Self::render_kind_glyph(kind, cx))
+                    .child(label),
+            );
+        }
+        menu.into_any_element()
+    }
+
+    fn render_empty_state(&self, search_empty: bool, cx: &mut Context<Self>) -> AnyElement {
+        let mut state = v_flex()
+            .absolute()
+            .top(px(41.))
+            .right_0()
+            .bottom(px(41.))
+            .left_0()
+            .items_center()
+            .justify_center()
+            .gap_4()
+            .bg(cx.theme().background)
+            .occlude()
+            .child(
+                div()
+                    .text_size(px(18.))
+                    .font_semibold()
+                    .child(if search_empty {
+                        "No variables match search"
+                    } else {
+                        "No variables in this collection"
+                    }),
+            )
+            .child(
+                div()
+                    .text_color(cx.theme().muted_foreground)
+                    .child(if search_empty {
+                        "Variables that don’t match the current search and filters are hidden."
+                    } else {
+                        "Create or import variables to reuse values across your file."
+                    }),
+            );
+        if search_empty {
+            state = state.child(
+                h_flex()
+                    .id(SharedString::from(format!(
+                        "{}-clear-empty-search",
+                        self.id
+                    )))
+                    .debug_selector(|| "variables-clear-empty-search".to_owned())
+                    .key_context(CONTROL_KEY_CONTEXT)
+                    .tab_index(0)
+                    .h(px(32.))
+                    .px_3()
+                    .rounded(px(6.))
+                    .border_1()
+                    .border_color(cx.theme().border)
+                    .cursor_pointer()
+                    .hover(|style| style.bg(cx.theme().accent))
+                    .on_activate(cx.listener(|this, _, window, cx| {
+                        this.clear_search(window, cx);
+                    }))
+                    .child("Clear search"),
+            );
+        } else {
+            state = state.child(
+                h_flex()
+                    .gap_2()
+                    .child(
+                        h_flex()
+                            .id(SharedString::from(format!("{}-empty-create", self.id)))
+                            .debug_selector(|| "variables-empty-create".to_owned())
+                            .key_context(CONTROL_KEY_CONTEXT)
+                            .tab_index(0)
+                            .h(px(32.))
+                            .px_3()
+                            .gap_2()
+                            .rounded(px(6.))
+                            .bg(cx.theme().primary)
+                            .text_color(cx.theme().primary_foreground)
+                            .cursor_pointer()
+                            .on_activate(cx.listener(|_, _, _, cx| {
+                                cx.emit(VariablesAction::CreateVariableRequested);
+                            }))
+                            .child(Icon::new(IconName::Plus).small())
+                            .child("Create"),
+                    )
+                    .child(
+                        h_flex()
+                            .id(SharedString::from(format!("{}-empty-import", self.id)))
+                            .debug_selector(|| "variables-empty-import".to_owned())
+                            .key_context(CONTROL_KEY_CONTEXT)
+                            .tab_index(0)
+                            .h(px(32.))
+                            .px_3()
+                            .rounded(px(6.))
+                            .border_1()
+                            .border_color(cx.theme().border)
+                            .cursor_pointer()
+                            .hover(|style| style.bg(cx.theme().accent))
+                            .on_activate(cx.listener(|_, _, _, cx| {
+                                cx.emit(VariablesAction::ImportVariablesRequested);
+                            }))
+                            .child("Import"),
+                    ),
+            );
+        }
+        state.into_any_element()
     }
 
     fn render_table(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -633,10 +917,23 @@ impl VariablesPage {
             .iter()
             .find(|group| group.id == self.view_data.selected_group_id)
             .is_some_and(|group| group.is_aggregate);
-        for variable in self.view_data.variables.iter().filter(|variable| {
-            (selected_group_is_aggregate || variable.group_id == self.view_data.selected_group_id)
-                && (query.is_empty() || variable.name.to_lowercase().contains(&query))
-        }) {
+        let group_variables = self
+            .view_data
+            .variables
+            .iter()
+            .filter(|variable| {
+                selected_group_is_aggregate || variable.group_id == self.view_data.selected_group_id
+            })
+            .collect::<Vec<_>>();
+        let matching_variables = group_variables
+            .iter()
+            .copied()
+            .filter(|variable| {
+                self.visible_kinds[Self::kind_index(variable.kind)]
+                    && (query.is_empty() || variable.name.to_lowercase().contains(&query))
+            })
+            .collect::<Vec<_>>();
+        for variable in &matching_variables {
             names = names.child(
                 h_flex()
                     .debug_selector({
@@ -809,6 +1106,13 @@ impl VariablesPage {
                     .h(px(TABLE_SCROLLBAR_WIDTH))
                     .child(Scrollbar::horizontal(&self.table_horizontal_scroll_handle)),
             )
+            .when(group_variables.is_empty(), |table| {
+                table.child(self.render_empty_state(false, cx))
+            })
+            .when(
+                !group_variables.is_empty() && matching_variables.is_empty(),
+                |table| table.child(self.render_empty_state(true, cx)),
+            )
             .into_any_element()
     }
 }
@@ -935,6 +1239,7 @@ impl Render for VariablesPage {
                     )
                     .child(
                         h_flex()
+                            .relative()
                             .w(px(HEADER_TOOLS_WIDTH))
                             .pl(px(7.))
                             .pr(px(8.))
@@ -953,6 +1258,7 @@ impl Render for VariablesPage {
                                                 .appearance(false)
                                                 .bordered(false)
                                                 .focus_bordered(false)
+                                                .cleanable(true)
                                                 .small()
                                                 .px(px(6.))
                                                 .text_size(px(12.))
@@ -960,7 +1266,7 @@ impl Render for VariablesPage {
                                         ),
                                     )
                                     .child(
-                                        div()
+                                        h_flex()
                                             .id(SharedString::from(format!(
                                                 "{}-search-options",
                                                 self.id
@@ -981,12 +1287,17 @@ impl Render for VariablesPage {
                                             .focus(|style| {
                                                 style.border_1().border_color(cx.theme().selection)
                                             })
-                                            .on_activate(cx.listener(|_, _, _, cx| {
+                                            .on_activate(cx.listener(|this, _, _, cx| {
+                                                this.filter_menu_open = !this.filter_menu_open;
                                                 cx.emit(VariablesAction::SearchOptionsRequested);
+                                                cx.notify();
                                             }))
                                             .child(Icon::new(IconName::Settings2).xsmall()),
                                     ),
-                            ),
+                            )
+                            .when(self.filter_menu_open, |tools| {
+                                tools.child(self.render_filter_menu(cx))
+                            }),
                     ),
             )
             .child(
