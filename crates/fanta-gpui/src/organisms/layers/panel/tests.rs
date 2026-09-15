@@ -198,6 +198,28 @@ fn arena_answers_subtree_membership_from_preorder_indices() {
 }
 
 #[test]
+fn a_pruned_collapsed_subtree_keeps_its_disclosure_arrow() {
+    // A host that prunes collapsed subtrees for large documents sends no
+    // children but sets the hint, and the row must still offer to expand —
+    // that expansion is what asks the host for the subtree.
+    let pruned =
+        LayersPanelItem::new("frame", "Frame", LayersPanelNodeKind::Frame).has_children(true);
+    let leaf = LayersPanelItem::new("slice", "Slice", LayersPanelNodeKind::Slice);
+    let arena = LayerArena::from_items(&[pruned, leaf]);
+    let index = |id: &str| arena.index_of(&SharedString::from(id.to_owned())).unwrap();
+
+    assert!(arena.has_children(index("frame")));
+    assert!(!arena.has_children(index("slice")));
+
+    // Supplying children implies the hint, so a host that always sends the
+    // whole tree never has to set it.
+    let eager = LayersPanelItem::new("group", "Group", LayersPanelNodeKind::Group).children(vec![
+        LayersPanelItem::new("text", "Text", LayersPanelNodeKind::Text),
+    ]);
+    assert!(eager.has_children);
+}
+
+#[test]
 fn every_supported_node_kind_has_safe_common_context_actions() {
     use LayersPanelNodeKind as Kind;
     let kinds = [
