@@ -475,7 +475,8 @@ The library source is organized by atomic design tier:
 
 ```text
 crates/fanta-gpui/src/
-  atoms/        activation, buttons, pinned Lucide icons, truncation, bounds tracking
+  atoms/        activation, buttons, pinned Lucide icons, truncation,
+                bounds tracking, shared geometry scale
   molecules/    inspector fields/sections, menu chrome + clamping, anchored
                 popups, list rows, edge fades
   organisms/    design, layers, pages, prototype, timeline, toolbar —
@@ -524,6 +525,15 @@ icons, or menu chrome per control:
 - `track_bounds` and `truncating_label` replace hand-rolled measurement
   canvases and character-count width heuristics; labels truncate rather than
   forcing horizontal scroll extents.
+- `atoms::tokens` is the shared geometry scale for fixed chrome dimensions:
+  padding and gap steps, row heights, control hit targets, Fanta-owned corner
+  radii, icon glyph sizes, menu widths, and density breakpoints. It covers
+  exactly the fixed dimensions §5 accepts for intentional editor chrome
+  geometry; color, the body font, and surface radius stay with `Theme`, and a
+  token that would restate a theme value does not belong in the module. A
+  feature constant derived from a token spells the derivation out
+  (`2. * Space::SM` for a `p_2` surface) rather than naming the step that
+  happens to equal it today.
 - `controls::test_support` mounts any intent-emitting component behind a
   recording probe host and asserts the §9 pointer/Enter/Space parity matrix
   against a control's debug selector. Every interactive control carries a

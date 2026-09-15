@@ -291,7 +291,7 @@ fn render_compact_property_label(
         .overflow_hidden()
         .whitespace_nowrap()
         .truncate()
-        .text_size(px(10.))
+        .text_size(px(tokens::TypeScale::MICRO))
         .text_color(cx.theme().muted_foreground)
         .child(projection.label.clone())
         .into_any_element()

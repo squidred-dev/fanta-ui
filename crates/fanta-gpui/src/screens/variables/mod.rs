@@ -18,7 +18,7 @@ use gpui_component::{
 use crate::{
     atoms::{
         ActivateEvent, ButtonControlExt as _, CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon,
-        icon_button, render_lucide_icon,
+        icon_button, render_lucide_icon, tokens,
     },
     color::parse_hex_rgba,
     molecules::menu_item,
@@ -408,7 +408,7 @@ impl VariablesScreen {
             .cursor_pointer()
             .border_1()
             .border_color(cx.theme().transparent)
-            .text_size(px(12.))
+            .text_size(px(tokens::TypeScale::BODY))
             .when(selected, |row| {
                 row.bg(cx.theme().secondary)
                     .text_color(cx.theme().secondary_foreground)
@@ -503,7 +503,7 @@ impl VariablesScreen {
             .cursor_pointer()
             .border_1()
             .border_color(cx.theme().transparent)
-            .text_size(px(12.))
+            .text_size(px(tokens::TypeScale::BODY))
             .when(selected, |row| {
                 row.bg(cx.theme().selection.opacity(0.2))
                     .text_color(cx.theme().foreground)
@@ -559,7 +559,7 @@ impl VariablesScreen {
                             .h(px(28.))
                             .px_1()
                             .font_semibold()
-                            .text_size(px(11.))
+                            .text_size(px(tokens::TypeScale::CAPTION))
                             .child("Collections")
                             .child(div().flex_1())
                             .child(
@@ -591,7 +591,7 @@ impl VariablesScreen {
                         div()
                             .px_1()
                             .font_semibold()
-                            .text_size(px(11.))
+                            .text_size(px(tokens::TypeScale::CAPTION))
                             .child("Groups"),
                     )
                     .child(groups),
@@ -681,7 +681,7 @@ impl VariablesScreen {
             .child(
                 div()
                     .truncate()
-                    .text_size(px(12.))
+                    .text_size(px(tokens::TypeScale::BODY))
                     .child(value.map_or_else(SharedString::default, |value| value.value.clone())),
             )
             .into_any_element()
@@ -772,7 +772,7 @@ impl VariablesScreen {
                     .debug_selector(|| "variables-empty-title".to_owned())
                     .max_w_full()
                     .text_center()
-                    .text_size(px(14.))
+                    .text_size(px(tokens::TypeScale::TITLE))
                     .font_semibold()
                     .child(if search_empty {
                         "No variables match search"
@@ -786,7 +786,7 @@ impl VariablesScreen {
                     .w_full()
                     .max_w(px(330.))
                     .text_center()
-                    .text_size(px(12.))
+                    .text_size(px(tokens::TypeScale::BODY))
                     .line_height(px(16.))
                     .text_color(cx.theme().muted_foreground)
                     .child(if search_empty {
@@ -867,7 +867,7 @@ impl VariablesScreen {
             .border_b_1()
             .border_color(cx.theme().border)
             .font_semibold()
-            .text_size(px(11.))
+            .text_size(px(tokens::TypeScale::CAPTION))
             .child("Name");
         let mut names = v_flex().w(px(name_width)).flex_none();
         let mut modes = v_flex().w(px(modes_width)).flex_none();
@@ -889,7 +889,7 @@ impl VariablesScreen {
                         header.border_r_1()
                     })
                     .font_semibold()
-                    .text_size(px(11.))
+                    .text_size(px(tokens::TypeScale::CAPTION))
                     .child(mode.name.clone()),
             );
         }
@@ -953,7 +953,7 @@ impl VariablesScreen {
                     .border_r_1()
                     .border_b_1()
                     .border_color(cx.theme().border)
-                    .text_size(px(12.))
+                    .text_size(px(tokens::TypeScale::BODY))
                     .child(
                         div()
                             .w(px(16.))
@@ -1111,7 +1111,11 @@ impl VariablesScreen {
                         cx.emit(VariablesAction::CreateVariableRequested);
                     }))
                     .child(Icon::new(IconName::Plus).small())
-                    .child(div().text_size(px(11.)).child("Create variable")),
+                    .child(
+                        div()
+                            .text_size(px(tokens::TypeScale::CAPTION))
+                            .child("Create variable"),
+                    ),
             )
             .child(
                 div()
@@ -1193,7 +1197,7 @@ impl Render for VariablesScreen {
                                 .border_r_1()
                                 .border_color(cx.theme().border)
                                 .font_semibold()
-                                .text_size(px(13.))
+                                .text_size(px(tokens::TypeScale::LABEL))
                                 .child(self.view_data.document_name.clone())
                                 .child(div().flex_1())
                                 .child(
@@ -1217,7 +1221,7 @@ impl Render for VariablesScreen {
                             .min_w(px(0.))
                             .px(px(20.))
                             .font_semibold()
-                            .text_size(px(13.))
+                            .text_size(px(tokens::TypeScale::LABEL))
                             .gap_2()
                             .when(!self.sidebar_visible, |title| {
                                 title.child(
@@ -1277,7 +1281,7 @@ impl Render for VariablesScreen {
                                                 .cleanable(true)
                                                 .small()
                                                 .px(px(6.))
-                                                .text_size(px(12.))
+                                                .text_size(px(tokens::TypeScale::BODY))
                                                 .prefix(Icon::new(IconName::Search).small()),
                                         ),
                                     )

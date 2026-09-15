@@ -2,11 +2,13 @@ use std::ops::Range;
 
 use gpui::{ClickEvent, Hsla, InteractiveElement as _, MouseButton, MouseDownEvent, uniform_list};
 
+use crate::atoms::tokens;
+
 use super::icons::{layer_kind_icon, render_lock_icon};
 
 use super::*;
 
-const LAYER_KIND_ICON_SIZE: f32 = 12.;
+const LAYER_KIND_ICON_SIZE: f32 = tokens::IconSize::XS;
 
 struct LayerDragPreview {
     drag: LayerDrag,

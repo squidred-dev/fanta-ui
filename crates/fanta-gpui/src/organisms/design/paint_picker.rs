@@ -27,7 +27,9 @@ use gpui_component::{
     v_flex,
 };
 
-use crate::atoms::{ActivateControl, ButtonControlExt as _, CONTROL_KEY_CONTEXT, track_bounds};
+use crate::atoms::{
+    ActivateControl, ButtonControlExt as _, CONTROL_KEY_CONTEXT, tokens, track_bounds,
+};
 use crate::molecules::{
     InspectorOverlayDismissCause, InspectorOverlayDismissIntent, InspectorOverlayFocusTarget,
     popup_height, popup_width,
@@ -69,16 +71,16 @@ use super::{
     DesignVideoPreviewState, DesignVideoPreviewStatus,
 };
 
-const PICKER_WIDTH: f32 = 280.;
+const PICKER_WIDTH: f32 = tokens::MenuWidth::PICKER;
 const PICKER_MAX_HEIGHT: f32 = 520.;
-const PICKER_HEADER_HEIGHT: f32 = 40.;
-const PAINT_TYPE_ROW_HEIGHT: f32 = 40.;
-const PAINT_HEADER_CONTROL_SIZE: f32 = 28.;
-const PAINT_HEADER_GAP: f32 = 4.;
-const PAINT_HEADER_HORIZONTAL_PADDING: f32 = 16.;
+const PICKER_HEADER_HEIGHT: f32 = tokens::RowHeight::SECTION_HEADER;
+const PAINT_TYPE_ROW_HEIGHT: f32 = tokens::RowHeight::SECTION_HEADER;
+const PAINT_HEADER_CONTROL_SIZE: f32 = tokens::ControlSize::CHROME;
+const PAINT_HEADER_GAP: f32 = tokens::Space::XS;
+const PAINT_HEADER_HORIZONTAL_PADDING: f32 = tokens::Space::LG;
 const PAINT_HEADER_TRAILING_CONTROL_COUNT: usize = 2;
 const COLOR_AREA_HEIGHT: f32 = 248.;
-const CONTROL_HEIGHT: f32 = 16.;
+const CONTROL_HEIGHT: f32 = tokens::ControlSize::INLINE;
 const KEYBOARD_FINE_STEP: f32 = 0.01;
 const KEYBOARD_COARSE_STEP: f32 = 0.1;
 const HUE_FINE_STEP: f32 = 1.;

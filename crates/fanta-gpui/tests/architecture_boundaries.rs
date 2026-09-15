@@ -151,6 +151,60 @@ fn production_source_before_inline_tests(source: &str) -> &str {
     source
 }
 
+fn bare_numeric_f32_constant(line: &str) -> Option<&str> {
+    let declaration = line.split("//").next().unwrap_or_default().trim();
+    let declaration = match declaration.strip_prefix("const ") {
+        Some(declaration) => declaration,
+        None => {
+            let (visibility, declaration) = declaration.split_once("const ")?;
+            let visibility = visibility.trim();
+            if visibility != "pub" && !(visibility.starts_with("pub(") && visibility.ends_with(')'))
+            {
+                return None;
+            }
+            declaration
+        }
+    };
+
+    let (name, remainder) = declaration.split_once(':')?;
+    let (type_name, value) = remainder.split_once('=')?;
+    if type_name.trim() != "f32" {
+        return None;
+    }
+
+    let value = value.trim().strip_suffix(';')?;
+    let is_bare_literal = value.starts_with(|character: char| character.is_ascii_digit())
+        && value
+            .chars()
+            .all(|character| character.is_ascii_digit() || character == '.');
+    if !is_bare_literal {
+        return None;
+    }
+
+    Some(name.trim())
+}
+
+fn bare_numeric_f32_constants(source: &str) -> Vec<&str> {
+    source
+        .lines()
+        .filter_map(bare_numeric_f32_constant)
+        .collect()
+}
+
+fn raw_pixel_literals(source: &str) -> usize {
+    let mut cursor = 0;
+    let mut literals = 0;
+
+    while let Some(relative_start) = source[cursor..].find("px(") {
+        cursor += relative_start + "px(".len();
+        if source[cursor..].starts_with(|character: char| character.is_ascii_digit()) {
+            literals += 1;
+        }
+    }
+
+    literals
+}
+
 fn render_function_boundaries(source: &str) -> Vec<(&str, Option<&str>)> {
     let mut functions = Vec::new();
     let mut line_start = 0usize;
@@ -2018,4 +2072,187 @@ fn design_panel_facade_groups_retained_children_by_ownership_tier() {
         "{} must remain the single assembly point for retained children",
         factory_path.display()
     );
+}
+
+#[test]
+fn geometry_constants_resolve_to_shared_tokens() {
+    const TOKEN_BACKED_SUFFIXES: &[&str] = &[
+        "_HEIGHT", "_WIDTH", "_PADDING", "_GAP", "_SIZE", "_RADIUS", "_INDENT",
+    ];
+    // One-off surface geometry that the shared scale deliberately does not
+    // absorb: picker ceilings, anchor insets, and rail/column widths a single
+    // feature owns. Entries leave this list as constants migrate; a new local
+    // dimension belongs in `atoms::tokens` instead of here.
+    const ALLOWED_LOCAL_GEOMETRY: &[(&str, &str)] = &[
+        ("organisms/design/paint_picker.rs", "PICKER_MAX_HEIGHT"),
+        ("organisms/design/paint_picker.rs", "COLOR_AREA_HEIGHT"),
+        (
+            "organisms/design/typography_style_picker.rs",
+            "PICKER_MAX_HEIGHT",
+        ),
+        ("organisms/layers/panel.rs", "LAYER_ROW_MIN_CONTENT_WIDTH"),
+        ("organisms/layers/panel.rs", "LAYER_ICON_SLOT"),
+        (
+            "organisms/toolbar/component/overlays.rs",
+            "ACTIONS_PALETTE_CHROME_HEIGHT",
+        ),
+        (
+            "organisms/toolbar/component/overlays.rs",
+            "ACTIONS_RESULTS_MAX_HEIGHT",
+        ),
+        (
+            "organisms/toolbar/component/overlays.rs",
+            "AGENT_COMPOSER_ANCHOR_INSET",
+        ),
+        (
+            "organisms/toolbar/component/overlays.rs",
+            "ZOOM_MENU_ANCHOR_INSET",
+        ),
+        ("organisms/toolbar/component/rows.rs", "ROW_FADE_WIDTH"),
+        ("organisms/pages/panel.rs", "PAGE_ROW_GAP"),
+        ("organisms/pages/panel.rs", "MAX_PAGE_LIST_HEIGHT"),
+        ("organisms/pages/panel.rs", "PAGE_MENU_HEIGHT"),
+        ("organisms/pages/panel.rs", "SCOPE_MENU_HEIGHT"),
+        ("organisms/timeline/mod.rs", "RULER_GUTTER"),
+        ("organisms/timeline/mod.rs", "RAIL_WIDTH"),
+        ("organisms/timeline/mod.rs", "ZOOM_WIDTH"),
+        ("organisms/timeline/mod.rs", "ZOOM_COMPACT_WIDTH"),
+        ("organisms/timeline/mod.rs", "ZOOM_TRACK_CHROME"),
+        ("organisms/timeline/mod.rs", "ZOOM_TRACK_WIDTH"),
+        ("organisms/timeline/mod.rs", "EMPTY_CARD_WIDTH"),
+        ("organisms/timeline/mod.rs", "EMPTY_CARD_HEIGHT"),
+        ("screens/variables/mod.rs", "SIDEBAR_WIDTH"),
+        ("screens/variables/mod.rs", "HEADER_TOOLS_WIDTH"),
+        ("screens/variables/mod.rs", "NAME_COLUMN_WIDTH"),
+        ("screens/variables/mod.rs", "VALUE_COLUMN_WIDTH"),
+        ("screens/variables/mod.rs", "ACTIONS_COLUMN_WIDTH"),
+        ("screens/variables/mod.rs", "TABLE_SCROLLBAR_WIDTH"),
+        (
+            "layouts/pseudo_editor/mod.rs",
+            "PSEUDO_EDITOR_LEFT_RAIL_WIDTH",
+        ),
+        (
+            "layouts/pseudo_editor/mod.rs",
+            "PSEUDO_EDITOR_RIGHT_RAIL_WIDTH",
+        ),
+        (
+            "layouts/pseudo_editor/mod.rs",
+            "PSEUDO_EDITOR_MIN_CANVAS_WIDTH",
+        ),
+        (
+            "layouts/pseudo_editor/mod.rs",
+            "PSEUDO_EDITOR_MIN_CANVAS_HEIGHT",
+        ),
+        (
+            "layouts/pseudo_editor/mod.rs",
+            "PSEUDO_EDITOR_TOP_BAR_HEIGHT",
+        ),
+        (
+            "layouts/pseudo_editor/mod.rs",
+            "PSEUDO_EDITOR_TIMELINE_HEIGHT",
+        ),
+    ];
+
+    let source_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut untokenized_geometry = Vec::new();
+    let mut active_exemptions = Vec::new();
+
+    for tier in ["organisms", "layouts", "screens"] {
+        visit_rust_sources(&source_root.join(tier), &mut |path, source| {
+            let relative_path = path
+                .strip_prefix(&source_root)
+                .expect("visited source must live below the crate source root")
+                .to_string_lossy()
+                .into_owned();
+
+            // Exemptions are matched against the whole file so a constant
+            // declared past a `#[cfg(test)] mod tests;` submodule line still
+            // holds its entry accountable.
+            for name in bare_numeric_f32_constants(source) {
+                if ALLOWED_LOCAL_GEOMETRY.contains(&(relative_path.as_str(), name)) {
+                    active_exemptions.push((relative_path.clone(), name.to_owned()));
+                }
+            }
+
+            for name in bare_numeric_f32_constants(production_source_before_inline_tests(source)) {
+                if name.ends_with("_MIN_WIDTH") || name.ends_with("_MIN_HEIGHT") {
+                    continue;
+                }
+                if !TOKEN_BACKED_SUFFIXES
+                    .iter()
+                    .any(|suffix| name.ends_with(suffix))
+                {
+                    continue;
+                }
+                if ALLOWED_LOCAL_GEOMETRY.contains(&(relative_path.as_str(), name)) {
+                    continue;
+                }
+                untokenized_geometry.push((relative_path.clone(), name.to_owned()));
+            }
+        });
+    }
+
+    let stale_exemptions = ALLOWED_LOCAL_GEOMETRY
+        .iter()
+        .filter(|(path, name)| {
+            !active_exemptions
+                .iter()
+                .any(|(active_path, active_name)| active_path == path && active_name == name)
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        untokenized_geometry.is_empty(),
+        "fixed chrome geometry must resolve to the shared `atoms::tokens` scale (ARCHITECTURE.md \
+         §16): give each constant below a named token at its exact current value — never round it \
+         to a neighbouring step — or record it in ALLOWED_LOCAL_GEOMETRY when the dimension is \
+         genuinely feature-local; found: {untokenized_geometry:#?}"
+    );
+    assert!(
+        stale_exemptions.is_empty(),
+        "remove migrated constants from ALLOWED_LOCAL_GEOMETRY instead of retaining stale \
+         geometry exceptions; the list may only shrink: {stale_exemptions:#?}"
+    );
+}
+
+#[test]
+fn raw_pixel_literal_budget_ratchets_down() {
+    // Measured ceilings on hand-written `px(<number>)` call sites per feature
+    // directory. Every token migration must lower the directory it touches.
+    const RAW_PIXEL_BUDGETS: &[(&str, usize)] = &[
+        ("organisms/design", 600),
+        ("organisms/toolbar", 200),
+        ("screens/variables", 89),
+        ("organisms/pages", 91),
+        ("organisms/timeline", 70),
+        ("organisms/layers", 47),
+        ("organisms/prototype", 40),
+        ("layouts", 39),
+        ("molecules", 41),
+        ("atoms", 7),
+    ];
+    // Headroom a budget may carry before it is stale rather than generous.
+    const BUDGET_SLACK: usize = 20;
+
+    let source_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+
+    for (directory, budget) in RAW_PIXEL_BUDGETS {
+        let mut literals = 0;
+        visit_rust_sources(&source_root.join(directory), &mut |_, source| {
+            literals += raw_pixel_literals(production_source_before_inline_tests(source));
+        });
+
+        assert!(
+            literals <= *budget,
+            "src/{directory} may spend at most {budget} raw `px(<number>)` literals but spends \
+             {literals}; route the new geometry through an `atoms::tokens` constant at its exact \
+             value instead of widening the budget"
+        );
+        assert!(
+            literals + BUDGET_SLACK >= *budget,
+            "src/{directory} is down to {literals} raw `px(<number>)` literals against a budget of \
+             {budget}; lower the budget to {literals} so the cleanup ratchets instead of leaving \
+             headroom for new literals"
+        );
+    }
 }

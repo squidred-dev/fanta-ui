@@ -32,7 +32,7 @@ use gpui_component::{
 
 use crate::atoms::{
     ActivateControl, ButtonControlExt as _, CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon,
-    render_lucide_icon,
+    render_lucide_icon, tokens,
 };
 use crate::color::{parse_hex_rgba, rgba_channels};
 use crate::molecules::{
@@ -198,7 +198,7 @@ const HEADER_HEIGHT: f32 = InspectorMetrics::SECTION_HEADER_HEIGHT;
 const ROW_HEIGHT: f32 = InspectorMetrics::ROW_HEIGHT;
 const PANEL_PADDING: f32 = InspectorMetrics::HORIZONTAL_PADDING;
 const NUMERIC_SCRUB_THRESHOLD: f32 = 2.;
-const GRID_DIMENSIONS_POPOVER_WIDTH: f32 = 248.;
+const GRID_DIMENSIONS_POPOVER_WIDTH: f32 = tokens::MenuWidth::POPOVER;
 
 fn component_authoring_orders_have_same_unique_members(
     left: &[SharedString],

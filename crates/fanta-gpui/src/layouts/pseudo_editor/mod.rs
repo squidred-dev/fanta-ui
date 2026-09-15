@@ -8,7 +8,7 @@ use gpui::{
 use gpui_component::{ActiveTheme as _, StyledExt as _, h_flex, v_flex};
 
 use crate::atoms::{
-    CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon,
+    CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon, tokens,
 };
 use crate::{
     design::DesignPanel, layers::LayersPanel, pages::PagesPanel, prototype::PrototypePanel,
@@ -147,7 +147,7 @@ impl PseudoEditor {
             .items_center()
             .rounded(px(5.))
             .cursor_pointer()
-            .text_size(px(10.))
+            .text_size(px(tokens::TypeScale::MICRO))
             .border_1()
             .border_color(cx.theme().transparent)
             .when(selected, |tab| {
@@ -227,10 +227,15 @@ impl PseudoEditor {
                     .bg(cx.theme().background)
                     .text_color(cx.theme().foreground)
                     .when(cx.theme().shadow, |card| card.shadow_lg())
-                    .child(div().text_size(px(20.)).font_semibold().child("Fanta"))
                     .child(
                         div()
-                            .text_size(px(12.))
+                            .text_size(px(tokens::TypeScale::DISPLAY))
+                            .font_semibold()
+                            .child("Fanta"),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(tokens::TypeScale::BODY))
                             .text_color(cx.theme().muted_foreground)
                             .child("A simulated editor canvas"),
                     ),
@@ -276,7 +281,12 @@ impl Render for PseudoEditor {
                     .gap(px(10.))
                     .border_b_1()
                     .border_color(cx.theme().border)
-                    .child(div().font_semibold().text_size(px(12.)).child("Untitled"))
+                    .child(
+                        div()
+                            .font_semibold()
+                            .text_size(px(tokens::TypeScale::BODY))
+                            .child("Untitled"),
+                    )
                     .child(self.small_tab(
                         SharedString::from(format!("{}-left-pages", self.id)),
                         "pseudo-editor-left-pages",
@@ -345,7 +355,7 @@ impl Render for PseudoEditor {
                             .items_center()
                             .rounded(px(5.))
                             .cursor_pointer()
-                            .text_size(px(10.))
+                            .text_size(px(tokens::TypeScale::MICRO))
                             .border_1()
                             .border_color(cx.theme().transparent)
                             .hover(|style| style.bg(cx.theme().accent))
@@ -370,7 +380,7 @@ impl Render for PseudoEditor {
                             .items_center()
                             .rounded(px(5.))
                             .cursor_pointer()
-                            .text_size(px(10.))
+                            .text_size(px(tokens::TypeScale::MICRO))
                             .border_1()
                             .border_color(cx.theme().transparent)
                             .hover(|style| style.bg(cx.theme().accent))
@@ -394,7 +404,7 @@ impl Render for PseudoEditor {
                             .text_color(cx.theme().primary_foreground)
                             .cursor_pointer()
                             .font_semibold()
-                            .text_size(px(10.))
+                            .text_size(px(tokens::TypeScale::MICRO))
                             .border_1()
                             .border_color(cx.theme().transparent)
                             .hover(|style| style.bg(cx.theme().primary_hover))

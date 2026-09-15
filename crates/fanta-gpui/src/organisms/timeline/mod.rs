@@ -11,7 +11,8 @@ use gpui_component::{
 };
 
 use crate::atoms::{
-    CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon, track_bounds,
+    CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon, tokens,
+    track_bounds,
 };
 
 /// Width of the gutter before the ruler/track content, in pixels.
@@ -229,7 +230,7 @@ impl Timeline {
                     .h(px(24.))
                     .rounded(px(4.))
                     .bg(cx.theme().secondary)
-                    .text_size(px(10.))
+                    .text_size(px(tokens::TypeScale::MICRO))
                     .text_color(cx.theme().muted_foreground)
                     .child(
                         div()
@@ -338,7 +339,7 @@ impl Timeline {
                     .child(
                         div()
                             .mt(px(13.))
-                            .text_size(px(10.))
+                            .text_size(px(tokens::TypeScale::MICRO))
                             .text_color(cx.theme().muted_foreground)
                             .child(label.to_string()),
                     ),
@@ -497,7 +498,7 @@ impl Timeline {
                     .relative()
                     .top(px(11.))
                     .font_semibold()
-                    .text_size(px(14.))
+                    .text_size(px(tokens::TypeScale::TITLE))
                     .child("No animations in timeline"),
             )
             .child(
@@ -506,7 +507,7 @@ impl Timeline {
                     .top(px(4.5))
                     .max_w(px(330.))
                     .text_center()
-                    .text_size(px(12.))
+                    .text_size(px(tokens::TypeScale::BODY))
                     .line_height(px(16.))
                     .text_color(cx.theme().muted_foreground)
                     .child(
@@ -529,7 +530,7 @@ impl Timeline {
                     .border_1()
                     .border_color(cx.theme().border)
                     .cursor_pointer()
-                    .text_size(px(12.))
+                    .text_size(px(tokens::TypeScale::BODY))
                     .hover(|style| style.bg(cx.theme().accent))
                     .focus(|style| style.border_color(cx.theme().selection))
                     .on_activate(cx.listener(|_, _, _, cx| {

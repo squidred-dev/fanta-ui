@@ -16,7 +16,7 @@ use gpui_component::{
 };
 
 use crate::atoms::{
-    ActivateControl, CONTROL_KEY_CONTEXT, ControlExt as _, icon_button, track_bounds,
+    ActivateControl, CONTROL_KEY_CONTEXT, ControlExt as _, icon_button, tokens, track_bounds,
     truncating_label,
 };
 use crate::molecules::list_row;
@@ -42,14 +42,14 @@ pub const LAYERS_PANEL_MIN_WIDTH: f32 = 240.;
 /// Shortest height the expanded panel stays useful at; the tree scrolls.
 pub const LAYERS_PANEL_MIN_HEIGHT: f32 = 400.;
 
-const HEADER_HEIGHT: f32 = 40.;
+const HEADER_HEIGHT: f32 = tokens::RowHeight::SECTION_HEADER;
 /// Every tree row — plain, editing, or dragging preview — is this tall. The
 /// tree is virtualized with `uniform_list`, which measures the first row and
 /// positions the rest arithmetically, so the height must be uniform.
-const LAYER_ROW_HEIGHT: f32 = 28.;
+const LAYER_ROW_HEIGHT: f32 = tokens::RowHeight::LIST;
 /// Indent per nesting level. Figma uses a compact step so deep trees keep a
 /// legible title column inside a narrow rail.
-const LAYER_INDENT: f32 = 12.;
+const LAYER_INDENT: f32 = tokens::Space::MD;
 /// Horizontal room a row always keeps for its icon slots, title, and
 /// satellites: the indent is capped so a deeply nested row never pushes its
 /// content out of the panel.

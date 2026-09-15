@@ -2,6 +2,8 @@
 
 use gpui::{Pixels, SharedString, px};
 
+use crate::atoms::tokens;
+
 /// Presentation of a controlled value supplied by a host.
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub enum InspectorValue<T> {
@@ -280,17 +282,20 @@ impl InspectorMetrics {
     ///
     /// These constants let retained legacy renderers consume the same source
     /// of truth while they are incrementally migrated to `InspectorMetrics`.
-    pub const SECTION_HEADER_HEIGHT: f32 = 40.;
-    pub const ROW_HEIGHT: f32 = 24.;
-    pub const HORIZONTAL_PADDING: f32 = 16.;
-    pub const ROW_GAP: f32 = 4.;
-    pub const CONTROL_GAP: f32 = 8.;
+    /// Each one is a named view of the shared geometry scale
+    /// ([`crate::atoms::tokens`]); `LABEL_WIDTH` is inspector-specific and so
+    /// stays a literal here.
+    pub const SECTION_HEADER_HEIGHT: f32 = tokens::RowHeight::SECTION_HEADER;
+    pub const ROW_HEIGHT: f32 = tokens::RowHeight::FIELD;
+    pub const HORIZONTAL_PADDING: f32 = tokens::Space::LG;
+    pub const ROW_GAP: f32 = tokens::Space::XS;
+    pub const CONTROL_GAP: f32 = tokens::Space::SM;
     pub const LABEL_WIDTH: f32 = 96.;
-    pub const ICON_SIZE: f32 = 16.;
-    pub const RADIUS: f32 = 4.;
-    pub const COMPACT_FEEDBACK_PADDING: f32 = 12.;
-    pub const COMPACT_BREAKPOINT: f32 = 360.;
-    pub const WIDE_BREAKPOINT: f32 = 440.;
+    pub const ICON_SIZE: f32 = tokens::IconSize::MD;
+    pub const RADIUS: f32 = tokens::Radius::CONTROL;
+    pub const COMPACT_FEEDBACK_PADDING: f32 = tokens::Space::MD;
+    pub const COMPACT_BREAKPOINT: f32 = tokens::Breakpoint::COMPACT;
+    pub const WIDE_BREAKPOINT: f32 = tokens::Breakpoint::WIDE;
 
     pub fn current() -> Self {
         Self {
@@ -431,6 +436,26 @@ mod tests {
         assert_eq!(metrics.compact_breakpoint, px(360.));
         assert_eq!(metrics.wide_breakpoint, px(440.));
         assert!(metrics.is_valid());
+    }
+
+    #[test]
+    fn inspector_metrics_current_matches_the_shared_geometry_tokens() {
+        let metrics = InspectorMetrics::current();
+        assert_eq!(
+            metrics.section_header_height,
+            px(tokens::RowHeight::SECTION_HEADER)
+        );
+        assert_eq!(metrics.row_height, px(tokens::RowHeight::FIELD));
+        assert_eq!(metrics.horizontal_padding, px(tokens::Space::LG));
+        assert_eq!(metrics.row_gap, px(tokens::Space::XS));
+        assert_eq!(metrics.control_gap, px(tokens::Space::SM));
+        // Label width is inspector-specific geometry with no shared token.
+        assert_eq!(metrics.label_width, px(96.));
+        assert_eq!(metrics.icon_size, px(tokens::IconSize::MD));
+        assert_eq!(metrics.radius, px(tokens::Radius::CONTROL));
+        assert_eq!(metrics.compact_feedback_padding, px(tokens::Space::MD));
+        assert_eq!(metrics.compact_breakpoint, px(tokens::Breakpoint::COMPACT));
+        assert_eq!(metrics.wide_breakpoint, px(tokens::Breakpoint::WIDE));
     }
 
     #[test]

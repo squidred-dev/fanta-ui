@@ -9,6 +9,9 @@
 //! This module is the curated public atoms API: hosts build custom chrome
 //! from these pieces so their controls share the library's activation,
 //! focus-ring, icon, and truncation contracts.
+//!
+//! [`tokens`] is the shared geometry scale behind that chrome, reached as a
+//! path (`atoms::tokens::RowHeight::FIELD`) rather than re-exported flat.
 
 use gpui::{App, KeyBinding, actions};
 
@@ -16,6 +19,7 @@ mod activatable;
 mod bounds;
 mod button;
 mod lucide;
+pub mod tokens;
 mod truncate;
 
 pub use activatable::{ActivateEvent, ButtonControlExt, ControlExt};
