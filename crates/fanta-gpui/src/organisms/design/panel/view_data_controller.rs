@@ -927,12 +927,24 @@ impl DesignPanelViewDataController for DesignPanel {
     /// Clears canonical export input and falls back to adapting the legacy
     /// scale-only records on [`DesignPanelNode`].
     fn apply_clear_export_view_data(&mut self, cx: &mut Context<Self>) {
-        if self
+        let editing_export_configuration = self
             .edit
             .property
             .as_ref()
-            .is_some_and(|editor| editor.export_configuration_id.is_some())
+            .is_some_and(|editor| editor.export_configuration_id.is_some());
+        // Clearing what is already clear would still drop every retained
+        // option dropdown and its subscription, so a host that simply never
+        // supplies exports would pay that churn on every echo. The sibling
+        // `apply_clear_*` all guard the same way.
+        if !editing_export_configuration
+            && self.host.projections.export.is_none()
+            && self.features.export.expanded_settings.is_empty()
+            && !self.features.export.preview_expanded
+            && !self.overlays.is_open(DesignOpenOverlay::ExportChoice)
         {
+            return;
+        }
+        if editing_export_configuration {
             self.cancel_property_editor_transaction(cx);
         }
         self.host.projections.export = None;
@@ -1826,6 +1838,47 @@ mod tests {
             DesignPanelParentLayout::Freeform,
             permissions,
         )
+    }
+
+    #[gpui::test]
+    fn a_snapshot_without_exports_keeps_the_retained_option_dropdowns(cx: &mut TestAppContext) {
+        // A host that never supplies exports still sends a complete snapshot
+        // on every echo, and `apply_view_data` takes the clear-export branch
+        // each time. That branch must not be the thing that destroys the
+        // retained `SelectState` entities behind every option dropdown: the
+        // selection has not changed, so nothing about the target has.
+        let node = DesignPanelNode::new("exportless", "Exportless", DesignPanelNodeKind::Frame);
+        let (host, actions, visual_cx) = setup(node.clone(), cx);
+        let panel = panel(&host, visual_cx);
+
+        let retained = panel.update(visual_cx, |panel, cx| {
+            let mut view_data =
+                DesignPanelViewData::new(single_context(&node, DesignPanelPermissions::editor()));
+            view_data.projections.export = None;
+            panel.set_view_data(view_data, cx);
+            panel.retained.options.states.len()
+        });
+        visual_cx.run_until_parked();
+        assert!(
+            retained > 0,
+            "the panel should retain option dropdown state for a frame's own properties;              without that this test cannot observe the churn it exists to catch",
+        );
+
+        let survived = panel.update(visual_cx, |panel, cx| {
+            let mut view_data =
+                DesignPanelViewData::new(single_context(&node, DesignPanelPermissions::editor()));
+            view_data.projections.export = None;
+            panel.set_view_data(view_data, cx);
+            panel.retained.options.states.len()
+        });
+        assert_eq!(
+            survived, retained,
+            "a second exportless snapshot for the same node rebuilt every retained option              dropdown; clearing an export projection that was already absent must be a no-op",
+        );
+        assert!(
+            actions.borrow().is_empty(),
+            "re-sending an identical snapshot is presentation-only and emits no host intent",
+        );
     }
 
     /// A deliberately un-normalized host snapshot.
