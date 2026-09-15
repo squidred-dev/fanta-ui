@@ -36,9 +36,10 @@ use gpui_component::{
     v_flex,
 };
 use screens::{
-    ButtonsScreen, DesignScreen, FileInspectorScreen, IconsScreen, LabelsScreen, LayersScreen,
-    ListRowsScreen, MenusScreen, PagesScreen, PopupsScreen, PrototypeScreen, PseudoEditorScreen,
-    TimelineScreen, ToolbarScreen, VariablesStory, WelcomeScreen, viewport::StoryViewport,
+    ButtonsScreen, DesignScreen, FieldsScreen, FileInspectorScreen, IconsScreen, LabelsScreen,
+    LayersScreen, ListRowsScreen, MenusScreen, OverlaysScreen, PagesScreen, PopupsScreen,
+    PrototypeScreen, PseudoEditorScreen, StructureScreen, TimelineScreen, TokensScreen,
+    ToolbarScreen, VariablesStory, WelcomeScreen, viewport::StoryViewport,
 };
 use themes::{apply_zed_theme, initial_zed_theme_index, zed_themes};
 
@@ -67,9 +68,13 @@ struct Storybook {
     buttons_screen: ButtonsScreen,
     labels_screen: LabelsScreen,
     icons_screen: IconsScreen,
+    tokens_screen: TokensScreen,
     menus_screen: MenusScreen,
     list_rows_screen: ListRowsScreen,
     popups_screen: PopupsScreen,
+    fields_screen: FieldsScreen,
+    structure_screen: StructureScreen,
+    overlays_screen: OverlaysScreen,
     variables_screen: VariablesStory,
     prototype_screen: PrototypeScreen,
     timeline_screen: TimelineScreen,
@@ -94,9 +99,13 @@ impl Storybook {
         let buttons_screen = ButtonsScreen::new(cx);
         let labels_screen = LabelsScreen::new(window, cx);
         let icons_screen = IconsScreen::new(window, cx);
+        let tokens_screen = TokensScreen::new(cx);
         let menus_screen = MenusScreen::new(cx);
         let list_rows_screen = ListRowsScreen::new(cx);
         let popups_screen = PopupsScreen::new(cx);
+        let fields_screen = FieldsScreen::new(cx);
+        let structure_screen = StructureScreen::new(cx);
+        let overlays_screen = OverlaysScreen::new(cx);
         let variables_screen = VariablesStory::new(window, cx);
         let prototype_screen = PrototypeScreen::new(cx);
         let timeline_screen = TimelineScreen::new(cx);
@@ -226,9 +235,13 @@ impl Storybook {
             buttons_screen,
             labels_screen,
             icons_screen,
+            tokens_screen,
             menus_screen,
             list_rows_screen,
             popups_screen,
+            fields_screen,
+            structure_screen,
+            overlays_screen,
             variables_screen,
             prototype_screen,
             timeline_screen,

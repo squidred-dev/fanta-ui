@@ -4,17 +4,28 @@ use gpui::App;
 use gpui_component::{Theme, ThemeConfig, ThemeMode};
 use serde_json::{Map, Value};
 
-const ZED_THEME_FILES: [&str; 3] = [
+const ZED_THEME_FILES: [&str; 4] = [
     include_str!("../assets/themes/one.json"),
     include_str!("../assets/themes/ayu.json"),
     include_str!("../assets/themes/gruvbox.json"),
+    // Unlike the other bundled families, this one is not a third-party theme
+    // file, so it ships without a LICENSE-* sibling: it is Fanta's own reading
+    // of the Figma UI3 surface palette, authored here in the Zed family format
+    // and carrying the same colors `apply_figma_ui3_storybook_theme` applies to
+    // the reference fixture. No Figma-owned asset is copied.
+    include_str!("../assets/themes/figma-ui3.json"),
 ];
 
 /// The gallery order deliberately alternates light and dark first, preserving
 /// the old one-click light/dark smoke test while exposing every bundled variant.
-const THEME_ORDER: [&str; 11] = [
+/// `initial_zed_theme_index` indexes this list directly, so the first two entries
+/// must stay one light theme followed by one dark theme.
+const THEME_ORDER: [&str; 12] = [
     "One Light",
     "One Dark",
+    // The host cutover's target look sits directly after the light/dark smoke
+    // test so any story can be reviewed in it without scrolling the list.
+    "Figma UI3 Dark",
     "Ayu Light",
     "Ayu Dark",
     "Ayu Mirage",

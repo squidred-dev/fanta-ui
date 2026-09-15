@@ -268,9 +268,13 @@ fn every_reference_fixture_renders_through_the_registry(cx: &mut TestAppContext)
         (StoryKind::Buttons, "storybook-reference-buttons"),
         (StoryKind::Labels, "storybook-reference-labels"),
         (StoryKind::Icons, "storybook-icon-gallery"),
+        (StoryKind::Tokens, "storybook-reference-tokens"),
         (StoryKind::Menus, "storybook-reference-menus"),
         (StoryKind::ListRows, "storybook-reference-list-rows"),
         (StoryKind::Popups, "storybook-reference-popups"),
+        (StoryKind::Fields, "storybook-reference-fields"),
+        (StoryKind::Structure, "storybook-reference-structure"),
+        (StoryKind::Overlays, "storybook-reference-overlays"),
         (StoryKind::Toolbar, "storybook-reference-toolbar"),
         (StoryKind::Pages, "storybook-reference-pages"),
         (StoryKind::Layers, "storybook-reference-layers"),
@@ -6622,6 +6626,18 @@ fn open_overlay_state(
             });
             true
         }
+        StoryKind::Overlays => {
+            cx.update(|window, app| {
+                storybook.update(app, |storybook, cx| {
+                    storybook.overlays_screen.apply_named_state(
+                        screens::overlays::OverlaysNamedState::PopoverOpen,
+                        window,
+                        cx,
+                    );
+                });
+            });
+            true
+        }
         _ => false,
     }
 }
@@ -6686,7 +6702,13 @@ fn every_story_paints_its_subject_inside_the_gallery_surface(cx: &mut TestAppCon
     // zero height, so asserting the surface exists proves nothing about the
     // story. Each story names the element a reader is actually there to see,
     // and that element must have real bounds.
-    const STORY_SUBJECTS: &[(StoryKind, &str)] = &[(StoryKind::Toolbar, "editor-toolbar")];
+    const STORY_SUBJECTS: &[(StoryKind, &str)] = &[
+        (StoryKind::Toolbar, "editor-toolbar"),
+        (StoryKind::Tokens, "storybook-tokens"),
+        (StoryKind::Fields, "storybook-fields"),
+        (StoryKind::Structure, "storybook-structure"),
+        (StoryKind::Overlays, "overlays-demo-area"),
+    ];
 
     cx.update(|cx| {
         gpui_component::init(cx);
@@ -6714,10 +6736,9 @@ fn every_story_paints_its_subject_inside_the_gallery_surface(cx: &mut TestAppCon
     visual_cx.run_until_parked();
 
     for (story, subject) in STORY_SUBJECTS {
-        visual_cx.update(|_, app| {
+        visual_cx.update(|window, app| {
             storybook.update(app, |storybook, cx| {
-                storybook.active_story = *story;
-                cx.notify();
+                storybook.activate_gallery_story(*story, window, cx);
             });
         });
         visual_cx.run_until_parked();
@@ -6750,5 +6771,193 @@ fn every_story_paints_its_subject_inside_the_gallery_surface(cx: &mut TestAppCon
             bounds,
             surface
         );
+    }
+}
+
+/// One named-state axis a story publishes through
+/// [`crate::screens::spec::NamedState`]: the axis name, the element a
+/// reader is there to see while it is walked, and one applier per case.
+struct NamedStateAxis {
+    story: StoryKind,
+    axis: &'static str,
+    subject: &'static str,
+    cases: Vec<NamedStateCase>,
+}
+
+/// Puts the storybook into one named state, from outside any update.
+type NamedStateApply = Box<dyn Fn(&Entity<Storybook>, &mut VisualTestContext)>;
+
+/// One case of an axis: its caption, and the call that puts the story in it.
+struct NamedStateCase {
+    label: &'static str,
+    apply: NamedStateApply,
+}
+
+/// Flattens a state enum's `ALL` into one axis, so a story names its
+/// setter once instead of repeating the walk over its own cases.
+fn named_state_axis<S: crate::screens::spec::NamedState>(
+    story: StoryKind,
+    axis: &'static str,
+    subject: &'static str,
+    apply: fn(&mut Storybook, S, &mut Window, &mut Context<Storybook>),
+) -> NamedStateAxis {
+    NamedStateAxis {
+        story,
+        axis,
+        subject,
+        cases: S::ALL
+            .iter()
+            .copied()
+            .map(|state| NamedStateCase {
+                label: state.label(),
+                apply: Box::new(move |storybook, cx| {
+                    cx.update(|window, app| {
+                        storybook.update(app, |storybook, cx| {
+                            apply(storybook, state, window, cx);
+                        });
+                    });
+                }),
+            })
+            .collect(),
+    }
+}
+
+#[gpui::test]
+fn every_named_state_story_renders_all_states(cx: &mut TestAppContext) {
+    // `spec::NamedState` exists so this walk lives in exactly one place: a
+    // story names its axes and the setter behind each one, and the catalog
+    // drives every case through the Gallery. A state that stops painting
+    // its subject fails here rather than in a loop copied per story.
+    let (storybook, cx) = setup_gallery_storybook(cx);
+
+    let axes = vec![
+        named_state_axis::<screens::fields::FieldValueState>(
+            StoryKind::Fields,
+            "value state",
+            "storybook-fields",
+            |story, state, _, cx| story.fields_screen.set_value_state(state, cx),
+        ),
+        named_state_axis::<screens::fields::FieldAccess>(
+            StoryKind::Fields,
+            "access",
+            "storybook-fields",
+            |story, state, _, cx| story.fields_screen.set_access(state, cx),
+        ),
+        named_state_axis::<screens::structure::StructureDensity>(
+            StoryKind::Structure,
+            "density",
+            "storybook-structure",
+            |story, state, _, cx| {
+                story.structure_screen.set_density(state);
+                cx.notify();
+            },
+        ),
+        named_state_axis::<screens::structure::StructureLabelPlacement>(
+            StoryKind::Structure,
+            "label placement",
+            "storybook-structure",
+            |story, state, _, cx| {
+                story.structure_screen.set_label_placement(state);
+                cx.notify();
+            },
+        ),
+        named_state_axis::<screens::overlays::OverlaysNamedState>(
+            StoryKind::Overlays,
+            "named state",
+            "overlays-demo-area",
+            |story, state, window, cx| {
+                story.overlays_screen.apply_named_state(state, window, cx);
+            },
+        ),
+        named_state_axis::<screens::overlays::OverlayDismissRoute>(
+            StoryKind::Overlays,
+            "dismiss route",
+            "overlays-demo-area",
+            |story, route, window, cx| {
+                // Every route needs something open to close, so the walk
+                // reopens the popover before taking each one.
+                story.overlays_screen.apply_named_state(
+                    screens::overlays::OverlaysNamedState::PopoverOpen,
+                    window,
+                    cx,
+                );
+                story.overlays_screen.dismiss(
+                    screens::overlays::OverlaySurface::Popover,
+                    route,
+                    "named-state catalog",
+                    window,
+                    cx,
+                );
+            },
+        ),
+        // The tokens sheet is a reference story: its axis is what the sheet
+        // shows, not a state a reader can put it in, so the walk asserts the
+        // groups name themselves once each and the sheet keeps painting.
+        named_state_axis::<screens::tokens::TokenGroup>(
+            StoryKind::Tokens,
+            "token group",
+            "storybook-tokens",
+            |_, _, _, _| {},
+        ),
+    ];
+
+    for axis in &axes {
+        cx.update(|window, app| {
+            storybook.update(app, |storybook, cx| {
+                storybook.activate_gallery_story(axis.story, window, cx);
+            });
+        });
+        cx.run_until_parked();
+
+        assert!(
+            !axis.cases.is_empty(),
+            "{} must list at least one {} state",
+            axis.story.title(),
+            axis.axis
+        );
+        let mut labels = std::collections::HashSet::new();
+        for case in &axis.cases {
+            assert!(
+                !case.label.is_empty() && labels.insert(case.label),
+                "{} {} states must each name themselves exactly once",
+                axis.story.title(),
+                axis.axis
+            );
+            (case.apply)(&storybook, cx);
+            cx.run_until_parked();
+
+            let surface = cx
+                .debug_bounds("storybook-gallery-story-surface")
+                .expect("the Gallery always renders its story surface");
+            let bounds = cx.debug_bounds(axis.subject).unwrap_or_else(|| {
+                panic!(
+                    "{} renders nothing for `{}` in the {} state",
+                    axis.story.title(),
+                    axis.subject,
+                    case.label
+                )
+            });
+            assert!(
+                f32::from(bounds.size.width) > 0. && f32::from(bounds.size.height) > 0.,
+                "{} paints `{}` with empty {:?} bounds in the {} state",
+                axis.story.title(),
+                axis.subject,
+                bounds.size,
+                case.label
+            );
+            assert!(
+                bounds.origin.y >= surface.origin.y
+                    && bounds.bottom() <= surface.bottom()
+                    && bounds.origin.x >= surface.origin.x
+                    && bounds.right() <= surface.right(),
+                "{} paints `{}` at {:?} in the {} state, outside the visible story \
+                 surface {:?}",
+                axis.story.title(),
+                axis.subject,
+                bounds,
+                case.label,
+                surface
+            );
+        }
     }
 }

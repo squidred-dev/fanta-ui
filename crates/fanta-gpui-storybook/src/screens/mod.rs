@@ -8,6 +8,7 @@
 
 pub(crate) mod buttons;
 pub(crate) mod design;
+pub(crate) mod fields;
 pub(crate) mod file_inspector;
 pub(crate) mod harness;
 pub(crate) mod icons;
@@ -17,12 +18,16 @@ pub(crate) mod labels;
 pub(crate) mod layers;
 pub(crate) mod list_rows;
 pub(crate) mod menus;
+pub(crate) mod overlays;
 pub(crate) mod pages;
 pub(crate) mod popups;
 pub(crate) mod prototype;
 pub(crate) mod pseudo_editor;
+pub(crate) mod spec;
 pub(crate) mod specimen;
+pub(crate) mod structure;
 pub(crate) mod timeline;
+pub(crate) mod tokens;
 pub(crate) mod toolbar;
 pub(crate) mod variables;
 pub(crate) mod viewport;
@@ -30,17 +35,21 @@ pub(crate) mod welcome;
 
 pub(crate) use buttons::ButtonsScreen;
 pub(crate) use design::DesignScreen;
+pub(crate) use fields::FieldsScreen;
 pub(crate) use file_inspector::FileInspectorScreen;
 pub(crate) use icons::IconsScreen;
 pub(crate) use labels::LabelsScreen;
 pub(crate) use layers::LayersScreen;
 pub(crate) use list_rows::ListRowsScreen;
 pub(crate) use menus::MenusScreen;
+pub(crate) use overlays::OverlaysScreen;
 pub(crate) use pages::PagesScreen;
 pub(crate) use popups::PopupsScreen;
 pub(crate) use prototype::PrototypeScreen;
 pub(crate) use pseudo_editor::PseudoEditorScreen;
+pub(crate) use structure::StructureScreen;
 pub(crate) use timeline::TimelineScreen;
+pub(crate) use tokens::TokensScreen;
 pub(crate) use toolbar::ToolbarScreen;
 pub(crate) use variables::VariablesStory;
 pub(crate) use viewport::ViewportPreset;
@@ -195,7 +204,7 @@ impl StoryKind {
     }
 }
 
-static REGISTRY: [StoryDescriptor; 16] = [
+static REGISTRY: [StoryDescriptor; 20] = [
     StoryDescriptor {
         kind: StoryKind::Welcome,
         id: "welcome",
@@ -320,6 +329,36 @@ static REGISTRY: [StoryDescriptor; 16] = [
         last_action: |_| "Browse or filter every bundled icon".into(),
     },
     StoryDescriptor {
+        kind: StoryKind::Tokens,
+        id: "tokens",
+        aliases: &["design-tokens", "scale", "geometry"],
+        title: "Design tokens",
+        nav_label: "Design tokens",
+        description: "The shared geometry scale drawn at size: every constant gets one line \
+                      naming the path a host types, the number, and the geometry itself, so \
+                      two tokens can be compared by eye instead of by arithmetic.",
+        section: StorySection::Atoms,
+        reference_window_size: (1240., 900.),
+        gallery_surface_size: (900., 880.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            // Nothing on the sheet rescales, so the narrowest preset is the
+            // width that still shows the widest specimen whole.
+            ViewportPreset::new("Sheet", tokens::TOKENS_SHEET_MIN_WIDTH, 760.),
+            ViewportPreset::new("Default", 900., 880.),
+            ViewportPreset::new("Wide", 1120., 900.),
+        ],
+        keyboard_hints: &[],
+        render_story: |story, cx| story.render_tokens_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_tokens_reference(cx),
+        render_knobs: None,
+        focus: |story, window, cx| {
+            story.tokens_screen.focus_handle.focus(window, cx);
+        },
+        last_action: |story| story.tokens_screen.last_action.clone(),
+    },
+    StoryDescriptor {
         kind: StoryKind::Menus,
         id: "menus",
         // "molecules" survives as a launch name from the retired
@@ -407,6 +446,114 @@ static REGISTRY: [StoryDescriptor; 16] = [
             story.popups_screen.focus_handle.focus(window, cx);
         },
         last_action: |story| story.popups_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::Fields,
+        id: "fields",
+        aliases: &["inspector-fields", "property-fields"],
+        title: "Inspector fields",
+        nav_label: "Fields",
+        description: "Every controlled field kind in one property grid, the value-state by \
+                      access matrix they all obey, and a live edit log: drag the X field or \
+                      the opacity track and watch Begin, Preview and Commit arrive.",
+        section: StorySection::Molecules,
+        reference_window_size: (1240., 900.),
+        gallery_surface_size: (1000., 880.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Narrow", 620., 760.),
+            ViewportPreset::new("Default", 1000., 880.),
+            ViewportPreset::new("Wide", 1200., 900.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new(
+                "↑ / ↓ on the live X field",
+                "Nudge the host value by one unit",
+            ),
+            KeyboardHint::new(
+                "Tab, then Enter / Space",
+                "Reach the selection checkboxes and the log's Clear button",
+            ),
+        ],
+        render_story: |story, cx| story.render_fields_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_fields_reference(cx),
+        render_knobs: Some(|story, cx| story.render_fields_knobs(cx)),
+        focus: |story, window, cx| {
+            story.fields_screen.focus_handle.focus(window, cx);
+        },
+        last_action: |story| story.fields_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::Structure,
+        id: "structure",
+        aliases: &["sections", "sections-and-grids", "inspector-structure"],
+        title: "Sections & grids",
+        nav_label: "Structure",
+        description: "The inspector's structural recipes as surfaces: headers that disclose, \
+                      a grid that hands every row its geometry, and the same frame mounted at \
+                      320, 400 and 472 px so the responsive range is on screen at once.",
+        section: StorySection::Molecules,
+        reference_window_size: (1240., 860.),
+        gallery_surface_size: (1040., 800.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            // The three widths the comparison card mounts: one under the
+            // compact breakpoint, one between, one over the wide one.
+            ViewportPreset::new("320 px", structure::STRUCTURE_WIDTHS[0].0, 760.),
+            ViewportPreset::new("400 px", structure::STRUCTURE_WIDTHS[1].0, 760.),
+            ViewportPreset::new("472 px", structure::STRUCTURE_WIDTHS[2].0, 760.),
+            ViewportPreset::new("Default", 1040., 800.),
+        ],
+        keyboard_hints: &[KeyboardHint::new(
+            "Tab, then Enter / Space",
+            "Disclose the focused section header",
+        )],
+        render_story: |story, cx| story.render_structure_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_structure_reference(cx),
+        render_knobs: Some(|story, cx| story.render_structure_knobs(cx)),
+        focus: |story, window, cx| {
+            story.structure_screen.focus_handle.focus(window, cx);
+        },
+        last_action: |story| story.structure_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::Overlays,
+        id: "overlays",
+        aliases: &["inspector-overlays", "dismissal"],
+        title: "Inspector overlays",
+        nav_label: "Overlays",
+        description: "An anchored popover and an anchored context menu sharing one placement: \
+                      close either with Escape, with an outside click, or by committing, and \
+                      the log names the cause that fired and where focus landed.",
+        section: StorySection::Molecules,
+        reference_window_size: (1240., 900.),
+        gallery_surface_size: (960., 860.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Narrow", 600., 760.),
+            ViewportPreset::new("Default", 960., 860.),
+            ViewportPreset::new("Wide", 1180., 900.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new(
+                "Enter / Space on a trigger",
+                "Open the popover or the context menu without a pointer",
+            ),
+            KeyboardHint::new(
+                "Esc",
+                "Dismiss the open surface and hand focus back to its trigger",
+            ),
+        ],
+        render_story: |story, cx| story.render_overlays_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_overlays_reference(cx),
+        render_knobs: Some(|story, cx| story.render_overlays_knobs(cx)),
+        focus: |story, window, cx| {
+            story.overlays_screen.focus_handle.focus(window, cx);
+        },
+        last_action: |story| story.overlays_screen.last_action.clone(),
     },
     StoryDescriptor {
         kind: StoryKind::Design,
@@ -756,7 +903,7 @@ mod tests {
                 );
             }
         }
-        assert_eq!(registry().len(), 16);
+        assert_eq!(registry().len(), 20);
         assert_eq!(story_from_name("TOOLBAR"), Some(StoryKind::Toolbar));
         // Launch names of the retired Foundations catalog keep resolving to
         // the specimen stories that absorbed it.
@@ -805,6 +952,10 @@ mod tests {
             (StoryKind::Variables, StorySection::Screens),
             (StoryKind::PseudoEditor, StorySection::Layouts),
             (StoryKind::Icons, StorySection::Atoms),
+            (StoryKind::Tokens, StorySection::Atoms),
+            (StoryKind::Fields, StorySection::Molecules),
+            (StoryKind::Structure, StorySection::Molecules),
+            (StoryKind::Overlays, StorySection::Molecules),
         ] {
             assert_eq!(
                 kind.descriptor().section,
@@ -877,6 +1028,7 @@ mod tests {
             StoryKind::PseudoEditor,
             StoryKind::Menus,
             StoryKind::Popups,
+            StoryKind::Overlays,
         ] {
             assert!(
                 kind.descriptor()
