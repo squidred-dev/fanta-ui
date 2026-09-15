@@ -1,5 +1,6 @@
-//! The Toolbar story: mock host options, env-seeded knob defaults,
-//! reducer, demo canvas, and the mode/overlay/zoom knobs.
+//! The Toolbar story: the `EditorToolbar` dock in isolation, plus the mock
+//! host options, env-seeded knob defaults, reducer, and the
+//! mode/overlay/zoom knobs that drive it.
 //!
 //! `FANTA_TOOLBAR_MODE` and `FANTA_TOOLBAR_OVERLAY` stay supported as the
 //! initial values of the runtime knobs, preserving the screenshot-CI
@@ -28,12 +29,10 @@ impl ToolbarOverlay {
     }
 }
 
-/// Story width below which the mock inspector column hides so the canvas
-/// keeps hosting the dock on narrow fluid viewports.
-const STORY_INSPECTOR_MIN_WIDTH: f32 = 1020.;
-/// Story width below which the mock file sidebar hides as well, leaving the
-/// canvas as the whole story.
-const STORY_SIDEBAR_MIN_WIDTH: f32 = 760.;
+/// Horizontal breathing room between the story surface and the dock. The
+/// floor test subtracts it to prove the dock still clears its own collapse
+/// breakpoint at the smallest registered viewport.
+const STORY_HORIZONTAL_PADDING: f32 = 16.;
 
 /// The launch-mode order is also the knob's chip order.
 pub(crate) const TOOLBAR_MODE_KNOB_ORDER: [ToolbarMode; 3] =
@@ -55,7 +54,9 @@ pub(crate) const TOOLBAR_CHROME_LEFT: &str = "toggle-left-sidebar";
 pub(crate) const TOOLBAR_CHROME_RIGHT: &str = "toggle-right-sidebar";
 
 /// The mock host's chrome read model: fit-to-view plus the two sidebar
-/// toggles, whose active state mirrors the story's mock columns.
+/// toggles. The story owns no sidebars to move, so these demonstrate the
+/// contract itself — the toolbar reports a press, the host decides, and the
+/// host echoes the new active state back into the capsule.
 pub(crate) fn toolbar_chrome_controls(
     left_visible: bool,
     right_visible: bool,
@@ -110,14 +111,10 @@ pub(crate) struct ToolbarScreen {
     pub(crate) dev_options: DevToolbarOptions,
     pub(crate) motion_options: MotionToolbarOptions,
     pub(crate) overlay: ToolbarOverlay,
-    /// Mock host chrome state echoed into the dock's trailing capsule and
-    /// mirrored by the story's mock sidebar / inspector columns.
+    /// Mock host chrome state echoed into the dock's trailing capsule.
     pub(crate) left_sidebar_visible: bool,
     pub(crate) right_sidebar_visible: bool,
     pub(crate) last_action: SharedString,
-    /// Measured width of the story surface; the mock chrome columns hide
-    /// below the named story breakpoints so the dock keeps its canvas host.
-    pub(crate) story_width: Option<f32>,
 }
 
 impl ToolbarScreen {
@@ -177,7 +174,6 @@ impl ToolbarScreen {
             right_sidebar_visible: true,
             last_action: "Ready — open every split tool, Actions, Agent, zoom, the chrome capsule, and all three modes"
                 .into(),
-            story_width: None,
         }
     }
 }
@@ -403,707 +399,42 @@ impl Storybook {
         cx.notify();
     }
 
-    fn render_toolbar_demo_frame(&self, cx: &mut Context<Self>) -> AnyElement {
-        let agent = self.toolbar_screen.toolbar.clone();
-        let accent = cx.theme().selection;
-        let accent_foreground = if (accent.l - cx.theme().foreground.l).abs()
-            >= (accent.l - cx.theme().background.l).abs()
-        {
-            cx.theme().foreground
-        } else {
-            cx.theme().background
-        };
-
-        // These fixed colors belong to the mock document artwork inside the selected frame.
-        // Editor chrome around the artwork uses active theme tokens below.
-        let artwork = h_flex()
-            .size_full()
-            .bg(rgba(0xf7f8faff))
-            .child(
-                v_flex()
-                    .w(px(118.))
-                    .h_full()
-                    .p_3()
-                    .gap_2()
-                    .bg(rgba(0x111827ff))
-                    .child(div().size(px(24.)).rounded(px(7.)).bg(rgba(0x6366f1ff)))
-                    .child(
-                        div()
-                            .h(px(8.))
-                            .w(px(68.))
-                            .rounded_full()
-                            .bg(rgba(0xffffff66)),
-                    )
-                    .child(
-                        div()
-                            .h(px(8.))
-                            .w(px(82.))
-                            .rounded_full()
-                            .bg(rgba(0xffffff33)),
-                    )
-                    .child(
-                        div()
-                            .h(px(8.))
-                            .w(px(56.))
-                            .rounded_full()
-                            .bg(rgba(0xffffff33)),
-                    )
-                    .child(div().flex_1())
-                    .child(
-                        h_flex()
-                            .h(px(30.))
-                            .px_2()
-                            .rounded(px(8.))
-                            .bg(rgba(0x6366f1ff))
-                            .text_xs()
-                            .text_color(rgba(0xffffffff))
-                            .child("Upgrade"),
-                    ),
-            )
-            .child(
-                v_flex()
-                    .flex_1()
-                    .min_w(px(0.))
-                    .h_full()
-                    .p_5()
-                    .gap_3()
-                    .child(
-                        h_flex()
-                            .child(
-                                v_flex()
-                                    .gap_1()
-                                    .child(
-                                        div()
-                                            .text_xs()
-                                            .text_color(rgba(0x6b7280ff))
-                                            .child("OVERVIEW"),
-                                    )
-                                    .child(
-                                        div()
-                                            .text_size(px(22.))
-                                            .font_semibold()
-                                            .text_color(rgba(0x111827ff))
-                                            .child("Good morning, Maya"),
-                                    ),
-                            )
-                            .child(div().flex_1())
-                            .child(div().size(px(32.)).rounded_full().bg(rgba(0xf59e0bff))),
-                    )
-                    .child(
-                        h_flex()
-                            .h(px(92.))
-                            .gap_3()
-                            .child(
-                                v_flex()
-                                    .flex_1()
-                                    .h_full()
-                                    .p_3()
-                                    .rounded(px(12.))
-                                    .bg(rgba(0x6366f1ff))
-                                    .text_color(rgba(0xffffffff))
-                                    .child(div().text_xs().child("Revenue"))
-                                    .child(
-                                        div()
-                                            .mt_2()
-                                            .text_size(px(20.))
-                                            .font_semibold()
-                                            .child("$48.2k"),
-                                    ),
-                            )
-                            .child(
-                                v_flex()
-                                    .flex_1()
-                                    .h_full()
-                                    .p_3()
-                                    .rounded(px(12.))
-                                    .bg(rgba(0xffffffff))
-                                    .border_1()
-                                    .border_color(rgba(0x00000010))
-                                    .text_color(rgba(0x111827ff))
-                                    .child(div().text_xs().child("Customers"))
-                                    .child(
-                                        div()
-                                            .mt_2()
-                                            .text_size(px(20.))
-                                            .font_semibold()
-                                            .child("1,429"),
-                                    ),
-                            )
-                            .child(
-                                v_flex()
-                                    .flex_1()
-                                    .h_full()
-                                    .p_3()
-                                    .rounded(px(12.))
-                                    .bg(rgba(0xffffffff))
-                                    .border_1()
-                                    .border_color(rgba(0x00000010))
-                                    .text_color(rgba(0x111827ff))
-                                    .child(div().text_xs().child("Conversion"))
-                                    .child(
-                                        div()
-                                            .mt_2()
-                                            .text_size(px(20.))
-                                            .font_semibold()
-                                            .child("12.8%"),
-                                    ),
-                            ),
-                    )
-                    .child(
-                        v_flex()
-                            .flex_1()
-                            .min_h(px(0.))
-                            .p_3()
-                            .rounded(px(12.))
-                            .bg(rgba(0xffffffff))
-                            .border_1()
-                            .border_color(rgba(0x00000010))
-                            .child(
-                                h_flex()
-                                    .child(
-                                        div()
-                                            .text_sm()
-                                            .font_semibold()
-                                            .text_color(rgba(0x111827ff))
-                                            .child("Activity"),
-                                    )
-                                    .child(div().flex_1())
-                                    .child(
-                                        div()
-                                            .px_2()
-                                            .py_1()
-                                            .rounded(px(6.))
-                                            .bg(rgba(0xf3f4f6ff))
-                                            .text_xs()
-                                            .text_color(rgba(0x6b7280ff))
-                                            .child("Last 30 days"),
-                                    ),
-                            )
-                            .child(h_flex().flex_1().items_end().gap_2().pt_3().children(
-                                [44., 68., 38., 82., 58., 94., 74.].map(|height| {
-                                    div()
-                                        .flex_1()
-                                        .h(px(height))
-                                        .rounded_t(px(4.))
-                                        .bg(rgba(0x6366f1cc))
-                                }),
-                            )),
-                    ),
-            )
-            .into_any_element();
-
-        div()
-            .relative()
-            // The mock document keeps its design size like real canvas
-            // artwork: a narrow story clips it instead of squashing it.
-            .flex_none()
-            .w(px(596.))
-            .h(px(360.))
-            .rounded(px(3.))
-            .border_2()
-            .border_color(accent)
-            .bg(cx.theme().background)
-            .shadow_lg()
-            .child(
-                div()
-                    .absolute()
-                    .left(px(-2.))
-                    .top(px(-24.))
-                    .px_2()
-                    .h(px(22.))
-                    .flex()
-                    .items_center()
-                    .rounded_t(px(5.))
-                    .bg(accent)
-                    .text_xs()
-                    .font_semibold()
-                    .text_color(accent_foreground)
-                    .child("Hero frame"),
-            )
-            .child(
-                h_flex()
-                    .id("toolbar-story-agent-context")
-                    .absolute()
-                    .right(px(-17.))
-                    .top(px(-17.))
-                    .size(px(34.))
-                    .justify_center()
-                    .rounded_full()
-                    .border_2()
-                    .border_color(cx.theme().background)
-                    .bg(cx.theme().primary)
-                    .text_color(cx.theme().primary_foreground)
-                    .shadow_lg()
-                    .cursor_pointer()
-                    .hover(|style| style.bg(cx.theme().primary_hover))
-                    .on_click(cx.listener(move |_this, _, window, cx| {
-                        agent.update(cx, |toolbar, cx| {
-                            toolbar.open_agent(window, cx);
-                        });
-                    }))
-                    .child("✦"),
-            )
-            .child(artwork)
-            .when(self.toolbar_screen.mode == ToolbarMode::Dev, |frame| {
-                frame
-                    .child(
-                        div()
-                            .absolute()
-                            .left(px(116.))
-                            .top(px(118.))
-                            .w(px(176.))
-                            .h(px(1.))
-                            .bg(cx.theme().danger),
-                    )
-                    .child(
-                        div()
-                            .absolute()
-                            .left(px(174.))
-                            .top(px(99.))
-                            .px_2()
-                            .py_1()
-                            .rounded(px(5.))
-                            .bg(cx.theme().danger)
-                            .text_xs()
-                            .font_semibold()
-                            .text_color(cx.theme().danger_foreground)
-                            .child("176"),
-                    )
-            })
-            .when(self.toolbar_screen.mode == ToolbarMode::Motion, |frame| {
-                frame.child(
-                    h_flex()
-                        .absolute()
-                        .right(px(16.))
-                        .top(px(16.))
-                        .h(px(28.))
-                        .px_2()
-                        .gap_1()
-                        .rounded(px(8.))
-                        .bg(cx.theme().primary)
-                        .text_xs()
-                        .font_semibold()
-                        .text_color(cx.theme().primary_foreground)
-                        .child("3 keyframes"),
-                )
-            })
-            .into_any_element()
-    }
-
-    fn render_toolbar_timeline(&self, cx: &mut Context<Self>) -> AnyElement {
-        if self.toolbar_screen.mode != ToolbarMode::Motion {
-            return div().into_any_element();
-        }
-        let mut tracks = v_flex().flex_1().min_h(px(0.)).py_2();
-        for (index, label) in ["Position", "Scale", "Opacity"].into_iter().enumerate() {
-            tracks = tracks.child(
-                h_flex()
-                    .h(px(26.))
-                    .border_b_1()
-                    .border_color(cx.theme().border)
-                    .child(
-                        div()
-                            .w(px(138.))
-                            .px_3()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
-                            .child(label),
-                    )
-                    .child(
-                        div()
-                            .relative()
-                            .flex_1()
-                            .h_full()
-                            .child(
-                                div()
-                                    .absolute()
-                                    .left(px(68. + index as f32 * 26.))
-                                    .top(px(4.))
-                                    .text_color(cx.theme().selection)
-                                    .child(render_lucide_icon(
-                                        LucideIcon::Diamond,
-                                        cx.theme().selection,
-                                        14.,
-                                    )),
-                            )
-                            .child(
-                                div()
-                                    .absolute()
-                                    .left(px(218. + index as f32 * 34.))
-                                    .top(px(4.))
-                                    .text_color(cx.theme().selection)
-                                    .child(render_lucide_icon(
-                                        LucideIcon::Diamond,
-                                        cx.theme().selection,
-                                        14.,
-                                    )),
-                            ),
-                    ),
-            );
-        }
-        v_flex()
-            .absolute()
-            .left_0()
-            .right_0()
-            .bottom_0()
-            .h(px(142.))
-            .bg(cx.theme().popover)
-            .border_t_1()
-            .border_color(cx.theme().border)
-            .child(
-                h_flex()
-                    .h(px(34.))
-                    .px_3()
-                    .border_b_1()
-                    .border_color(cx.theme().border)
-                    .text_xs()
-                    .text_color(cx.theme().popover_foreground)
-                    .child("Timeline")
-                    .child(div().flex_1())
-                    .child("0 ms       500       1000       1500       2000 ms"),
-            )
-            .child(tracks)
-            .into_any_element()
-    }
-
+    /// The story is the toolbar and nothing else.
+    ///
+    /// `EditorToolbar` is a floating dock, so it keeps a neutral surface to
+    /// sit on and rides near the bottom the way it does over a real canvas:
+    /// that is where its Actions and Agent overlays have room to open
+    /// upward. No mock document, sidebar, or inspector — the gallery already
+    /// reports the host's last accepted intent, and the knobs panel owns
+    /// mode, overlay, and zoom.
+    ///
+    /// The surface takes its size from its parent rather than growing into
+    /// it: the Gallery mounts a story inside a fixed-size `div`, which is
+    /// `Display::Block`, so a `flex_1` child would collapse to the height of
+    /// its in-flow content. The dock is placed by flex alignment for the
+    /// same reason — an absolutely positioned child contributes no height,
+    /// which would leave the surface empty and clip the dock out of view.
     pub(crate) fn render_toolbar_story(&self, cx: &mut Context<Self>) -> AnyElement {
-        let agent = self.toolbar_screen.toolbar.clone();
-        let mode_accent = cx.theme().selection;
-        let story = cx.entity();
-        let story_width = self.toolbar_screen.story_width;
-        let show_sidebar = self.toolbar_screen.left_sidebar_visible
-            && story_width.is_none_or(|width| width >= STORY_SIDEBAR_MIN_WIDTH);
-        let show_inspector = self.toolbar_screen.right_sidebar_visible
-            && story_width.is_none_or(|width| width >= STORY_INSPECTOR_MIN_WIDTH);
-
-        h_flex()
+        v_flex()
+            .id("toolbar-story-surface")
+            .debug_selector(|| "toolbar-story-surface".to_owned())
             .relative()
-            .flex_1()
+            .size_full()
             .min_h(px(0.))
+            .min_w(px(0.))
+            .justify_end()
+            .items_center()
+            .overflow_hidden()
+            .bg(cx.theme().muted)
             .child(
-                // Measures the story surface so the mock chrome columns can
-                // yield to the canvas on narrow fluid viewports. The write
-                // is deferred past the draw so a changed width schedules a
-                // re-render (notifying mid-draw is a no-op).
-                canvas(
-                    move |bounds, _, app| {
-                        let width = f32::from(bounds.size.width);
-                        let known = story.read(app).toolbar_screen.story_width;
-                        if known.is_none_or(|known| (known - width).abs() > 0.5) {
-                            let story = story.clone();
-                            app.defer(move |app| {
-                                story.update(app, |this, cx| {
-                                    this.toolbar_screen.story_width = Some(width);
-                                    cx.notify();
-                                });
-                            });
-                        }
-                    },
-                    |_, _, _, _| {},
-                )
-                .absolute()
-                .left_0()
-                .top_0()
-                .size_full(),
+                h_flex()
+                    .w_full()
+                    .flex_none()
+                    .pb(px(18.))
+                    .px(px(STORY_HORIZONTAL_PADDING))
+                    .justify_center()
+                    .child(self.toolbar_screen.toolbar.clone()),
             )
-            .when(show_sidebar, |story| {
-                story.child(
-                    v_flex()
-                        .w(px(226.))
-                        .h_full()
-                        .bg(cx.theme().sidebar)
-                        .text_color(cx.theme().sidebar_foreground)
-                        .border_r_1()
-                        .border_color(cx.theme().sidebar_border)
-                        .child(
-                            h_flex()
-                                .h(px(48.))
-                                .px_3()
-                                .gap_2()
-                                .border_b_1()
-                                .border_color(cx.theme().sidebar_border)
-                                .child(div().size(px(24.)).rounded(px(7.)).bg(cx.theme().primary))
-                                .child(
-                                    v_flex()
-                                        .gap(px(1.))
-                                        .child(div().text_sm().font_semibold().child("Commerce OS"))
-                                        .child(
-                                            div()
-                                                .text_size(px(10.))
-                                                .text_color(cx.theme().muted_foreground)
-                                                .child("Drafts / Toolbar clone"),
-                                        ),
-                                ),
-                        )
-                        .child(
-                            h_flex()
-                                .h(px(38.))
-                                .px_3()
-                                .gap_2()
-                                .text_xs()
-                                .font_semibold()
-                                .child("File"),
-                        )
-                        .child(
-                            h_flex()
-                                .id("toolbar-story-agents")
-                                .h(px(38.))
-                                .mx_2()
-                                .px_2()
-                                .gap_2()
-                                .rounded(px(7.))
-                                .cursor_pointer()
-                                .hover(|style| style.bg(cx.theme().sidebar_accent))
-                                .on_click(cx.listener(move |_this, _, window, cx| {
-                                    agent.update(cx, |toolbar, cx| {
-                                        toolbar.open_agent(window, cx);
-                                    });
-                                }))
-                                .child(
-                                    div()
-                                        .w(px(20.))
-                                        .text_center()
-                                        .font_semibold()
-                                        .text_color(cx.theme().primary)
-                                        .child("✦"),
-                                )
-                                .child(div().flex_1().text_sm().child("Agents"))
-                                .child(div().size(px(6.)).rounded_full().bg(cx.theme().primary)),
-                        )
-                        .child(
-                            h_flex()
-                                .h(px(38.))
-                                .mx_2()
-                                .px_2()
-                                .gap_2()
-                                .rounded(px(7.))
-                                .bg(cx.theme().sidebar_accent)
-                                .child(
-                                    div()
-                                        .w(px(20.))
-                                        .text_center()
-                                        .text_color(cx.theme().sidebar_accent_foreground)
-                                        .child("▤"),
-                                )
-                                .child(div().text_sm().font_semibold().child("Layers")),
-                        )
-                        .child(
-                            h_flex()
-                                .h(px(38.))
-                                .mx_2()
-                                .px_2()
-                                .gap_2()
-                                .rounded(px(7.))
-                                .child(
-                                    div()
-                                        .w(px(20.))
-                                        .text_center()
-                                        .text_color(cx.theme().muted_foreground)
-                                        .child(render_lucide_icon(
-                                            LucideIcon::Diamond,
-                                            cx.theme().muted_foreground,
-                                            14.,
-                                        )),
-                                )
-                                .child(div().text_sm().child("Assets")),
-                        )
-                        .child(
-                            v_flex()
-                                .mt_3()
-                                .mx_2()
-                                .pt_2()
-                                .gap_1()
-                                .border_t_1()
-                                .border_color(cx.theme().sidebar_border)
-                                .child(
-                                    div()
-                                        .px_2()
-                                        .py_1()
-                                        .text_size(px(10.))
-                                        .font_semibold()
-                                        .text_color(cx.theme().muted_foreground)
-                                        .child("PAGES"),
-                                )
-                                .child(
-                                    h_flex()
-                                        .h(px(32.))
-                                        .px_2()
-                                        .rounded(px(6.))
-                                        .bg(cx.theme().sidebar_accent)
-                                        .text_sm()
-                                        .child("Dashboard"),
-                                )
-                                .child(h_flex().h(px(32.)).px_2().text_sm().child("Components")),
-                        )
-                        .child(div().flex_1())
-                        .child(
-                            v_flex()
-                                .m_3()
-                                .p_3()
-                                .gap_1()
-                                .rounded(px(10.))
-                                .bg(cx.theme().secondary)
-                                .child(
-                                    div()
-                                        .text_size(px(10.))
-                                        .font_semibold()
-                                        .text_color(mode_accent)
-                                        .child(format!(
-                                            "{} MODE",
-                                            self.toolbar_screen.mode.label().to_uppercase()
-                                        )),
-                                )
-                                .child(
-                                    div()
-                                        .text_xs()
-                                        .text_color(cx.theme().muted_foreground)
-                                        .child(self.toolbar_screen.last_action.clone()),
-                                ),
-                        ),
-                )
-            })
-            .child(
-                div()
-                    .debug_selector(|| "toolbar-story-canvas".to_owned())
-                    .relative()
-                    .flex_1()
-                    .min_w(px(0.))
-                    .h_full()
-                    .overflow_hidden()
-                    .bg(cx.theme().muted)
-                    .child(
-                        h_flex()
-                            .size_full()
-                            .justify_center()
-                            .items_center()
-                            .pb(if self.toolbar_screen.mode == ToolbarMode::Motion {
-                                px(190.)
-                            } else {
-                                px(92.)
-                            })
-                            .child(self.render_toolbar_demo_frame(cx)),
-                    )
-                    .child(self.render_toolbar_timeline(cx))
-                    .child(
-                        h_flex()
-                            .absolute()
-                            .left_0()
-                            .right_0()
-                            .bottom(if self.toolbar_screen.mode == ToolbarMode::Motion {
-                                px(160.)
-                            } else {
-                                px(18.)
-                            })
-                            .px_4()
-                            .justify_center()
-                            .child(self.toolbar_screen.toolbar.clone()),
-                    ),
-            )
-            .when(show_inspector, |story| {
-                story.child(
-                    v_flex()
-                        .w(px(258.))
-                        .h_full()
-                        .bg(cx.theme().background)
-                        .text_color(cx.theme().foreground)
-                        .border_l_1()
-                        .border_color(cx.theme().border)
-                        .child(
-                            h_flex()
-                                .h(px(48.))
-                                .px_4()
-                                .gap_4()
-                                .border_b_1()
-                                .border_color(cx.theme().border)
-                                .child(
-                                    div()
-                                        .h_full()
-                                        .flex()
-                                        .items_center()
-                                        .border_b_2()
-                                        .border_color(mode_accent)
-                                        .text_sm()
-                                        .font_semibold()
-                                        .child(self.toolbar_screen.mode.label()),
-                                )
-                                .child(
-                                    div()
-                                        .h_full()
-                                        .flex()
-                                        .items_center()
-                                        .text_sm()
-                                        .text_color(cx.theme().muted_foreground)
-                                        .child(if self.toolbar_screen.mode == ToolbarMode::Dev {
-                                            "Plugins"
-                                        } else {
-                                            "Prototype"
-                                        }),
-                                ),
-                        )
-                        .child(
-                            v_flex()
-                                .p_4()
-                                .gap_4()
-                                .child(
-                                    v_flex()
-                                        .gap_2()
-                                        .child(
-                                            div()
-                                                .text_xs()
-                                                .font_semibold()
-                                                .text_color(cx.theme().muted_foreground)
-                                                .child("SELECTION"),
-                                        )
-                                        .child(
-                                            h_flex()
-                                                .child(div().text_sm().child("Hero frame"))
-                                                .child(div().flex_1())
-                                                .child(
-                                                    div()
-                                                        .text_xs()
-                                                        .text_color(mode_accent)
-                                                        .child(self.toolbar_screen.tool.label()),
-                                                ),
-                                        ),
-                                )
-                                .child(div().h(px(1.)).bg(cx.theme().border))
-                                .child(
-                                    v_flex()
-                                        .gap_2()
-                                        .child(div().text_sm().font_semibold().child(
-                                            match self.toolbar_screen.mode {
-                                                ToolbarMode::Design => "Layout",
-                                                ToolbarMode::Motion => "Animation",
-                                                ToolbarMode::Dev => "Inspect",
-                                            },
-                                        ))
-                                        .child(
-                                            h_flex()
-                                                .h(px(34.))
-                                                .px_2()
-                                                .rounded(px(7.))
-                                                .bg(cx.theme().secondary)
-                                                .text_xs()
-                                                .child(match self.toolbar_screen.mode {
-                                                    ToolbarMode::Design => {
-                                                        "Auto layout · Vertical".to_owned()
-                                                    }
-                                                    ToolbarMode::Motion => format!(
-                                                        "{} · {} ms",
-                                                        self.toolbar_screen
-                                                            .motion_options
-                                                            .animation_style,
-                                                        self.toolbar_screen
-                                                            .motion_options
-                                                            .duration_ms
-                                                    ),
-                                                    ToolbarMode::Dev => "CSS · Web · px".to_owned(),
-                                                }),
-                                        ),
-                                ),
-                        ),
-                )
-            })
             .into_any_element()
     }
 
@@ -1115,7 +446,14 @@ impl Storybook {
             .bg(cx.theme().background)
             .text_color(cx.theme().foreground)
             .child(self.render_reference_nav(cx))
-            .child(self.render_toolbar_story(cx))
+            // The story surface fills its parent, so the reference window
+            // gives it a flex row of its own below the nav.
+            .child(
+                v_flex()
+                    .flex_1()
+                    .min_h(px(0.))
+                    .child(self.render_toolbar_story(cx)),
+            )
             .into_any_element()
     }
 
@@ -1196,14 +534,17 @@ mod tests {
     }
 
     #[test]
-    fn story_floor_hides_both_mock_chrome_columns() {
-        // At the registered story floor the fixed-width mock columns must
-        // both yield, leaving the whole surface to the dock's canvas host;
-        // the inspector yields first as the less essential column.
-        // The sidebar breakpoint is the lower of the two, so clearing it
-        // clears the inspector breakpoint as well.
+    fn the_story_floor_leaves_the_dock_its_zoom_cluster() {
+        // The story is only the dock now, so the floor's single sizing duty
+        // is to hand the toolbar more width than its own collapse
+        // breakpoint once the surface padding is taken out.
         let (floor_width, _) = StoryKind::Toolbar.descriptor().min_story_size();
-        assert!(floor_width < STORY_SIDEBAR_MIN_WIDTH.min(STORY_INSPECTOR_MIN_WIDTH));
+        let available = floor_width - STORY_HORIZONTAL_PADDING * 2.;
+        assert!(
+            available >= TOOLBAR_ZOOM_CLUSTER_MIN_WIDTH,
+            "the {floor_width}px floor leaves {available}px, below the \
+             {TOOLBAR_ZOOM_CLUSTER_MIN_WIDTH}px the dock needs for its zoom cluster"
+        );
     }
 
     #[test]
@@ -1216,7 +557,7 @@ mod tests {
     }
 
     #[test]
-    fn story_chrome_controls_mirror_the_mock_sidebar_state() {
+    fn story_chrome_controls_echo_the_host_toggle_state() {
         let controls = toolbar_chrome_controls(true, false);
         assert_eq!(
             controls

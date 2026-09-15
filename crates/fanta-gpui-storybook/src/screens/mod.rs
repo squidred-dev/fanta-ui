@@ -585,8 +585,8 @@ static REGISTRY: [StoryDescriptor; 16] = [
         gallery_surface_size: (1180., 720.),
         gallery_fluid_width: true,
         viewport_presets: &[
-            // The floor: the story chrome columns hide and the dock rides its
-            // percent-only zoom tier, so the whole dock fits the canvas.
+            // The floor: the dock sheds its zoom steppers and rides the
+            // percent-only tier, so the whole dock still fits the surface.
             ViewportPreset::new("Minimum", 360., 520.),
             ViewportPreset::new("Narrow", 900., 640.),
             ViewportPreset::new("Default", 1180., 720.),

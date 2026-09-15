@@ -6679,3 +6679,76 @@ fn every_registered_story_passes_the_bounded_keyboard_walk(cx: &mut TestAppConte
         }
     }
 }
+
+#[gpui::test]
+fn every_story_paints_its_subject_inside_the_gallery_surface(cx: &mut TestAppContext) {
+    // The gallery's own surface renders even when a story body collapses to
+    // zero height, so asserting the surface exists proves nothing about the
+    // story. Each story names the element a reader is actually there to see,
+    // and that element must have real bounds.
+    const STORY_SUBJECTS: &[(StoryKind, &str)] = &[(StoryKind::Toolbar, "editor-toolbar")];
+
+    cx.update(|cx| {
+        gpui_component::init(cx);
+        fanta_gpui::init(cx);
+        Theme::change(ThemeMode::Light, None, cx);
+    });
+    let storybook_slot = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let captured_storybook = storybook_slot.clone();
+    let (_, visual_cx) = cx.add_window_view(move |window, cx| {
+        let storybook = cx.new(|cx| Storybook::new(window, cx));
+        *captured_storybook.borrow_mut() = Some(storybook.clone());
+        Root::new(storybook, window, cx)
+    });
+    let storybook = storybook_slot
+        .borrow_mut()
+        .take()
+        .expect("test Storybook should be installed");
+    visual_cx.update(|_, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook.launch_mode = StorybookLaunchMode::Gallery;
+            cx.notify();
+        });
+    });
+    visual_cx.simulate_resize(size(px(1240.), px(820.)));
+    visual_cx.run_until_parked();
+
+    for (story, subject) in STORY_SUBJECTS {
+        visual_cx.update(|_, app| {
+            storybook.update(app, |storybook, cx| {
+                storybook.active_story = *story;
+                cx.notify();
+            });
+        });
+        visual_cx.run_until_parked();
+
+        let surface = visual_cx
+            .debug_bounds("storybook-gallery-story-surface")
+            .expect("the Gallery always renders its story surface");
+        let bounds = visual_cx.debug_bounds(subject).unwrap_or_else(|| {
+            panic!(
+                "{} renders nothing for `{subject}` in the Gallery",
+                story.title()
+            )
+        });
+        assert!(
+            f32::from(bounds.size.width) > 0. && f32::from(bounds.size.height) > 0.,
+            "{} paints `{subject}` with empty {:?} bounds in the Gallery",
+            story.title(),
+            bounds.size
+        );
+        // Laid-out bounds are recorded even for an element pushed outside
+        // its clipping parent, so containment is the assertion that proves
+        // a reader can actually see the subject.
+        assert!(
+            bounds.origin.y >= surface.origin.y
+                && bounds.bottom() <= surface.bottom()
+                && bounds.origin.x >= surface.origin.x
+                && bounds.right() <= surface.right(),
+            "{} paints `{subject}` at {:?}, outside the visible story surface {:?}",
+            story.title(),
+            bounds,
+            surface
+        );
+    }
+}
