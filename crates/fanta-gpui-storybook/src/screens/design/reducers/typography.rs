@@ -11,7 +11,7 @@ pub(crate) fn reduce(
     inside_auto_layout: bool,
     cx: &mut Context<Storybook>,
 ) -> Option<NodeOutcome> {
-    let node = &mut screen.nodes[node_index];
+    let node = &mut screen.host.nodes[node_index];
     match action {
         DesignPanelAction::TypographyPropertyChangeRequested {
             node_id,
@@ -20,7 +20,7 @@ pub(crate) fn reduce(
             value,
         } => {
             apply_design_property_with_parent(node, *property, value, inside_auto_layout);
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host applied {property:?} = {value:?} to {target:?} on {node_id}").into();
         }
         DesignPanelAction::TypographyPropertyEditRequested {
@@ -33,7 +33,7 @@ pub(crate) fn reduce(
             if *phase != DesignPanelEditPhase::Begin {
                 apply_design_property_with_parent(node, *property, value, inside_auto_layout);
             }
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host observed {phase:?} for {property:?} = {value:?} on {target:?} in {node_id}"
             )
             .into();
@@ -66,7 +66,7 @@ pub(crate) fn reduce(
                         })
                 })
             };
-            screen.last_action = if changed {
+            screen.harness.last_action = if changed {
                 format!(
                         "Host observed {phase:?} for variable axis {tag} = {value} on {target:?} in {node_id}"
                     )
@@ -80,7 +80,7 @@ pub(crate) fn reduce(
             target,
             style,
         } => {
-            let resolved_style = screen.typography_styles.style(style).cloned();
+            let resolved_style = screen.host.typography_styles.style(style).cloned();
             let applied = node
                 .typography
                 .as_mut()
@@ -95,7 +95,7 @@ pub(crate) fn reduce(
                     ));
                     true
                 });
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!(
                     "Host applied text style {} to {target:?} on {node_id}",
                     style.style_id
@@ -120,7 +120,7 @@ pub(crate) fn reduce(
                 }
                 can_detach
             });
-            screen.last_action = if detached {
+            screen.harness.last_action = if detached {
                 format!(
                     "Host detached text style {} from {target:?} on {node_id}",
                     style.style_id
@@ -136,6 +136,7 @@ pub(crate) fn reduce(
             font,
         } => {
             let resolved = screen
+                .host
                 .fonts
                 .font(font)
                 .filter(|(_, style)| style.availability.can_apply())
@@ -157,7 +158,7 @@ pub(crate) fn reduce(
                     true
                 },
             );
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!("Host applied font {font:?} to {target:?} on {node_id}").into()
             } else {
                 format!("Host rejected unavailable font on {node_id}").into()
@@ -169,6 +170,7 @@ pub(crate) fn reduce(
             font,
         } => {
             let imported = screen
+                .host
                 .fonts
                 .families
                 .iter_mut()
@@ -188,12 +190,9 @@ pub(crate) fn reduce(
                     }
                 });
             if imported {
-                let fonts = screen.fonts.clone();
-                panel.update(cx, |panel, cx| {
-                    panel.set_font_view_data(fonts, cx);
-                });
+                screen.apply_inspection_context(panel, cx);
             }
-            screen.last_action = if imported {
+            screen.harness.last_action = if imported {
                 format!(
                     "Host imported font {} for {target:?} on {node_id}; choose it again to apply",
                     font.style_id
@@ -223,7 +222,7 @@ pub(crate) fn reduce(
                         }
                     })
             });
-            screen.last_action = if changed {
+            screen.harness.last_action = if changed {
                 format!(
                     "Host set OpenType {} to {enabled} for {target:?} on {node_id}",
                     tag.api_name()

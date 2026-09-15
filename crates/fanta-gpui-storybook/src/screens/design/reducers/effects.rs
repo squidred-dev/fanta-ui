@@ -9,7 +9,7 @@ pub(crate) fn reduce(
     node_index: usize,
     _cx: &mut Context<Storybook>,
 ) -> Option<NodeOutcome> {
-    let node = &mut screen.nodes[node_index];
+    let node = &mut screen.host.nodes[node_index];
     match action {
         DesignPanelAction::EffectAddRequested { node_id, kind } => {
             let added = node.can_use_effect_kind(*kind, None);
@@ -22,7 +22,7 @@ pub(crate) fn reduce(
                 node.effects
                     .push(DesignEffect::new(*kind).with_id(effect_id));
             }
-            screen.last_action = if added {
+            screen.harness.last_action = if added {
                 format!("Host added {} to {node_id}", kind.label()).into()
             } else {
                 format!(
@@ -43,7 +43,7 @@ pub(crate) fn reduce(
                 node.effect_index_by_id(effect_id.as_ref())
             };
             let removed = resolved.map(|index| node.effects.remove(index));
-            screen.last_action = removed.map_or_else(
+            screen.harness.last_action = removed.map_or_else(
                 || format!("Host ignored stale effect removal on {node_id}").into(),
                 |effect| format!("Host removed {} from {node_id}", effect.kind.label()).into(),
             );
@@ -67,7 +67,7 @@ pub(crate) fn reduce(
                 node.effects.insert(*to_index, effect);
                 true
             });
-            screen.last_action = if moved {
+            screen.harness.last_action = if moved {
                 format!("Host reordered effect {effect_id} on {node_id}").into()
             } else {
                 format!("Host ignored stale effect reorder on {node_id}").into()
@@ -114,7 +114,7 @@ pub(crate) fn reduce(
                 apply_design_property(node, property, value);
                 true
             });
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!("Host observed {phase:?} effect edit {property:?} on {node_id}").into()
             } else {
                 format!("Host ignored stale effect edit on {node_id}").into()
@@ -154,7 +154,7 @@ pub(crate) fn reduce(
                 )));
                 true
             });
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!("Host applied an imported Shader effect on {node_id}").into()
             } else {
                 format!("Host ignored stale Shader chooser request on {node_id}").into()
@@ -182,7 +182,7 @@ pub(crate) fn reduce(
                 *editor,
                 current_value,
             );
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!(
                         "Host opened the {editor:?} editor for Shader property {shader_property_id} on {node_id}"
                     )
@@ -209,7 +209,7 @@ pub(crate) fn reduce(
                 *target,
                 variable_id,
             );
-            screen.last_action = if detached {
+            screen.harness.last_action = if detached {
                 format!(
                         "Host detached variable {variable_id} from Shader property {shader_property_id} on {node_id}"
                     )
@@ -219,7 +219,7 @@ pub(crate) fn reduce(
             };
         }
         DesignPanelAction::EffectStyleApplyRequested { node_id, style } => {
-            let resolved = screen.effect_styles.style(style).cloned();
+            let resolved = screen.host.effect_styles.style(style).cloned();
             let applied = resolved.is_some_and(|style_data| {
                 node.effects = style_data
                     .effect_kinds
@@ -235,14 +235,14 @@ pub(crate) fn reduce(
                 ));
                 true
             });
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!("Host applied Effect style {} on {node_id}", style.style_id).into()
             } else {
                 format!("Host rejected unavailable Effect style on {node_id}").into()
             };
         }
         DesignPanelAction::EffectStyleCreateRequested { node_id, effects } => {
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host opened Effect-style creation for {} ordered effects on {node_id}",
                 effects.len()
             )
@@ -256,7 +256,7 @@ pub(crate) fn reduce(
             if detached {
                 node.effect_style_binding = None;
             }
-            screen.last_action = if detached {
+            screen.harness.last_action = if detached {
                 format!("Host detached Effect style {} on {node_id}", style.style_id).into()
             } else {
                 format!("Host rejected stale Effect-style detach on {node_id}").into()
@@ -270,6 +270,7 @@ pub(crate) fn reduce(
             variable_id,
         } => {
             let variable = screen
+                .host
                 .effect_variables
                 .variable(variable_id.as_ref())
                 .cloned();
@@ -296,7 +297,7 @@ pub(crate) fn reduce(
                     ));
                     true
                 });
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!("Host bound {field:?} to {variable_id} on {node_id}").into()
             } else {
                 format!("Host rejected incompatible effect variable on {node_id}").into()
@@ -325,7 +326,7 @@ pub(crate) fn reduce(
                     }
                     can_detach
                 });
-            screen.last_action = if detached {
+            screen.harness.last_action = if detached {
                 format!("Host detached {variable_id} from {field:?} on {node_id}").into()
             } else {
                 format!("Host rejected stale effect-variable detach on {node_id}").into()

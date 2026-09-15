@@ -17,11 +17,11 @@ pub(crate) fn reduce_page_and_local_styles(
                 == fanta_gpui::prelude::DesignPanelSelectionKind::None,
             panel.page_view_data().map(|page| &page.page_id),
             panel.page_local_styles_view_data(),
-            &screen.page_view_data.page_id,
-            &screen.page_local_styles,
+            &screen.host.page_view_data.page_id,
+            &screen.host.page_local_styles,
         );
         let legacy_variables_entry_is_enabled = matches!(
-            panel.variables_entry_point(),
+            &screen.harness.variables_entry_point,
             DesignVariablesEntryPoint::LegacyRightSidebar {
                 disabled_reason: None
             }
@@ -34,30 +34,30 @@ pub(crate) fn reduce_page_and_local_styles(
             color,
             phase,
         } => {
-            if screen.page_view_data.page_id == *page_id {
+            if screen.host.page_view_data.page_id == *page_id {
                 apply_story_page_background_edit_phase(
-                    &mut screen.page_view_data.background.color,
-                    &mut screen.page_background_edit_snapshots,
+                    &mut screen.host.page_view_data.background.color,
+                    &mut screen.edits.page_background_edit_snapshots,
                     page_id,
                     *color,
                     *phase,
                 );
-                screen.last_action =
+                screen.harness.last_action =
                     format!("Host {:?} Page background #{}", phase, color.hex()).into();
             } else {
-                screen.page_background_edit_snapshots.remove(page_id);
-                screen.last_action =
+                screen.edits.page_background_edit_snapshots.remove(page_id);
+                screen.harness.last_action =
                     format!("Ignored stale Page background edit for {page_id}").into();
             }
             true
         }
         DesignPanelAction::PageBackgroundChangeRequested { page_id, color } => {
-            if screen.page_view_data.page_id == *page_id {
-                screen.page_view_data.background.color = *color;
-                screen.last_action =
+            if screen.host.page_view_data.page_id == *page_id {
+                screen.host.page_view_data.background.color = *color;
+                screen.harness.last_action =
                     format!("Host changed Page background to #{}", color.hex()).into();
             } else {
-                screen.last_action =
+                screen.harness.last_action =
                     format!("Ignored stale Page background intent for {page_id}").into();
             }
             true
@@ -69,14 +69,14 @@ pub(crate) fn reduce_page_and_local_styles(
             height,
         } => {
             let applied = apply_story_frame_preset(
-                &mut screen.nodes,
-                &screen.frame_presets,
+                &mut screen.host.nodes,
+                &screen.host.frame_presets,
                 node_id,
                 selection,
                 *width,
                 *height,
             );
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!(
                     "Host applied Frame preset {}/{} at {} × {}",
                     selection.group_id, selection.preset_id, width, height
@@ -92,7 +92,7 @@ pub(crate) fn reduce_page_and_local_styles(
             true
         }
         DesignPanelAction::LocalResourceBrowseRequested { page_id, category } => {
-            screen.last_action = if screen.page_view_data.page_id == *page_id {
+            screen.harness.last_action = if screen.host.page_view_data.page_id == *page_id {
                 format!("Host opened the {} browser", category.label()).into()
             } else {
                 format!("Ignored stale resource browser intent for {page_id}").into()
@@ -100,13 +100,14 @@ pub(crate) fn reduce_page_and_local_styles(
             true
         }
         DesignPanelAction::LocalResourceOpenRequested { page_id, resource } => {
-            let opened = screen.page_view_data.page_id == *page_id
+            let opened = screen.host.page_view_data.page_id == *page_id
                 && screen
+                    .host
                     .page_view_data
                     .local_resources
                     .resource(resource)
                     .is_some_and(|item| item.availability.can_open());
-            screen.last_action = if opened {
+            screen.harness.last_action = if opened {
                 format!(
                     "Host opened Page resource {} from group {}",
                     resource.resource_id, resource.group_id
@@ -122,12 +123,13 @@ pub(crate) fn reduce_page_and_local_styles(
             true
         }
         DesignPanelAction::LocalResourceCreateRequested { page_id, kind } => {
-            let accepted = if screen.page_view_data.page_id == *page_id {
+            let accepted = if screen.host.page_view_data.page_id == *page_id {
                 let group_id = match kind.category() {
                     DesignLocalResourceCategory::Styles => "page-local-styles",
                     DesignLocalResourceCategory::VariableCollections => "page-local-variables",
                 };
                 if let Some(group) = screen
+                    .host
                     .page_view_data
                     .local_resources
                     .groups
@@ -136,9 +138,9 @@ pub(crate) fn reduce_page_and_local_styles(
                 {
                     let resource_id = SharedString::from(format!(
                         "storybook-resource-{}",
-                        screen.next_resource_id
+                        screen.host.next_resource_id
                     ));
-                    screen.next_resource_id += 1;
+                    screen.host.next_resource_id += 1;
                     group.resources.push(DesignLocalResource::local(
                         resource_id,
                         format!("New {}", kind.label()),
@@ -151,7 +153,7 @@ pub(crate) fn reduce_page_and_local_styles(
             } else {
                 false
             };
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!("Host created a local {}", kind.label()).into()
             } else {
                 format!("Ignored stale {} creation intent", kind.label()).into()
@@ -159,8 +161,9 @@ pub(crate) fn reduce_page_and_local_styles(
             true
         }
         DesignPanelAction::LocalResourceImportRequested { page_id, resource } => {
-            let imported = if screen.page_view_data.page_id == *page_id {
+            let imported = if screen.host.page_view_data.page_id == *page_id {
                 screen
+                    .host
                     .page_view_data
                     .local_resources
                     .groups
@@ -180,7 +183,7 @@ pub(crate) fn reduce_page_and_local_styles(
             } else {
                 false
             };
-            screen.last_action = if imported {
+            screen.harness.last_action = if imported {
                 format!("Host imported Page resource {}", resource.resource_id).into()
             } else {
                 format!("Ignored unavailable resource {}", resource.resource_id).into()
@@ -199,21 +202,21 @@ pub(crate) fn reduce_page_and_local_styles(
             let mut accepted = current_page_projection
                 && permission_allows
                 && story_local_style_targets_are_current(
-                    &screen.page_local_styles,
+                    &screen.host.page_local_styles,
                     std::slice::from_ref(target),
                     false,
                 );
             if accepted && *command == DesignLocalStyleCommand::Duplicate {
                 accepted = story_duplicate_local_style(
-                    &mut screen.page_local_styles,
+                    &mut screen.host.page_local_styles,
                     target,
-                    screen.next_resource_id,
+                    screen.host.next_resource_id,
                 );
                 if accepted {
-                    screen.next_resource_id += 1;
+                    screen.host.next_resource_id += 1;
                 }
             }
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!("Host ran {} for {}", command.label(), target.style_id).into()
             } else {
                 format!(
@@ -234,16 +237,16 @@ pub(crate) fn reduce_page_and_local_styles(
             let accepted = current_page_projection
                 && can_edit
                 && story_create_local_style(
-                    &mut screen.page_local_styles,
+                    &mut screen.host.page_local_styles,
                     page_id,
                     *kind,
                     parent_folder_id.as_ref(),
-                    screen.next_resource_id,
+                    screen.host.next_resource_id,
                 );
             if accepted {
-                screen.next_resource_id += 1;
+                screen.host.next_resource_id += 1;
             }
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!("Host created a current-file {}", kind.label()).into()
             } else {
                 format!("Ignored stale {} creation", kind.label()).into()
@@ -259,16 +262,16 @@ pub(crate) fn reduce_page_and_local_styles(
             let accepted = current_page_projection
                 && can_edit
                 && story_create_local_style_folder(
-                    &mut screen.page_local_styles,
+                    &mut screen.host.page_local_styles,
                     page_id,
                     *kind,
                     selected,
-                    screen.next_resource_id,
+                    screen.host.next_resource_id,
                 );
             if accepted {
-                screen.next_resource_id += 1;
+                screen.host.next_resource_id += 1;
             }
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!(
                     "Host created a {} folder around {} styles",
                     kind.label(),
@@ -284,9 +287,9 @@ pub(crate) fn reduce_page_and_local_styles(
             let can_edit = panel.read(cx).inspection_context().permissions().can_edit();
             let accepted = current_page_projection
                 && can_edit
-                && story_remove_local_style_targets(&mut screen.page_local_styles, targets)
+                && story_remove_local_style_targets(&mut screen.host.page_local_styles, targets)
                     .is_some();
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!("Host deleted {} exact local styles", targets.len()).into()
             } else {
                 "Ignored stale local-style deletion".into()
@@ -300,8 +303,12 @@ pub(crate) fn reduce_page_and_local_styles(
             let can_edit = panel.read(cx).inspection_context().permissions().can_edit();
             let accepted = current_page_projection
                 && can_edit
-                && story_move_local_styles(&mut screen.page_local_styles, targets, destination);
-            screen.last_action = if accepted {
+                && story_move_local_styles(
+                    &mut screen.host.page_local_styles,
+                    targets,
+                    destination,
+                );
+            screen.harness.last_action = if accepted {
                 format!(
                     "Host moved {} local styles to index {}",
                     targets.len(),
@@ -314,9 +321,9 @@ pub(crate) fn reduce_page_and_local_styles(
             true
         }
         DesignPanelAction::VariablesViewOpenRequested { page_id } => {
-            screen.last_action = if current_page_projection
+            screen.harness.last_action = if current_page_projection
                 && legacy_variables_entry_is_enabled
-                && screen.page_view_data.page_id == *page_id
+                && screen.host.page_view_data.page_id == *page_id
             {
                 "Host opened Variables from the legacy right-sidebar entry".into()
             } else {
@@ -337,7 +344,7 @@ pub(crate) fn reduce_page_and_local_styles(
                 DesignPanelTarget::Nodes { .. } => None,
             };
             let applied = key
-                .and_then(|key| screen.variable_mode_views.get_mut(&key))
+                .and_then(|key| screen.host.variable_mode_views.get_mut(&key))
                 .filter(|view_data| view_data.target == *target)
                 .and_then(|view_data| {
                     view_data
@@ -356,7 +363,7 @@ pub(crate) fn reduce_page_and_local_styles(
                     collection.explicit_mode_id = Some(mode_id.clone());
                 })
                 .is_some();
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!("Host set explicit mode {mode_id} for collection {collection_id}").into()
             } else {
                 format!("Ignored stale variable mode {mode_id}").into()
@@ -376,7 +383,7 @@ pub(crate) fn reduce_page_and_local_styles(
                 DesignPanelTarget::Nodes { .. } => None,
             };
             let cleared = key
-                .and_then(|key| screen.variable_mode_views.get_mut(&key))
+                .and_then(|key| screen.host.variable_mode_views.get_mut(&key))
                 .filter(|view_data| view_data.target == *target)
                 .and_then(|view_data| {
                     view_data
@@ -393,7 +400,7 @@ pub(crate) fn reduce_page_and_local_styles(
                     collection.resolved_mode_id = collection.default_mode_id.clone();
                 })
                 .is_some();
-            screen.last_action = if cleared {
+            screen.harness.last_action = if cleared {
                 format!("Host cleared explicit mode {explicit_mode_id} for {collection_id}").into()
             } else {
                 format!("Ignored stale explicit mode {explicit_mode_id}").into()

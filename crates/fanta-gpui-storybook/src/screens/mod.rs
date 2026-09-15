@@ -443,7 +443,7 @@ static REGISTRY: [StoryDescriptor; 16] = [
         focus: |story, window, cx| {
             story.design_screen.panel.focus_handle(cx).focus(window, cx);
         },
-        last_action: |story| story.design_screen.last_action.clone(),
+        last_action: |story| story.design_screen.harness.last_action.clone(),
     },
     StoryDescriptor {
         kind: StoryKind::Layers,

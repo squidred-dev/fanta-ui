@@ -389,7 +389,11 @@ fn design_fixture_rail_scroll_reaches_the_node_variation_matrix(cx: &mut TestApp
         .expect("fixture rail should render");
     let scroll_handle = cx.read(|app| {
         let storybook = storybook.read(app);
-        storybook.design_screen.fixture_scroll_handle.clone()
+        storybook
+            .design_screen
+            .harness
+            .fixture_scroll_handle
+            .clone()
     });
     assert_eq!(scroll_handle.bounds(), rail);
     assert!(scroll_handle.max_offset().y > px(0.));
@@ -6177,7 +6181,7 @@ fn design_story_stacks_its_harness_at_the_minimum_viewport(cx: &mut TestAppConte
     cx.update(|_, app| {
         storybook.update(app, |storybook, _| {
             assert_eq!(
-                storybook.design_screen.panel_width, 442.,
+                storybook.design_screen.harness.panel_width, 442.,
                 "the drag must scrub the stored inspector width"
             );
         });

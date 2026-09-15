@@ -19,12 +19,12 @@ pub(crate) fn reduce(
             )
         };
         let accepted = apply_story_section_or_transform_action(
-            &mut screen.nodes[node_index],
+            &mut screen.host.nodes[node_index],
             current_target.as_ref(),
             can_edit,
             action,
         );
-        screen.last_action = story_section_or_transform_action_status(action, accepted);
+        screen.harness.last_action = story_section_or_transform_action_status(action, accepted);
         if accepted {
             screen.apply_inspection_context(panel, cx);
         }

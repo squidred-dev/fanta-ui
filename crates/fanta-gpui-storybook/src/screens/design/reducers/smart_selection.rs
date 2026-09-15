@@ -26,8 +26,8 @@ pub(crate) fn reduce_spacing_and_arrange(
             let projection = current_target
                 .and_then(|current_target| screen.smart_selection_view_data(current_target));
             let accepted = apply_story_smart_selection_spacing_edit(
-                &mut screen.smart_selection_spacing,
-                &mut screen.smart_selection_edit_snapshots,
+                &mut screen.host.smart_selection_spacing,
+                &mut screen.edits.smart_selection_edit_snapshots,
                 projection.as_ref(),
                 can_edit,
                 StorySmartSelectionSpacingEdit {
@@ -45,7 +45,7 @@ pub(crate) fn reduce_spacing_and_arrange(
             {
                 screen.apply_inspection_context(panel, cx);
             }
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!(
                     "Host accepted {phase:?} for {} = {value} on exact target {target:?}",
                     axis.label()
@@ -77,7 +77,7 @@ pub(crate) fn reduce_spacing_and_arrange(
                 target,
                 *operation,
             );
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!(
                     "Host applied {} to exact Smart Selection target {target:?}",
                     operation.label()
@@ -108,7 +108,7 @@ pub(crate) fn add_auto_layout(
         let (current_target, can_edit, structurally_eligible) = {
             let panel = panel.read(cx);
             let context = panel.inspection_context();
-            let structurally_eligible = match screen.inspection_scenario {
+            let structurally_eligible = match screen.harness.inspection_scenario {
                 DesignInspectionScenario::AddAutoLayoutGroup => {
                     context.selection().kind()
                         == fanta_gpui::prelude::DesignPanelSelectionKind::Single
@@ -131,17 +131,17 @@ pub(crate) fn add_auto_layout(
             )
         };
         let echo = apply_story_add_auto_layout(
-            &mut screen.nodes,
+            &mut screen.host.nodes,
             target,
             current_target.as_ref(),
             can_edit && structurally_eligible,
-            &mut screen.next_auto_layout_id,
+            &mut screen.host.next_auto_layout_id,
         );
         if let Some((selected_index, echo)) = echo {
-            screen.selected_node = selected_index;
-            screen.inspection_scenario = DesignInspectionScenario::EditableSingle;
+            screen.harness.selected_node = selected_index;
+            screen.harness.inspection_scenario = DesignInspectionScenario::EditableSingle;
             screen.apply_inspection_context(panel, cx);
-            screen.last_action = match echo {
+            screen.harness.last_action = match echo {
                 StoryAddAutoLayoutEcho::Converted { node_id } => {
                     format!("Host converted {node_id} to an auto-layout frame").into()
                 }
@@ -151,7 +151,7 @@ pub(crate) fn add_auto_layout(
                 } => format!("Host wrapped ordered selection {child_ids:?} in {wrapper_id}").into(),
             };
         } else {
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host rejected stale or ineligible Add auto layout target {target:?}")
                     .into();
         }

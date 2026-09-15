@@ -10,7 +10,7 @@ pub(crate) fn reduce(
     inside_auto_layout: bool,
     _cx: &mut Context<Storybook>,
 ) -> Option<NodeOutcome> {
-    let node = &mut screen.nodes[node_index];
+    let node = &mut screen.host.nodes[node_index];
     match action {
         DesignPanelAction::PropertyChangeRequested {
             node_id,
@@ -18,7 +18,7 @@ pub(crate) fn reduce(
             value,
         } => {
             apply_design_property_with_parent(node, *property, value, inside_auto_layout);
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host applied {property:?} = {value:?} to {node_id}").into();
         }
         DesignPanelAction::PropertyEditRequested {
@@ -30,7 +30,7 @@ pub(crate) fn reduce(
             if *phase != DesignPanelEditPhase::Begin {
                 apply_design_property_with_parent(node, *property, value, inside_auto_layout);
             }
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host observed {phase:?} for {property:?} = {value:?} on {node_id}").into();
         }
         DesignPanelAction::PropertyVariableApplyRequested {
@@ -39,6 +39,7 @@ pub(crate) fn reduce(
             variable_id,
         } => {
             let variable = screen
+                .host
                 .property_variables
                 .variable(variable_id.as_ref())
                 .filter(|variable| {
@@ -61,7 +62,7 @@ pub(crate) fn reduce(
                     apply_design_property(node, target.property, &resolved);
                 }
                 let name = format!("{} / {}", variable.collection_name, variable.name);
-                screen.property_bindings.insert(
+                screen.host.property_bindings.insert(
                     (node_id.clone(), target.property),
                     DesignPanelPropertyBinding::new(
                         variable.id.clone(),
@@ -70,13 +71,13 @@ pub(crate) fn reduce(
                         resolved,
                     ),
                 );
-                screen.last_action = format!(
+                screen.harness.last_action = format!(
                     "Host bound {variable_id} to {:?} on {node_id}",
                     target.fields
                 )
                 .into();
             } else {
-                screen.last_action =
+                screen.harness.last_action =
                     format!("Host rejected unavailable variable {variable_id}").into();
             }
         }
@@ -86,6 +87,7 @@ pub(crate) fn reduce(
             variable_id,
         } => {
             let imported = screen
+                .host
                 .property_variables
                 .variables
                 .iter_mut()
@@ -99,7 +101,7 @@ pub(crate) fn reduce(
                     variable.import_state = DesignVariableImportState::Imported;
                     true
                 });
-            screen.last_action = if imported {
+            screen.harness.last_action = if imported {
                 format!(
                     "Host imported {variable_id} for {:?} on {node_id}; choose it again to apply",
                     target.property
@@ -115,13 +117,18 @@ pub(crate) fn reduce(
             variable_id,
         } => {
             let key = (node_id.clone(), target.property);
-            let can_detach = screen.property_bindings.get(&key).is_some_and(|binding| {
-                binding.kind() == DesignPanelBindingKind::Variable && binding.id() == variable_id
-            });
+            let can_detach = screen
+                .host
+                .property_bindings
+                .get(&key)
+                .is_some_and(|binding| {
+                    binding.kind() == DesignPanelBindingKind::Variable
+                        && binding.id() == variable_id
+                });
             if can_detach {
-                screen.property_bindings.remove(&key);
+                screen.host.property_bindings.remove(&key);
             }
-            screen.last_action = if can_detach {
+            screen.harness.last_action = if can_detach {
                 format!(
                     "Host detached {variable_id} from {:?} on {node_id}",
                     target.fields

@@ -9,7 +9,7 @@ pub(crate) fn reduce(
     node_index: usize,
     cx: &mut Context<Storybook>,
 ) -> Option<NodeOutcome> {
-    let node = &mut screen.nodes[node_index];
+    let node = &mut screen.host.nodes[node_index];
     match action {
         DesignPanelAction::ComponentPropertyChangeRequested {
             node_id,
@@ -40,7 +40,7 @@ pub(crate) fn reduce(
                     true
                 });
             refresh_story_component_override_summary(node);
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!("Host applied component property {property_id} on {node_id}").into()
             } else {
                 format!("Host rejected component property {property_id} on {node_id}").into()
@@ -74,7 +74,7 @@ pub(crate) fn reduce(
                 }
                 refresh_story_component_override_summary(node);
             }
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host observed {phase:?} for component property {property_id} on {node_id}"
             )
             .into();
@@ -91,7 +91,7 @@ pub(crate) fn reduce(
                 property.reset_to_default();
             }
             refresh_story_component_override_summary(node);
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host reset component property {property_id} on {node_id}").into();
         }
         DesignPanelAction::ComponentPropertyVariableApplyRequested {
@@ -101,6 +101,7 @@ pub(crate) fn reduce(
         } => {
             let role = node.component_context.as_ref().map(|context| context.role);
             let variable = screen
+                .host
                 .property_variables
                 .variable(variable_id.as_ref())
                 .filter(|variable| {
@@ -136,7 +137,7 @@ pub(crate) fn reduce(
                     }
                     true
                 });
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!(
                     "Host bound {variable_id} to component property {}.{} on {node_id}",
                     target.property_id,
@@ -165,6 +166,7 @@ pub(crate) fn reduce(
                 == Some(target);
             let imported = target_is_current
                 && screen
+                    .host
                     .property_variables
                     .variables
                     .iter_mut()
@@ -178,7 +180,7 @@ pub(crate) fn reduce(
                         variable.import_state = DesignVariableImportState::Imported;
                         true
                     });
-            screen.last_action = if imported {
+            screen.harness.last_action = if imported {
                 format!(
                         "Host imported {variable_id} for component property {}.{} on {node_id}; choose it again to apply",
                         target.property_id,
@@ -218,7 +220,7 @@ pub(crate) fn reduce(
                     }
                     can_detach
                 });
-            screen.last_action = if detached {
+            screen.harness.last_action = if detached {
                 format!(
                     "Host detached {variable_id} from component property {}.{} on {node_id}",
                     target.property_id,
@@ -236,6 +238,7 @@ pub(crate) fn reduce(
         } => {
             let replacement = selection.as_ref().and_then(|selection| {
                 screen
+                    .host
                     .component_swaps
                     .candidate(selection)
                     .filter(|candidate| candidate.can_apply())
@@ -269,7 +272,7 @@ pub(crate) fn reduce(
                         true
                     });
             refresh_story_component_override_summary(node);
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!("Host applied component swap {selection:?} to {property_id} on {node_id}")
                     .into()
             } else {
@@ -290,6 +293,7 @@ pub(crate) fn reduce(
                 });
             let imported = property_accepts_swap
                 && screen
+                    .host
                     .component_swaps
                     .candidates
                     .iter_mut()
@@ -299,7 +303,7 @@ pub(crate) fn reduce(
                         candidate.import_state = DesignComponentImportState::Imported;
                         true
                     });
-            screen.last_action = if imported {
+            screen.harness.last_action = if imported {
                 format!(
                     "Host imported {} for {property_id} on {node_id}; choose it again to apply",
                     selection.component_key
@@ -320,11 +324,12 @@ pub(crate) fn reduce(
         } => {
             let valid = selection.as_ref().is_none_or(|selection| {
                 screen
+                    .host
                     .component_swaps
                     .candidate(selection)
                     .is_some_and(|candidate| candidate.can_apply())
             });
-            screen.last_action = if valid {
+            screen.harness.last_action = if valid {
                 format!(
                     "Host {} component-swap preview for {property_id} on {node_id}: {selection:?}",
                     if selection.is_some() {
@@ -356,7 +361,7 @@ pub(crate) fn reduce(
                         } if current == instance_id
                     )
                 });
-            screen.last_action = if valid {
+            screen.harness.last_action = if valid {
                 format!(
                     "Host selected nested instance {instance_id} from {property_id} on {node_id}"
                 )
@@ -385,7 +390,7 @@ pub(crate) fn reduce(
                         } if current == instance_id && main.id == *main_component_id
                     )
                 });
-            screen.last_action = if valid {
+            screen.harness.last_action = if valid {
                 format!(
                         "Host opened nested main component {main_component_id} for {instance_id} on {node_id}"
                     )
@@ -416,7 +421,7 @@ pub(crate) fn reduce(
                     property.slot_settings().is_some_and(|settings| {
                         settings.has_valid_child_range()
                             && story_component_references_are_current(
-                                &screen.component_swaps,
+                                &screen.host.component_swaps,
                                 &settings.preferred_values,
                             )
                     })
@@ -431,7 +436,7 @@ pub(crate) fn reduce(
             {
                 *property = replacement;
             }
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!("Host observed {phase:?} for slot settings {property_id} on {node_id}")
                     .into()
             } else {
@@ -450,7 +455,8 @@ pub(crate) fn reduce(
                 property.reset_to_default();
             }
             refresh_story_component_override_summary(node);
-            screen.last_action = format!("Host reset slot {property_id} on {node_id}").into();
+            screen.harness.last_action =
+                format!("Host reset slot {property_id} on {node_id}").into();
         }
         DesignPanelAction::SlotClearRequested {
             node_id,
@@ -467,7 +473,8 @@ pub(crate) fn reduce(
                 property.refresh_slot_violations();
             }
             refresh_story_component_override_summary(node);
-            screen.last_action = format!("Host cleared slot {property_id} on {node_id}").into();
+            screen.harness.last_action =
+                format!("Host cleared slot {property_id} on {node_id}").into();
         }
         DesignPanelAction::SlotAddInstanceRequested {
             node_id,
@@ -516,7 +523,7 @@ pub(crate) fn reduce(
                 }
             }
             refresh_story_component_override_summary(node);
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host added an instance to slot {property_id} on {node_id}").into();
         }
         DesignPanelAction::SlotChildSelectRequested {
@@ -524,7 +531,7 @@ pub(crate) fn reduce(
             property_id,
             child_node_id,
         } => {
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host selected slot child {child_node_id} in {property_id} on {node_id}")
                     .into();
         }
@@ -590,7 +597,7 @@ pub(crate) fn reduce(
                     })
                     .unwrap_or(false);
             let accepted = !expected.is_empty() && expected == *child_node_ids && all_selectable;
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!(
                     "Host selected {} non-preferred slot layers in {property_id} on {node_id}",
                     child_node_ids.len()
@@ -625,7 +632,7 @@ pub(crate) fn reduce(
                 }
             }
             refresh_story_component_override_summary(node);
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host removed slot child {child_node_id} from {property_id} on {node_id}")
                     .into();
         }
@@ -657,7 +664,7 @@ pub(crate) fn reduce(
                 }
             }
             refresh_story_component_override_summary(node);
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host reordered slot child {child_node_id} in {property_id} on {node_id}")
                     .into();
         }
@@ -686,7 +693,7 @@ pub(crate) fn reduce(
                 }
             }
             refresh_story_component_override_summary(node);
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host swapped slot child {child_node_id} in {property_id} on {node_id}")
                     .into();
         }
@@ -700,14 +707,14 @@ pub(crate) fn reduce(
                 context.overrides.nested_override_count = 0;
             }
             refresh_story_component_override_summary(node);
-            screen.last_action = format!("Host reset overrides for {node_id}").into();
+            screen.harness.last_action = format!("Host reset overrides for {node_id}").into();
         }
         DesignPanelAction::GoToMainComponentRequested { node_id } => {
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host navigated to the main component for {node_id}").into();
         }
         DesignPanelAction::DetachInstanceRequested { node_id } => {
-            screen.last_action = format!("Host detached instance {node_id}").into();
+            screen.harness.last_action = format!("Host detached instance {node_id}").into();
         }
         DesignPanelAction::ComponentPropertyDefinitionCreateRequested {
             node_id,
@@ -732,20 +739,20 @@ pub(crate) fn reduce(
                 expected_property_order,
                 after_property_id.as_ref(),
             ) || !story_component_definition_references_are_current(
-                &screen.component_swaps,
+                &screen.host.component_swaps,
                 definition,
             ) {
-                screen.last_action =
+                screen.harness.last_action =
                     format!("Host rejected stale component-property create on {node_id}").into();
                 cx.notify();
                 return Some(NodeOutcome::Complete);
             }
             let Some(default_value_binding) = story_component_default_variable(
-                &screen.property_variables,
+                &screen.host.property_variables,
                 *kind,
                 default_variable_id.as_ref(),
             ) else {
-                screen.last_action = format!(
+                screen.harness.last_action = format!(
                         "Host rejected stale default-variable binding for component-property create on {node_id}"
                     )
                     .into();
@@ -841,7 +848,8 @@ pub(crate) fn reduce(
                 }
                 authoring.definitions.push(definition);
             }
-            screen.last_action = format!("Host created {} on {node_id}", kind.label()).into();
+            screen.harness.last_action =
+                format!("Host created {} on {node_id}", kind.label()).into();
         }
         DesignPanelAction::ComponentPropertyDefinitionRenameRequested {
             node_id,
@@ -859,7 +867,7 @@ pub(crate) fn reduce(
                 .is_some_and(|property| {
                     apply_story_component_authoring_name_edit(
                         &mut property.name,
-                        &mut screen.component_property_name_edits,
+                        &mut screen.edits.component_property_name_edits,
                         key,
                         original_name,
                         expected_name,
@@ -867,7 +875,7 @@ pub(crate) fn reduce(
                         *phase,
                     )
                 });
-            screen.last_action = if renamed {
+            screen.harness.last_action = if renamed {
                 format!("Host echoed {phase:?} rename for {property_id} on {node_id}").into()
             } else {
                 format!("Host rejected stale rename for {property_id} on {node_id}").into()
@@ -908,7 +916,7 @@ pub(crate) fn reduce(
                         property.documentation_links = documentation_links.clone();
                         true
                     });
-            screen.last_action = if edited {
+            screen.harness.last_action = if edited {
                 format!("Host edited metadata for {property_id} on {node_id}").into()
             } else {
                 format!("Host rejected stale metadata edit for {property_id} on {node_id}").into()
@@ -926,7 +934,7 @@ pub(crate) fn reduce(
         } => {
             let edited = apply_story_component_property_definition_edit(
                 node,
-                &screen.component_swaps,
+                &screen.host.component_swaps,
                 property_id,
                 expected_description,
                 description,
@@ -935,7 +943,7 @@ pub(crate) fn reduce(
                 expected_definition,
                 definition,
             );
-            screen.last_action = if edited {
+            screen.harness.last_action = if edited {
                 format!("Host atomically edited component property {property_id} on {node_id}")
                     .into()
             } else {
@@ -955,7 +963,7 @@ pub(crate) fn reduce(
                 property_id.as_ref(),
                 expected_name.as_ref(),
             ) {
-                screen.last_action =
+                screen.harness.last_action =
                     format!("Host rejected stale delete for {property_id} on {node_id}").into();
                 cx.notify();
                 return Some(NodeOutcome::Complete);
@@ -963,19 +971,20 @@ pub(crate) fn reduce(
             node.component_properties
                 .retain(|property| &property.id != property_id);
             screen
+                .edits
                 .component_property_name_edits
                 .remove(&(node_id.clone(), property_id.clone()));
             invalidate_story_component_property_reorders(
-                &mut screen.component_property_reorders,
+                &mut screen.edits.component_property_reorders,
                 node_id,
                 property_id,
             );
-            screen.component_variant_option_name_edits.retain(
+            screen.edits.component_variant_option_name_edits.retain(
                 |(active_node_id, active_property_id, _), _| {
                     active_node_id != node_id || active_property_id != property_id
                 },
             );
-            screen.component_variant_option_reorders.retain(
+            screen.edits.component_variant_option_reorders.retain(
                 |(active_node_id, active_property_id, _), _| {
                     active_node_id != node_id || active_property_id != property_id
                 },
@@ -997,7 +1006,8 @@ pub(crate) fn reduce(
                     }
                 }
             }
-            screen.last_action = format!("Host deleted {property_id} from {node_id}").into();
+            screen.harness.last_action =
+                format!("Host deleted {property_id} from {node_id}").into();
         }
         DesignPanelAction::ComponentPropertyDefinitionReorderRequested {
             node_id,
@@ -1020,7 +1030,7 @@ pub(crate) fn reduce(
             let key = (node_id.clone(), property_id.clone());
             let Some(desired_order) = apply_story_component_authoring_reorder(
                 &current_order,
-                &mut screen.component_property_reorders,
+                &mut screen.edits.component_property_reorders,
                 key,
                 property_id,
                 original_property_order,
@@ -1028,16 +1038,16 @@ pub(crate) fn reduce(
                 before_property_id.as_ref(),
                 *phase,
             ) else {
-                screen.last_action =
+                screen.harness.last_action =
                         format!("Host rejected stale or unbalanced {phase:?} reorder for {property_id} on {node_id}").into();
                 cx.notify();
                 return Some(NodeOutcome::Complete);
             };
             if echo_story_component_property_order(node, *partition, &desired_order) {
-                screen.last_action =
+                screen.harness.last_action =
                     format!("Host echoed {phase:?} reorder for {property_id} on {node_id}").into();
             } else {
-                screen.last_action =
+                screen.harness.last_action =
                     format!("Host failed to echo reorder for {property_id} on {node_id}").into();
             }
         }
@@ -1055,7 +1065,7 @@ pub(crate) fn reduce(
                 expected_option_order,
                 after_option_id.as_ref(),
             ) {
-                screen.last_action = format!(
+                screen.harness.last_action = format!(
                     "Host rejected stale Variant-value create on {property_id} in {node_id}"
                 )
                 .into();
@@ -1092,7 +1102,7 @@ pub(crate) fn reduce(
                         option_name,
                     ));
             }
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host created a Variant option on {property_id} in {node_id}").into();
         }
         DesignPanelAction::ComponentVariantOptionRenameRequested {
@@ -1124,7 +1134,7 @@ pub(crate) fn reduce(
                 .is_some_and(|option| {
                     apply_story_component_authoring_name_edit(
                         &mut option.name,
-                        &mut screen.component_variant_option_name_edits,
+                        &mut screen.edits.component_variant_option_name_edits,
                         key,
                         original_name,
                         expected_name,
@@ -1157,10 +1167,10 @@ pub(crate) fn reduce(
                     *option = next_name;
                     property.preferred_values = property.definition.option_labels();
                 }
-                screen.last_action =
+                screen.harness.last_action =
                     format!("Host echoed {phase:?} rename for {option_id} on {node_id}").into();
             } else {
-                screen.last_action =
+                screen.harness.last_action =
                     format!("Host rejected stale Variant-value rename for {option_id}").into();
             }
         }
@@ -1176,7 +1186,7 @@ pub(crate) fn reduce(
                 option_id.as_ref(),
                 expected_name.as_ref(),
             ) {
-                screen.last_action =
+                screen.harness.last_action =
                     format!("Host rejected stale Variant-value delete for {option_id}").into();
                 cx.notify();
                 return Some(NodeOutcome::Complete);
@@ -1193,13 +1203,13 @@ pub(crate) fn reduce(
                         .position(|option| &option.id == option_id)
                 });
             if let Some(option_index) = option_index {
-                screen.component_variant_option_name_edits.remove(&(
+                screen.edits.component_variant_option_name_edits.remove(&(
                     node_id.clone(),
                     property_id.clone(),
                     option_id.clone(),
                 ));
                 invalidate_story_component_variant_option_reorders(
-                    &mut screen.component_variant_option_reorders,
+                    &mut screen.edits.component_variant_option_reorders,
                     node_id,
                     property_id,
                 );
@@ -1228,7 +1238,8 @@ pub(crate) fn reduce(
                 {
                     definition.variant_options.remove(option_index);
                 }
-                screen.last_action = format!("Host deleted {option_id} on {node_id}").into();
+                screen.harness.last_action =
+                    format!("Host deleted {option_id} on {node_id}").into();
             }
         }
         DesignPanelAction::ComponentVariantOptionReorderRequested {
@@ -1256,7 +1267,7 @@ pub(crate) fn reduce(
             let key = (node_id.clone(), property_id.clone(), option_id.clone());
             let Some(desired_order) = apply_story_component_authoring_reorder(
                 &current_order,
-                &mut screen.component_variant_option_reorders,
+                &mut screen.edits.component_variant_option_reorders,
                 key,
                 option_id,
                 original_option_order,
@@ -1264,17 +1275,17 @@ pub(crate) fn reduce(
                 before_option_id.as_ref(),
                 *phase,
             ) else {
-                screen.last_action =
+                screen.harness.last_action =
                         format!("Host rejected stale or unbalanced {phase:?} Variant-value reorder for {option_id}").into();
                 cx.notify();
                 return Some(NodeOutcome::Complete);
             };
             if echo_story_component_variant_option_order(node, property_id.as_ref(), &desired_order)
             {
-                screen.last_action =
+                screen.harness.last_action =
                     format!("Host echoed {phase:?} reorder for {option_id} on {node_id}").into();
             } else {
-                screen.last_action =
+                screen.harness.last_action =
                     format!("Host failed to echo Variant-value reorder for {option_id}").into();
             }
         }
@@ -1302,7 +1313,7 @@ pub(crate) fn reduce(
                 })
             {
                 control.applied_property_id = Some(property_id.clone());
-                screen.last_action =
+                screen.harness.last_action =
                     format!("Host applied {property_id} to a layer in {node_id}").into();
             }
         }
@@ -1323,7 +1334,7 @@ pub(crate) fn reduce(
                 })
             {
                 control.applied_property_id = None;
-                screen.last_action =
+                screen.harness.last_action =
                     format!("Host detached a property from a layer in {node_id}").into();
             }
         }
@@ -1344,7 +1355,8 @@ pub(crate) fn reduce(
                 })
             {
                 candidate.exposed_property_id = Some(format!("exposed-{candidate_id}").into());
-                screen.last_action = format!("Host exposed {candidate_id} on {node_id}").into();
+                screen.harness.last_action =
+                    format!("Host exposed {candidate_id} on {node_id}").into();
             }
         }
         DesignPanelAction::NestedComponentPropertyUnexposeRequested {
@@ -1364,7 +1376,8 @@ pub(crate) fn reduce(
                 })
             {
                 candidate.exposed_property_id = None;
-                screen.last_action = format!("Host unexposed {candidate_id} on {node_id}").into();
+                screen.harness.last_action =
+                    format!("Host unexposed {candidate_id} on {node_id}").into();
             }
         }
         DesignPanelAction::NestedComponentPropertyPreviewRequested {
@@ -1373,7 +1386,7 @@ pub(crate) fn reduce(
             preview,
             ..
         } => {
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host {} preview for {candidate_id} on {node_id}",
                 if *preview { "started" } else { "ended" }
             )

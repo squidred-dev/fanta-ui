@@ -15,7 +15,7 @@ impl Storybook {
     fn render_design_context_selector(&self, cx: &mut Context<Self>) -> AnyElement {
         let mut buttons = h_flex().w_full().gap_2().flex_wrap();
         for scenario in DesignInspectionScenario::ALL {
-            let active = self.design_screen.inspection_scenario == scenario;
+            let active = self.design_screen.harness.inspection_scenario == scenario;
             buttons = buttons.child(
                 Button::new(SharedString::from(format!(
                     "design-inspection-scenario-{}",
@@ -63,7 +63,8 @@ impl Storybook {
             )
             .child(buttons)
             .when(
-                self.design_screen.inspection_scenario == DesignInspectionScenario::TextEdit,
+                self.design_screen.harness.inspection_scenario
+                    == DesignInspectionScenario::TextEdit,
                 |content| {
                     content.child(
                         Button::new("design-text-range-revision")
@@ -94,7 +95,7 @@ impl Storybook {
                                     .justify_between()
                                     .child(div().text_xs().child(format!(
                                         "Selected text · revision {}",
-                                        self.design_screen.text_range_revision
+                                        self.design_screen.harness.text_range_revision
                                     )))
                                     .child(div().text_xs().child("Select next range")),
                             ),
@@ -105,10 +106,10 @@ impl Storybook {
     }
 
     fn render_design_resize_handle(&self, cx: &mut Context<Self>) -> AnyElement {
-        let active = self.design_screen.panel_resize_drag.is_some();
+        let active = self.design_screen.harness.panel_resize_drag.is_some();
         let tooltip = format!(
             "Resize Design inspector · {:.0} px · drag or use arrows and +/− (Shift for 32 px)",
-            self.design_screen.panel_width
+            self.design_screen.harness.panel_width
         );
         Button::new("design-panel-resize-handle")
             .debug_selector(|| "design-panel-resize-handle".to_owned())
@@ -144,7 +145,7 @@ impl Storybook {
     fn render_design_width_selector(&self, cx: &mut Context<Self>) -> AnyElement {
         let mut buttons = h_flex().w_full().gap_2();
         for width in DESIGN_PANEL_WIDTH_PRESETS {
-            let active = (self.design_screen.panel_width - width).abs() < f32::EPSILON;
+            let active = (self.design_screen.harness.panel_width - width).abs() < f32::EPSILON;
             buttons = buttons.child(
                 Button::new(SharedString::from(format!("design-panel-width-{width:.0}")))
                     .label(format!("{width:.0}"))
@@ -167,7 +168,7 @@ impl Storybook {
                     .text_color(cx.theme().muted_foreground)
                     .child(format!(
                         "PANEL WIDTH · {:.0} PX",
-                        self.design_screen.panel_width
+                        self.design_screen.harness.panel_width
                     )),
             )
             .child(buttons)
@@ -189,7 +190,7 @@ impl Storybook {
                 DesignPanelWorkspaceMode::Draw,
             ]
             .map(|workspace_mode| KnobOption::new(workspace_mode, workspace_mode.label())),
-            self.design_screen.workspace_mode,
+            self.design_screen.harness.workspace_mode,
             |this, workspace_mode, _, cx| {
                 this.design_screen
                     .set_workspace_mode(workspace_mode, "Story", cx);
@@ -203,13 +204,12 @@ impl Storybook {
             "design-additional-labels",
             "VIEW PREFERENCE",
             "Additional labels",
-            self.design_screen.additional_labels,
+            self.design_screen.harness.additional_labels,
             |this, enabled, _, cx| {
-                this.design_screen.additional_labels = enabled;
-                this.design_screen.panel.update(cx, |panel, cx| {
-                    panel.set_additional_labels(enabled, cx);
-                });
-                this.design_screen.last_action = format!(
+                this.design_screen.harness.additional_labels = enabled;
+                let panel = this.design_screen.panel.clone();
+                this.design_screen.apply_inspection_context(&panel, cx);
+                this.design_screen.harness.last_action = format!(
                     "Story set Additional labels {} — no document intent",
                     design_additional_labels_status(enabled).to_ascii_lowercase()
                 )
@@ -233,13 +233,12 @@ impl Storybook {
                     KnobOption::new(default, "Default · 1 / 10"),
                     KnobOption::new(precise, "Custom · 0.5 / 8"),
                 ],
-                self.design_screen.nudge_settings,
+                self.design_screen.harness.nudge_settings,
                 |this, nudge, _, cx| {
-                    this.design_screen.nudge_settings = nudge;
-                    this.design_screen.panel.update(cx, |panel, cx| {
-                        panel.set_nudge_settings(nudge, cx);
-                    });
-                    this.design_screen.last_action = format!(
+                    this.design_screen.harness.nudge_settings = nudge;
+                    let panel = this.design_screen.panel.clone();
+                    this.design_screen.apply_inspection_context(&panel, cx);
+                    this.design_screen.harness.last_action = format!(
                         "Story set keyboard nudge to {} / {} — no document intent",
                         nudge.small(),
                         nudge.big()
@@ -262,9 +261,9 @@ impl Storybook {
 
     fn render_design_selector(&self, cx: &mut Context<Self>) -> AnyElement {
         let mut buttons = h_flex().w_full().gap_2().flex_wrap();
-        let last_index = self.design_screen.nodes.len().saturating_sub(1);
-        for (index, node) in self.design_screen.nodes.iter().cloned().enumerate() {
-            let selected = self.design_screen.selected_node == index;
+        let last_index = self.design_screen.host.nodes.len().saturating_sub(1);
+        for (index, node) in self.design_screen.host.nodes.iter().cloned().enumerate() {
+            let selected = self.design_screen.harness.selected_node == index;
             let kind = node.kind;
             let label = node.name.clone();
             buttons = buttons.child(
@@ -296,13 +295,13 @@ impl Storybook {
                     })
                     .cursor_pointer()
                     .on_click(cx.listener(move |this, _, window, cx| {
-                        this.design_screen.selected_node = index;
-                        this.design_screen.inspection_scenario =
+                        this.design_screen.harness.selected_node = index;
+                        this.design_screen.harness.inspection_scenario =
                             default_design_inspection_scenario_for_node(&node);
                         this.design_screen
                             .apply_inspection_context(&this.design_screen.panel, cx);
                         this.design_screen.panel.focus_handle(cx).focus(window, cx);
-                        this.design_screen.last_action = format!(
+                        this.design_screen.harness.last_action = format!(
                             "Story selected {} preset in editable single context",
                             kind.label()
                         )
@@ -355,7 +354,7 @@ impl Storybook {
                     .max_h(px(52.))
                     .overflow_hidden()
                     .text_xs()
-                    .child(self.design_screen.last_action.clone()),
+                    .child(self.design_screen.harness.last_action.clone()),
             )
             .into_any_element()
     }
@@ -383,7 +382,7 @@ impl Storybook {
             .h_full()
             .min_h(px(0.))
             .overflow_y_scroll()
-            .track_scroll(&self.design_screen.fixture_scroll_handle)
+            .track_scroll(&self.design_screen.harness.fixture_scroll_handle)
             .p_3()
             .gap_3()
             .border_r_1()
@@ -401,7 +400,7 @@ impl Storybook {
         caption: Option<&'static str>,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let selected = &self.design_screen.nodes[self.design_screen.selected_node];
+        let selected = &self.design_screen.host.nodes[self.design_screen.harness.selected_node];
         let selected_name = selected.name.clone();
         let selected_kind = selected.kind;
         let selected_size = format!(
@@ -483,7 +482,7 @@ impl Storybook {
         div()
             .debug_selector(|| "design-harness-panel".to_owned())
             .w(px(design_harness_panel_width(
-                self.design_screen.panel_width,
+                self.design_screen.harness.panel_width,
                 harness_width,
             )))
             .flex_none()
@@ -500,7 +499,7 @@ impl Storybook {
     /// bar plus, when expanded, the fixture controls in a height-capped
     /// scroll region so the inspector keeps most of the story height.
     fn render_design_stacked_controls(&self, cx: &mut Context<Self>) -> AnyElement {
-        let expanded = self.design_screen.harness_controls_expanded;
+        let expanded = self.design_screen.harness.harness_controls_expanded;
         v_flex()
             .flex_none()
             .w_full()

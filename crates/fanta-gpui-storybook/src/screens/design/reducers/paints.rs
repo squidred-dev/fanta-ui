@@ -21,6 +21,7 @@ pub(crate) fn rejects_stale_paint_target(
                 phase: DesignPanelEditPhase::Cancel,
                 ..
             } => screen
+                .edits
                 .paint_edit_snapshots
                 .contains_key(&StoryPaintEditTarget::new(
                     node_id.clone(),
@@ -37,6 +38,7 @@ pub(crate) fn rejects_stale_paint_target(
                 index,
                 action: DesignMediaCropAction::Cancel,
             } => screen
+                .edits
                 .media_crop_targets
                 .contains(&StoryPaintEditTarget::new(
                     node_id.clone(),
@@ -57,6 +59,7 @@ pub(crate) fn rejects_stale_paint_target(
                         ..
                     },
             } => screen
+                .edits
                 .video_scrub_snapshots
                 .contains_key(&StoryPaintEditTarget::new(
                     node_id.clone(),
@@ -68,7 +71,7 @@ pub(crate) fn rejects_stale_paint_target(
             _ => false,
         };
         if target != expected && !stale_cancel_is_active {
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                     "Host rejected stale {target:?} paint intent for {action_node_id}; current target is {expected:?}"
                 )
                 .into();
@@ -103,9 +106,11 @@ pub(crate) fn rejects_out_of_order_lifecycle(
                 *index,
             );
             match phase {
-                DesignPanelEditPhase::Begin => !screen.paint_edit_snapshots.contains_key(&target),
+                DesignPanelEditPhase::Begin => {
+                    !screen.edits.paint_edit_snapshots.contains_key(&target)
+                }
                 DesignPanelEditPhase::Preview | DesignPanelEditPhase::Cancel => {
-                    screen.paint_edit_snapshots.contains_key(&target)
+                    screen.edits.paint_edit_snapshots.contains_key(&target)
                 }
                 // Picker buttons and toggles are allowed to emit one
                 // atomic Commit without opening a transaction.
@@ -128,12 +133,12 @@ pub(crate) fn rejects_out_of_order_lifecycle(
                 *index,
             );
             match action {
-                DesignMediaCropAction::Begin => screen.media_crop_targets.insert(target),
+                DesignMediaCropAction::Begin => screen.edits.media_crop_targets.insert(target),
                 DesignMediaCropAction::Preview { .. } => {
-                    screen.media_crop_targets.contains(&target)
+                    screen.edits.media_crop_targets.contains(&target)
                 }
                 DesignMediaCropAction::Commit { .. } | DesignMediaCropAction::Cancel => {
-                    screen.media_crop_targets.remove(&target)
+                    screen.edits.media_crop_targets.remove(&target)
                 }
                 DesignMediaCropAction::ResizeToFit => true,
             }
@@ -154,18 +159,20 @@ pub(crate) fn rejects_out_of_order_lifecycle(
                 *index,
             );
             match phase {
-                DesignPanelEditPhase::Begin => !screen.video_scrub_snapshots.contains_key(&target),
+                DesignPanelEditPhase::Begin => {
+                    !screen.edits.video_scrub_snapshots.contains_key(&target)
+                }
                 DesignPanelEditPhase::Preview
                 | DesignPanelEditPhase::Commit
                 | DesignPanelEditPhase::Cancel => {
-                    screen.video_scrub_snapshots.contains_key(&target)
+                    screen.edits.video_scrub_snapshots.contains_key(&target)
                 }
             }
         }
         _ => true,
     };
     if !paint_lifecycle_is_valid {
-        screen.last_action =
+        screen.harness.last_action =
             format!("Host rejected an out-of-order paint transaction for {action_node_id}").into();
         cx.notify();
         return true;
@@ -180,7 +187,7 @@ pub(crate) fn reduce(
     node_index: usize,
     _cx: &mut Context<Storybook>,
 ) -> Option<NodeOutcome> {
-    let node = &mut screen.nodes[node_index];
+    let node = &mut screen.host.nodes[node_index];
     match action {
         DesignPanelAction::PaintEditRequested {
             node_id,
@@ -222,14 +229,14 @@ pub(crate) fn reduce(
                 if let Some(paint) = resolved_index.and_then(|index| paints.get_mut(index)) {
                     apply_story_paint_edit_phase(
                         paint,
-                        &mut screen.paint_edit_snapshots,
+                        &mut screen.edits.paint_edit_snapshots,
                         edit_target,
                         edit,
                         *phase,
                     );
                 }
             }
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host observed {phase:?} for {:?} on {} paint {} in {node_id}",
                 edit.property,
                 collection.label(),
@@ -276,7 +283,7 @@ pub(crate) fn reduce(
                     paints.insert(*to_index, paint);
                 }
             }
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host moved {} paint {} from {from_index} to {to_index} on {node_id}",
                 collection.label(),
                 if paint_id.is_empty() {
@@ -327,7 +334,7 @@ pub(crate) fn reduce(
                     ),
                 })
             });
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host {} Pattern source for {} paint {} on {node_id}",
                 if accepted { "replaced" } else { "rejected" },
                 collection.label(),
@@ -347,8 +354,8 @@ pub(crate) fn reduce(
             shader,
             ..
         } => {
-            let imported =
-                resolve_story_shader_mut(&mut screen.shaders, shader).is_some_and(|definition| {
+            let imported = resolve_story_shader_mut(&mut screen.host.shaders, shader).is_some_and(
+                |definition| {
                     if definition.imported {
                         return false;
                     }
@@ -358,8 +365,9 @@ pub(crate) fn reduce(
                             imported_story_shader_properties(&definition.id);
                     }
                     true
-                });
-            screen.last_action = if imported {
+                },
+            );
+            screen.harness.last_action = if imported {
                 format!(
                     "Host imported shader {} for {} paint {} on {node_id}",
                     shader.shader_id,
@@ -384,6 +392,7 @@ pub(crate) fn reduce(
             ..
         } => {
             let payload = screen
+                .host
                 .shaders
                 .shader(shader)
                 .and_then(DesignShaderPaint::from_definition);
@@ -394,7 +403,7 @@ pub(crate) fn reduce(
                     paint.sync_legacy_projection();
                     true
                 });
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!(
                     "Host applied shader {} to {} paint {} on {node_id}",
                     shader.shader_id,
@@ -430,7 +439,7 @@ pub(crate) fn reduce(
                     ),
                 })
             });
-            screen.last_action = if bound {
+            screen.harness.last_action = if bound {
                 format!(
                     "Host bound shader property {definition_id} in {} paint on {node_id}",
                     collection.label()
@@ -455,7 +464,7 @@ pub(crate) fn reduce(
                 *index,
                 definition_id,
             );
-            screen.last_action = if edited {
+            screen.harness.last_action = if edited {
                 format!("Host edited shader property {definition_id} on {node_id}").into()
             } else {
                 format!("Host rejected a stale shader property editor on {node_id}").into()
@@ -483,6 +492,7 @@ pub(crate) fn reduce(
                 })
                 .and_then(|shader_id| {
                     screen
+                        .host
                         .shaders
                         .definition(&shader_id)
                         .and_then(|shader| shader.property(definition_id))
@@ -498,7 +508,7 @@ pub(crate) fn reduce(
                         value: DesignPaintValue::ShaderProperty(fallback),
                     })
                 });
-            screen.last_action = if detached {
+            screen.harness.last_action = if detached {
                 format!(
                         "Host detached variable {variable_id} from shader property {definition_id} on {node_id}"
                     )
@@ -513,14 +523,16 @@ pub(crate) fn reduce(
             style,
             ..
         } => {
-            let applied = screen
-                .paint_styles
-                .style(style)
-                .cloned()
-                .is_some_and(|style_data| {
-                    apply_story_paint_style(node, *collection, style, style_data)
-                });
-            screen.last_action = if applied {
+            let applied =
+                screen
+                    .host
+                    .paint_styles
+                    .style(style)
+                    .cloned()
+                    .is_some_and(|style_data| {
+                        apply_story_paint_style(node, *collection, style, style_data)
+                    });
+            screen.harness.last_action = if applied {
                 format!(
                     "Host applied Paint style {} to {} on {node_id}",
                     style.style_id,
@@ -538,6 +550,7 @@ pub(crate) fn reduce(
             ..
         } => {
             let imported = screen
+                .host
                 .paint_styles
                 .style_mut(style)
                 .filter(|style| style.import_state == DesignPaintStyleImportState::Available)
@@ -545,7 +558,7 @@ pub(crate) fn reduce(
                     style.import_state = DesignPaintStyleImportState::Imported;
                 })
                 .is_some();
-            screen.last_action = if imported {
+            screen.harness.last_action = if imported {
                 format!(
                     "Host imported Paint style {} for {}; choose it again to apply",
                     style.style_id,
@@ -562,7 +575,7 @@ pub(crate) fn reduce(
             paints,
             ..
         } => {
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host opened Paint-style creation for {} ordered {} paint{} on {node_id}",
                 paints.len(),
                 collection.label(),
@@ -593,7 +606,7 @@ pub(crate) fn reduce(
                 | DesignPanelCollection::LayoutGrid
                 | DesignPanelCollection::Export => false,
             };
-            screen.last_action = if detached {
+            screen.harness.last_action = if detached {
                 format!(
                     "Host detached Paint style {} from {} on {node_id}",
                     style.style_id,
@@ -614,6 +627,7 @@ pub(crate) fn reduce(
             ..
         } => {
             let variable = screen
+                .host
                 .paint_variables
                 .variable(variable_id.as_ref())
                 .cloned();
@@ -630,7 +644,7 @@ pub(crate) fn reduce(
                         apply_story_paint_variable(paint, color_target, &variable)
                     })
                 });
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!(
                     "Host bound Color variable {variable_id} to {:?} in {} paint {} on {node_id}",
                     color_target,
@@ -653,6 +667,7 @@ pub(crate) fn reduce(
             ..
         } => {
             let imported = screen
+                .host
                 .paint_variables
                 .variable_mut(variable_id.as_ref())
                 .filter(|variable| {
@@ -663,7 +678,7 @@ pub(crate) fn reduce(
                     variable.import_state = DesignVariableImportState::Imported;
                 })
                 .is_some();
-            screen.last_action = if imported {
+            screen.harness.last_action = if imported {
                 format!(
                     "Host imported Color variable {variable_id} for {}; choose it again to bind",
                     collection.label()
@@ -684,7 +699,7 @@ pub(crate) fn reduce(
         } => {
             let detached = story_paint_mut(node, *collection, paint_id, *index)
                 .is_some_and(|paint| detach_story_paint_variable(paint, color_target, variable_id));
-            screen.last_action = if detached {
+            screen.harness.last_action = if detached {
                 format!(
                     "Host detached Color variable {variable_id} from {:?} on {node_id}",
                     color_target
@@ -701,7 +716,7 @@ pub(crate) fn reduce(
             color,
             ..
         } => {
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host opened Color-variable creation for #{} at {:?} in {} on {node_id}",
                 color.hex(),
                 color_target,
@@ -719,7 +734,7 @@ pub(crate) fn reduce(
             ..
         } => {
             let resolved_sample =
-                resolve_story_color_style_sample(&screen.color_style_samples, sample).cloned();
+                resolve_story_color_style_sample(&screen.host.color_style_samples, sample).cloned();
             let applied = resolved_sample
                 .filter(|sample| sample.disabled_reason.is_none())
                 .is_some_and(|sample| {
@@ -727,7 +742,7 @@ pub(crate) fn reduce(
                         apply_story_color_style_sample(paint, color_target, sample.color)
                     })
                 });
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!(
                     "Host sampled Color style {} into {:?} in {} paint {} on {node_id}",
                     sample.sample_id,
@@ -753,7 +768,8 @@ pub(crate) fn reduce(
             style,
             ..
         } => {
-            let resolved_style = resolve_story_color_style(&screen.color_styles, style).cloned();
+            let resolved_style =
+                resolve_story_color_style(&screen.host.color_styles, style).cloned();
             let paints = match collection {
                 DesignPanelCollection::Fill
                     if node.kind == DesignPanelNodeKind::MultipleSelection =>
@@ -781,7 +797,7 @@ pub(crate) fn reduce(
                         apply_story_color_style(paint, color_target, style)
                     })
             });
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!(
                     "Host applied color style {} to {} paint {} on {node_id}",
                     style.style_id,
@@ -806,7 +822,7 @@ pub(crate) fn reduce(
             color,
             ..
         } => {
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host opened color-style creation for #{} on {:?} in {} paint {} on {node_id}",
                 color.hex(),
                 color_target,
@@ -827,7 +843,7 @@ pub(crate) fn reduce(
             color_target,
             ..
         } => {
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host opened the eyedropper for {:?} in {} paint {} on {node_id}",
                 color_target,
                 collection.label(),

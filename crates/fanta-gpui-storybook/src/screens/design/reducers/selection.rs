@@ -10,7 +10,7 @@ pub(crate) fn acknowledge_header_command(
     cx: &mut Context<Storybook>,
 ) -> bool {
     if let DesignPanelAction::SelectionHeaderCommandRequested { target, command } = action {
-        screen.last_action =
+        screen.harness.last_action =
             format!("Host received selected-node command {command:?} for {target:?}").into();
         screen.apply_inspection_context(panel, cx);
         cx.notify();
@@ -32,18 +32,18 @@ pub(crate) fn select_color_occurrences(
     } = action
     {
         if story_selection_row_is_current(
-            &screen.nodes,
+            &screen.host.nodes,
             target,
             selection_color_id,
             paint_references,
         ) {
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                     "Host selected all {} occurrences of selection paint {selection_color_id} for {target:?}",
                     paint_references.len()
                 )
                 .into();
         } else {
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Ignored stale selection-paint occurrences for {target:?}").into();
         }
         screen.apply_inspection_context(panel, cx);
@@ -69,7 +69,7 @@ pub(crate) fn edit_selection_color_paint(
     {
         let edit_target = StorySelectionColorEditTarget::new(target, selection_color_id.clone());
         let references_are_current = story_selection_row_is_current(
-            &screen.nodes,
+            &screen.host.nodes,
             target,
             selection_color_id,
             paint_references,
@@ -77,14 +77,15 @@ pub(crate) fn edit_selection_color_paint(
         match phase {
             DesignPanelEditPhase::Begin if references_are_current => {
                 screen
+                    .edits
                     .selection_color_edit_snapshots
                     .entry(edit_target.clone())
-                    .or_insert_with(|| screen.nodes.clone());
+                    .or_insert_with(|| screen.host.nodes.clone());
             }
             DesignPanelEditPhase::Preview | DesignPanelEditPhase::Commit
                 if references_are_current =>
             {
-                let mut candidate_nodes = screen.nodes.clone();
+                let mut candidate_nodes = screen.host.nodes.clone();
                 let applied = paint_references.iter().all(|reference| {
                     candidate_nodes
                         .iter_mut()
@@ -99,12 +100,16 @@ pub(crate) fn edit_selection_color_paint(
                         })
                 });
                 if applied {
-                    screen.nodes = candidate_nodes;
+                    screen.host.nodes = candidate_nodes;
                 }
             }
             DesignPanelEditPhase::Cancel => {
-                if let Some(original) = screen.selection_color_edit_snapshots.remove(&edit_target) {
-                    screen.nodes = original;
+                if let Some(original) = screen
+                    .edits
+                    .selection_color_edit_snapshots
+                    .remove(&edit_target)
+                {
+                    screen.host.nodes = original;
                 }
             }
             DesignPanelEditPhase::Begin
@@ -112,9 +117,12 @@ pub(crate) fn edit_selection_color_paint(
             | DesignPanelEditPhase::Commit => {}
         }
         if *phase == DesignPanelEditPhase::Commit {
-            screen.selection_color_edit_snapshots.remove(&edit_target);
+            screen
+                .edits
+                .selection_color_edit_snapshots
+                .remove(&edit_target);
         }
-        screen.last_action = if references_are_current {
+        screen.harness.last_action = if references_are_current {
             format!(
                     "Host observed {phase:?} selection-paint {:?} for {selection_color_id} on {target:?}",
                     edit.property
@@ -147,15 +155,20 @@ pub(crate) fn edit_selection_color(
         let edit_target = StorySelectionColorEditTarget::new(target, selection_color_id.clone());
         match phase {
             DesignPanelEditPhase::Begin => {
-                let original = screen.nodes.clone();
+                let original = screen.host.nodes.clone();
                 screen
+                    .edits
                     .selection_color_edit_snapshots
                     .entry(edit_target.clone())
                     .or_insert(original);
             }
             DesignPanelEditPhase::Cancel => {
-                if let Some(original) = screen.selection_color_edit_snapshots.remove(&edit_target) {
-                    screen.nodes = original;
+                if let Some(original) = screen
+                    .edits
+                    .selection_color_edit_snapshots
+                    .remove(&edit_target)
+                {
+                    screen.host.nodes = original;
                 }
             }
             DesignPanelEditPhase::Preview | DesignPanelEditPhase::Commit => {}
@@ -164,7 +177,7 @@ pub(crate) fn edit_selection_color(
             phase,
             DesignPanelEditPhase::Preview | DesignPanelEditPhase::Commit
         ) {
-            for node in &mut screen.nodes {
+            for node in &mut screen.host.nodes {
                 if let Some((index, selection_color)) = node
                     .selection_color_aggregate
                     .colors
@@ -184,6 +197,7 @@ pub(crate) fn edit_selection_color(
 
             for reference in paint_references {
                 let Some(node) = screen
+                    .host
                     .nodes
                     .iter_mut()
                     .find(|node| node.id == reference.node_id)
@@ -223,10 +237,13 @@ pub(crate) fn edit_selection_color(
             }
         }
         if *phase == DesignPanelEditPhase::Commit {
-            screen.selection_color_edit_snapshots.remove(&edit_target);
+            screen
+                .edits
+                .selection_color_edit_snapshots
+                .remove(&edit_target);
         }
 
-        screen.last_action = format!(
+        screen.harness.last_action = format!(
             "Host observed {phase:?} for selection color {selection_color_id} = #{} on {target:?}",
             color.hex()
         )
@@ -251,26 +268,33 @@ pub(crate) fn reduce_color_resources(
             paint_references,
             style,
         } => {
-            let style_data = screen.paint_styles.style(style).cloned();
+            let style_data = screen.host.paint_styles.style(style).cloned();
             let collection_targets = story_selection_collection_targets(paint_references);
-            let applicable =
-                story_selection_references_are_current(&screen.nodes, target, paint_references)
-                    && style_data.as_ref().is_some_and(|style| {
-                        style.import_state == DesignPaintStyleImportState::Imported
-                            && !style.paints.is_empty()
-                    })
-                    && paint_references.iter().all(|reference| {
-                        screen
-                            .nodes
-                            .iter()
-                            .find(|node| node.id == reference.node_id)
-                            .and_then(|node| story_selection_reference_paint(node, reference))
-                            .is_some_and(|paint| !paint.read_only)
-                    });
+            let applicable = story_selection_references_are_current(
+                &screen.host.nodes,
+                target,
+                paint_references,
+            ) && style_data.as_ref().is_some_and(|style| {
+                style.import_state == DesignPaintStyleImportState::Imported
+                    && !style.paints.is_empty()
+            }) && paint_references.iter().all(|reference| {
+                screen
+                    .host
+                    .nodes
+                    .iter()
+                    .find(|node| node.id == reference.node_id)
+                    .and_then(|node| story_selection_reference_paint(node, reference))
+                    .is_some_and(|paint| !paint.read_only)
+            });
             if applicable {
                 let style_data = style_data.expect("applicable Selection Paint style is present");
                 for (node_id, collection) in &collection_targets {
-                    if let Some(node) = screen.nodes.iter_mut().find(|node| node.id == *node_id) {
+                    if let Some(node) = screen
+                        .host
+                        .nodes
+                        .iter_mut()
+                        .find(|node| node.id == *node_id)
+                    {
                         apply_story_paint_style(
                             node,
                             story_design_collection(*collection),
@@ -280,7 +304,7 @@ pub(crate) fn reduce_color_resources(
                     }
                 }
             }
-            screen.last_action = if applicable {
+            screen.harness.last_action = if applicable {
                 format!(
                         "Host applied Paint style {} to {} exact Selection-color collection{} for {selection_color_id} on {target:?}",
                         style.style_id,
@@ -300,10 +324,14 @@ pub(crate) fn reduce_color_resources(
             paint_references,
             style,
         } => {
-            let current =
-                story_selection_references_are_current(&screen.nodes, target, paint_references);
+            let current = story_selection_references_are_current(
+                &screen.host.nodes,
+                target,
+                paint_references,
+            );
             let imported = current
                 && screen
+                    .host
                     .paint_styles
                     .style_mut(style)
                     .filter(|style| style.import_state == DesignPaintStyleImportState::Available)
@@ -311,7 +339,7 @@ pub(crate) fn reduce_color_resources(
                         style.import_state = DesignPaintStyleImportState::Imported;
                     })
                     .is_some();
-            screen.last_action = if imported {
+            screen.harness.last_action = if imported {
                 format!(
                     "Host imported Selection Paint style {} for {selection_color_id}",
                     style.style_id
@@ -331,9 +359,14 @@ pub(crate) fn reduce_color_resources(
         } => {
             let collection_targets = story_selection_collection_targets(paint_references);
             let creatable = !paints.is_empty()
-                && story_selection_references_are_current(&screen.nodes, target, paint_references)
+                && story_selection_references_are_current(
+                    &screen.host.nodes,
+                    target,
+                    paint_references,
+                )
                 && collection_targets.iter().all(|(node_id, collection)| {
                     screen
+                        .host
                         .nodes
                         .iter()
                         .find(|node| node.id == *node_id)
@@ -341,7 +374,7 @@ pub(crate) fn reduce_color_resources(
                             story_selection_collection_style_binding(node, *collection).is_none()
                         })
                 });
-            screen.last_action = if creatable {
+            screen.harness.last_action = if creatable {
                 format!(
                         "Host opened Selection Paint-style creation with {} ordered paint{} for {selection_color_id} on {target:?}",
                         paints.len(),
@@ -363,23 +396,27 @@ pub(crate) fn reduce_color_resources(
             style,
         } => {
             let collection_targets = story_selection_collection_targets(paint_references);
-            let detachable =
-                story_selection_references_are_current(&screen.nodes, target, paint_references)
-                    && collection_targets.iter().all(|(node_id, collection)| {
-                        screen
-                            .nodes
-                            .iter()
-                            .find(|node| node.id == *node_id)
-                            .and_then(|node| {
-                                story_selection_collection_style_binding(node, *collection)
-                            })
-                            .is_some_and(|binding| {
-                                binding.can_detach && binding.selection == *style
-                            })
-                    });
+            let detachable = story_selection_references_are_current(
+                &screen.host.nodes,
+                target,
+                paint_references,
+            ) && collection_targets.iter().all(|(node_id, collection)| {
+                screen
+                    .host
+                    .nodes
+                    .iter()
+                    .find(|node| node.id == *node_id)
+                    .and_then(|node| story_selection_collection_style_binding(node, *collection))
+                    .is_some_and(|binding| binding.can_detach && binding.selection == *style)
+            });
             if detachable {
                 for (node_id, collection) in &collection_targets {
-                    if let Some(node) = screen.nodes.iter_mut().find(|node| node.id == *node_id) {
+                    if let Some(node) = screen
+                        .host
+                        .nodes
+                        .iter_mut()
+                        .find(|node| node.id == *node_id)
+                    {
                         match collection {
                             DesignSelectionPaintCollection::Fill => {
                                 node.fill_style_binding = None;
@@ -391,7 +428,7 @@ pub(crate) fn reduce_color_resources(
                     }
                 }
             }
-            screen.last_action = if detachable {
+            screen.harness.last_action = if detachable {
                 format!(
                     "Host detached Selection Paint style {} for {selection_color_id} on {target:?}",
                     style.style_id
@@ -410,35 +447,38 @@ pub(crate) fn reduce_color_resources(
             variable_id,
         } => {
             let variable = screen
+                .host
                 .paint_variables
                 .variable(variable_id.as_ref())
                 .cloned();
-            let applicable =
-                story_selection_references_are_current(&screen.nodes, target, paint_references)
-                    && variable.as_ref().is_some_and(|variable| {
-                        variable.disabled_reason.is_none()
-                            && matches!(
-                                variable.import_state,
-                                DesignVariableImportState::Local
-                                    | DesignVariableImportState::Imported
-                            )
+            let applicable = story_selection_references_are_current(
+                &screen.host.nodes,
+                target,
+                paint_references,
+            ) && variable.as_ref().is_some_and(|variable| {
+                variable.disabled_reason.is_none()
+                    && matches!(
+                        variable.import_state,
+                        DesignVariableImportState::Local | DesignVariableImportState::Imported
+                    )
+            }) && paint_references.iter().all(|reference| {
+                screen
+                    .host
+                    .nodes
+                    .iter()
+                    .find(|node| node.id == reference.node_id)
+                    .is_some_and(|node| {
+                        story_selection_collection_style_binding(node, reference.collection)
+                            .is_none()
+                            && story_selection_reference_paint(node, reference)
+                                .is_some_and(|paint| !paint.read_only)
                     })
-                    && paint_references.iter().all(|reference| {
-                        screen
-                            .nodes
-                            .iter()
-                            .find(|node| node.id == reference.node_id)
-                            .is_some_and(|node| {
-                                story_selection_collection_style_binding(node, reference.collection)
-                                    .is_none()
-                                    && story_selection_reference_paint(node, reference)
-                                        .is_some_and(|paint| !paint.read_only)
-                            })
-                    });
+            });
             if applicable {
                 let variable = variable.expect("applicable Selection Color variable is present");
                 for reference in paint_references {
                     if let Some(node) = screen
+                        .host
                         .nodes
                         .iter_mut()
                         .find(|node| node.id == reference.node_id)
@@ -452,7 +492,7 @@ pub(crate) fn reduce_color_resources(
                     }
                 }
             }
-            screen.last_action = if applicable {
+            screen.harness.last_action = if applicable {
                 format!(
                         "Host bound Selection Color variable {variable_id} to {} exact occurrence{} for {selection_color_id} on {target:?}",
                         paint_references.len(),
@@ -473,10 +513,14 @@ pub(crate) fn reduce_color_resources(
             paint_references,
             variable_id,
         } => {
-            let current =
-                story_selection_references_are_current(&screen.nodes, target, paint_references);
+            let current = story_selection_references_are_current(
+                &screen.host.nodes,
+                target,
+                paint_references,
+            );
             let imported = current
                 && screen
+                    .host
                     .paint_variables
                     .variable_mut(variable_id.as_ref())
                     .filter(|variable| {
@@ -487,7 +531,7 @@ pub(crate) fn reduce_color_resources(
                         variable.import_state = DesignVariableImportState::Imported;
                     })
                     .is_some();
-            screen.last_action = if imported {
+            screen.harness.last_action = if imported {
                 format!(
                     "Host imported Selection Color variable {variable_id} for {selection_color_id}"
                 )
@@ -506,51 +550,49 @@ pub(crate) fn reduce_color_resources(
             paint_references,
             color,
         } => {
-            let creatable =
-                story_selection_references_are_current(&screen.nodes, target, paint_references)
-                    && paint_references.iter().all(|reference| {
-                        screen
-                            .nodes
-                            .iter()
-                            .find(|node| node.id == reference.node_id)
-                            .is_some_and(|node| {
-                                story_selection_collection_style_binding(node, reference.collection)
-                                    .is_none()
-                                    && story_selection_reference_paint(node, reference).is_some_and(
-                                        |paint| {
-                                            !paint.read_only
-                                                && match (
-                                                    &paint.payload,
-                                                    &reference.gradient_stop_id,
-                                                ) {
-                                                    (DesignPaintPayload::Solid(solid), None) => {
-                                                        solid.binding.is_none()
-                                                    }
-                                                    (
-                                                        DesignPaintPayload::Gradient(gradient),
-                                                        Some(stop_id),
-                                                    ) => {
-                                                        let stop = if stop_id.is_empty() {
-                                                            reference.gradient_stop_index.and_then(
-                                                                |index| gradient.stops.get(index),
-                                                            )
-                                                        } else {
-                                                            gradient
-                                                                .stops
-                                                                .iter()
-                                                                .find(|stop| stop.id == *stop_id)
-                                                        };
-                                                        stop.is_some_and(|stop| {
-                                                            stop.binding.is_none()
-                                                        })
-                                                    }
-                                                    _ => false,
-                                                }
-                                        },
-                                    )
-                            })
-                    });
-            screen.last_action = if creatable {
+            let creatable = story_selection_references_are_current(
+                &screen.host.nodes,
+                target,
+                paint_references,
+            ) && paint_references.iter().all(|reference| {
+                screen
+                    .host
+                    .nodes
+                    .iter()
+                    .find(|node| node.id == reference.node_id)
+                    .is_some_and(|node| {
+                        story_selection_collection_style_binding(node, reference.collection)
+                            .is_none()
+                            && story_selection_reference_paint(node, reference).is_some_and(
+                                |paint| {
+                                    !paint.read_only
+                                        && match (&paint.payload, &reference.gradient_stop_id) {
+                                            (DesignPaintPayload::Solid(solid), None) => {
+                                                solid.binding.is_none()
+                                            }
+                                            (
+                                                DesignPaintPayload::Gradient(gradient),
+                                                Some(stop_id),
+                                            ) => {
+                                                let stop = if stop_id.is_empty() {
+                                                    reference
+                                                        .gradient_stop_index
+                                                        .and_then(|index| gradient.stops.get(index))
+                                                } else {
+                                                    gradient
+                                                        .stops
+                                                        .iter()
+                                                        .find(|stop| stop.id == *stop_id)
+                                                };
+                                                stop.is_some_and(|stop| stop.binding.is_none())
+                                            }
+                                            _ => false,
+                                        }
+                                },
+                            )
+                    })
+            });
+            screen.harness.last_action = if creatable {
                 format!(
                         "Host opened Selection Color-variable creation for #{} and {selection_color_id} on {target:?}",
                         color.hex()
@@ -570,60 +612,57 @@ pub(crate) fn reduce_color_resources(
             paint_references,
             variable_id,
         } => {
-            let detachable =
-                story_selection_references_are_current(&screen.nodes, target, paint_references)
-                    && paint_references.iter().all(|reference| {
-                        screen
-                            .nodes
-                            .iter()
-                            .find(|node| node.id == reference.node_id)
-                            .is_some_and(|node| {
-                                story_selection_collection_style_binding(node, reference.collection)
-                                    .is_none()
-                                    && story_selection_reference_paint(node, reference).is_some_and(
-                                        |paint| {
-                                            let target = story_selection_color_target(reference);
-                                            match (&paint.payload, target) {
-                                                (
-                                                    DesignPaintPayload::Solid(solid),
-                                                    DesignPaintColorTarget::Solid,
-                                                ) => {
-                                                    solid.binding.as_ref().is_some_and(|binding| {
-                                                        binding.variable_id == *variable_id
-                                                    })
-                                                }
-                                                (
-                                                    DesignPaintPayload::Gradient(gradient),
-                                                    DesignPaintColorTarget::GradientStop {
-                                                        stop_id,
-                                                        index,
-                                                    },
-                                                ) => {
-                                                    let stop = if stop_id.is_empty() {
-                                                        gradient.stops.get(index)
-                                                    } else {
-                                                        gradient
-                                                            .stops
-                                                            .iter()
-                                                            .find(|stop| stop.id == stop_id)
-                                                    };
-                                                    stop.is_some_and(|stop| {
-                                                        stop.binding.as_ref().is_some_and(
-                                                            |binding| {
-                                                                binding.variable_id == *variable_id
-                                                            },
-                                                        )
-                                                    })
-                                                }
-                                                _ => false,
-                                            }
-                                        },
-                                    )
-                            })
-                    });
+            let detachable = story_selection_references_are_current(
+                &screen.host.nodes,
+                target,
+                paint_references,
+            ) && paint_references.iter().all(|reference| {
+                screen
+                    .host
+                    .nodes
+                    .iter()
+                    .find(|node| node.id == reference.node_id)
+                    .is_some_and(|node| {
+                        story_selection_collection_style_binding(node, reference.collection)
+                            .is_none()
+                            && story_selection_reference_paint(node, reference).is_some_and(
+                                |paint| {
+                                    let target = story_selection_color_target(reference);
+                                    match (&paint.payload, target) {
+                                        (
+                                            DesignPaintPayload::Solid(solid),
+                                            DesignPaintColorTarget::Solid,
+                                        ) => solid.binding.as_ref().is_some_and(|binding| {
+                                            binding.variable_id == *variable_id
+                                        }),
+                                        (
+                                            DesignPaintPayload::Gradient(gradient),
+                                            DesignPaintColorTarget::GradientStop { stop_id, index },
+                                        ) => {
+                                            let stop = if stop_id.is_empty() {
+                                                gradient.stops.get(index)
+                                            } else {
+                                                gradient
+                                                    .stops
+                                                    .iter()
+                                                    .find(|stop| stop.id == stop_id)
+                                            };
+                                            stop.is_some_and(|stop| {
+                                                stop.binding.as_ref().is_some_and(|binding| {
+                                                    binding.variable_id == *variable_id
+                                                })
+                                            })
+                                        }
+                                        _ => false,
+                                    }
+                                },
+                            )
+                    })
+            });
             if detachable {
                 for reference in paint_references {
                     if let Some(node) = screen
+                        .host
                         .nodes
                         .iter_mut()
                         .find(|node| node.id == reference.node_id)
@@ -637,7 +676,7 @@ pub(crate) fn reduce_color_resources(
                     }
                 }
             }
-            screen.last_action = if detachable {
+            screen.harness.last_action = if detachable {
                 format!(
                         "Host detached Selection Color variable {variable_id} for {selection_color_id} on {target:?}"
                     )

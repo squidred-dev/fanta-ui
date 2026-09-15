@@ -10,7 +10,7 @@ pub(crate) fn reduce(
     node_index: usize,
     _cx: &mut Context<Storybook>,
 ) -> Option<NodeOutcome> {
-    let node = &mut screen.nodes[node_index];
+    let node = &mut screen.host.nodes[node_index];
     match action {
         DesignPanelAction::CollectionItemAddRequested {
             node_id,
@@ -63,7 +63,8 @@ pub(crate) fn reduce(
                     });
                 }
             }
-            screen.last_action = format!("Host added {} to {node_id}", collection.label()).into();
+            screen.harness.last_action =
+                format!("Host added {} to {node_id}", collection.label()).into();
         }
         DesignPanelAction::CollectionItemRemoveRequested {
             node_id,
@@ -92,7 +93,7 @@ pub(crate) fn reduce(
                     remove_index(&mut node.export_settings, *index);
                 }
             }
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host removed {} #{index} from {node_id}",
                 collection.label()
             )
@@ -114,13 +115,13 @@ pub(crate) fn reduce(
             );
             let applied = apply_story_layout_grid_edit_phase(
                 node,
-                &mut screen.layout_grid_edit_snapshots,
+                &mut screen.edits.layout_grid_edit_snapshots,
                 target,
                 *property,
                 value,
                 *phase,
             );
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!("Host observed {phase:?} for {property:?} on guide {guide_id} in {node_id}")
                     .into()
             } else {
@@ -146,7 +147,7 @@ pub(crate) fn reduce(
                     node.layout_grids.remove(index);
                     true
                 });
-            screen.last_action = if removed {
+            screen.harness.last_action = if removed {
                 format!("Host removed guide {guide_id} from {node_id}").into()
             } else {
                 format!("Host rejected a stale layout-guide removal on {node_id}").into()
@@ -159,12 +160,12 @@ pub(crate) fn reduce(
         } => {
             let applied = apply_story_grid_dimensions_edit_phase(
                 node,
-                &mut screen.grid_dimensions_edit_snapshots,
+                &mut screen.edits.grid_dimensions_edit_snapshots,
                 node_id,
                 *dimensions,
                 *phase,
             );
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!(
                     "Host observed {phase:?} for Grid dimensions {} × {} on {node_id}",
                     dimensions.columns, dimensions.rows
@@ -195,7 +196,7 @@ pub(crate) fn reduce(
                 tracks.insert(*insertion_index, DesignGridTrack::hug());
                 true
             });
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!(
                     "Host inserted a Hug {} track at {insertion_index} on {node_id}",
                     axis.label().to_ascii_lowercase()
@@ -224,7 +225,7 @@ pub(crate) fn reduce(
                 tracks.remove(*index);
                 true
             });
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!(
                     "Host deleted {} track {index} on {node_id}",
                     axis.label().to_ascii_lowercase()
@@ -250,7 +251,7 @@ pub(crate) fn reduce(
                 };
                 reorder_story_grid_tracks(tracks, from_indices, *insertion_index)
             });
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!(
                     "Host reordered {} tracks {from_indices:?} at {insertion_index} on {node_id}",
                     axis.label().to_ascii_lowercase()
@@ -262,6 +263,7 @@ pub(crate) fn reduce(
         }
         DesignPanelAction::LayoutGridStyleApplyRequested { node_id, style } => {
             let resolved = screen
+                .host
                 .layout_grid_styles
                 .style(style)
                 .filter(|resource| {
@@ -284,7 +286,7 @@ pub(crate) fn reduce(
                 });
                 true
             });
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!(
                     "Host atomically applied Grid style {} on {node_id}",
                     style.style_id
@@ -306,6 +308,7 @@ pub(crate) fn reduce(
                 node.layout_grid_style_binding.is_none() && node.layout_grids == *layout_grids;
             if matches_current {
                 let style_number = screen
+                    .host
                     .layout_grid_styles
                     .page_styles
                     .len()
@@ -313,6 +316,7 @@ pub(crate) fn reduce(
                 let style_id: SharedString = format!("grid-style-page-{style_number}").into();
                 let name: SharedString = format!("Grid / {style_number}").into();
                 screen
+                    .host
                     .layout_grid_styles
                     .page_styles
                     .push(DesignLayoutGridStyle::new(
@@ -322,10 +326,10 @@ pub(crate) fn reduce(
                     ));
                 node.layout_grid_style_binding =
                     Some(DesignLayoutGridStyleBinding::new(style_id.clone(), name));
-                screen.last_action =
+                screen.harness.last_action =
                     format!("Host created Grid style {style_id} on {node_id}").into();
             } else {
-                screen.last_action =
+                screen.harness.last_action =
                     format!("Host rejected a stale Grid style snapshot on {node_id}").into();
             }
         }
@@ -337,7 +341,7 @@ pub(crate) fn reduce(
             if detached {
                 node.layout_grid_style_binding = None;
             }
-            screen.last_action = if detached {
+            screen.harness.last_action = if detached {
                 format!("Host detached Grid style {} on {node_id}", style.style_id).into()
             } else {
                 format!("Host rejected a stale Grid style detach on {node_id}").into()
@@ -347,6 +351,7 @@ pub(crate) fn reduce(
             let imported = match &style.source {
                 DesignLayoutGridStyleSource::Page => false,
                 DesignLayoutGridStyleSource::Library { library_id } => screen
+                    .host
                     .layout_grid_styles
                     .libraries
                     .iter_mut()
@@ -365,7 +370,7 @@ pub(crate) fn reduce(
                         true
                     }),
             };
-            screen.last_action = if imported {
+            screen.harness.last_action = if imported {
                 format!("Host imported Grid style {} for {node_id}", style.style_id).into()
             } else {
                 format!(
@@ -381,6 +386,7 @@ pub(crate) fn reduce(
             variable_id,
         } => {
             let variable = screen
+                .host
                 .layout_grid_variables
                 .variable(variable_id.as_ref())
                 .cloned();
@@ -388,7 +394,7 @@ pub(crate) fn reduce(
                 variable.import_state != DesignVariableImportState::Available
                     && apply_story_layout_grid_variable(node, target, &variable)
             });
-            screen.last_action = if applied {
+            screen.harness.last_action = if applied {
                 format!(
                     "Host bound Number variable {variable_id} to {} on guide {} in {node_id}",
                     target.field.api_name(),
@@ -406,6 +412,7 @@ pub(crate) fn reduce(
             variable_id,
         } => {
             let compatible = screen
+                .host
                 .layout_grid_variables
                 .variable(variable_id.as_ref())
                 .is_some_and(|variable| {
@@ -416,13 +423,14 @@ pub(crate) fn reduce(
                 });
             let imported = compatible
                 && screen
+                    .host
                     .layout_grid_variables
                     .variable_mut(variable_id.as_ref())
                     .is_some_and(|variable| {
                         variable.import_state = DesignVariableImportState::Imported;
                         true
                     });
-            screen.last_action = if imported {
+            screen.harness.last_action = if imported {
                 format!("Host imported Number variable {variable_id} for {node_id}").into()
             } else {
                 format!("Host rejected Number-variable import on {node_id}").into()
@@ -434,7 +442,7 @@ pub(crate) fn reduce(
             variable_id,
         } => {
             let detached = detach_story_layout_grid_variable(node, target, variable_id.as_ref());
-            screen.last_action = if detached {
+            screen.harness.last_action = if detached {
                 format!(
                     "Host detached Number variable {variable_id} from {} on guide {} in {node_id}",
                     target.field.api_name(),
@@ -451,7 +459,7 @@ pub(crate) fn reduce(
             value,
         } => {
             let variable_number = story_layout_grid_variable_float(*value);
-            let variable_index = screen.layout_grid_variables.variables.len() + 1;
+            let variable_index = screen.host.layout_grid_variables.variables.len() + 1;
             let variable_id: SharedString =
                 format!("storybook-layout-number-{variable_index}").into();
             let variable_name: SharedString = format!("Layout number {variable_index}").into();
@@ -465,14 +473,14 @@ pub(crate) fn reduce(
                 )
                 .with_resolved_value(DesignVariableResolvedValue::Float(number))
             });
-            let created = screen.layout_grid_variables.create_state.is_enabled()
+            let created = screen.host.layout_grid_variables.create_state.is_enabled()
                 && variable.as_ref().is_some_and(|variable| {
                     apply_story_layout_grid_variable(node, target, variable)
                 });
             if created && let Some(variable) = variable {
-                screen.layout_grid_variables.variables.push(variable);
+                screen.host.layout_grid_variables.variables.push(variable);
             }
-            screen.last_action = if created {
+            screen.harness.last_action = if created {
                 format!(
                     "Host created and bound Number variable {variable_id} for {} on {node_id}",
                     target.field.api_name()
@@ -484,7 +492,7 @@ pub(crate) fn reduce(
         }
         DesignPanelAction::LayoutGridCountVariableApplyRequested { node_id, .. }
         | DesignPanelAction::LayoutGridCountVariableDetachRequested { node_id, .. } => {
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host ignored a compatibility-only count-variable action on {node_id}")
                     .into();
         }

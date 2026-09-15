@@ -52,7 +52,7 @@ impl DesignScreen {
         cx: &mut Context<Storybook>,
     ) {
         if let Some(path) = action.compatibility_path() {
-            self.last_action = format!(
+            self.harness.last_action = format!(
                 "Ignored compatibility-only Design action; use {}",
                 path.replacement()
             )
@@ -78,7 +78,7 @@ impl DesignScreen {
                     ..
                 }
         ) {
-            self.menu_preview = None;
+            self.edits.menu_preview = None;
         }
         if targeted::replay_preflighted_target(self, &panel, action, cx) {
             return;
@@ -306,15 +306,17 @@ impl DesignScreen {
             }
         };
         let Some(node_index) = self
+            .host
             .nodes
             .iter()
             .position(|node| node.id == *action_node_id)
         else {
-            self.last_action = format!("Ignored stale Design action for {action_node_id}").into();
+            self.harness.last_action =
+                format!("Ignored stale Design action for {action_node_id}").into();
             cx.notify();
             return;
         };
-        let inside_auto_layout = node_index == self.selected_node
+        let inside_auto_layout = node_index == self.harness.selected_node
             && self.inspection_context().0.parent_layout().is_auto_layout();
         if sections::reduce(self, &panel, action, node_index, cx) {
             return;
@@ -332,6 +334,7 @@ impl DesignScreen {
                 index,
                 ..
             } => self
+                .host
                 .media_paint_views
                 .get(action_node_id)
                 .and_then(|views| views.paint(*collection, paint_id, *index))
@@ -343,8 +346,8 @@ impl DesignScreen {
         let node_edit_transaction = story_node_edit_transaction(action);
         if let Some((target, phase)) = &node_edit_transaction {
             begin_story_node_edit(
-                &self.nodes[node_index],
-                &mut self.node_edit_snapshots,
+                &self.host.nodes[node_index],
+                &mut self.edits.node_edit_snapshots,
                 target,
                 *phase,
             );
@@ -380,8 +383,8 @@ impl DesignScreen {
         }
         if let Some((target, phase)) = node_edit_transaction {
             finish_story_node_edit(
-                &mut self.nodes[node_index],
-                &mut self.node_edit_snapshots,
+                &mut self.host.nodes[node_index],
+                &mut self.edits.node_edit_snapshots,
                 target,
                 phase,
             );

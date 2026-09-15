@@ -10,7 +10,7 @@ pub(crate) fn reduce(
     media_drop_capabilities: DesignMediaPaintCapabilities,
     _cx: &mut Context<Storybook>,
 ) -> Option<NodeOutcome> {
-    let node = &mut screen.nodes[node_index];
+    let node = &mut screen.host.nodes[node_index];
     match action {
         DesignPanelAction::PaintMediaSourceActionRequested {
             node_id,
@@ -65,7 +65,7 @@ pub(crate) fn reduce(
                     value: DesignPaintValue::Source(source),
                 })
             });
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!(
                     "Host completed {} for {} paint {} on {node_id}",
                     action.label(),
@@ -124,10 +124,10 @@ pub(crate) fn reduce(
                     *expected_media_kind,
                     file,
                     media_drop_capabilities,
-                    &mut screen.next_media_source_id,
+                    &mut screen.host.next_media_source_id,
                 )
             });
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host {} {} file drop for {} paint {} on {node_id}",
                 if accepted { "accepted" } else { "rejected" },
                 file.kind.label(),
@@ -176,6 +176,7 @@ pub(crate) fn reduce(
                 _ => None,
             });
             let view = screen
+                .host
                 .media_paint_views
                 .entry(node_id.clone())
                 .or_default()
@@ -258,7 +259,7 @@ pub(crate) fn reduce(
                     }
                 }
             }
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host handled crop {action:?} for {paint_id} on {node_id}").into();
         }
         DesignPanelAction::PaintVideoPreviewActionRequested {
@@ -277,8 +278,9 @@ pub(crate) fn reduce(
                 paint_id.clone(),
                 *index,
             );
-            let scrub_snapshots = &mut screen.video_scrub_snapshots;
+            let scrub_snapshots = &mut screen.edits.video_scrub_snapshots;
             let preview = screen
+                .host
                 .media_paint_views
                 .entry(node_id.clone())
                 .or_default()
@@ -316,7 +318,7 @@ pub(crate) fn reduce(
                     },
                 }
             }
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host handled video preview {action:?} for {paint_id} on {node_id}").into();
         }
         _ => return None,

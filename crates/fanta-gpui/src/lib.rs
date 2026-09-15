@@ -63,9 +63,28 @@ pub mod prelude {
     };
     // Shared chrome molecules (ARCHITECTURE.md §16).
     pub use crate::molecules::{
-        EdgeFades, POPUP_SAFE_MARGIN, anchored_popup, clamp_menu_origin, horizontal_fade_overlays,
-        list_row, menu_item, menu_surface, popup_height, popup_max_height, popup_surface,
-        popup_width, track_horizontal_edge_fades,
+        EdgeFades, InspectorCheckboxField, InspectorColorField, InspectorColorSwatch,
+        InspectorControlledEdit, InspectorDensity, InspectorEdit, InspectorEditPhase,
+        InspectorEmptyState, InspectorFeedback, InspectorFeedbackKind, InspectorFieldAccess,
+        InspectorFieldFrame, InspectorFieldMessage, InspectorFieldMessageKind,
+        InspectorFieldPresentation, InspectorGridLayout, InspectorLabelPlacement, InspectorMetrics,
+        InspectorNumberDraft, InspectorNumberField, InspectorOverlayDismissCause,
+        InspectorOverlayDismissIntent, InspectorOverlayFocusTarget, InspectorOverlayPlacement,
+        InspectorPickerField, InspectorSliderField, InspectorTextField, InspectorToggleField,
+        InspectorValue, POPUP_SAFE_MARGIN, anchored_popup, clamp_menu_origin,
+        horizontal_fade_overlays, inspector_action_button, inspector_action_group,
+        inspector_anchored_menu, inspector_anchored_menu_surface, inspector_anchored_overlay,
+        inspector_anchored_popover, inspector_checkbox_field, inspector_collection_row,
+        inspector_color_field, inspector_color_swatch, inspector_field_frame,
+        inspector_field_frame_with_presentation, inspector_field_grid,
+        inspector_field_grid_with_layout, inspector_field_group, inspector_field_label,
+        inspector_grouped_field_frame, inspector_menu_item, inspector_menu_surface,
+        inspector_number_field, inspector_picker_field, inspector_popover_surface, inspector_row,
+        inspector_row_with_layout, inspector_section, inspector_section_group,
+        inspector_section_header, inspector_segment, inspector_segmented_control,
+        inspector_slider_field, inspector_text_field, inspector_toggle_field, list_row, menu_item,
+        menu_surface, popup_height, popup_max_height, popup_surface, popup_width,
+        track_horizontal_edge_fades,
     };
     pub use crate::pages::{
         AddPage, ClosePagesSearch, ConfirmPagesTextEntry, FindInPages, FocusFirstPage,

@@ -10,20 +10,25 @@ pub(crate) fn echo_surface_change(
     cx: &mut Context<Storybook>,
 ) -> bool {
     if let DesignPanelAction::SurfaceChangeRequested { current, requested } = action {
-        let (active, can_edit) = {
-            let panel = panel.read(cx);
-            (
-                panel.active_surface(),
-                panel.inspection_context().permissions().can_edit(),
-            )
+        let (inspection_context, _) = screen.inspection_context();
+        let can_edit = inspection_context.permissions().can_edit();
+        let active = if can_edit {
+            screen.harness.editor_surface
+        } else {
+            screen.harness.viewer_surface
         };
         let mut echoed = active;
-        let mut accepted =
+        let accepted =
             apply_story_surface_change_request(&mut echoed, can_edit, *current, *requested);
         if accepted {
-            accepted = panel.update(cx, |panel, cx| panel.set_active_surface(echoed, cx));
+            if can_edit {
+                screen.harness.editor_surface = echoed;
+            } else {
+                screen.harness.viewer_surface = echoed;
+            }
+            screen.apply_inspection_context(panel, cx);
         }
-        screen.last_action = if accepted {
+        screen.harness.last_action = if accepted {
             format!(
                 "Host echoed {} → {} without changing the document",
                 current.label(),
@@ -69,10 +74,10 @@ pub(crate) fn apply_menu_preview_transaction(
             }
         };
         let accepted = apply_story_menu_preview(
-            &mut screen.menu_preview,
+            &mut screen.edits.menu_preview,
             StoryMenuPreviewContext {
-                nodes: &screen.nodes,
-                bindings: &screen.property_bindings,
+                nodes: &screen.host.nodes,
+                bindings: &screen.host.property_bindings,
                 current_target: current_target.as_ref(),
                 current_paint_target,
                 can_edit,
@@ -80,7 +85,7 @@ pub(crate) fn apply_menu_preview_transaction(
             preview,
             *phase,
         );
-        screen.last_action = if accepted {
+        screen.harness.last_action = if accepted {
             format!("Host accepted {phase:?} for exact menu preview {preview:?}").into()
         } else {
             format!("Host rejected stale or unbalanced menu preview {preview:?}").into()
@@ -103,7 +108,7 @@ pub(crate) fn copy_property(
         displayed_value,
     } = action
     {
-        screen.last_action = story_property_copy_status(target, *property, displayed_value);
+        screen.harness.last_action = story_property_copy_status(target, *property, displayed_value);
         cx.notify();
         return true;
     }
@@ -124,7 +129,7 @@ pub(crate) fn preview_dimension_limits(
         preview,
     } = action
     {
-        let node = screen.nodes.iter().find(|node| node.id == *node_id);
+        let node = screen.host.nodes.iter().find(|node| node.id == *node_id);
         let current = node
             .and_then(|node| node.layout.as_ref())
             .map(|layout| match axis {
@@ -140,7 +145,7 @@ pub(crate) fn preview_dimension_limits(
         } else {
             node.is_some()
         };
-        screen.last_action = if accepted {
+        screen.harness.last_action = if accepted {
             format!(
                 "Host {} {:?} limits {:?}…{:?} on {node_id}",
                 if *preview { "previewed" } else { "cleared" },
@@ -174,6 +179,7 @@ pub(crate) fn copy_viewer_section(
         let current = match target {
             DesignPanelTarget::Nodes { node_ids } if node_ids.len() == 1 => {
                 screen
+                    .host
                     .viewer_properties
                     .get(&node_ids[0])
                     .filter(|view_data| &view_data.target == target)
@@ -183,7 +189,7 @@ pub(crate) fn copy_viewer_section(
             }
             DesignPanelTarget::Page { .. } | DesignPanelTarget::Nodes { .. } => false,
         };
-        screen.last_action = if can_copy && current {
+        screen.harness.last_action = if can_copy && current {
             format!("Host copied viewer section {section_id} from {target:?}: “{copy_value}”")
                 .into()
         } else {
@@ -217,6 +223,7 @@ pub(crate) fn change_viewer_representation(
         let accepted = node_id.as_ref().is_some_and(|node_id| {
             can_copy
                 && screen
+                    .host
                     .viewer_properties
                     .get(node_id)
                     .is_some_and(|view_data| {
@@ -231,20 +238,25 @@ pub(crate) fn change_viewer_representation(
         });
         if accepted
             && let Some(node_id) = node_id
-            && let Some(node) = screen.nodes.iter().find(|node| node.id == node_id).cloned()
+            && let Some(node) = screen
+                .host
+                .nodes
+                .iter()
+                .find(|node| node.id == node_id)
+                .cloned()
         {
-            screen.viewer_properties.insert(
+            screen.host.viewer_properties.insert(
                 node_id,
                 fixtures::viewer_properties_for_node(&node, *representation),
             );
             screen.apply_inspection_context(panel, cx);
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host represented viewer section {section_id} as {}",
                 representation.label()
             )
             .into();
         } else {
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host rejected stale viewer representation for {section_id}").into();
         }
         cx.notify();

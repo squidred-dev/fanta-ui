@@ -19,19 +19,18 @@ pub(crate) fn reduce(
     let export_handled = match action {
         DesignPanelAction::ExportConfigurationAddRequested { target } => {
             let configuration_id =
-                SharedString::from(format!("storybook-export-{}", screen.next_export_id));
-            let capabilities =
-                match target {
-                    DesignPanelTarget::Page { .. } => DesignStaticExportCapabilities::default(),
-                    DesignPanelTarget::Nodes { node_ids } => {
-                        story_aggregate_static_export_capabilities(node_ids.iter().filter_map(
-                            |node_id| screen.nodes.iter().find(|node| node.id == *node_id),
-                        ))
-                    }
-                };
+                SharedString::from(format!("storybook-export-{}", screen.host.next_export_id));
+            let capabilities = match target {
+                DesignPanelTarget::Page { .. } => DesignStaticExportCapabilities::default(),
+                DesignPanelTarget::Nodes { node_ids } => {
+                    story_aggregate_static_export_capabilities(node_ids.iter().filter_map(
+                        |node_id| screen.host.nodes.iter().find(|node| node.id == *node_id),
+                    ))
+                }
+            };
             let accepted = apply_story_export_configuration_add(
-                &screen.nodes,
-                &mut screen.export_configurations,
+                &screen.host.nodes,
+                &mut screen.host.export_configurations,
                 &current_export_target,
                 target,
                 can_export,
@@ -42,9 +41,9 @@ pub(crate) fn reduce(
                 ),
             );
             if accepted {
-                screen.next_export_id += 1;
+                screen.host.next_export_id += 1;
             }
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!("Host added export configuration {configuration_id} to {target:?}").into()
             } else {
                 format!("Ignored stale or mixed export-add target {target:?}").into()
@@ -56,14 +55,14 @@ pub(crate) fn reduce(
             configuration_id,
         } => {
             let accepted = apply_story_export_configuration_remove(
-                &screen.nodes,
-                &mut screen.export_configurations,
+                &screen.host.nodes,
+                &mut screen.host.export_configurations,
                 &current_export_target,
                 target,
                 can_export,
                 configuration_id,
             );
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!("Host removed export configuration {configuration_id} from {target:?}")
                     .into()
             } else {
@@ -79,9 +78,9 @@ pub(crate) fn reduce(
             phase,
         } => {
             let accepted = apply_story_export_configuration_edit(
-                &screen.nodes,
-                &mut screen.export_configurations,
-                &mut screen.export_edit_snapshots,
+                &screen.host.nodes,
+                &mut screen.host.export_configurations,
+                &mut screen.edits.export_edit_snapshots,
                 StoryExportConfigurationEdit {
                     current_target: &current_export_target,
                     requested_target: target,
@@ -91,7 +90,7 @@ pub(crate) fn reduce(
                     phase: *phase,
                 },
             );
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!(
                         "Host observed {phase:?} for export {configuration_id} on exact {target:?}: {change:?}"
                     )
@@ -103,17 +102,21 @@ pub(crate) fn reduce(
             true
         }
         DesignPanelAction::ExportModeChangeRequested { target, mode } => {
-            let target_keys =
-                story_export_target_keys(&screen.nodes, &current_export_target, target, can_export);
+            let target_keys = story_export_target_keys(
+                &screen.host.nodes,
+                &current_export_target,
+                target,
+                can_export,
+            );
             let accepted = target_keys
                 .as_ref()
                 .filter(|keys| keys.len() == 1)
                 .and_then(|keys| keys.first())
-                .filter(|key| screen.animated_exports.contains_key(*key))
+                .filter(|key| screen.host.animated_exports.contains_key(*key))
                 .cloned()
-                .map(|key| screen.export_modes.insert(key, *mode))
+                .map(|key| screen.host.export_modes.insert(key, *mode))
                 .is_some();
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!("Host switched export mode to {}", mode.label()).into()
             } else {
                 format!("Ignored stale or multi-target export mode for {target:?}").into()
@@ -125,23 +128,28 @@ pub(crate) fn reduce(
             change,
             phase,
         } => {
-            let key =
-                story_export_target_keys(&screen.nodes, &current_export_target, target, can_export)
-                    .filter(|keys| keys.len() == 1)
-                    .and_then(|keys| keys.into_iter().next());
+            let key = story_export_target_keys(
+                &screen.host.nodes,
+                &current_export_target,
+                target,
+                can_export,
+            )
+            .filter(|keys| keys.len() == 1)
+            .and_then(|keys| keys.into_iter().next());
             let accepted = key.is_some_and(|key| match phase {
                 DesignPanelEditPhase::Begin => {
-                    let Some(original) = screen.animated_exports.get(&key).cloned() else {
+                    let Some(original) = screen.host.animated_exports.get(&key).cloned() else {
                         return false;
                     };
                     screen
+                        .edits
                         .animated_export_edit_snapshots
                         .entry(key)
                         .or_insert(Some(original));
                     true
                 }
                 DesignPanelEditPhase::Preview | DesignPanelEditPhase::Commit => {
-                    let Some(animated) = screen.animated_exports.get_mut(&key) else {
+                    let Some(animated) = screen.host.animated_exports.get_mut(&key) else {
                         return false;
                     };
                     let changed = if *change
@@ -168,23 +176,24 @@ pub(crate) fn reduce(
                         animated.settings.apply_change(change.clone())
                     };
                     if changed && *phase == DesignPanelEditPhase::Commit {
-                        screen.animated_export_edit_snapshots.remove(&key);
+                        screen.edits.animated_export_edit_snapshots.remove(&key);
                     }
                     changed
                 }
                 DesignPanelEditPhase::Cancel => {
-                    let Some(original) = screen.animated_export_edit_snapshots.remove(&key) else {
+                    let Some(original) = screen.edits.animated_export_edit_snapshots.remove(&key)
+                    else {
                         return false;
                     };
                     if let Some(animated) = original {
-                        screen.animated_exports.insert(key, animated);
+                        screen.host.animated_exports.insert(key, animated);
                     } else {
-                        screen.animated_exports.remove(&key);
+                        screen.host.animated_exports.remove(&key);
                     }
                     true
                 }
             });
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!("Host observed {phase:?} animated export change: {change:?}").into()
             } else {
                 format!("Ignored stale or multi-target animated export for {target:?}").into()
@@ -192,15 +201,19 @@ pub(crate) fn reduce(
             true
         }
         DesignPanelAction::AnimatedExportRequested { target, settings } => {
-            let accepted =
-                story_export_target_keys(&screen.nodes, &current_export_target, target, can_export)
-                    .filter(|keys| keys.len() == 1)
-                    .and_then(|keys| keys.into_iter().next())
-                    .and_then(|key| screen.animated_exports.get(&key))
-                    .is_some_and(|animated| {
-                        animated.settings == *settings && animated.capability.allows(settings)
-                    });
-            screen.last_action = if accepted {
+            let accepted = story_export_target_keys(
+                &screen.host.nodes,
+                &current_export_target,
+                target,
+                can_export,
+            )
+            .filter(|keys| keys.len() == 1)
+            .and_then(|keys| keys.into_iter().next())
+            .and_then(|key| screen.host.animated_exports.get(&key))
+            .is_some_and(|animated| {
+                animated.settings == *settings && animated.capability.allows(settings)
+            });
+            screen.harness.last_action = if accepted {
                 format!(
                     "Host exported {target:?} as animated {}",
                     settings.format().label()
@@ -212,13 +225,17 @@ pub(crate) fn reduce(
             true
         }
         DesignPanelAction::ExportAllRequested { target } => {
-            let target_keys =
-                story_export_target_keys(&screen.nodes, &current_export_target, target, can_export);
+            let target_keys = story_export_target_keys(
+                &screen.host.nodes,
+                &current_export_target,
+                target,
+                can_export,
+            );
             let accepted = target_keys.as_ref().is_some_and(|target_keys| {
-                story_uniform_export_configurations(&screen.export_configurations, target_keys)
+                story_uniform_export_configurations(&screen.host.export_configurations, target_keys)
                     .is_some_and(|configurations| !configurations.is_empty())
             });
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!("Host atomically exported every configured format for {target:?}").into()
             } else {
                 format!("Ignored stale, empty, or mixed export target {target:?}").into()
@@ -226,13 +243,17 @@ pub(crate) fn reduce(
             true
         }
         DesignPanelAction::ExportPreviewRequested { target } => {
-            let key =
-                story_export_target_keys(&screen.nodes, &current_export_target, target, can_export)
-                    .filter(|keys| keys.len() == 1)
-                    .and_then(|keys| keys.into_iter().next());
+            let key = story_export_target_keys(
+                &screen.host.nodes,
+                &current_export_target,
+                target,
+                can_export,
+            )
+            .filter(|keys| keys.len() == 1)
+            .and_then(|keys| keys.into_iter().next());
             let accepted = key
                 .map(|key| {
-                    screen.export_previews.insert(
+                    screen.host.export_previews.insert(
                         key,
                         DesignExportPreviewState::Ready(
                             DesignExportPreview::new(1440, 900)
@@ -242,7 +263,7 @@ pub(crate) fn reduce(
                     );
                 })
                 .is_some();
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!("Host prepared an export preview for {target:?}").into()
             } else {
                 format!("Ignored stale or multi-target export preview for {target:?}").into()

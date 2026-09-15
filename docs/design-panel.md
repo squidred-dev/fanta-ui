@@ -5,6 +5,88 @@ Figma's Design inspector without coupling the UI library to a Fanta document
 schema. It accepts immutable inspection context and node view data, then emits
 typed `DesignPanelAction` intents.
 
+## Architecture target
+
+The focused implementation and migration contract lives in
+[`design-inspector-architecture.md`](design-inspector-architecture.md). This
+document retains the host-facing feature behavior and compatibility details.
+
+The panel is being split incrementally along this one-way dependency chain:
+
+```text
+application host
+  └─► DesignPanel facade
+        └─► section projections and controllers
+              └─► molecules::inspector
+                    └─► atoms and gpui-component
+```
+
+- The **facade** preserves the public entity, setters, event stream, retained
+  presentation state, and compatibility adapters. It delegates rendering; new
+  section implementations do not add inherent `impl DesignPanel` methods.
+- A **projection** resolves Design-domain capabilities and controlled values
+  into the small, domain-neutral view data required by one section. Its paired
+  **controller** maps generic component intents back to exact-target
+  `DesignPanelAction` values and preserves edit phases.
+- **Inspector molecules** own reusable GPUI layout and interaction behavior.
+  They may own focus, draft, disclosure, menu, and popover continuity, but may
+  not import the Design facade, Design-prefixed domain types, or the crate
+  prelude.
+
+This is a dependency rule, not a Spectrum visual restyle. Components continue
+to use the active GPUI theme, the repository's control contracts, and Lucide
+icons.
+
+### Behavioral component taxonomy
+
+New shared components are named for their interaction model rather than the
+size or appearance of their current Design-panel use:
+
+| Family | Shared responsibility |
+| --- | --- |
+| Fields | `FieldFrame`, typed text/number/color fields, sliders, switches, and validation/help presentation |
+| Field layout | `PropertyGrid`, `PropertyRow`, and `FieldGroup` own alignment, density, responsive stacking, and shared state |
+| Structure | `InspectorSection` and `InspectorSectionGroup` own disclosure header/title/actions/panel anatomy and expansion policy |
+| Actions | `ActionButton`, `ActionGroup`, and `ActionMenu`; menus contain commands rather than property values |
+| Choices | `Picker` for known options, `ComboBox` for searchable options, `SegmentedControl` for compact modes, and `Tabs` for peer panels |
+| Collections | row-oriented lists for paints/effects/exports; tables only when users compare values across columns |
+| Overlays | one anchored-popover contract for placement, outside-click/Escape dismissal, focus transfer, and restoration; dialogs for modal workflows |
+| Feedback | field help, contextual help, inline alerts, labeled status, and empty/error states remain distinct components |
+
+The taxonomy follows Adobe Spectrum's component boundaries, not its styling.
+In particular, [Form](https://react-spectrum.adobe.com/Form) centralizes field
+layout, [Disclosure](https://react-spectrum.adobe.com/Disclosure) separates a
+collapsible header from its panel, [Picker](https://react-spectrum.adobe.com/Picker)
+is distinct from [ActionMenu](https://react-spectrum.adobe.com/ActionMenu), and
+[Popover](https://react-spectrum.adobe.com/Popover) is distinct from a modal
+[Dialog](https://react-spectrum.adobe.com/Dialog).
+
+### Incremental migration and compatibility
+
+The existing `panel/*.rs` inherent `impl DesignPanel` modules are a frozen
+legacy boundary. Extract one vertical section at a time into
+`panel/sections/`: projection, controller, retained child entity when needed,
+and domain-neutral molecules. Newly added modules must use standalone types or
+functions rather than extending the facade. Remove a legacy exception from
+`architecture_boundaries.rs` as soon as its section is migrated.
+
+Migration preserves the public `design` facade, typed actions, debug selectors,
+host-controlled echo semantics, exact ordered targets, and compatibility-path
+classifications. Compatibility translation stays above the molecule layer; a
+generic control never learns a deprecated Design property merely to preserve
+an old host API.
+
+Each migrated slice is accepted only when:
+
+- pure projection/controller tests cover uniform, mixed, unset, bound,
+  read-only, disabled, stale-target, and permission-sensitive cases that apply;
+- pointer and keyboard paths emit the same typed intent, and every begun edit
+  ends with exactly one commit or cancel;
+- overlay dismissal, focus restoration, controlled host echo, and supported
+  inspector widths retain behavioral parity;
+- the architecture tests prove the shared molecule has no Design-domain
+  imports and the extracted section adds no inherent `impl DesignPanel`.
+
 ## State ownership
 
 The host owns selection, parent-layout context, permissions, committed property

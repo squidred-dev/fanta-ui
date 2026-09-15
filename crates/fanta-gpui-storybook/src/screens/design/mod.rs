@@ -330,8 +330,10 @@ pub(crate) fn default_design_inspection_scenario_for_node(
     }
 }
 
-pub(crate) struct DesignScreen {
-    pub(crate) panel: Entity<DesignPanel>,
+/// Host-owned document projections and resource catalogs used by the Design
+/// specimen. This is the Storybook's mock document state, not inspector-local
+/// presentation state.
+pub(crate) struct DesignMockHostState {
     pub(crate) nodes: Vec<DesignPanelNode>,
     pub(crate) color_styles: DesignColorStyleViewData,
     pub(crate) color_style_samples: DesignColorStyleSampleViewData,
@@ -358,6 +360,18 @@ pub(crate) struct DesignScreen {
     pub(crate) animated_exports: HashMap<SharedString, DesignAnimatedExportViewData>,
     pub(crate) export_previews: HashMap<SharedString, DesignExportPreviewState>,
     pub(crate) media_paint_views: HashMap<SharedString, DesignMediaPaintViewData>,
+    pub(crate) smart_selection_spacing:
+        HashMap<DesignSmartSelectionAxis, DesignSmartSelectionSpacingValue>,
+    pub(crate) next_export_id: usize,
+    pub(crate) next_media_source_id: usize,
+    pub(crate) next_resource_id: usize,
+    pub(crate) next_auto_layout_id: usize,
+}
+
+/// Mock-host rollback data for balanced begin/preview/commit/cancel edits.
+/// Keeping these transactions separate from accepted host values makes the
+/// reducer's reconciliation boundary explicit.
+pub(crate) struct DesignMockEditState {
     pub(crate) paint_edit_snapshots: HashMap<StoryPaintEditTarget, DesignPaint>,
     pub(crate) menu_preview: Option<DesignMenuPreview>,
     pub(crate) component_property_name_edits: HashMap<(SharedString, SharedString), SharedString>,
@@ -370,8 +384,6 @@ pub(crate) struct DesignScreen {
     pub(crate) media_crop_targets: HashSet<StoryPaintEditTarget>,
     pub(crate) layout_grid_edit_snapshots: HashMap<StoryLayoutGridEditTarget, DesignLayoutGrid>,
     pub(crate) grid_dimensions_edit_snapshots: HashMap<SharedString, DesignLayout>,
-    pub(crate) smart_selection_spacing:
-        HashMap<DesignSmartSelectionAxis, DesignSmartSelectionSpacingValue>,
     pub(crate) smart_selection_edit_snapshots:
         HashMap<DesignSmartSelectionAxis, (DesignPanelTarget, DesignSmartSelectionSpacingValue)>,
     pub(crate) video_scrub_snapshots: HashMap<StoryPaintEditTarget, f32>,
@@ -384,10 +396,11 @@ pub(crate) struct DesignScreen {
     pub(crate) selection_color_edit_snapshots:
         HashMap<StorySelectionColorEditTarget, Vec<DesignPanelNode>>,
     pub(crate) vector_edit_snapshots: HashMap<SharedString, Option<DesignVectorEditViewData>>,
-    pub(crate) next_export_id: usize,
-    pub(crate) next_media_source_id: usize,
-    pub(crate) next_resource_id: usize,
-    pub(crate) next_auto_layout_id: usize,
+}
+
+/// Scenario controls, inspector preferences, and responsive harness state.
+/// None of these fields represents a document mutation.
+pub(crate) struct DesignHarnessState {
     pub(crate) selected_node: usize,
     pub(crate) inspection_scenario: DesignInspectionScenario,
     pub(crate) text_range_revision: u64,
@@ -399,9 +412,19 @@ pub(crate) struct DesignScreen {
     pub(crate) harness_controls_expanded: bool,
     pub(crate) additional_labels: bool,
     pub(crate) nudge_settings: DesignNudgeSettings,
+    pub(crate) variables_entry_point: DesignVariablesEntryPoint,
+    pub(crate) editor_surface: DesignPanelSurface,
+    pub(crate) viewer_surface: DesignPanelSurface,
     pub(crate) workspace_mode: DesignPanelWorkspaceMode,
     pub(crate) fixture_scroll_handle: ScrollHandle,
     pub(crate) last_action: SharedString,
+}
+
+pub(crate) struct DesignScreen {
+    pub(crate) panel: Entity<DesignPanel>,
+    pub(crate) host: DesignMockHostState,
+    pub(crate) edits: DesignMockEditState,
+    pub(crate) harness: DesignHarnessState,
 }
 
 impl DesignScreen {
@@ -459,7 +482,6 @@ impl DesignScreen {
         let design_media_paint_views = fixtures::seed_design_media_paint_views(&design_nodes);
         let design_color_styles = fixtures::seed_design_color_styles();
         let design_color_style_samples = fixtures::seed_design_color_style_samples();
-        let design_color_contrast = fixtures::seed_design_color_contrast(&design_nodes);
         let design_paint_styles = fixtures::seed_design_paint_styles();
         let design_paint_variables = fixtures::seed_design_paint_variables();
         let design_shaders = fixtures::seed_design_shaders();
@@ -502,134 +524,85 @@ impl DesignScreen {
                 cx,
             )
         });
-        let initial_target = DesignPanelTarget::Nodes {
-            node_ids: vec![design_nodes[selected_design_node].id.clone()],
-        };
-        let initial_configurations = design_export_configurations
-            .get(&design_nodes[selected_design_node].id)
-            .cloned()
-            .unwrap_or_default();
-        let initial_node = &design_nodes[selected_design_node];
-        design_panel.update(cx, |panel, cx| {
-            panel.set_color_style_view_data(design_color_styles.clone(), cx);
-            panel.set_color_style_sample_view_data(design_color_style_samples.clone(), cx);
-            panel.set_color_contrast_view_data(design_color_contrast.clone(), cx);
-            panel.set_paint_style_view_data(design_paint_styles.clone(), cx);
-            panel.set_paint_variable_view_data(design_paint_variables.clone(), cx);
-            panel.set_shader_view_data(design_shaders.clone(), cx);
-            panel.set_media_paint_view_data(
-                design_media_paint_views
-                    .get(&initial_node.id)
-                    .cloned()
-                    .unwrap_or_default(),
-                cx,
-            );
-            panel.set_typography_style_view_data(design_typography_styles.clone(), cx);
-            panel.set_font_view_data(design_fonts.clone(), cx);
-            panel.set_effect_style_view_data(design_effect_styles.clone(), cx);
-            panel.set_effect_variable_view_data(design_effect_variables.clone(), cx);
-            panel.set_property_variable_view_data(design_property_variables.clone(), cx);
-            panel.set_component_swap_view_data(design_component_swaps.clone(), cx);
-            panel.set_layout_grid_style_view_data(design_layout_grid_styles.clone(), cx);
-            panel.set_layout_grid_variable_view_data(design_layout_grid_variables.clone(), cx);
-            if let Some(view_data) = design_frame_presets.get(&initial_node.id).cloned() {
-                panel.set_frame_preset_view_data(view_data, cx);
-            }
-            panel.set_page_view_data(design_page_view_data.clone(), cx);
-            panel.set_page_local_styles_view_data(design_page_local_styles.clone(), cx);
-            if let Some(view_data) = design_variable_mode_views.get(&initial_node.id).cloned() {
-                panel.set_variable_mode_view_data(view_data, cx);
-            }
-            if let Some(view_data) = design_viewer_properties.get(&initial_node.id).cloned() {
-                panel.set_viewer_properties_view_data(view_data, cx);
-            }
-            panel.set_additional_labels(design_additional_labels, cx);
-            panel.set_nudge_settings(design_nudge_settings, cx);
-            panel.set_export_view_data(
-                DesignExportViewData {
-                    target: initial_target,
-                    configurations: initial_configurations,
-                    mode: design_export_modes
-                        .get(&initial_node.id)
-                        .copied()
-                        .unwrap_or_default(),
-                    static_capabilities: fixtures::static_export_capabilities(initial_node),
-                    preview: design_export_previews.get(&initial_node.id).cloned(),
-                    animated: design_animated_exports.get(&initial_node.id).cloned(),
-                },
-                cx,
-            );
-        });
         let screen = Self {
             panel: design_panel,
-            nodes: design_nodes,
-            color_styles: design_color_styles,
-            color_style_samples: design_color_style_samples,
-            paint_styles: design_paint_styles,
-            paint_variables: design_paint_variables,
-            shaders: design_shaders,
-            typography_styles: design_typography_styles,
-            fonts: design_fonts,
-            effect_styles: design_effect_styles,
-            effect_variables: design_effect_variables,
-            property_variables: design_property_variables,
-            component_swaps: design_component_swaps,
-            property_bindings: HashMap::new(),
-            layout_grid_styles: design_layout_grid_styles,
-            layout_grid_variables: design_layout_grid_variables,
-            frame_presets: design_frame_presets,
-            page_view_data: design_page_view_data,
-            page_local_styles: design_page_local_styles,
-            variable_mode_views: design_variable_mode_views,
-            viewer_properties: design_viewer_properties,
-            export_configurations: design_export_configurations,
-            export_modes: design_export_modes,
-            animated_exports: design_animated_exports,
-            export_previews: design_export_previews,
-            media_paint_views: design_media_paint_views,
-            paint_edit_snapshots: HashMap::new(),
-            menu_preview: None,
-            component_property_name_edits: HashMap::new(),
-            component_property_reorders: HashMap::new(),
-            component_variant_option_name_edits: HashMap::new(),
-            component_variant_option_reorders: HashMap::new(),
-            media_crop_targets: HashSet::new(),
-            layout_grid_edit_snapshots: HashMap::new(),
-            grid_dimensions_edit_snapshots: HashMap::new(),
-            smart_selection_spacing: HashMap::from([
-                (
-                    DesignSmartSelectionAxis::Horizontal,
-                    DesignSmartSelectionSpacingValue::Uniform(24.),
-                ),
-                (
-                    DesignSmartSelectionAxis::Vertical,
-                    DesignSmartSelectionSpacingValue::Mixed,
-                ),
-            ]),
-            smart_selection_edit_snapshots: HashMap::new(),
-            video_scrub_snapshots: HashMap::new(),
-            text_path_edit_snapshots: HashMap::new(),
-            node_edit_snapshots: HashMap::new(),
-            export_edit_snapshots: HashMap::new(),
-            animated_export_edit_snapshots: HashMap::new(),
-            page_background_edit_snapshots: HashMap::new(),
-            selection_color_edit_snapshots: HashMap::new(),
-            vector_edit_snapshots: HashMap::new(),
-            next_export_id: 100,
-            next_media_source_id: 100,
-            next_resource_id: 100,
-            next_auto_layout_id: 100,
-            selected_node: selected_design_node,
-            inspection_scenario: design_inspection_scenario,
-            text_range_revision: 0,
-            panel_width: design_panel_width,
-            panel_resize_drag: None,
-            harness_controls_expanded: false,
-            additional_labels: design_additional_labels,
-            nudge_settings: design_nudge_settings,
-            workspace_mode: design_workspace_mode,
-            fixture_scroll_handle: ScrollHandle::new(),
-            last_action: "Ready — select a node preset and exercise every inspector row".into(),
+            host: DesignMockHostState {
+                nodes: design_nodes,
+                color_styles: design_color_styles,
+                color_style_samples: design_color_style_samples,
+                paint_styles: design_paint_styles,
+                paint_variables: design_paint_variables,
+                shaders: design_shaders,
+                typography_styles: design_typography_styles,
+                fonts: design_fonts,
+                effect_styles: design_effect_styles,
+                effect_variables: design_effect_variables,
+                property_variables: design_property_variables,
+                component_swaps: design_component_swaps,
+                property_bindings: HashMap::new(),
+                layout_grid_styles: design_layout_grid_styles,
+                layout_grid_variables: design_layout_grid_variables,
+                frame_presets: design_frame_presets,
+                page_view_data: design_page_view_data,
+                page_local_styles: design_page_local_styles,
+                variable_mode_views: design_variable_mode_views,
+                viewer_properties: design_viewer_properties,
+                export_configurations: design_export_configurations,
+                export_modes: design_export_modes,
+                animated_exports: design_animated_exports,
+                export_previews: design_export_previews,
+                media_paint_views: design_media_paint_views,
+                smart_selection_spacing: HashMap::from([
+                    (
+                        DesignSmartSelectionAxis::Horizontal,
+                        DesignSmartSelectionSpacingValue::Uniform(24.),
+                    ),
+                    (
+                        DesignSmartSelectionAxis::Vertical,
+                        DesignSmartSelectionSpacingValue::Mixed,
+                    ),
+                ]),
+                next_export_id: 100,
+                next_media_source_id: 100,
+                next_resource_id: 100,
+                next_auto_layout_id: 100,
+            },
+            edits: DesignMockEditState {
+                paint_edit_snapshots: HashMap::new(),
+                menu_preview: None,
+                component_property_name_edits: HashMap::new(),
+                component_property_reorders: HashMap::new(),
+                component_variant_option_name_edits: HashMap::new(),
+                component_variant_option_reorders: HashMap::new(),
+                media_crop_targets: HashSet::new(),
+                layout_grid_edit_snapshots: HashMap::new(),
+                grid_dimensions_edit_snapshots: HashMap::new(),
+                smart_selection_edit_snapshots: HashMap::new(),
+                video_scrub_snapshots: HashMap::new(),
+                text_path_edit_snapshots: HashMap::new(),
+                node_edit_snapshots: HashMap::new(),
+                export_edit_snapshots: HashMap::new(),
+                animated_export_edit_snapshots: HashMap::new(),
+                page_background_edit_snapshots: HashMap::new(),
+                selection_color_edit_snapshots: HashMap::new(),
+                vector_edit_snapshots: HashMap::new(),
+            },
+            harness: DesignHarnessState {
+                selected_node: selected_design_node,
+                inspection_scenario: design_inspection_scenario,
+                text_range_revision: 0,
+                panel_width: design_panel_width,
+                panel_resize_drag: None,
+                harness_controls_expanded: false,
+                additional_labels: design_additional_labels,
+                nudge_settings: design_nudge_settings,
+                variables_entry_point: DesignVariablesEntryPoint::default(),
+                editor_surface: DesignPanelSurface::Design,
+                viewer_surface: DesignPanelSurface::Properties,
+                workspace_mode: design_workspace_mode,
+                fixture_scroll_handle: ScrollHandle::new(),
+                last_action: "Ready — select a node preset and exercise every inspector row".into(),
+            },
         };
         screen.apply_inspection_context(&screen.panel, cx);
         screen
@@ -640,16 +613,16 @@ impl DesignScreen {
         node_id: &SharedString,
         collection: DesignPanelCollection,
     ) -> DesignPaintTarget {
-        let selected = &self.nodes[self.selected_node];
+        let selected = &self.host.nodes[self.harness.selected_node];
         if collection == DesignPanelCollection::Fill
-            && self.inspection_scenario == DesignInspectionScenario::TextEdit
+            && self.harness.inspection_scenario == DesignInspectionScenario::TextEdit
             && selected.id == *node_id
             && matches!(
                 selected.kind,
                 DesignPanelNodeKind::Text | DesignPanelNodeKind::TextPath
             )
         {
-            DesignPaintTarget::SelectedTextRangeRevision(self.text_range_revision)
+            DesignPaintTarget::SelectedTextRangeRevision(self.harness.text_range_revision)
         } else {
             DesignPaintTarget::WholeLayer
         }
@@ -661,14 +634,15 @@ impl DesignScreen {
     ) -> Option<DesignSmartSelectionViewData> {
         let spacing = |axis| {
             DesignSmartSelectionSpacingViewData::new(
-                self.smart_selection_spacing
+                self.host
+                    .smart_selection_spacing
                     .get(&axis)
                     .copied()
                     .unwrap_or(DesignSmartSelectionSpacingValue::Mixed),
             )
         };
         let available = || DesignSmartSelectionAvailability::Available;
-        match self.inspection_scenario {
+        match self.harness.inspection_scenario {
             DesignInspectionScenario::SmartSelectionNone => Some(
                 DesignSmartSelectionViewData::new(target, DesignSmartSelectionKind::None)
                     .with_operation(
@@ -770,7 +744,7 @@ impl DesignScreen {
             DesignPanelPropertyValueState<DesignPanelValue>,
         )>,
     ) {
-        let selected = self.nodes[self.selected_node].clone();
+        let selected = self.host.nodes[self.harness.selected_node].clone();
         let widget_dimensions = (selected.kind == DesignPanelNodeKind::Widget)
             .then_some((selected.width, selected.height));
         let auto_layout_participation =
@@ -806,11 +780,11 @@ impl DesignScreen {
             )]
         })
         .unwrap_or_default();
-        let (context, mut property_states) = match self.inspection_scenario {
+        let (context, mut property_states) = match self.harness.inspection_scenario {
             DesignInspectionScenario::Page
             | DesignInspectionScenario::ViewOnlyPage
             | DesignInspectionScenario::RestrictedPage => (
-                DesignPanelInspectionContext::page(self.inspection_scenario.permissions()),
+                DesignPanelInspectionContext::page(self.harness.inspection_scenario.permissions()),
                 Vec::new(),
             ),
             DesignInspectionScenario::EditableSingle
@@ -832,12 +806,14 @@ impl DesignScreen {
             ),
             DesignInspectionScenario::HomogeneousMultiple => {
                 let first = self
+                    .host
                     .nodes
                     .iter()
                     .find(|node| node.id.as_ref() == STORY_HOMOGENEOUS_MULTIPLE_NODE_IDS[0])
                     .expect("the homogeneous multiple Story keeps its first node")
                     .clone();
                 let second = self
+                    .host
                     .nodes
                     .iter()
                     .find(|node| node.id.as_ref() == STORY_HOMOGENEOUS_MULTIPLE_NODE_IDS[1])
@@ -855,30 +831,33 @@ impl DesignScreen {
             | DesignInspectionScenario::SmartSelectionReadOnly
             | DesignInspectionScenario::AddAutoLayoutMultiple => {
                 let second_index = self
+                    .host
                     .nodes
                     .iter()
                     .enumerate()
                     .find(|(index, node)| {
-                        *index != self.selected_node && node.kind == DesignPanelNodeKind::Ellipse
+                        *index != self.harness.selected_node
+                            && node.kind == DesignPanelNodeKind::Ellipse
                     })
                     .map(|(index, _)| index)
                     .or_else(|| {
-                        self.nodes
+                        self.host
+                            .nodes
                             .iter()
                             .enumerate()
-                            .find(|(index, _)| *index != self.selected_node)
+                            .find(|(index, _)| *index != self.harness.selected_node)
                             .map(|(index, _)| index)
                     })
                     .expect("the Design story always seeds multiple node presets");
-                let second = self.nodes[second_index].clone();
-                let permissions = self.inspection_scenario.permissions();
+                let second = self.host.nodes[second_index].clone();
+                let permissions = self.harness.inspection_scenario.permissions();
                 story_multiple_inspection_context(&selected, &second, permissions)
             }
             DesignInspectionScenario::ViewOnlySingle => (
                 DesignPanelInspectionContext::single(
                     selected,
                     DesignPanelParentLayout::Freeform,
-                    self.inspection_scenario.permissions(),
+                    self.harness.inspection_scenario.permissions(),
                 ),
                 Vec::new(),
             ),
@@ -886,7 +865,7 @@ impl DesignScreen {
                 DesignPanelInspectionContext::single(
                     selected,
                     DesignPanelParentLayout::Freeform,
-                    self.inspection_scenario.permissions(),
+                    self.harness.inspection_scenario.permissions(),
                 ),
                 Vec::new(),
             ),
@@ -1016,7 +995,7 @@ impl DesignScreen {
                 Vec::new(),
             ),
             DesignInspectionScenario::TextEdit => (
-                story_text_edit_inspection_context(selected, self.text_range_revision),
+                story_text_edit_inspection_context(selected, self.harness.text_range_revision),
                 Vec::new(),
             ),
             DesignInspectionScenario::VectorEdit => {
@@ -1062,7 +1041,7 @@ impl DesignScreen {
                 let node = &inspection_context.selection().items()[0];
                 let mut view_data = DesignSelectionHeaderViewData::for_node_kind(node.kind);
                 if node.kind == DesignPanelNodeKind::Ellipse
-                    && self.inspection_scenario != DesignInspectionScenario::CanvasSingle
+                    && self.harness.inspection_scenario != DesignInspectionScenario::CanvasSingle
                 {
                     view_data.primary_controls.insert(
                         0,
@@ -1098,7 +1077,7 @@ impl DesignScreen {
             },
         };
         let selection_header_target = target.clone();
-        let add_auto_layout_view_data = match self.inspection_scenario {
+        let add_auto_layout_view_data = match self.harness.inspection_scenario {
             DesignInspectionScenario::AddAutoLayoutGroup
                 if inspection_context.selection().kind()
                     == fanta_gpui::prelude::DesignPanelSelectionKind::Single
@@ -1116,7 +1095,7 @@ impl DesignScreen {
             {
                 Some(DesignAddAutoLayoutViewData::eligible(target.clone()))
             }
-            _ if self.workspace_mode == DesignPanelWorkspaceMode::Draw
+            _ if self.harness.workspace_mode == DesignPanelWorkspaceMode::Draw
                 && inspection_context.selection().kind()
                     == fanta_gpui::prelude::DesignPanelSelectionKind::Single
                 && inspection_context
@@ -1144,30 +1123,33 @@ impl DesignScreen {
                 .unwrap_or_else(|| "storybook-page".into()),
         };
         let media_paint_view_data = self
+            .host
             .media_paint_views
             .get(&export_key)
             .cloned()
             .unwrap_or_default();
-        let shader_view_data = self.shaders.clone();
-        let color_style_sample_view_data = self.color_style_samples.clone();
-        let color_contrast_view_data = fixtures::seed_design_color_contrast(&self.nodes);
-        let paint_style_view_data = self.paint_styles.clone();
-        let paint_variable_view_data = self.paint_variables.clone();
-        let layout_grid_style_view_data = self.layout_grid_styles.clone();
-        let layout_grid_variable_view_data = self.layout_grid_variables.clone();
-        let frame_preset_view_data = self.frame_presets.get(&export_key).cloned();
-        let page_view_data = self.page_view_data.clone();
-        let page_local_styles = self.page_local_styles.clone();
+        let shader_view_data = self.host.shaders.clone();
+        let color_style_sample_view_data = self.host.color_style_samples.clone();
+        let color_contrast_view_data = fixtures::seed_design_color_contrast(&self.host.nodes);
+        let paint_style_view_data = self.host.paint_styles.clone();
+        let paint_variable_view_data = self.host.paint_variables.clone();
+        let layout_grid_style_view_data = self.host.layout_grid_styles.clone();
+        let layout_grid_variable_view_data = self.host.layout_grid_variables.clone();
+        let frame_preset_view_data = self.host.frame_presets.get(&export_key).cloned();
+        let page_view_data = self.host.page_view_data.clone();
+        let page_local_styles = self.host.page_local_styles.clone();
         let variable_mode_view_data = match &target {
-            DesignPanelTarget::Page { .. } => self.variable_mode_views.get(&export_key).cloned(),
+            DesignPanelTarget::Page { .. } => {
+                self.host.variable_mode_views.get(&export_key).cloned()
+            }
             DesignPanelTarget::Nodes { node_ids } if node_ids.len() == 1 => {
-                self.variable_mode_views.get(&export_key).cloned()
+                self.host.variable_mode_views.get(&export_key).cloned()
             }
             DesignPanelTarget::Nodes { .. } => None,
         };
         let viewer_properties_view_data = match &target {
             DesignPanelTarget::Nodes { node_ids } if node_ids.len() == 1 => {
-                self.viewer_properties.get(&export_key).cloned()
+                self.host.viewer_properties.get(&export_key).cloned()
             }
             DesignPanelTarget::Page { .. } | DesignPanelTarget::Nodes { .. } => None,
         };
@@ -1175,11 +1157,11 @@ impl DesignScreen {
             story_draw_appearance_view_data(&inspection_context, &target);
         let export_view_data = story_export_projection(
             target,
-            &self.nodes,
-            &self.export_configurations,
-            &self.export_modes,
-            &self.animated_exports,
-            &self.export_previews,
+            &self.host.nodes,
+            &self.host.export_configurations,
+            &self.host.export_modes,
+            &self.host.animated_exports,
+            &self.host.export_previews,
         );
         let is_page = inspection_context.selection().kind()
             == fanta_gpui::prelude::DesignPanelSelectionKind::None;
@@ -1190,12 +1172,12 @@ impl DesignScreen {
             .map(|node| node.id.clone())
             .collect::<Vec<_>>();
         if let Some(selected_node_id) = selected_node_ids.first() {
-            for (node_id, property) in self.property_bindings.keys() {
+            for (node_id, property) in self.host.property_bindings.keys() {
                 if node_id != selected_node_id {
                     continue;
                 }
                 let Some(binding) = story_common_property_binding(
-                    &self.property_bindings,
+                    &self.host.property_bindings,
                     &selected_node_ids,
                     *property,
                 ) else {
@@ -1221,70 +1203,49 @@ impl DesignScreen {
             }
         }
         panel.update(cx, |panel, cx| {
-            panel.set_workspace_mode(self.workspace_mode, cx);
+            let mut view_data = DesignPanelViewData::new(inspection_context);
             if is_page {
-                panel.set_node(
-                    DesignPanelNode::new("storybook-page", "Page 5", DesignPanelNodeKind::Frame),
-                    cx,
-                );
+                view_data.page_node_fallback =
+                    DesignPanelNode::new("storybook-page", "Page 5", DesignPanelNodeKind::Frame);
             }
-            panel.set_inspection_context(inspection_context, cx);
-            if let Some(view_data) = selection_header_view_data {
-                panel.set_selection_header_view_data_for_target(
-                    selection_header_target,
-                    view_data,
-                    cx,
-                );
-            } else {
-                panel.clear_selection_header_view_data(cx);
-            }
-            panel.set_property_value_states(property_states, cx);
-            panel.set_property_variable_view_data(self.property_variables.clone(), cx);
-            panel.set_component_swap_view_data(self.component_swaps.clone(), cx);
-            panel.set_media_paint_view_data(media_paint_view_data, cx);
-            panel.set_shader_view_data(shader_view_data, cx);
-            panel.set_color_style_sample_view_data(color_style_sample_view_data, cx);
-            panel.set_color_contrast_view_data(color_contrast_view_data, cx);
-            panel.set_paint_style_view_data(paint_style_view_data, cx);
-            panel.set_paint_variable_view_data(paint_variable_view_data, cx);
-            panel.set_layout_grid_style_view_data(layout_grid_style_view_data, cx);
-            panel.set_layout_grid_variable_view_data(layout_grid_variable_view_data, cx);
-            if let Some(view_data) = frame_preset_view_data {
-                panel.set_frame_preset_view_data(view_data, cx);
-            } else {
-                panel.clear_frame_preset_view_data(cx);
-            }
-            panel.set_page_view_data(page_view_data, cx);
-            panel.set_page_local_styles_view_data(page_local_styles, cx);
-            if let Some(view_data) = variable_mode_view_data {
-                panel.set_variable_mode_view_data(view_data, cx);
-            } else {
-                panel.clear_variable_mode_view_data(cx);
-            }
-            if let Some(view_data) = viewer_properties_view_data {
-                panel.set_viewer_properties_view_data(view_data, cx);
-            } else {
-                panel.clear_viewer_properties_view_data(cx);
-            }
-            if let Some(view_data) = add_auto_layout_view_data {
-                panel.set_add_auto_layout_view_data(view_data, cx);
-            } else {
-                panel.clear_add_auto_layout_view_data(cx);
-            }
-            if let Some(view_data) = draw_appearance_view_data {
-                assert!(
-                    panel.set_draw_appearance_view_data(view_data, cx),
-                    "Storybook Draw appearance data must remain valid"
-                );
-            } else {
-                panel.clear_draw_appearance_view_data(cx);
-            }
-            if let Some(view_data) = smart_selection_view_data {
-                panel.set_smart_selection_view_data(view_data, cx);
-            } else {
-                panel.clear_smart_selection_view_data(cx);
-            }
-            panel.set_export_view_data(export_view_data, cx);
+            view_data.navigation.editor_surface = self.harness.editor_surface;
+            view_data.navigation.viewer_surface = self.harness.viewer_surface;
+            view_data.navigation.workspace_mode = self.harness.workspace_mode;
+            view_data.preferences.additional_labels = self.harness.additional_labels;
+            view_data.preferences.nudge_settings = self.harness.nudge_settings;
+            view_data.preferences.variables_entry_point =
+                self.harness.variables_entry_point.clone();
+            view_data.projections.export = Some(export_view_data);
+            view_data.projections.add_auto_layout = add_auto_layout_view_data;
+            view_data.projections.draw_appearance = draw_appearance_view_data;
+            view_data.projections.frame_presets = frame_preset_view_data;
+            view_data.projections.smart_selection = smart_selection_view_data;
+            view_data.projections.page = Some(page_view_data);
+            view_data.projections.page_local_styles = Some(page_local_styles);
+            view_data.projections.variable_modes = variable_mode_view_data;
+            view_data.projections.viewer_properties = viewer_properties_view_data;
+            view_data.projections.selection_header = selection_header_view_data.map(|view_data| {
+                DesignPanelTargetedSelectionHeader::new(selection_header_target, view_data)
+            });
+
+            view_data.resources.color_styles = self.host.color_styles.clone();
+            view_data.resources.color_style_samples = color_style_sample_view_data;
+            view_data.resources.color_contrast = color_contrast_view_data;
+            view_data.resources.paint_variables = paint_variable_view_data;
+            view_data.resources.paint_styles = paint_style_view_data;
+            view_data.resources.media_paints = media_paint_view_data;
+            view_data.resources.shaders = shader_view_data;
+            view_data.resources.typography_styles = self.host.typography_styles.clone();
+            view_data.resources.fonts = self.host.fonts.clone();
+            view_data.resources.effect_styles = self.host.effect_styles.clone();
+            view_data.resources.effect_variables = self.host.effect_variables.clone();
+            view_data.resources.property_variables = self.host.property_variables.clone();
+            view_data.resources.component_swaps = self.host.component_swaps.clone();
+            view_data.resources.layout_grid_styles = layout_grid_style_view_data;
+            view_data.resources.layout_grid_variables = layout_grid_variable_view_data;
+            view_data.property_states = property_states.into_iter().collect();
+
+            panel.set_view_data(view_data, cx);
         });
     }
 
@@ -1295,6 +1256,7 @@ impl DesignScreen {
     ) {
         if scenario == DesignInspectionScenario::AddAutoLayoutGroup
             && let Some(group) = self
+                .host
                 .nodes
                 .iter_mut()
                 .find(|node| node.id.as_ref() == "add-auto-layout-group")
@@ -1310,36 +1272,37 @@ impl DesignScreen {
         // table in `fixtures`.
         let required_index = if scenario == DesignInspectionScenario::VectorEdit
             && matches!(
-                self.nodes[self.selected_node].kind,
+                self.host.nodes[self.harness.selected_node].kind,
                 DesignPanelNodeKind::Vector | DesignPanelNodeKind::TextPath
             ) {
             None
         } else {
             fixtures::node_index_for_selector(
-                &self.nodes,
+                &self.host.nodes,
                 fixtures::scenario_node_selector(scenario),
             )
         };
         if let Some(index) = required_index {
-            self.selected_node = index;
+            self.harness.selected_node = index;
         }
-        for (axis, (_, original)) in std::mem::take(&mut self.smart_selection_edit_snapshots) {
-            self.smart_selection_spacing.insert(axis, original);
+        for (axis, (_, original)) in std::mem::take(&mut self.edits.smart_selection_edit_snapshots)
+        {
+            self.host.smart_selection_spacing.insert(axis, original);
         }
-        self.inspection_scenario = scenario;
+        self.harness.inspection_scenario = scenario;
         self.apply_inspection_context(&self.panel, cx);
-        self.last_action = format!("Story switched to {}", scenario.label()).into();
+        self.harness.last_action = format!("Story switched to {}", scenario.label()).into();
     }
 
     pub(crate) fn advance_text_range(&mut self, cx: &mut Context<Storybook>) {
-        if self.inspection_scenario != DesignInspectionScenario::TextEdit {
+        if self.harness.inspection_scenario != DesignInspectionScenario::TextEdit {
             return;
         }
-        self.text_range_revision = self.text_range_revision.wrapping_add(1);
+        self.harness.text_range_revision = self.harness.text_range_revision.wrapping_add(1);
         self.apply_inspection_context(&self.panel, cx);
-        self.last_action = format!(
+        self.harness.last_action = format!(
             "Host selected a new character range (revision {})",
-            self.text_range_revision
+            self.harness.text_range_revision
         )
         .into();
         cx.notify();
@@ -1351,19 +1314,19 @@ impl DesignScreen {
         interaction: &'static str,
         cx: &mut Context<Storybook>,
     ) {
-        self.panel_resize_drag = None;
-        self.panel_width = clamp_design_panel_width(width);
-        self.last_action = format!(
+        self.harness.panel_resize_drag = None;
+        self.harness.panel_width = clamp_design_panel_width(width);
+        self.harness.last_action = format!(
             "Story {interaction} the inspector viewport to {:.0} px — no document intent",
-            self.panel_width
+            self.harness.panel_width
         )
         .into();
         cx.notify();
     }
 
     pub(crate) fn toggle_harness_controls(&mut self, cx: &mut Context<Storybook>) {
-        self.harness_controls_expanded = !self.harness_controls_expanded;
-        self.last_action = if self.harness_controls_expanded {
+        self.harness.harness_controls_expanded = !self.harness.harness_controls_expanded;
+        self.harness.last_action = if self.harness.harness_controls_expanded {
             "Story expanded the stacked harness controls — no document intent"
         } else {
             "Story collapsed the stacked harness controls — no document intent"
@@ -1373,31 +1336,36 @@ impl DesignScreen {
     }
 
     pub(crate) fn begin_panel_resize(&mut self, pointer_x: f32, cx: &mut Context<Storybook>) {
-        self.panel_resize_drag = Some(DesignPanelResizeDrag::new(pointer_x, self.panel_width));
-        self.last_action = format!("Story began resizing at {:.0} px", self.panel_width).into();
+        self.harness.panel_resize_drag = Some(DesignPanelResizeDrag::new(
+            pointer_x,
+            self.harness.panel_width,
+        ));
+        self.harness.last_action =
+            format!("Story began resizing at {:.0} px", self.harness.panel_width).into();
         cx.notify();
     }
 
     pub(crate) fn update_panel_resize(&mut self, pointer_x: f32, cx: &mut Context<Storybook>) {
-        let Some(drag) = self.panel_resize_drag else {
+        let Some(drag) = self.harness.panel_resize_drag else {
             return;
         };
         let width = drag.width_at(pointer_x);
-        if (self.panel_width - width).abs() < f32::EPSILON {
+        if (self.harness.panel_width - width).abs() < f32::EPSILON {
             return;
         }
-        self.panel_width = width;
-        self.last_action = format!("Story is resizing the inspector to {width:.0} px").into();
+        self.harness.panel_width = width;
+        self.harness.last_action =
+            format!("Story is resizing the inspector to {width:.0} px").into();
         cx.notify();
     }
 
     pub(crate) fn finish_panel_resize(&mut self, cx: &mut Context<Storybook>) {
-        if self.panel_resize_drag.take().is_none() {
+        if self.harness.panel_resize_drag.take().is_none() {
             return;
         }
-        self.last_action = format!(
+        self.harness.last_action = format!(
             "Story resized the inspector viewport to {:.0} px — no document intent",
-            self.panel_width
+            self.harness.panel_width
         )
         .into();
         cx.notify();
@@ -1414,7 +1382,7 @@ impl DesignScreen {
             return;
         }
         let Some(width) = design_panel_width_after_key(
-            self.panel_width,
+            self.harness.panel_width,
             event.keystroke.key.as_str(),
             modifiers.shift,
         ) else {
@@ -1431,9 +1399,9 @@ impl DesignScreen {
         source: &'static str,
         cx: &mut Context<Storybook>,
     ) {
-        self.workspace_mode = workspace_mode;
+        self.harness.workspace_mode = workspace_mode;
         self.apply_inspection_context(&self.panel, cx);
-        self.last_action = format!(
+        self.harness.last_action = format!(
             "{source} set the inspector workspace to {} — surface and document state preserved",
             workspace_mode.label()
         )

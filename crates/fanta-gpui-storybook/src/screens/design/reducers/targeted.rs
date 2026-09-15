@@ -29,8 +29,8 @@ pub(crate) fn replay_preflighted_target(
         } = node_action
         {
             let accepted = apply_story_targeted_common_paint_edit(
-                &mut screen.nodes,
-                &mut screen.paint_edit_snapshots,
+                &mut screen.host.nodes,
+                &mut screen.edits.paint_edit_snapshots,
                 current_target.as_ref(),
                 target,
                 can_edit,
@@ -41,7 +41,7 @@ pub(crate) fn replay_preflighted_target(
                 edit,
                 *phase,
             );
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!(
                         "Host atomically applied {phase:?} for {:?} across the common {} collection on {target:?}",
                         edit.property,
@@ -63,13 +63,13 @@ pub(crate) fn replay_preflighted_target(
         }
         if let DesignPanelAction::EffectAddRequested { kind, .. } = node_action {
             let accepted = apply_story_targeted_effect_add(
-                &mut screen.nodes,
+                &mut screen.host.nodes,
                 current_target.as_ref(),
                 target,
                 can_edit,
                 *kind,
             );
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 format!(
                     "Host atomically added {} to the exact target {target:?}",
                     kind.label()
@@ -89,13 +89,13 @@ pub(crate) fn replay_preflighted_target(
             return true;
         }
         let Some(retargeted_actions) = story_targeted_node_actions(
-            &screen.nodes,
+            &screen.host.nodes,
             current_target.as_ref(),
             target,
             can_edit,
             node_action,
         ) else {
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Ignored invalid or stale targeted Design action for {target:?}").into();
             cx.notify();
             return true;
@@ -103,7 +103,7 @@ pub(crate) fn replay_preflighted_target(
         for retargeted_action in &retargeted_actions {
             screen.handle_action(panel.clone(), retargeted_action, cx);
         }
-        screen.last_action =
+        screen.harness.last_action =
             format!("Host replayed one fully preflighted Design action across {target:?}").into();
         cx.notify();
         return true;

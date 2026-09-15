@@ -10,7 +10,7 @@ pub(crate) fn reduce(
 ) -> bool {
     match action {
         DesignPanelAction::ArrangeRequested { target, operation } => {
-            screen.last_action = format!("Host applied {operation:?} to {target:?}").into();
+            screen.harness.last_action = format!("Host applied {operation:?} to {target:?}").into();
             cx.notify();
             return true;
         }
@@ -23,13 +23,13 @@ pub(crate) fn reduce(
                 )
             };
             let accepted = apply_story_transform_request(
-                &mut screen.nodes,
+                &mut screen.host.nodes,
                 current_target.as_ref(),
                 target,
                 can_edit,
                 *operation,
             );
-            screen.last_action = if accepted {
+            screen.harness.last_action = if accepted {
                 match operation {
                         fanta_gpui::prelude::DesignTransformOperation::RotateClockwise90 => {
                             format!("Host atomically applied {operation:?} to {target:?}").into()
@@ -53,7 +53,7 @@ pub(crate) fn reduce(
             return true;
         }
         DesignPanelAction::ResizeToFitRequested { target } => {
-            screen.last_action = format!("Host resized {target:?} to fit").into();
+            screen.harness.last_action = format!("Host resized {target:?} to fit").into();
             cx.notify();
             return true;
         }

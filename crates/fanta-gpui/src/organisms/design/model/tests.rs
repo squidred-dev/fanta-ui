@@ -2,6 +2,47 @@ use super::*;
 use crate::atoms::LucideIcon;
 
 #[test]
+fn panel_view_data_defaults_match_the_legacy_constructor_contract() {
+    let node = DesignPanelNode::new("node", "Frame", DesignPanelNodeKind::Frame);
+    let view_data = DesignPanelViewData::for_node(node.clone());
+
+    assert_eq!(view_data.selected_node(), Some(&node));
+    assert_eq!(
+        view_data.navigation,
+        DesignPanelNavigationViewData::default()
+    );
+    assert_eq!(
+        view_data.preferences,
+        DesignPanelPreferencesViewData::default()
+    );
+    assert_eq!(
+        view_data.projections,
+        DesignPanelProjectionViewData::default()
+    );
+    assert_eq!(view_data.resources, DesignPanelResourcesViewData::default());
+    assert!(view_data.property_states.is_empty());
+}
+
+#[test]
+fn panel_navigation_view_data_normalizes_permission_specific_surfaces() {
+    let normalized = DesignPanelNavigationViewData::new(
+        DesignPanelSurface::Comment,
+        DesignPanelSurface::Prototype,
+        DesignPanelWorkspaceMode::Draw,
+    )
+    .normalized();
+
+    assert_eq!(normalized.editor_surface, DesignPanelSurface::Design);
+    assert_eq!(normalized.viewer_surface, DesignPanelSurface::Properties);
+    assert_eq!(normalized.workspace_mode, DesignPanelWorkspaceMode::Draw);
+    assert_eq!(normalized.active_surface(true), DesignPanelSurface::Design);
+    assert_eq!(
+        normalized.active_surface(false),
+        DesignPanelSurface::Properties
+    );
+}
+
+#[test]
 fn draw_slider_ranges_validate_and_snap_without_inventing_a_corner_maximum() {
     assert!(DesignDrawSliderRange::new(f32::NAN, 100., 1.).is_none());
     assert!(DesignDrawSliderRange::new(0., f32::INFINITY, 1.).is_none());

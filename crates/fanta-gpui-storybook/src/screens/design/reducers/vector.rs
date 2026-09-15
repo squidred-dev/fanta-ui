@@ -9,11 +9,11 @@ pub(crate) fn reduce(
     node_index: usize,
     _cx: &mut Context<Storybook>,
 ) -> Option<NodeOutcome> {
-    let node = &mut screen.nodes[node_index];
+    let node = &mut screen.host.nodes[node_index];
     match action {
         DesignPanelAction::TextPathFlipOrientationRequested { node_id } => {
             let flipped = apply_story_text_path_flip_orientation(node, node_id);
-            screen.last_action = if flipped {
+            screen.harness.last_action = if flipped {
                 let orientation = node
                     .text_path
                     .as_ref()
@@ -31,12 +31,12 @@ pub(crate) fn reduce(
         } => {
             apply_story_text_path_edit_phase(
                 node,
-                &mut screen.text_path_edit_snapshots,
+                &mut screen.edits.text_path_edit_snapshots,
                 node_id,
                 *data,
                 *phase,
             );
-            screen.last_action =
+            screen.harness.last_action =
                 format!("Host observed {phase:?} for textPathStartData {data:?} in {node_id}")
                     .into();
         }
@@ -47,12 +47,12 @@ pub(crate) fn reduce(
         } => {
             apply_story_vector_edit_phase(
                 node,
-                &mut screen.vector_edit_snapshots,
+                &mut screen.edits.vector_edit_snapshots,
                 node_id,
                 StoryVectorEditChange::Selection(selected_vertex_ids.clone()),
                 *phase,
             );
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host observed {phase:?} vector selection {selected_vertex_ids:?} in {node_id}"
             )
             .into();
@@ -66,7 +66,7 @@ pub(crate) fn reduce(
         } => {
             apply_story_vector_edit_phase(
                 node,
-                &mut screen.vector_edit_snapshots,
+                &mut screen.edits.vector_edit_snapshots,
                 node_id,
                 StoryVectorEditChange::Position {
                     vertex_ids: vertex_ids.clone(),
@@ -75,7 +75,7 @@ pub(crate) fn reduce(
                 },
                 *phase,
             );
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host observed {phase:?} vector {axis:?} = {value} for {vertex_ids:?} in {node_id}"
             )
             .into();
@@ -88,7 +88,7 @@ pub(crate) fn reduce(
         } => {
             apply_story_vector_edit_phase(
                 node,
-                &mut screen.vector_edit_snapshots,
+                &mut screen.edits.vector_edit_snapshots,
                 node_id,
                 StoryVectorEditChange::CornerRadius {
                     vertex_ids: vertex_ids.clone(),
@@ -96,7 +96,7 @@ pub(crate) fn reduce(
                 },
                 *phase,
             );
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                 "Host observed {phase:?} vertex radius {radius} for {vertex_ids:?} in {node_id}"
             )
             .into();
@@ -109,7 +109,7 @@ pub(crate) fn reduce(
         } => {
             apply_story_vector_edit_phase(
                 node,
-                &mut screen.vector_edit_snapshots,
+                &mut screen.edits.vector_edit_snapshots,
                 node_id,
                 StoryVectorEditChange::HandleMirroring {
                     vertex_ids: vertex_ids.clone(),
@@ -117,7 +117,7 @@ pub(crate) fn reduce(
                 },
                 *phase,
             );
-            screen.last_action = format!(
+            screen.harness.last_action = format!(
                     "Host observed {phase:?} handle mirroring {mirroring:?} for {vertex_ids:?} in {node_id}"
                 )
                 .into();
@@ -125,9 +125,11 @@ pub(crate) fn reduce(
         DesignPanelAction::SwapStrokeEndpointsRequested { node_id } => {
             if let Some(stroke) = node.stroke.as_mut() {
                 std::mem::swap(&mut stroke.start_cap, &mut stroke.end_cap);
-                screen.last_action = format!("Host swapped stroke endpoints for {node_id}").into();
+                screen.harness.last_action =
+                    format!("Host swapped stroke endpoints for {node_id}").into();
             } else {
-                screen.last_action = format!("Ignored stroke endpoint swap for {node_id}").into();
+                screen.harness.last_action =
+                    format!("Ignored stroke endpoint swap for {node_id}").into();
             }
         }
         _ => return None,
