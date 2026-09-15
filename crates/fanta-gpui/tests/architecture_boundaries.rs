@@ -2215,20 +2215,34 @@ fn geometry_constants_resolve_to_shared_tokens() {
     );
 }
 
+/// Whether a source file is an out-of-line test module rather than production
+/// source. `production_source_before_inline_tests` only strips a `#[cfg(test)]
+/// mod tests` block living inside a file; the crate also keeps whole test
+/// modules in their own files (`tests.rs`, `interaction_tests.rs`,
+/// `composed_host_flow_tests.rs`, `test_support.rs`), each declared under
+/// `#[cfg(test)]` by its parent. Their fixture geometry is not production debt.
+fn is_out_of_line_test_module(path: &Path) -> bool {
+    path.file_stem()
+        .and_then(|stem| stem.to_str())
+        .is_some_and(|stem| stem == "tests" || stem == "test_support" || stem.ends_with("_tests"))
+}
+
 #[test]
 fn raw_pixel_literal_budget_ratchets_down() {
-    // Measured ceilings on hand-written `px(<number>)` call sites per feature
-    // directory. Every token migration must lower the directory it touches.
+    // Measured ceilings on hand-written `px(<number>)` call sites in each
+    // feature directory's PRODUCTION source: out-of-line test modules are
+    // excluded, so fixture geometry never buys headroom for shipping code.
+    // Every token migration must lower the directory it touches.
     const RAW_PIXEL_BUDGETS: &[(&str, usize)] = &[
-        ("organisms/design", 600),
-        ("organisms/toolbar", 200),
-        ("screens/variables", 89),
-        ("organisms/pages", 91),
-        ("organisms/timeline", 70),
-        ("organisms/layers", 47),
+        ("organisms/design", 577),
+        ("organisms/toolbar", 106),
+        ("screens/variables", 73),
+        ("organisms/pages", 40),
+        ("organisms/timeline", 63),
+        ("organisms/layers", 15),
         ("organisms/prototype", 40),
-        ("layouts", 39),
-        ("molecules", 41),
+        ("layouts", 30),
+        ("molecules", 25),
         ("atoms", 7),
     ];
     // Headroom a budget may carry before it is stale rather than generous.
@@ -2238,7 +2252,10 @@ fn raw_pixel_literal_budget_ratchets_down() {
 
     for (directory, budget) in RAW_PIXEL_BUDGETS {
         let mut literals = 0;
-        visit_rust_sources(&source_root.join(directory), &mut |_, source| {
+        visit_rust_sources(&source_root.join(directory), &mut |path, source| {
+            if is_out_of_line_test_module(path) {
+                return;
+            }
             literals += raw_pixel_literals(production_source_before_inline_tests(source));
         });
 
