@@ -1788,3 +1788,343 @@ impl DesignPanelViewDataController for DesignPanel {
         cx.notify();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use gpui::{Entity, TestAppContext, VisualTestContext};
+
+    use crate::organisms::design::{DesignColorContrastCategory, DesignColorContrastLeafViewData};
+    use crate::test_support::{Mounted, ProbeHost, mount_component};
+
+    use super::*;
+
+    type Host = Entity<ProbeHost<DesignPanel, DesignPanelAction>>;
+
+    /// The panel facade's own harness (`panel::tests::setup`) is private to
+    /// that module, so this controller mounts the real `DesignPanel` through
+    /// the shared crate probe host instead. It is the same contract: one real
+    /// panel in a rooted window with every emitted intent captured.
+    fn setup(
+        node: DesignPanelNode,
+        cx: &mut TestAppContext,
+    ) -> Mounted<'_, DesignPanel, DesignPanelAction> {
+        mount_component(cx, move |window, cx| {
+            DesignPanel::new("view-data-controller", node, window, cx)
+        })
+    }
+
+    fn panel(host: &Host, cx: &VisualTestContext) -> Entity<DesignPanel> {
+        cx.read(|app| host.read(app).component.clone())
+    }
+
+    fn single_context(
+        node: &DesignPanelNode,
+        permissions: DesignPanelPermissions,
+    ) -> DesignPanelInspectionContext {
+        DesignPanelInspectionContext::single(
+            node.clone(),
+            DesignPanelParentLayout::Freeform,
+            permissions,
+        )
+    }
+
+    /// A deliberately un-normalized host snapshot.
+    ///
+    /// Every field here is something [`DesignPanelViewDataController::apply_view_data`]
+    /// must repair before it becomes retained state: surfaces on the wrong
+    /// side of the permission boundary, an animated export mode with no
+    /// animated payload, export rows whose sizing their format cannot
+    /// express, and a contrast row with no leaves.
+    fn unnormalized_view_data(node: &DesignPanelNode) -> DesignPanelViewData {
+        let target = DesignPanelTarget::Nodes {
+            node_ids: vec![node.id.clone()],
+        };
+        let mut view_data = DesignPanelViewData::for_node(node.clone());
+
+        view_data.navigation = DesignPanelNavigationViewData::new(
+            DesignPanelSurface::Comment,
+            DesignPanelSurface::Prototype,
+            DesignPanelWorkspaceMode::Draw,
+        );
+        view_data.preferences = DesignPanelPreferencesViewData {
+            additional_labels: true,
+            nudge_settings: DesignNudgeSettings::new(0.5, 8.).expect("valid nudge settings"),
+            variables_entry_point: DesignVariablesEntryPoint::LegacyRightSidebar {
+                disabled_reason: None,
+            },
+        };
+
+        let mut svg_row = DesignExportConfiguration::new("svg-row", DesignExportFormat::Svg);
+        svg_row.sizing = DesignExportSizing::Width(320.);
+        let mut png_row = DesignExportConfiguration::new("png-row", DesignExportFormat::Png);
+        png_row.sizing = DesignExportSizing::Scale(0.);
+        view_data.projections.export = Some(DesignExportViewData {
+            target: target.clone(),
+            configurations: vec![svg_row, png_row],
+            mode: DesignExportMode::Animated,
+            static_capabilities: Default::default(),
+            preview: None,
+            animated: None,
+        });
+        view_data.projections.add_auto_layout =
+            Some(DesignAddAutoLayoutViewData::eligible(target.clone()));
+        view_data.projections.selection_header = Some(DesignPanelTargetedSelectionHeader::new(
+            target,
+            DesignSelectionHeaderViewData::new("Canonical header", []),
+        ));
+
+        let mut color_contrast =
+            DesignColorContrastViewData::new([DesignColorContrastPaintViewData::new(
+                DesignColorContrastPaintTarget::paint(
+                    node.id.clone(),
+                    DesignPanelCollection::Fill,
+                    "fill-0",
+                    0,
+                ),
+                [DesignColorContrastLeafViewData::new(
+                    DesignPaintColorTarget::Solid,
+                    DesignColor::WHITE,
+                    4.5,
+                    DesignColorContrastCategory::NormalText,
+                )],
+            )]);
+        // Pushed past the validating constructor so the controller, not the
+        // fixture, is the thing that has to reject it.
+        color_contrast
+            .paints
+            .push(DesignColorContrastPaintViewData::new(
+                DesignColorContrastPaintTarget::paint(
+                    node.id.clone(),
+                    DesignPanelCollection::Stroke,
+                    "stroke-0",
+                    0,
+                ),
+                [],
+            ));
+        view_data.resources.color_contrast = color_contrast;
+
+        view_data.property_states = [
+            (
+                DesignPanelProperty::Width,
+                DesignPanelPropertyValueState::Uniform(DesignPanelValue::Number(320.)),
+            ),
+            (
+                DesignPanelProperty::Height,
+                DesignPanelPropertyValueState::Mixed,
+            ),
+        ]
+        .into_iter()
+        .collect();
+
+        view_data
+    }
+
+    #[gpui::test]
+    fn canonical_snapshot_is_idempotent_after_apply(cx: &mut TestAppContext) {
+        let node = DesignPanelNode::new(
+            "canonical-node",
+            "Canonical node",
+            DesignPanelNodeKind::Frame,
+        );
+        let (host, actions, visual_cx) = setup(
+            DesignPanelNode::new("initial", "Initial", DesignPanelNodeKind::Text),
+            cx,
+        );
+        let panel = panel(&host, visual_cx);
+        let raw = unnormalized_view_data(&node);
+
+        panel.update(visual_cx, |panel, cx| {
+            panel.apply_view_data(raw.clone(), cx);
+        });
+        let first = panel.read_with(visual_cx, |panel, _| panel.canonical_view_data());
+
+        assert_ne!(
+            first, raw,
+            "the fixture must actually be un-normalized, otherwise idempotence is vacuous",
+        );
+        assert_eq!(
+            first.navigation,
+            DesignPanelNavigationViewData::new(
+                DesignPanelSurface::Design,
+                DesignPanelSurface::Properties,
+                DesignPanelWorkspaceMode::Draw,
+            ),
+            "surfaces supplied for the wrong permission set are repaired, not retained",
+        );
+        let export = first
+            .projections
+            .export
+            .as_ref()
+            .expect("the export projection survives the bulk apply");
+        assert_eq!(
+            export.mode,
+            DesignExportMode::Static,
+            "an animated mode with no animated payload cannot be retained",
+        );
+        assert_eq!(
+            export
+                .configurations
+                .iter()
+                .map(|configuration| configuration.sizing)
+                .collect::<Vec<_>>(),
+            vec![DesignExportSizing::Scale(1.), DesignExportSizing::Scale(1.)],
+            "SVG cannot carry custom sizing and a non-positive scale is repaired to 1x",
+        );
+        assert_eq!(
+            first.resources.color_contrast.paints.len(),
+            1,
+            "a contrast row with no leaves is rejected at the presentation boundary",
+        );
+
+        panel.update(visual_cx, |panel, cx| {
+            panel.apply_view_data(first.clone(), cx);
+        });
+        let second = panel.read_with(visual_cx, |panel, _| panel.canonical_view_data());
+        visual_cx.run_until_parked();
+
+        assert_eq!(
+            second, first,
+            "the canonical snapshot must be a fixed point: applying it again changes nothing",
+        );
+        assert!(
+            actions.borrow().is_empty(),
+            "installing an idle host snapshot must not synthesize document intents",
+        );
+    }
+
+    #[gpui::test]
+    fn apply_inspection_context_cancels_property_transaction_once(cx: &mut TestAppContext) {
+        let mut node = DesignPanelNode::new("edited", "Edited", DesignPanelNodeKind::Rectangle);
+        node.width = 100.;
+        let replacement =
+            DesignPanelNode::new("replacement", "Replacement", DesignPanelNodeKind::Rectangle);
+        let (host, actions, visual_cx) = setup(node.clone(), cx);
+        let panel = panel(&host, visual_cx);
+
+        // Activation and the host echo share one update so no intervening
+        // focus change can terminate the transaction instead of the context.
+        visual_cx.update(|window, app| {
+            panel.update(app, |panel, cx| {
+                panel.activate_property(
+                    DesignPanelProperty::Width,
+                    DesignPanelValue::Number(100.),
+                    window,
+                    cx,
+                );
+                assert!(
+                    panel.edit.property.is_some(),
+                    "the Width transaction must be open before the host replaces the context",
+                );
+
+                panel.apply_inspection_context(
+                    single_context(&replacement, DesignPanelPermissions::editor()),
+                    cx,
+                );
+            });
+        });
+        visual_cx.run_until_parked();
+
+        let property_edits = actions
+            .borrow()
+            .iter()
+            .filter_map(|action| match action {
+                DesignPanelAction::PropertyEditRequested {
+                    node_id,
+                    property,
+                    value,
+                    phase,
+                } => Some((node_id.clone(), *property, value.clone(), *phase)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            property_edits,
+            vec![
+                (
+                    node.id.clone(),
+                    DesignPanelProperty::Width,
+                    DesignPanelValue::Number(100.),
+                    DesignPanelEditPhase::Begin,
+                ),
+                (
+                    node.id.clone(),
+                    DesignPanelProperty::Width,
+                    DesignPanelValue::Number(100.),
+                    DesignPanelEditPhase::Cancel,
+                ),
+            ],
+            "a context change unwinds the open transaction with exactly one terminal Cancel \
+             addressed to the node the edit began on",
+        );
+        assert_eq!(
+            property_edits
+                .iter()
+                .filter(|(_, _, _, phase)| *phase == DesignPanelEditPhase::Cancel)
+                .count(),
+            1,
+            "the cancel must be emitted once, not once per invalidation reason",
+        );
+        assert!(
+            !actions
+                .borrow()
+                .iter()
+                .any(|action| matches!(action, DesignPanelAction::PropertyChangeRequested { .. })),
+            "an interrupted transaction must never commit a value",
+        );
+        assert!(
+            panel.read_with(visual_cx, |panel, _| panel.edit.property.is_none()),
+            "the cancelled transaction leaves no retained editor behind",
+        );
+    }
+
+    #[gpui::test]
+    fn permission_downgrade_closes_editor_only_overlays(cx: &mut TestAppContext) {
+        let node = DesignPanelNode::new("shared", "Shared", DesignPanelNodeKind::Rectangle);
+        let (host, actions, visual_cx) = setup(node.clone(), cx);
+        let panel = panel(&host, visual_cx);
+
+        // Opening and downgrading share one update so only the permission
+        // change, and not an intervening render, can close the overlays.
+        panel.update(visual_cx, |panel, cx| {
+            panel.apply_inspection_context(
+                single_context(&node, DesignPanelPermissions::editor()),
+                cx,
+            );
+            *panel.overlays.appearance_blend_mode_open_test_slot() = true;
+            *panel.overlays.type_settings_open_test_slot() = true;
+            *panel.overlays.export_choice_overlay_test_slot() = Some("png-row".into());
+            assert!(
+                panel
+                    .overlays
+                    .is_open(DesignOpenOverlay::AppearanceBlendMode)
+            );
+            assert!(panel.overlays.is_open(DesignOpenOverlay::TypeSettings));
+            assert!(panel.overlays.is_open(DesignOpenOverlay::ExportChoice));
+
+            panel.apply_inspection_context(
+                single_context(&node, DesignPanelPermissions::viewer()),
+                cx,
+            );
+            assert!(
+                !panel
+                    .overlays
+                    .is_open(DesignOpenOverlay::AppearanceBlendMode),
+                "an editor-only overlay cannot survive a downgrade to viewer permissions",
+            );
+            assert!(
+                !panel.overlays.is_open(DesignOpenOverlay::TypeSettings),
+                "an editor-only overlay cannot survive a downgrade to viewer permissions",
+            );
+            assert!(
+                panel.overlays.is_open(DesignOpenOverlay::ExportChoice),
+                "a viewer-safe overlay is deliberately exempt and must stay open",
+            );
+        });
+        visual_cx.run_until_parked();
+
+        assert!(
+            actions.borrow().is_empty(),
+            "closing editor-only overlays is presentation-only and leaks no host intent",
+        );
+    }
+}
