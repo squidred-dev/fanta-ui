@@ -223,7 +223,6 @@ pub enum VariablesAction {
     SearchOptionsRequested,
     CreateCollectionRequested,
     CreateVariableRequested,
-    ImportVariablesRequested,
     AddModeRequested,
     ValueEditRequested {
         variable_id: SharedString,
@@ -1003,7 +1002,7 @@ impl VariablesScreen {
                     .child(if search_empty {
                         "Variables that don’t match the current search and filters are hidden."
                     } else {
-                        "Create or import variables to reuse values across your file."
+                        "Create variables to reuse values across your project."
                     }),
             );
         if search_empty {
@@ -1026,7 +1025,6 @@ impl VariablesScreen {
             );
         } else {
             let page_for_create = page.clone();
-            let page_for_import = page;
             state = state.child(
                 h_flex()
                     .max_w_full()
@@ -1057,22 +1055,6 @@ impl VariablesScreen {
                                     });
                                 }),
                             ),
-                    )
-                    .child(
-                        crate::atoms::ui_button(SharedString::from(format!(
-                            "{}-empty-import",
-                            self.id
-                        )))
-                        .debug_selector(|| "variables-empty-import".to_owned())
-                        .label("Import")
-                        .small()
-                        .compact()
-                        .outline()
-                        .on_activate(move |_, _, cx| {
-                            page_for_import.update(cx, |_, cx| {
-                                cx.emit(VariablesAction::ImportVariablesRequested);
-                            });
-                        }),
                     ),
             );
         }

@@ -207,16 +207,9 @@ fn empty_and_no_match_states_offer_recovery_actions(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
     let create = cx.debug_bounds("variables-empty-create").unwrap();
-    let import = cx.debug_bounds("variables-empty-import").unwrap();
     assert_eq!(create.size.height, px(24.));
-    assert_eq!(import.size.height, px(24.));
+    assert!(cx.debug_bounds("variables-empty-import").is_none());
     actions.borrow_mut().clear();
-    cx.simulate_click(import.center(), Modifiers::none());
-    cx.run_until_parked();
-    assert_eq!(
-        actions.borrow().as_slice(),
-        &[VariablesAction::ImportVariablesRequested]
-    );
 
     component.update(cx, |page, cx| {
         page.set_view_data(fixture(), cx);

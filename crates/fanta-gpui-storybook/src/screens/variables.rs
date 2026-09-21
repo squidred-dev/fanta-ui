@@ -453,21 +453,6 @@ impl VariablesStory {
                 self.last_action =
                     format!("Created variable Spacing {ordinal} through the host adapter").into();
             }
-            VariablesAction::ImportVariablesRequested => {
-                let mode_id = self
-                    .view_data
-                    .modes
-                    .first()
-                    .map_or_else(|| "mode-1".into(), |mode| mode.id.clone());
-                self.view_data.variables.push(VariableRow::new(
-                    "imported-variable",
-                    "Imported variable",
-                    "all",
-                    VariableKind::String,
-                    [VariableModeValue::new(mode_id, "Imported")],
-                ));
-                self.last_action = "Imported variables through the host adapter".into();
-            }
             VariablesAction::AddModeRequested => {
                 let ordinal = self.view_data.modes.len() + 1;
                 let mode_id: SharedString = format!("mode-{ordinal}").into();
