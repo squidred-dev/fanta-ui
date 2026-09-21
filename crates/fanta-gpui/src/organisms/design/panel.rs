@@ -1,5 +1,6 @@
 #![allow(deprecated)]
 
+use crate::atoms::TypographyExt as _;
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
@@ -1126,10 +1127,10 @@ impl gpui::RenderOnce for DimensionMenuTrigger {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         self.base.when(self.selected, |trigger| {
             trigger
-                .bg(cx.theme().accent)
+                .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
                 .border_1()
-                .border_color(cx.theme().selection)
-                .text_color(cx.theme().selection)
+                .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+                .text_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
         })
     }
 }
@@ -2274,9 +2275,9 @@ fn empty_collection(label: &'static str, cx: &mut Context<DesignPanel>) -> AnyEl
         .justify_center()
         .rounded(px(5.))
         .border_1()
-        .border_color(cx.theme().border)
-        .text_xs()
-        .text_color(cx.theme().muted_foreground)
+        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+        .typography(crate::atoms::TypographyToken::BodyMedium)
+        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
         .child(label)
         .into_any_element()
 }

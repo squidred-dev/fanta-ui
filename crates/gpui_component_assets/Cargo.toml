@@ -1,0 +1,36 @@
+[package]
+edition = "2024"
+name = "fanta-gpui-component-assets"
+version = "0.1.0"
+build = false
+publish = true
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "Default bundled assets for GPUI Component."
+homepage = "https://longbridge.github.io/gpui-component"
+documentation = "https://docs.rs/gpui-component"
+readme = "README.md"
+keywords = [ "desktop", "gpui", "shadcn", "ui", "uikit",]
+license = "Apache-2.0"
+repository = "https://github.com/squidred-dev/fanta-ui"
+resolver = "2"
+
+[lib]
+name = "gpui_component_assets"
+path = "src/lib.rs"
+doctest = false
+
+[dependencies.anyhow]
+version = "1"
+
+[dependencies.gpui]
+version = "=0.1.0"
+package = "fanta-gpui-core"
+path = "../gpui"
+
+[dependencies.rust-embed]
+version = "8.7.2"
+features = [ "interpolate-folder-path", "include-exclude",]

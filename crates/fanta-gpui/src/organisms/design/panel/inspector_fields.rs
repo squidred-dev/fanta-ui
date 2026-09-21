@@ -291,8 +291,8 @@ fn render_compact_property_label(
         .overflow_hidden()
         .whitespace_nowrap()
         .truncate()
-        .text_size(px(tokens::TypeScale::MICRO))
-        .text_color(cx.theme().muted_foreground)
+        .typography(crate::atoms::TypographyToken::BodySmall)
+        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
         .child(projection.label.clone())
         .into_any_element()
 }
@@ -325,11 +325,12 @@ fn render_value_cell_projection(
         .rounded(metrics.radius)
         .border_1()
         .when(projection.editing && !projection.invalid, |cell| {
-            cell.border_color(cx.theme().selection)
+            cell.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
         })
-        .bg(cx.theme().secondary)
+        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
         .when(!interactive, |cell| {
-            cell.text_color(cx.theme().muted_foreground).opacity(0.78)
+            cell.text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                .opacity(0.78)
         });
     if interactive {
         cell = if let Some(focus) = projection.retained_focus {
@@ -380,8 +381,8 @@ fn render_value_cell_projection(
                 div()
                     .w(px(12.))
                     .flex_none()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(projection.prefix),
             );
         }
@@ -393,7 +394,7 @@ fn render_value_cell_projection(
                 .flex_1()
                 .min_w(px(0.))
                 .truncate()
-                .text_xs()
+                .typography(crate::atoms::TypographyToken::BodyMedium)
                 .child(projection.display),
         );
         cell = cell.child(render_numeric_scrub_surface(
@@ -424,7 +425,7 @@ fn render_value_field_icon(
             ValueFieldIcon::Opacity => LucideIcon::Blend,
             ValueFieldIcon::Corners => LucideIcon::Scan,
         },
-        cx.theme().muted_foreground,
+        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
         metrics.icon_size.as_f32(),
     )
 }
@@ -464,7 +465,7 @@ fn render_icon_value_cell_projection(
         .min_w(px(0.))
         .overflow_hidden()
         .rounded(metrics.radius)
-        .bg(cx.theme().secondary)
+        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
         .child(prefix)
         .child(
             div()
@@ -500,15 +501,20 @@ fn render_toggle_row_projection(
             row.key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(cx.theme().accent.opacity(0.55)))
+                .hover(|style| {
+                    style.bg(crate::atoms::SemanticColor::BackgroundHover
+                        .resolve(cx)
+                        .opacity(0.55))
+                })
                 .focus(|style| {
                     style
-                        .bg(cx.theme().accent)
-                        .border_color(cx.theme().selection)
+                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
         })
         .when(!editable, |row| {
-            row.text_color(cx.theme().muted_foreground).opacity(0.78)
+            row.text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                .opacity(0.78)
         });
     if editable {
         let property = projection.property;
@@ -530,29 +536,34 @@ fn render_toggle_row_projection(
             );
         });
     }
-    row.child(div().flex_1().text_xs().child(projection.label))
-        .when_some(projection.variable_button, |row, button| row.child(button))
-        .child(
-            h_flex()
-                .w(px(30.))
-                .h(px(18.))
-                .p(px(2.))
-                .justify_end()
-                .when(!projection.checked, |toggle| toggle.justify_start())
-                .rounded(px(9.))
-                .bg(if projection.checked {
-                    cx.theme().selection
-                } else {
-                    cx.theme().border
-                })
-                .child(
-                    div()
-                        .size(px(14.))
-                        .rounded(px(7.))
-                        .bg(cx.theme().background),
-                ),
-        )
-        .into_any_element()
+    row.child(
+        div()
+            .flex_1()
+            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .child(projection.label),
+    )
+    .when_some(projection.variable_button, |row, button| row.child(button))
+    .child(
+        h_flex()
+            .w(px(30.))
+            .h(px(18.))
+            .p(px(2.))
+            .justify_end()
+            .when(!projection.checked, |toggle| toggle.justify_start())
+            .rounded(px(9.))
+            .bg(if projection.checked {
+                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
+            } else {
+                crate::atoms::SemanticColor::Border.resolve(cx)
+            })
+            .child(
+                div()
+                    .size(px(14.))
+                    .rounded(px(7.))
+                    .bg(crate::atoms::SemanticColor::Background.resolve(cx)),
+            ),
+    )
+    .into_any_element()
 }
 
 fn render_checkbox_row_projection(
@@ -583,7 +594,9 @@ fn render_checkbox_row_projection(
         .when(editable, |row| {
             row.key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
-                .focus(|style| style.border_color(cx.theme().selection))
+                .focus(|style| {
+                    style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+                })
                 .on_action(move |_: &ActivateControl, window, cx| {
                     let Some(edit) = field_for_action.set(!checked) else {
                         return;
@@ -824,8 +837,8 @@ impl DesignInspectorFieldRenderer for DesignPanel {
             .h(px(16.))
             .flex()
             .items_center()
-            .text_xs()
-            .text_color(cx.theme().muted_foreground)
+            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
             .child(label)
             .into_any_element()
     }

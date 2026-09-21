@@ -1,0 +1,182 @@
+[
+  {
+    "source_path": "crates/gpui",
+    "original_name": "gpui",
+    "package": "fanta-gpui-core"
+  },
+  {
+    "source_path": "crates/collections",
+    "original_name": "collections",
+    "package": "fanta-gpui-collections"
+  },
+  {
+    "source_path": "crates/gpui_util",
+    "original_name": "gpui_util",
+    "package": "fanta-gpui-gpui-util"
+  },
+  {
+    "source_path": "crates/gpui_macros",
+    "original_name": "gpui_macros",
+    "package": "fanta-gpui-gpui-macros"
+  },
+  {
+    "source_path": "crates/gpui_shared_string",
+    "original_name": "gpui_shared_string",
+    "package": "fanta-gpui-gpui-shared-string"
+  },
+  {
+    "source_path": "crates/http_client",
+    "original_name": "http_client",
+    "package": "fanta-gpui-http-client"
+  },
+  {
+    "source_path": "crates/util",
+    "original_name": "util",
+    "package": "fanta-gpui-util"
+  },
+  {
+    "source_path": "crates/util_macros",
+    "original_name": "util_macros",
+    "package": "fanta-gpui-util-macros"
+  },
+  {
+    "source_path": "tooling/perf",
+    "original_name": "perf",
+    "package": "fanta-gpui-perf"
+  },
+  {
+    "source_path": "crates/refineable",
+    "original_name": "refineable",
+    "package": "fanta-gpui-refineable"
+  },
+  {
+    "source_path": "crates/refineable/derive_refineable",
+    "original_name": "derive_refineable",
+    "package": "fanta-gpui-derive-refineable"
+  },
+  {
+    "source_path": "crates/scheduler",
+    "original_name": "scheduler",
+    "package": "fanta-gpui-scheduler"
+  },
+  {
+    "source_path": "crates/sum_tree",
+    "original_name": "sum_tree",
+    "package": "fanta-gpui-sum-tree"
+  },
+  {
+    "source_path": "crates/ztracing",
+    "original_name": "ztracing",
+    "package": "fanta-gpui-ztracing"
+  },
+  {
+    "source_path": "crates/zlog",
+    "original_name": "zlog",
+    "package": "fanta-gpui-zlog"
+  },
+  {
+    "source_path": "crates/ztracing_macro",
+    "original_name": "ztracing_macro",
+    "package": "fanta-gpui-ztracing-macro"
+  },
+  {
+    "source_path": "crates/gpui_platform",
+    "original_name": "gpui_platform",
+    "package": "fanta-gpui-gpui-platform"
+  },
+  {
+    "source_path": "crates/gpui_macos",
+    "original_name": "gpui_macos",
+    "package": "fanta-gpui-gpui-macos"
+  },
+  {
+    "source_path": "crates/media",
+    "original_name": "media",
+    "package": "fanta-gpui-media"
+  },
+  {
+    "source_path": "crates/gpui_windows",
+    "original_name": "gpui_windows",
+    "package": "fanta-gpui-gpui-windows"
+  },
+  {
+    "source_path": "crates/gpui_linux",
+    "original_name": "gpui_linux",
+    "package": "fanta-gpui-gpui-linux"
+  },
+  {
+    "source_path": "crates/gpui_wgpu",
+    "original_name": "gpui_wgpu",
+    "package": "fanta-gpui-gpui-wgpu"
+  },
+  {
+    "source_path": "crates/gpui_web",
+    "original_name": "gpui_web",
+    "package": "fanta-gpui-gpui-web"
+  },
+  {
+    "source_path": "crates/reqwest_client",
+    "original_name": "reqwest_client",
+    "package": "fanta-gpui-reqwest-client"
+  },
+  {
+    "source_path": "crates/http_client_tls",
+    "original_name": "http_client_tls",
+    "package": "fanta-gpui-http-client-tls"
+  },
+  {
+    "source_path": "crates/gpui_component",
+    "original_name": "gpui-component",
+    "package": "fanta-gpui-components"
+  },
+  {
+    "source_path": "crates/gpui_tokio",
+    "original_name": "gpui_tokio",
+    "package": "fanta-gpui-gpui-tokio"
+  },
+  {
+    "source_path": "crates/gpui_component_assets",
+    "original_name": "gpui-component-assets",
+    "package": "fanta-gpui-component-assets",
+    "upstream": {
+      "registry": "crates.io",
+      "package": "gpui-component-assets-0.5.1"
+    }
+  },
+  {
+    "source_path": "crates/async_process",
+    "original_name": "async-process",
+    "package": "fanta-gpui-async-process",
+    "upstream": {
+      "repository": "https://github.com/zed-industries/async-process.git",
+      "revision": "0b6d6713570af61806e1e5cb40e0f757cb93fd9d"
+    }
+  },
+  {
+    "source_path": "crates/smol",
+    "original_name": "smol",
+    "package": "fanta-gpui-smol",
+    "upstream": {
+      "registry": "crates.io",
+      "package": "smol-2.0.2"
+    }
+  },
+  {
+    "source_path": "crates/proptest",
+    "original_name": "proptest",
+    "package": "fanta-gpui-proptest",
+    "upstream": {
+      "repository": "https://github.com/proptest-rs/proptest",
+      "revision": "3dca198a8fef1b32e3a66f1e1897c955b4dc5b5b"
+    }
+  },
+  {
+    "source_path": "crates/proptest-macro",
+    "original_name": "proptest-macro",
+    "package": "fanta-gpui-proptest-macro",
+    "upstream": {
+      "repository": "https://github.com/proptest-rs/proptest",
+      "revision": "3dca198a8fef1b32e3a66f1e1897c955b4dc5b5b"
+    }
+  }
+]

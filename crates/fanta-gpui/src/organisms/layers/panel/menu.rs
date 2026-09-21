@@ -67,7 +67,7 @@ impl LayersPanel {
                         .w_full()
                         .my_1()
                         .flex_none()
-                        .bg(cx.theme().border),
+                        .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
                 );
             }
             for entry in section {
@@ -120,7 +120,7 @@ impl LayersPanel {
         .when_some(action.shortcut(), |row, shortcut| {
             row.child(
                 div()
-                    .text_color(cx.theme().muted_foreground)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(shortcut),
             )
         })

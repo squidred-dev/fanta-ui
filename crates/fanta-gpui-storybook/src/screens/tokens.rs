@@ -191,8 +191,8 @@ impl TokenGroup {
     const fn copy(self) -> &'static str {
         match self {
             Self::Space => {
-                "Each bar is exactly as wide as its constant, so the four steps \
-                 read as one 4 px ramp: XS is a quarter of LG. These are the \
+                "Each bar is exactly as wide as its constant, so NONE plus the \
+                 four spacing steps read as one 4 px ramp: XS is a quarter of LG. These are the \
                  paddings and gaps rows, sections, and panel chrome share — the \
                  bar's height means nothing."
             }
@@ -246,6 +246,7 @@ impl TokenGroup {
     fn tokens(self) -> Vec<TokenSpec> {
         match self {
             Self::Space => vec![
+                TokenSpec::new("Space::NONE", Space::NONE),
                 TokenSpec::new("Space::XS", Space::XS),
                 TokenSpec::new("Space::SM", Space::SM),
                 TokenSpec::new("Space::MD", Space::MD),
@@ -375,7 +376,9 @@ fn token_specimen(group: TokenGroup, value: f32, cx: &mut Context<Storybook>) ->
             .h(px(BAR_HEIGHT))
             .flex_none()
             .rounded(px(2.))
-            .bg(cx.theme().primary.opacity(0.7))
+            .bg(fanta_gpui::atoms::SemanticColor::BackgroundBrand
+                .resolve(cx)
+                .opacity(0.7))
             .into_any_element(),
         TokenGroup::RowHeight => div()
             .w(px(ROW_STRIP_WIDTH))
@@ -383,8 +386,10 @@ fn token_specimen(group: TokenGroup, value: f32, cx: &mut Context<Storybook>) ->
             .flex_none()
             .rounded(px(Radius::CONTROL))
             .border_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().secondary.opacity(0.55))
+            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+            .bg(fanta_gpui::atoms::SemanticColor::BackgroundSecondary
+                .resolve(cx)
+                .opacity(0.55))
             .into_any_element(),
         TokenGroup::ControlSize => {
             let glyph = if value <= ControlSize::INLINE {
@@ -400,11 +405,13 @@ fn token_specimen(group: TokenGroup, value: f32, cx: &mut Context<Storybook>) ->
                 .justify_center()
                 .rounded(px(Radius::CONTROL))
                 .border_1()
-                .border_color(cx.theme().border)
-                .bg(cx.theme().secondary.opacity(0.55))
+                .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+                .bg(fanta_gpui::atoms::SemanticColor::BackgroundSecondary
+                    .resolve(cx)
+                    .opacity(0.55))
                 .child(render_lucide_icon(
                     LucideIcon::Settings2,
-                    cx.theme().muted_foreground,
+                    fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
                     glyph,
                 ))
                 .into_any_element()
@@ -415,21 +422,23 @@ fn token_specimen(group: TokenGroup, value: f32, cx: &mut Context<Storybook>) ->
             .flex_none()
             .rounded(px(value))
             .border_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().secondary.opacity(0.55))
+            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+            .bg(fanta_gpui::atoms::SemanticColor::BackgroundSecondary
+                .resolve(cx)
+                .opacity(0.55))
             .into_any_element(),
         TokenGroup::IconSize => div()
             .flex_none()
             .child(render_lucide_icon(
                 LucideIcon::Frame,
-                cx.theme().foreground,
+                fanta_gpui::atoms::SemanticColor::Text.resolve(cx),
                 value,
             ))
             .into_any_element(),
         TokenGroup::TypeScale => div()
             .flex_none()
             .text_size(px(value))
-            .text_color(cx.theme().foreground)
+            .text_color(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
             .child(TYPE_SAMPLE)
             .into_any_element(),
         TokenGroup::MenuWidth => div()
@@ -438,8 +447,8 @@ fn token_specimen(group: TokenGroup, value: f32, cx: &mut Context<Storybook>) ->
             .flex_none()
             .rounded(px(Radius::MENU))
             .border_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().popover)
+            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+            .bg(fanta_gpui::atoms::SemanticColor::BackgroundMenu.resolve(cx))
             .into_any_element(),
         TokenGroup::Breakpoint => h_flex()
             .w(px(value))
@@ -447,19 +456,24 @@ fn token_specimen(group: TokenGroup, value: f32, cx: &mut Context<Storybook>) ->
             .flex_none()
             .items_center()
             .child(
-                div()
-                    .w(px(1.))
-                    .h(px(BAR_HEIGHT))
-                    .flex_none()
-                    .bg(cx.theme().primary.opacity(0.7)),
+                div().w(px(1.)).h(px(BAR_HEIGHT)).flex_none().bg(
+                    fanta_gpui::atoms::SemanticColor::BackgroundBrand
+                        .resolve(cx)
+                        .opacity(0.7),
+                ),
             )
-            .child(div().flex_1().h(px(1.)).bg(cx.theme().border))
             .child(
                 div()
-                    .w(px(1.))
-                    .h(px(BAR_HEIGHT))
-                    .flex_none()
-                    .bg(cx.theme().primary.opacity(0.7)),
+                    .flex_1()
+                    .h(px(1.))
+                    .bg(fanta_gpui::atoms::SemanticColor::Border.resolve(cx)),
+            )
+            .child(
+                div().w(px(1.)).h(px(BAR_HEIGHT)).flex_none().bg(
+                    fanta_gpui::atoms::SemanticColor::BackgroundBrand
+                        .resolve(cx)
+                        .opacity(0.7),
+                ),
             )
             .into_any_element(),
     }
@@ -473,9 +487,13 @@ fn off_step_badge(cx: &mut Context<Storybook>) -> AnyElement {
         .py(px(1.))
         .rounded(px(Radius::CONTROL))
         .border_1()
-        .border_color(cx.theme().primary.opacity(0.5))
+        .border_color(
+            fanta_gpui::atoms::SemanticColor::BackgroundBrand
+                .resolve(cx)
+                .opacity(0.5),
+        )
         .text_size(px(TypeScale::MICRO))
-        .text_color(cx.theme().primary)
+        .text_color(fanta_gpui::atoms::SemanticColor::BackgroundBrand.resolve(cx))
         .child("off-step")
         .into_any_element()
 }
@@ -502,7 +520,7 @@ fn token_line(group: TokenGroup, token: TokenSpec, cx: &mut Context<Storybook>) 
                 .flex_none()
                 .text_right()
                 .text_size(px(TypeScale::CAPTION))
-                .text_color(cx.theme().muted_foreground)
+                .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child(format_px(token.value)),
         )
         .child(specimen)
@@ -512,7 +530,11 @@ fn token_line(group: TokenGroup, token: TokenSpec, cx: &mut Context<Storybook>) 
                 div()
                     .flex_none()
                     .text_size(px(TypeScale::MICRO))
-                    .text_color(cx.theme().muted_foreground.opacity(0.8))
+                    .text_color(
+                        fanta_gpui::atoms::SemanticColor::TextTertiary
+                            .resolve(cx)
+                            .opacity(0.8),
+                    )
                     .child(hint),
             )
         })
@@ -555,7 +577,7 @@ impl Storybook {
                     .w(px(NAME_COLUMN))
                     .flex_none()
                     .text_size(px(TypeScale::MICRO))
-                    .text_color(cx.theme().muted_foreground)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("WHAT A HOST TYPES"),
             )
             .child(
@@ -564,14 +586,14 @@ impl Storybook {
                     .flex_none()
                     .text_right()
                     .text_size(px(TypeScale::MICRO))
-                    .text_color(cx.theme().muted_foreground)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("VALUE"),
             )
             .child(
                 div()
                     .flex_none()
                     .text_size(px(TypeScale::MICRO))
-                    .text_color(cx.theme().muted_foreground)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("DRAWN AT THAT VALUE"),
             )
             .child(off_step_badge(cx))

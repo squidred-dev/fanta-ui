@@ -1,5 +1,6 @@
 //! Structural recipes for compact inspector sections and fields.
 
+use crate::atoms::TypographyExt as _;
 use gpui::{
     App, Div, ElementId, InteractiveElement as _, Stateful, Styled as _,
     prelude::FluentBuilder as _,
@@ -21,7 +22,7 @@ pub fn inspector_section(cx: &App) -> Div {
         .min_w(gpui::px(0.))
         .flex_none()
         .border_b_1()
-        .border_color(cx.theme().sidebar_border)
+        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
 }
 
 /// Groups adjacent inspector sections without adding another visual border.
@@ -50,11 +51,17 @@ pub fn inspector_section_header(
         .cursor_pointer()
         .border_1()
         .border_color(cx.theme().transparent)
-        .hover(|style| style.bg(cx.theme().sidebar_accent.opacity(0.45)))
+        .hover(|style| {
+            style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                .resolve(cx)
+                .opacity(0.45))
+        })
         .focus(|style| {
             style
-                .bg(cx.theme().sidebar_accent.opacity(0.45))
-                .border_color(cx.theme().selection)
+                .bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                    .resolve(cx)
+                    .opacity(0.45))
+                .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
         })
 }
 
@@ -83,7 +90,7 @@ pub fn inspector_field_group(metrics: InspectorMetrics, cx: &App) -> Div {
         .h(metrics.row_height)
         .rounded(metrics.radius)
         .border_1()
-        .border_color(cx.theme().border)
+        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
         .overflow_hidden()
 }
 
@@ -109,7 +116,7 @@ pub fn inspector_row_with_layout(layout: InspectorGridLayout) -> Div {
 pub fn inspector_field_label(layout: InspectorGridLayout) -> Div {
     gpui::div()
         .min_w(gpui::px(0.))
-        .text_xs()
+        .typography(crate::atoms::TypographyToken::BodyMedium)
         .when(
             layout.label_placement == InspectorLabelPlacement::Leading,
             |label| label.w(layout.metrics.label_width).flex_none().truncate(),
@@ -137,23 +144,25 @@ pub fn inspector_field_frame(
         .rounded(metrics.radius)
         .border_1()
         .border_color(cx.theme().transparent)
-        .bg(cx.theme().secondary)
-        .text_xs();
+        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+        .typography(crate::atoms::TypographyToken::BodyMedium);
 
     if access.is_interactive() {
         field = field
             .key_context(CONTROL_KEY_CONTEXT)
             .tab_index(0)
             .cursor_pointer()
-            .hover(|style| style.border_color(cx.theme().muted_foreground))
+            .hover(|style| {
+                style.border_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+            })
             .focus(|style| {
                 style
-                    .bg(cx.theme().accent)
-                    .border_color(cx.theme().selection)
+                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
             });
     }
     if !access.is_editable() {
-        field = field.text_color(cx.theme().muted_foreground);
+        field = field.text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx));
     }
     if !access.is_interactive() {
         field = field.opacity(0.62);
@@ -172,7 +181,7 @@ pub fn inspector_field_frame_with_presentation(
 ) -> Stateful<Div> {
     inspector_field_frame(id, &presentation.access, metrics, cx)
         .when(presentation.invalid, |field| {
-            field.border_color(cx.theme().red)
+            field.border_color(crate::atoms::SemanticColor::TextDanger.resolve(cx))
         })
 }
 
@@ -194,25 +203,27 @@ pub fn inspector_grouped_field_frame(
         .items_center()
         .gap(metrics.control_gap)
         .px(metrics.control_gap)
-        .bg(cx.theme().secondary)
-        .text_xs();
+        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+        .typography(crate::atoms::TypographyToken::BodyMedium);
 
     if presentation.access.is_interactive() {
         field = field
             .key_context(CONTROL_KEY_CONTEXT)
             .tab_index(0)
             .cursor_pointer()
-            .hover(|style| style.bg(cx.theme().secondary_hover))
-            .focus(|style| style.bg(cx.theme().accent));
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+            .focus(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)));
     }
     if !presentation.access.is_editable() {
-        field = field.text_color(cx.theme().muted_foreground);
+        field = field.text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx));
     }
     if !presentation.access.is_interactive() {
         field = field.opacity(0.62);
     }
     if presentation.invalid {
-        field = field.bg(cx.theme().red.opacity(0.12));
+        field = field.bg(crate::atoms::SemanticColor::TextDanger
+            .resolve(cx)
+            .opacity(0.12));
     }
     field
 }

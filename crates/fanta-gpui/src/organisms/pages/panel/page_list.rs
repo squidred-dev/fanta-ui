@@ -1,4 +1,5 @@
 use super::*;
+use crate::atoms::TypographyExt as _;
 
 impl PagesPanel {
     fn page_reveal_height(&self) -> f32 {
@@ -140,14 +141,20 @@ impl PagesPanel {
         .track_focus(&row_focus_handle.tab_index(0).tab_stop(true))
         .border_0()
         .px_2()
-        .text_sm()
-        .focus(|style| style.bg(cx.theme().sidebar_accent.opacity(0.8)))
+        .typography(crate::atoms::TypographyToken::BodyLarge)
+        .focus(|style| {
+            style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                .resolve(cx)
+                .opacity(0.8))
+        })
         .when(is_hovered && !is_selected, |row| {
-            row.bg(cx.theme().sidebar_accent.opacity(0.65))
+            row.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                .resolve(cx)
+                .opacity(0.65))
         })
         .when(is_selected, |row| {
-            row.bg(cx.theme().sidebar_accent)
-                .text_color(cx.theme().sidebar_accent_foreground)
+            row.bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
+                .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
                 .font_semibold()
         })
         .on_hover(cx.listener({

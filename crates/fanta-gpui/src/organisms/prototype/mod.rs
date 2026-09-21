@@ -1,5 +1,6 @@
 //! Host-controlled Prototype inspector matching Figma's empty-selection state.
 
+use crate::atoms::TypographyExt as _;
 use gpui::{
     AnyElement, App, Context, EventEmitter, FocusHandle, Focusable, InteractiveElement as _,
     IntoElement, ParentElement as _, Render, SharedString, Styled as _, Window, div,
@@ -11,7 +12,7 @@ use gpui_component::{
 
 use crate::{
     atoms::{
-        CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon, tokens,
+        CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon,
         truncating_label,
     },
     color::parse_hex_rgba,
@@ -126,19 +127,22 @@ impl PrototypePanel {
             .items_center()
             .rounded(px(6.))
             .cursor_pointer()
-            .text_size(px(tokens::TypeScale::CAPTION))
+            .typography(crate::atoms::TypographyToken::BodyMedium)
             .text_color(if selected {
-                cx.theme().tab_active_foreground
+                crate::atoms::SemanticColor::Text.resolve(cx)
             } else {
-                cx.theme().muted_foreground
+                crate::atoms::SemanticColor::TextTertiary.resolve(cx)
             })
             .when(selected, |tab| {
-                tab.bg(cx.theme().tab_active).font_semibold()
+                tab.bg(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+                    .font_semibold()
             })
             .border_1()
             .border_color(cx.theme().transparent)
-            .hover(|style| style.bg(cx.theme().accent))
-            .focus(|style| style.border_color(cx.theme().selection))
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+            .focus(|style| {
+                style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+            })
             .on_activate(cx.listener(move |_, _, _, cx| {
                 cx.emit(PrototypePanelAction::SurfaceChangeRequested { surface });
             }))
@@ -166,7 +170,7 @@ impl PrototypePanel {
                     .child(
                         div()
                             .font_semibold()
-                            .text_size(px(tokens::TypeScale::CAPTION))
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .child(title),
                     )
                     .child(div().flex_1())
@@ -204,14 +208,14 @@ impl PrototypePanel {
                     .gap(px(16.))
                     .child(div().w(px(16.)).flex_none().child(render_lucide_icon(
                         icon,
-                        cx.theme().foreground,
+                        crate::atoms::SemanticColor::Text.resolve(cx),
                         16.,
                     )))
                     .child(
                         div()
                             .flex_1()
                             .min_w(px(0.))
-                            .text_size(px(tokens::TypeScale::CAPTION))
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .line_height(px(16.))
                             .child(body),
                     ),
@@ -234,10 +238,10 @@ impl Render for PrototypePanel {
             .size_full()
             .min_h(px(0.))
             .overflow_hidden()
-            .bg(cx.theme().sidebar)
-            .text_color(cx.theme().sidebar_foreground)
+            .bg(crate::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
+            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
             .border_1()
-            .border_color(cx.theme().border)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .child(
                 h_flex()
                     .h(px(34.))
@@ -246,7 +250,7 @@ impl Render for PrototypePanel {
                     .px(px(10.))
                     .gap(px(4.))
                     .border_b_1()
-                    .border_color(cx.theme().border)
+                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                     .child(self.render_surface_tab(
                         PrototypePanelSurface::Design,
                         "Design",
@@ -273,14 +277,14 @@ impl Render for PrototypePanel {
                             .cursor_pointer()
                             .border_1()
                             .border_color(cx.theme().transparent)
-                            .hover(|style| style.bg(cx.theme().accent))
-                            .focus(|style| style.border_color(cx.theme().selection))
+                            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+                            .focus(|style| style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)))
                             .on_activate(cx.listener(|_, _, _, cx| {
                                 cx.emit(PrototypePanelAction::ZoomMenuRequested);
                             }))
                             .child(
                                 div()
-                                    .text_size(px(tokens::TypeScale::MICRO))
+                                    .typography(crate::atoms::TypographyToken::BodySmall)
                                     .child(format!("{}%", self.view_data.zoom_percent)),
                             )
                             .child(Icon::new(IconName::ChevronDown).xsmall()),
@@ -295,7 +299,7 @@ impl Render for PrototypePanel {
                     .child(
                         div()
                             .font_semibold()
-                            .text_size(px(tokens::TypeScale::CAPTION))
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .child("Prototype settings"),
                     )
                     .child(
@@ -310,11 +314,11 @@ impl Render for PrototypePanel {
                             .px(px(8.))
                             .rounded(px(6.))
                             .border_1()
-                            .border_color(cx.theme().border)
+                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                             .cursor_pointer()
-                            .text_size(px(tokens::TypeScale::CAPTION))
-                            .hover(|style| style.bg(cx.theme().accent))
-                            .focus(|style| style.border_color(cx.theme().selection))
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+                            .focus(|style| style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)))
                             .on_activate(cx.listener(|_, _, _, cx| {
                                 cx.emit(PrototypePanelAction::DeviceMenuRequested);
                             }))
@@ -334,12 +338,12 @@ impl Render for PrototypePanel {
                             .px(px(5.))
                             .gap(px(4.5))
                             .rounded(px(6.))
-                            .bg(cx.theme().secondary)
+                            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                             .cursor_pointer()
                             .border_1()
                             .border_color(cx.theme().transparent)
-                            .hover(|style| style.bg(cx.theme().secondary_hover))
-                            .focus(|style| style.border_color(cx.theme().selection))
+                            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+                            .focus(|style| style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)))
                             .on_activate(cx.listener(|_, _, _, cx| {
                                 cx.emit(PrototypePanelAction::BackgroundEditRequested);
                             }))
@@ -348,14 +352,14 @@ impl Render for PrototypePanel {
                                     .size(px(14.))
                                     .rounded(px(3.))
                                     .border_1()
-                                    .border_color(cx.theme().border)
+                                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                                     .bg(rgba(Self::background_rgba(
                                         &self.view_data.background_hex,
                                     ))),
                             )
                             .child(
                                 div()
-                                    .text_size(px(tokens::TypeScale::CAPTION))
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
                                     .child(self.view_data.background_hex.clone()),
                             ),
                     ),
@@ -368,7 +372,7 @@ impl Render for PrototypePanel {
                     .pt(px(7.5))
                     .gap(px(25.))
                     .border_t_1()
-                    .border_color(cx.theme().border)
+                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                     .when(self.show_connection_hint, |content| {
                         content.child(self.render_hint(
                             PrototypeHint::CreatingConnection,

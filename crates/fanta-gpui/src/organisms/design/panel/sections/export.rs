@@ -899,12 +899,12 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
             .justify_center()
             .rounded(px(4.))
             .cursor_pointer()
-            .hover(|style| style.bg(cx.theme().accent))
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
             .focus(|style| {
                 style
-                    .bg(cx.theme().accent)
+                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
                     .border_1()
-                    .border_color(cx.theme().selection)
+                    .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
             })
             .on_activate(move |_, _, cx| {
                 event_sink.dispatch(
@@ -945,16 +945,23 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                 row.key_context(CONTROL_KEY_CONTEXT)
                     .tab_index(0)
                     .cursor_pointer()
-                    .hover(|style| style.bg(cx.theme().accent.opacity(0.55)))
+                    .hover(|style| {
+                        style.bg(crate::atoms::SemanticColor::BackgroundHover
+                            .resolve(cx)
+                            .opacity(0.55))
+                    })
                     .focus(|style| {
                         style
-                            .bg(cx.theme().accent)
+                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
                             .border_1()
-                            .border_color(cx.theme().selection)
+                            .border_color(
+                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                            )
                     })
             })
             .when(!enabled, |row| {
-                row.text_color(cx.theme().muted_foreground).opacity(0.62)
+                row.text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    .opacity(0.62)
             })
             .when(enabled, |row| {
                 row.on_activate(move |_, _, cx| {
@@ -970,7 +977,11 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                     );
                 })
             })
-            .child(div().text_xs().child(label))
+            .child(
+                div()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .child(label),
+            )
             .child(
                 h_flex()
                     .w(px(30.))
@@ -980,15 +991,15 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                     .when(!checked, |toggle| toggle.justify_start())
                     .rounded(px(9.))
                     .bg(if checked {
-                        cx.theme().selection
+                        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
                     } else {
-                        cx.theme().border
+                        crate::atoms::SemanticColor::Border.resolve(cx)
                     })
                     .child(
                         div()
                             .size(px(14.))
                             .rounded(px(7.))
-                            .bg(cx.theme().background),
+                            .bg(crate::atoms::SemanticColor::Background.resolve(cx)),
                     ),
             )
             .into_any_element()
@@ -1014,34 +1025,39 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
         let panel_id = self.id.clone();
         let sink_for_keyboard = sink_for_open.clone();
         let overlay_for_keyboard = overlay.clone();
-        let trigger = Button::new(SharedString::from(format!("{}-{id_suffix}", self.id)))
-            .tooltip(label)
-            .xsmall()
-            .compact()
-            .ghost()
-            .w_full()
-            .h(px(ROW_HEIGHT))
-            .disabled(!enabled || options.is_empty())
-            .on_keyboard_activate(move |_, cx| {
-                sink_for_keyboard.dispatch(
-                    ExportEvent::ToggleChoiceOverlay(overlay_for_keyboard.clone()),
-                    cx,
+        let trigger =
+            crate::atoms::ui_button(SharedString::from(format!("{}-{id_suffix}", self.id)))
+                .tooltip(label)
+                .xsmall()
+                .compact()
+                .ghost()
+                .w_full()
+                .h(px(ROW_HEIGHT))
+                .disabled(!enabled || options.is_empty())
+                .on_keyboard_activate(move |_, cx| {
+                    sink_for_keyboard.dispatch(
+                        ExportEvent::ToggleChoiceOverlay(overlay_for_keyboard.clone()),
+                        cx,
+                    );
+                })
+                .child(
+                    h_flex()
+                        .w_full()
+                        .justify_between()
+                        .child(
+                            div()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .child(label),
+                        )
+                        .child(
+                            h_flex()
+                                .gap_1()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                                .child(value)
+                                .child(Icon::new(IconName::ChevronRight).xsmall()),
+                        ),
                 );
-            })
-            .child(
-                h_flex()
-                    .w_full()
-                    .justify_between()
-                    .child(div().text_xs().child(label))
-                    .child(
-                        h_flex()
-                            .gap_1()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
-                            .child(value)
-                            .child(Icon::new(IconName::ChevronRight).xsmall()),
-                    ),
-            );
         Popover::new(SharedString::from(format!("{}-{id_suffix}-menu", self.id)))
             .anchor(Anchor::TopRight)
             .open(self.projection.presentation.choice_overlay.as_ref() == Some(&overlay))
@@ -1064,7 +1080,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                             let popover = popover.clone();
                             let configuration_id = configuration_id.clone();
                             let expected_target = expected_target.clone();
-                            Button::new(SharedString::from(format!(
+                            crate::atoms::ui_button(SharedString::from(format!(
                                 "{panel_id}-{id_suffix}-option-{option_index}"
                             )))
                             .label(option_label)
@@ -1320,11 +1336,11 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                 .p(px(2.))
                 .gap_1()
                 .rounded(px(6.))
-                .bg(cx.theme().secondary)
+                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                 .children(DesignExportMode::ALL.into_iter().map(|mode| {
                     let event_sink = event_sink.clone();
                     let expected_target = expected_target.clone();
-                    Button::new(SharedString::from(format!(
+                    crate::atoms::ui_button(SharedString::from(format!(
                         "{}-export-mode-{}",
                         self.id,
                         mode.label().to_ascii_lowercase()
@@ -1370,34 +1386,39 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
         let panel_id = self.id.clone();
         let sink_for_keyboard = sink_for_open.clone();
         let overlay_for_keyboard = overlay.clone();
-        let trigger = Button::new(SharedString::from(format!("{}-{id_suffix}", self.id)))
-            .tooltip(label.clone())
-            .xsmall()
-            .compact()
-            .ghost()
-            .w_full()
-            .h(px(ROW_HEIGHT))
-            .disabled(!self.can_export() || options.is_empty())
-            .on_keyboard_activate(move |_, cx| {
-                sink_for_keyboard.dispatch(
-                    ExportEvent::ToggleChoiceOverlay(overlay_for_keyboard.clone()),
-                    cx,
+        let trigger =
+            crate::atoms::ui_button(SharedString::from(format!("{}-{id_suffix}", self.id)))
+                .tooltip(label.clone())
+                .xsmall()
+                .compact()
+                .ghost()
+                .w_full()
+                .h(px(ROW_HEIGHT))
+                .disabled(!self.can_export() || options.is_empty())
+                .on_keyboard_activate(move |_, cx| {
+                    sink_for_keyboard.dispatch(
+                        ExportEvent::ToggleChoiceOverlay(overlay_for_keyboard.clone()),
+                        cx,
+                    );
+                })
+                .child(
+                    h_flex()
+                        .w_full()
+                        .justify_between()
+                        .child(
+                            div()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .child(label),
+                        )
+                        .child(
+                            h_flex()
+                                .gap_1()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                                .child(value)
+                                .child(Icon::new(IconName::ChevronRight).xsmall()),
+                        ),
                 );
-            })
-            .child(
-                h_flex()
-                    .w_full()
-                    .justify_between()
-                    .child(div().text_xs().child(label))
-                    .child(
-                        h_flex()
-                            .gap_1()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
-                            .child(value)
-                            .child(Icon::new(IconName::ChevronRight).xsmall()),
-                    ),
-            );
         Popover::new(SharedString::from(format!("{}-{id_suffix}-menu", self.id)))
             .anchor(Anchor::TopRight)
             .open(self.projection.presentation.choice_overlay.as_ref() == Some(&overlay))
@@ -1419,7 +1440,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                             let event_sink = sink_for_content.clone();
                             let popover = popover.clone();
                             let expected_target = expected_target.clone();
-                            Button::new(SharedString::from(format!(
+                            crate::atoms::ui_button(SharedString::from(format!(
                                 "{panel_id}-{id_suffix}-option-{option_index}"
                             )))
                             .label(option_label)
@@ -1576,7 +1597,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                             .w_full()
                             .h(px(ROW_HEIGHT))
                             .justify_between()
-                            .child(div().text_xs().child("Loop count"))
+                            .child(div().typography(crate::atoms::TypographyToken::BodyMedium).child("Loop count"))
                             .child(
                                 h_flex()
                                     .gap_1()
@@ -1584,7 +1605,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                                         let event_sink = self.event_sink.clone();
                                         let expected_target =
                                             self.projection.target.target.clone();
-                                        Button::new(SharedString::from(format!(
+                                        crate::atoms::ui_button(SharedString::from(format!(
                                             "{}-animated-loop-decrement",
                                             self.id
                                         )))
@@ -1616,8 +1637,8 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                                             .items_center()
                                             .justify_center()
                                             .rounded(px(4.))
-                                            .bg(cx.theme().secondary)
-                                            .text_xs()
+                                            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                                            .typography(crate::atoms::TypographyToken::BodyMedium)
                                             .child(if current_loop_count == 0 {
                                                 SharedString::from("Forever")
                                             } else {
@@ -1628,7 +1649,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                                         let event_sink = self.event_sink.clone();
                                         let expected_target =
                                             self.projection.target.target.clone();
-                                        Button::new(SharedString::from(format!(
+                                        crate::atoms::ui_button(SharedString::from(format!(
                                             "{}-animated-loop-increment",
                                             self.id
                                         )))
@@ -1683,8 +1704,8 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                 if options.is_empty() {
                     content = content.child(
                         div()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("Animated SVG settings are supplied by the host."),
                     );
                 }
@@ -1702,16 +1723,16 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                         .px_2()
                         .py_1()
                         .rounded(px(5.))
-                        .bg(cx.theme().secondary)
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(reason),
                 )
             })
             .child({
                 let event_sink = self.event_sink.clone();
                 let expected_target = self.projection.target.target.clone();
-                Button::new(SharedString::from(format!("{}-animated-export", self.id)))
+                crate::atoms::ui_button(SharedString::from(format!("{}-animated-export", self.id)))
                     .label(format!(
                         "Export {} as {}",
                         self.node_name,
@@ -1739,15 +1760,15 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
             Some(DesignExportPreviewState::Idle) => div()
                 .px_2()
                 .pb_2()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("Open Preview to request a host-rendered thumbnail.")
                 .into_any_element(),
             Some(DesignExportPreviewState::Loading) => div()
                 .px_2()
                 .pb_2()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("Rendering preview…")
                 .into_any_element(),
             Some(DesignExportPreviewState::Ready(preview)) => v_flex()
@@ -1760,13 +1781,13 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                         .w_full()
                         .rounded(px(5.))
                         .border_1()
-                        .border_color(cx.theme().border)
-                        .bg(cx.theme().secondary)
+                        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                         .flex()
                         .items_center()
                         .justify_center()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(preview.thumbnail_id.clone().unwrap_or_else(|| {
                             SharedString::from("Host-rendered export thumbnail")
                         })),
@@ -1775,8 +1796,8 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                     h_flex()
                         .w_full()
                         .justify_between()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(format!(
                             "{} × {} px",
                             preview.pixel_width, preview.pixel_height
@@ -1789,8 +1810,8 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
             Some(DesignExportPreviewState::Error { message }) => div()
                 .px_2()
                 .pb_2()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child(message.clone())
                 .into_any_element(),
             None => div().into_any_element(),
@@ -1875,12 +1896,16 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                             .justify_center()
                             .rounded(px(4.))
                             .cursor_pointer()
-                            .hover(|style| style.bg(cx.theme().accent))
+                            .hover(|style| {
+                                style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            })
                             .focus(|style| {
                                 style
-                                    .bg(cx.theme().accent)
+                                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
                                     .border_1()
-                                    .border_color(cx.theme().selection)
+                                    .border_color(
+                                        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                                    )
                             })
                             .on_activate(move |_, _, cx| {
                                 event_sink.dispatch(
@@ -1937,22 +1962,28 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                 .justify_center()
                 .rounded(px(5.))
                 .border_1()
-                .border_color(cx.theme().border)
-                .text_xs()
+                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                .typography(crate::atoms::TypographyToken::BodyMedium)
                 .when(enabled, |button| {
                     button
                         .key_context(CONTROL_KEY_CONTEXT)
                         .tab_index(0)
                         .cursor_pointer()
-                        .hover(|style| style.bg(cx.theme().accent))
+                        .hover(|style| {
+                            style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        })
                         .focus(|style| {
                             style
-                                .bg(cx.theme().accent)
-                                .border_color(cx.theme().selection)
+                                .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                                .border_color(
+                                    crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                                )
                         })
                 })
                 .when(!enabled, |button| {
-                    button.text_color(cx.theme().muted_foreground).opacity(0.62)
+                    button
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                        .opacity(0.62)
                 })
                 .when(enabled, |button| {
                     button.on_activate(move |_, _, cx| {
@@ -1983,11 +2014,15 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                             .px_2()
                             .gap_2()
                             .cursor_pointer()
-                            .hover(|style| style.bg(cx.theme().accent))
+                            .hover(|style| {
+                                style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            })
                             .focus(|style| {
                                 style
-                                    .bg(cx.theme().accent)
-                                    .border_color(cx.theme().selection)
+                                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                                    .border_color(
+                                        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                                    )
                             })
                             .on_activate(move |_, _, cx| {
                                 preview_sink.dispatch(
@@ -2005,7 +2040,11 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                                 })
                                 .xsmall(),
                             )
-                            .child(div().text_xs().child("Preview")),
+                            .child(
+                                div()
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .child("Preview"),
+                            ),
                     )
                     .when(self.projection.preview.expanded, |preview| {
                         preview.child(self.render_export_preview_state(cx))

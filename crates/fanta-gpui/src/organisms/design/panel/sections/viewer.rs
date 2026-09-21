@@ -181,7 +181,7 @@ fn render_property_section(
                 .flex_1()
                 .min_w(px(0.))
                 .truncate()
-                .text_sm()
+                .typography(crate::atoms::TypographyToken::BodyLarge)
                 .font_semibold()
                 .child(section.title.clone()),
         );
@@ -189,7 +189,7 @@ fn render_property_section(
         let event_sink = event_sink.clone();
         let copy_section_id = section.id.clone();
         header = header.child(
-            Button::new(SharedString::from(format!(
+            crate::atoms::ui_button(SharedString::from(format!(
                 "{}-viewer-copy-section-{}",
                 projection.panel_id, section.id
             )))
@@ -213,8 +213,8 @@ fn render_property_section(
                 .px_2()
                 .py_1()
                 .rounded(px(4.))
-                .bg(cx.theme().secondary)
-                .text_xs()
+                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                .typography(crate::atoms::TypographyToken::BodyMedium)
                 .child(summary),
         );
     }
@@ -226,7 +226,7 @@ fn render_property_section(
                 let event_sink = event_sink.clone();
                 let representation_section_id = section.id.clone();
                 representations = representations.child(
-                    Button::new(SharedString::from(format!(
+                    crate::atoms::ui_button(SharedString::from(format!(
                         "{}-viewer-representation-{}-{}",
                         projection.panel_id,
                         section.id,
@@ -259,9 +259,9 @@ fn render_property_section(
                     .flex()
                     .items_center()
                     .rounded(px(4.))
-                    .bg(cx.theme().secondary)
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(active_representation.label()),
             );
         }
@@ -289,14 +289,14 @@ fn render_property_section(
             .px_2()
             .gap_2()
             .rounded(px(4.))
-            .bg(cx.theme().secondary)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
             .child(
                 div()
                     .w(px(96.))
                     .flex_none()
                     .truncate()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(row.label),
             )
             .child(
@@ -304,7 +304,7 @@ fn render_property_section(
                     .flex_1()
                     .min_w(px(0.))
                     .truncate()
-                    .text_xs()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .child(row.displayed_value),
             )
             .when(copyable, |element| {
@@ -312,11 +312,17 @@ fn render_property_section(
                     .key_context(CONTROL_KEY_CONTEXT)
                     .tab_index(0)
                     .cursor_pointer()
-                    .hover(|style| style.bg(cx.theme().sidebar_accent.opacity(0.55)))
+                    .hover(|style| {
+                        style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                            .resolve(cx)
+                            .opacity(0.55))
+                    })
                     .focus(|style| {
                         style
-                            .bg(cx.theme().sidebar_accent)
-                            .border_color(cx.theme().selection)
+                            .bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
+                            .border_color(
+                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                            )
                     })
             });
         if let Some(property) = row.property.filter(|_| copyable) {
@@ -339,7 +345,7 @@ fn render_property_section(
         .w_full()
         .flex_none()
         .border_b_1()
-        .border_color(cx.theme().sidebar_border)
+        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
         .child(header)
         .child(body)
         .into_any_element()
@@ -355,8 +361,8 @@ pub(in super::super) fn render(
             .w_full()
             .px(px(PANEL_PADDING))
             .py_4()
-            .text_xs()
-            .text_color(cx.theme().muted_foreground)
+            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
             .child("Supply DesignViewerPropertiesViewData for this exact selection")
             .into_any_element();
     };

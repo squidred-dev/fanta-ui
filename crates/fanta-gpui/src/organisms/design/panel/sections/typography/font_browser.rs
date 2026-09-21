@@ -224,7 +224,7 @@ pub(in super::super::super) fn render(
     let content_typography_target = projection.typography_target;
     let state = projection.state.clone();
     let rows = projection.rows.clone();
-    let trigger = Button::new(SharedString::from(format!("{panel_id}-font-browser")))
+    let trigger = crate::atoms::ui_button(SharedString::from(format!("{panel_id}-font-browser")))
         .label(projection.trigger_label)
         .tooltip("Browse font family and style")
         .xsmall()
@@ -263,7 +263,12 @@ pub(in super::super::super) fn render(
                 .max_h(popup_height(window, 460.))
                 .gap_1()
                 .p_2()
-                .child(div().text_sm().font_semibold().child("Fonts"))
+                .child(
+                    div()
+                        .typography(crate::atoms::TypographyToken::BodyLarge)
+                        .font_semibold()
+                        .child("Fonts"),
+                )
                 .child(
                     Input::new(&search)
                         .small()
@@ -275,8 +280,8 @@ pub(in super::super::super) fn render(
                         div()
                             .px_1()
                             .py_3()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("Loading available fonts…"),
                     );
                 }
@@ -286,11 +291,17 @@ pub(in super::super::super) fn render(
                             .px_1()
                             .py_3()
                             .gap_1()
-                            .child(div().text_xs().child("Fonts unavailable"))
                             .child(
                                 div()
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground)
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .child("Fonts unavailable"),
+                            )
+                            .child(
+                                div()
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .text_color(
+                                        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child(reason),
                             ),
                     );
@@ -300,8 +311,8 @@ pub(in super::super::super) fn render(
                         div()
                             .px_1()
                             .py_3()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("No fonts found"),
                     );
                 }
@@ -316,7 +327,7 @@ pub(in super::super::super) fn render(
                         let selection = row.selection.clone();
                         let activation = row.activation;
                         list = list.child(
-                            Button::new(SharedString::from(format!(
+                            crate::atoms::ui_button(SharedString::from(format!(
                                 "font-{}-{}",
                                 row.selection.family_id, row.selection.style_id
                             )))

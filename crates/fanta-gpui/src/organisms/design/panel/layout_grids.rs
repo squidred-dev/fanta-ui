@@ -732,7 +732,7 @@ impl DesignLayoutGridController for DesignPanel {
             || "Layout guide styles".into(),
             |binding| binding.style_name.clone(),
         );
-        let trigger = Button::new(SharedString::from(format!(
+        let trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{}-layout-guide-styles",
             self.id
         )))
@@ -785,7 +785,7 @@ impl DesignLayoutGridController for DesignPanel {
                     div()
                         .px_2()
                         .py_1()
-                        .text_xs()
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
                         .font_semibold()
                         .child("Layout guide styles"),
                 );
@@ -801,11 +801,11 @@ impl DesignLayoutGridController for DesignPanel {
                                 .flex_1()
                                 .min_w(px(0.))
                                 .truncate()
-                                .text_xs()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
                                 .child(binding.style_name),
                         )
                         .child(
-                            Button::new(SharedString::from(format!(
+                            crate::atoms::ui_button(SharedString::from(format!(
                                 "{panel_id}-detach-layout-guide-style"
                             )))
                             .label(if binding.can_detach {
@@ -827,7 +827,7 @@ impl DesignLayoutGridController for DesignPanel {
             }
             let panel = panel_for_content.clone();
             content = content.child(
-                Button::new(SharedString::from(format!(
+                crate::atoms::ui_button(SharedString::from(format!(
                     "{panel_id}-create-layout-guide-style"
                 )))
                 .label("Create style from guides")
@@ -853,8 +853,8 @@ impl DesignLayoutGridController for DesignPanel {
                     div()
                         .px_2()
                         .py_2()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(if catalog_is_empty {
                             "No Grid styles supplied by the host"
                         } else {
@@ -867,8 +867,8 @@ impl DesignLayoutGridController for DesignPanel {
                     div()
                         .px_2()
                         .pt_2()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("This page"),
                 );
                 let mut rows = if view_mode == StyleBrowserViewMode::Grid {
@@ -882,7 +882,7 @@ impl DesignLayoutGridController for DesignPanel {
                     let panel = panel_for_content.clone();
                     let imported = import_state == DesignLayoutGridStyleImportState::Imported;
                     rows = rows.child(
-                        Button::new(SharedString::from(format!(
+                        crate::atoms::ui_button(SharedString::from(format!(
                             "{panel_id}-layout-guide-style-page-{row_index}"
                         )))
                         .label(name)
@@ -912,8 +912,8 @@ impl DesignLayoutGridController for DesignPanel {
                     div()
                         .px_2()
                         .pt_2()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(library_name),
                 );
                 let mut rows = if view_mode == StyleBrowserViewMode::Grid {
@@ -932,7 +932,7 @@ impl DesignLayoutGridController for DesignPanel {
                         SharedString::from(format!("{name} · Import"))
                     };
                     rows = rows.child(
-                        Button::new(SharedString::from(format!(
+                        crate::atoms::ui_button(SharedString::from(format!(
                             "{panel_id}-layout-guide-style-library-{library_index}-{style_index}"
                         )))
                         .label(label)
@@ -1094,7 +1094,7 @@ impl DesignLayoutGridController for DesignPanel {
                 ))
             },
         );
-        let trigger = Button::new(SharedString::from(format!(
+        let trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{panel_id}-layout-guide-variable-{index}-{property_key}"
         )))
         .tooltip(tooltip)
@@ -1106,7 +1106,7 @@ impl DesignLayoutGridController for DesignPanel {
         .selected(active || binding.is_some())
         .child(render_lucide_icon(
             LucideIcon::Variable,
-            cx.theme().foreground,
+            crate::atoms::SemanticColor::Text.resolve(cx),
             14.,
         ))
         .on_activate(cx.listener(move |this, _, _, cx| {
@@ -1152,7 +1152,7 @@ impl DesignLayoutGridController for DesignPanel {
                 div()
                     .px_2()
                     .py_1()
-                    .text_xs()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .font_semibold()
                     .child(title.clone()),
             );
@@ -1173,11 +1173,11 @@ impl DesignLayoutGridController for DesignPanel {
                                 .flex_1()
                                 .min_w(px(0.))
                                 .truncate()
-                                .text_xs()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
                                 .child(format!("{collection} · {}", binding.variable_name)),
                         )
                         .child(
-                            Button::new(SharedString::from(format!(
+                            crate::atoms::ui_button(SharedString::from(format!(
                                 "{panel_id}-detach-layout-guide-variable-{index}-{property_key}"
                             )))
                             .label("Detach")
@@ -1216,7 +1216,7 @@ impl DesignLayoutGridController for DesignPanel {
                             .map(|_| SharedString::from("Detach the variable before creating one"))
                     });
                 content = content.child(
-                    Button::new(SharedString::from(format!(
+                    crate::atoms::ui_button(SharedString::from(format!(
                         "{panel_id}-create-layout-guide-variable-{index}-{property_key}"
                     )))
                     .label(format!("Create variable from {}", value.label()))
@@ -1247,8 +1247,8 @@ impl DesignLayoutGridController for DesignPanel {
                     div()
                         .px_2()
                         .py_2()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("No Number variables supplied"),
                 );
             }
@@ -1285,7 +1285,7 @@ impl DesignLayoutGridController for DesignPanel {
                     format!("{} · {}", variable.collection_name, variable.name)
                 };
                 content = content.child(
-                    Button::new(SharedString::from(format!(
+                    crate::atoms::ui_button(SharedString::from(format!(
                         "{panel_id}-layout-guide-variable-{index}-{property_key}-{variable_index}"
                     )))
                     .label(row_label)
@@ -1362,7 +1362,7 @@ impl DesignLayoutGridController for DesignPanel {
                     .gap_2()
                     .rounded(px(6.))
                     .border_1()
-                    .border_color(cx.theme().border)
+                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                     .child(
                         h_flex()
                             .w_full()
@@ -1379,7 +1379,7 @@ impl DesignLayoutGridController for DesignPanel {
                                     .flex_none()
                                     .rounded(px(3.))
                                     .border_1()
-                                    .border_color(cx.theme().border)
+                                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                                     .bg(color_hsla(grid.color))
                                     .opacity((grid.opacity / 100.).clamp(0., 1.)),
                             )

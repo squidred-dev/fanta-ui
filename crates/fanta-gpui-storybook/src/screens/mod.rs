@@ -7,11 +7,16 @@
 //! and window sizing; nothing else may hold a per-story match.
 
 pub(crate) mod buttons;
+pub(crate) mod checkbox;
+pub(crate) mod color_picker;
+pub(crate) mod color_system;
 pub(crate) mod design;
+pub(crate) mod dropdown;
 pub(crate) mod fields;
 pub(crate) mod file_inspector;
 pub(crate) mod harness;
 pub(crate) mod icons;
+pub(crate) mod inputs;
 pub(crate) mod intent;
 pub(crate) mod knobs;
 pub(crate) mod labels;
@@ -23,21 +28,30 @@ pub(crate) mod pages;
 pub(crate) mod popups;
 pub(crate) mod prototype;
 pub(crate) mod pseudo_editor;
+pub(crate) mod radio_button;
+pub(crate) mod segmented_control;
+pub(crate) mod sliders;
 pub(crate) mod spec;
 pub(crate) mod specimen;
 pub(crate) mod structure;
+pub(crate) mod tabs;
 pub(crate) mod timeline;
 pub(crate) mod tokens;
 pub(crate) mod toolbar;
+pub(crate) mod tooltips;
+pub(crate) mod typography;
 pub(crate) mod variables;
 pub(crate) mod viewport;
 pub(crate) mod welcome;
 
 pub(crate) use buttons::ButtonsScreen;
+pub(crate) use checkbox::CheckboxStory;
 pub(crate) use design::DesignScreen;
+pub(crate) use dropdown::DropdownStory;
 pub(crate) use fields::FieldsScreen;
 pub(crate) use file_inspector::FileInspectorScreen;
 pub(crate) use icons::IconsScreen;
+pub(crate) use inputs::InputsStory;
 pub(crate) use labels::LabelsScreen;
 pub(crate) use layers::LayersScreen;
 pub(crate) use list_rows::ListRowsScreen;
@@ -47,10 +61,14 @@ pub(crate) use pages::PagesScreen;
 pub(crate) use popups::PopupsScreen;
 pub(crate) use prototype::PrototypeScreen;
 pub(crate) use pseudo_editor::PseudoEditorScreen;
+pub(crate) use radio_button::RadioButtonStory;
+pub(crate) use segmented_control::SegmentedControlStory;
 pub(crate) use structure::StructureScreen;
+pub(crate) use tabs::TabsStory;
 pub(crate) use timeline::TimelineScreen;
 pub(crate) use tokens::TokensScreen;
 pub(crate) use toolbar::ToolbarScreen;
+pub(crate) use tooltips::TooltipsStory;
 pub(crate) use variables::VariablesStory;
 pub(crate) use viewport::ViewportPreset;
 pub(crate) use welcome::WelcomeScreen;
@@ -204,7 +222,206 @@ impl StoryKind {
     }
 }
 
-static REGISTRY: [StoryDescriptor; 20] = [
+static REGISTRY: [StoryDescriptor; 34] = [
+    StoryDescriptor {
+        kind: StoryKind::Typography,
+        id: "typography",
+        aliases: &["type", "type-tokens"],
+        title: "Typography",
+        nav_label: "Typography",
+        description: "Figma UI3 display, heading, and body roles applied through reusable semantic typography tokens.",
+        section: StorySection::Atoms,
+        reference_window_size: (1240., 900.),
+        gallery_surface_size: (900., 880.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Sheet", 720., 760.),
+            ViewportPreset::new("Default", 900., 880.),
+        ],
+        keyboard_hints: &[],
+        render_story: |story, cx| story.render_typography_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_typography_reference(cx),
+        render_knobs: None,
+        focus: |story, window, cx| story.tokens_screen.focus_handle.focus(window, cx),
+        last_action: |_| "Review semantic typography roles".into(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::ColorSystem,
+        id: "color-system",
+        aliases: &["semantic-colors", "colors"],
+        title: "Color system",
+        nav_label: "Color system",
+        description: "Figma UI3 semantic border, background, icon, and text roles mapped live to the active GPUI theme.",
+        section: StorySection::Atoms,
+        reference_window_size: (1240., 900.),
+        gallery_surface_size: (900., 880.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Sheet", 720., 760.),
+            ViewportPreset::new("Default", 900., 880.),
+            ViewportPreset::new("Wide", 1120., 900.),
+        ],
+        keyboard_hints: &[],
+        render_story: |story, cx| story.render_color_system_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_color_system_reference(cx),
+        render_knobs: None,
+        focus: |story, window, cx| story.tokens_screen.focus_handle.focus(window, cx),
+        last_action: |_| "Review semantic colors from the active theme".into(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::Sliders,
+        id: "slider",
+        aliases: &[],
+        title: "Slider",
+        nav_label: "Slider",
+        description: "Theme-aware slider family: states, variants, pointer and keyboard interactions.",
+        section: StorySection::Molecules,
+        reference_window_size: (720., 800.),
+        gallery_surface_size: (440., 640.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 640.),
+            ViewportPreset::new("Default", 440., 640.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Arrows / Shift+Arrows", "Adjust value / coarse step"),
+            KeyboardHint::new("Home / End", "Minimum / maximum"),
+        ],
+        render_story: |story, cx| story.render_sliders_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_sliders_reference(cx),
+        render_knobs: None,
+        focus: |story, window, cx| {
+            story.sliders_screen.sliders[0]
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.sliders_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::SliderBackgrounds,
+        id: "slider-background",
+        aliases: &[],
+        title: "Slider background",
+        nav_label: "Slider background",
+        description: "Theme-aware slider family: states, variants, pointer and keyboard interactions.",
+        section: StorySection::Atoms,
+        reference_window_size: (720., 800.),
+        gallery_surface_size: (440., 640.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 640.),
+            ViewportPreset::new("Default", 440., 640.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Arrows / Shift+Arrows", "Adjust value / coarse step"),
+            KeyboardHint::new("Home / End", "Minimum / maximum"),
+        ],
+        render_story: |story, cx| story.render_slider_backgrounds_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_slider_backgrounds_reference(cx),
+        render_knobs: None,
+        focus: |story, window, cx| {
+            story.sliders_screen.sliders[5]
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.sliders_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::SliderHandles,
+        id: "slider-handle",
+        aliases: &[],
+        title: "Slider handle",
+        nav_label: "Slider handle",
+        description: "Theme-aware slider family: states, variants, pointer and keyboard interactions.",
+        section: StorySection::Atoms,
+        reference_window_size: (720., 800.),
+        gallery_surface_size: (440., 640.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 640.),
+            ViewportPreset::new("Default", 440., 640.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Arrows / Shift+Arrows", "Adjust value / coarse step"),
+            KeyboardHint::new("Home / End", "Minimum / maximum"),
+        ],
+        render_story: |story, cx| story.render_slider_handles_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_slider_handles_reference(cx),
+        render_knobs: None,
+        focus: |story, window, cx| {
+            story.sliders_screen.sliders[0]
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.sliders_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::SliderStops,
+        id: "slider-gradient-stop",
+        aliases: &[],
+        title: "Slider gradient stop",
+        nav_label: "Slider gradient stop",
+        description: "Theme-aware slider family: states, variants, pointer and keyboard interactions.",
+        section: StorySection::Atoms,
+        reference_window_size: (720., 800.),
+        gallery_surface_size: (440., 640.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 640.),
+            ViewportPreset::new("Default", 440., 640.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Arrows / Shift+Arrows", "Adjust value / coarse step"),
+            KeyboardHint::new("Home / End", "Minimum / maximum"),
+        ],
+        render_story: |story, cx| story.render_slider_stops_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_slider_stops_reference(cx),
+        render_knobs: None,
+        focus: |story, window, cx| {
+            story.sliders_screen.sliders[0]
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.sliders_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::ColorPicker,
+        id: "color-picker",
+        aliases: &["color"],
+        title: "Color picker",
+        nav_label: "Color",
+        description: "The inspector’s shared RGBA editor with spectrum, hue, opacity, and Hex/RGB/HSL/HSB inputs.",
+        section: StorySection::Organisms,
+        reference_window_size: (720., 720.),
+        gallery_surface_size: (600., 620.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 560.),
+            ViewportPreset::new("Default", 600., 620.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Arrow keys", "Adjust focused spectrum, hue or alpha"),
+            KeyboardHint::new("Enter / Escape", "Commit / cancel color text edits"),
+        ],
+        render_story: |story, cx| story.render_color_picker_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_color_picker_reference(cx),
+        render_knobs: None,
+        focus: |story, window, cx| {
+            story
+                .color_picker_screen
+                .picker
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.color_picker_screen.last_action.clone(),
+    },
     StoryDescriptor {
         kind: StoryKind::Welcome,
         id: "welcome",
@@ -237,8 +454,9 @@ static REGISTRY: [StoryDescriptor; 20] = [
         aliases: &["icon-button", "activation"],
         title: "Buttons & activation",
         nav_label: "Buttons",
-        description: "An icon_button state matrix at several sizes, every specimen wired \
-                      through the single ControlExt::on_activate pointer/keyboard path.",
+        description: "The complete UI3 button taxonomy: nine text-button variants, three sizes, \
+                      leading-icon alignment, icon/toggle/dialog/split families, all interaction \
+                      states, and the shared pointer/keyboard activation path.",
         section: StorySection::Atoms,
         reference_window_size: (1240., 820.),
         gallery_surface_size: (900., 640.),
@@ -259,6 +477,95 @@ static REGISTRY: [StoryDescriptor; 20] = [
             story.buttons_screen.focus_handle.focus(window, cx);
         },
         last_action: |story| story.buttons_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::Checkbox,
+        id: "checkbox",
+        aliases: &["checkboxes", "mixed-checkbox"],
+        title: "Checkbox",
+        nav_label: "Checkbox",
+        description: "The UI3 checkbox taxonomy: checked, unchecked, and mixed values with \
+                      focused, disabled, muted, and ghost presentation axes.",
+        section: StorySection::Atoms,
+        reference_window_size: (1000., 820.),
+        gallery_surface_size: (760., 720.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 520., 640.),
+            ViewportPreset::new("Default", 760., 720.),
+        ],
+        keyboard_hints: &[KeyboardHint::new(
+            "Tab, then Enter / Space",
+            "Cycle the live controlled checkbox",
+        )],
+        render_story: |story, cx| story.render_checkbox_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_checkbox_reference(cx),
+        render_knobs: None,
+        focus: |story, window, cx| story.checkbox_story.focus_handle.focus(window, cx),
+        last_action: |story| story.checkbox_story.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::Dropdown,
+        id: "dropdown",
+        aliases: &["select", "dropdown-trigger"],
+        title: "Dropdown",
+        nav_label: "Dropdown",
+        description: "The UI3 dropdown trigger taxonomy: default and large sizes, \
+                      default/focused/active/disabled states, optional stroke, and optional \
+                      leading icon.",
+        section: StorySection::Atoms,
+        reference_window_size: (1000., 820.),
+        gallery_surface_size: (760., 720.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 520., 640.),
+            ViewportPreset::new("Default", 760., 720.),
+        ],
+        keyboard_hints: &[KeyboardHint::new(
+            "Tab, then Enter / Space",
+            "Activate the live dropdown trigger",
+        )],
+        render_story: |story, cx| story.render_dropdown_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_dropdown_reference(cx),
+        render_knobs: None,
+        focus: |story, window, cx| story.dropdown_story.focus_handle.focus(window, cx),
+        last_action: |story| story.dropdown_story.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::Inputs,
+        id: "inputs",
+        aliases: &[
+            "input",
+            "text-input",
+            "numeric-input",
+            "color-input",
+            "combo-input",
+        ],
+        title: "Inputs",
+        nav_label: "Inputs",
+        description: "The UI3 input taxonomy: controlled text, numeric, grouped numeric, color, \
+                      and combo inputs plus their variable cells, chips, dropdown segments, and \
+                      24/48 px color chits.",
+        section: StorySection::Atoms,
+        reference_window_size: (1240., 900.),
+        gallery_surface_size: (1000., 820.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 560., 700.),
+            ViewportPreset::new("Default", 1000., 820.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Tab / Shift-Tab", "Move among editable input specimens"),
+            KeyboardHint::new("Enter", "Commit the focused single-line value"),
+        ],
+        render_story: |story, cx| story.render_inputs_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_inputs_reference(cx),
+        render_knobs: None,
+        focus: |story, window, cx| story.inputs_story.focus_handle(cx).focus(window, cx),
+        last_action: |story| story.inputs_story.last_action.clone(),
     },
     StoryDescriptor {
         kind: StoryKind::Labels,
@@ -366,8 +673,9 @@ static REGISTRY: [StoryDescriptor; 20] = [
         aliases: &["molecules", "context-menu"],
         title: "Menus",
         nav_label: "Menus",
-        description: "A live context menu built from menu_surface and menu_item: right-click \
-                      the demo area and watch two-axis clamping near the edges.",
+        description: "All 64 UI3 menu specimens: 57 row variants across the simple, complex, \
+                      selection, toggle, toolbar, and structural families, plus 7 multi-select \
+                      and composed variants and a live context-menu clamping demo.",
         section: StorySection::Molecules,
         reference_window_size: (1240., 820.),
         gallery_surface_size: (900., 620.),
@@ -391,6 +699,118 @@ static REGISTRY: [StoryDescriptor; 20] = [
             story.menus_screen.demo_focus.focus(window, cx);
         },
         last_action: |story| story.menus_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::SegmentedControl,
+        id: "segmented-control",
+        aliases: &["segmented", "segments"],
+        title: "Segmented control",
+        nav_label: "Segmented control",
+        description: "All 46 linked UI3 specimens: 20 icon/label and count/state variants, 10 segment primitive states, 16 common inspector presets, and two controlled interactive examples.",
+        section: StorySection::Molecules,
+        reference_window_size: (1240., 900.),
+        gallery_surface_size: (900., 880.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 560., 680.),
+            ViewportPreset::new("Default", 900., 880.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new(
+                "Tab, then Enter / Space",
+                "Select the focused segment through the shared activation path",
+            ),
+            KeyboardHint::new(
+                "← → ↑ ↓ / Home / End",
+                "Move the controlled selection within a segmented control",
+            ),
+        ],
+        render_story: |story, cx| story.render_segmented_control_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_segmented_control_reference(cx),
+        render_knobs: None,
+        focus: |story, window, cx| {
+            story.segmented_control_story.focus_handle.focus(window, cx);
+        },
+        last_action: |story| story.segmented_control_story.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::RadioButton,
+        id: "radio-button",
+        aliases: &["radio", "radio-buttons"],
+        title: "Radio button",
+        nav_label: "Radio button",
+        description: "The 12 valid UI3 radio variants plus a controlled group with pointer and keyboard selection.",
+        section: StorySection::Atoms,
+        reference_window_size: (1240., 900.),
+        gallery_surface_size: (900., 760.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 520., 620.),
+            ViewportPreset::new("Default", 900., 760.),
+        ],
+        keyboard_hints: &[KeyboardHint::new(
+            "Tab, then Enter / Space",
+            "Select the focused radio option",
+        )],
+        render_story: |story, cx| story.render_radio_button_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_radio_button_reference(cx),
+        render_knobs: None,
+        focus: |story, window, cx| story.radio_button_story.focus_handle.focus(window, cx),
+        last_action: |story| story.radio_button_story.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::Tabs,
+        id: "tabs",
+        aliases: &["tab"],
+        title: "Tabs",
+        nav_label: "Tabs",
+        description: "All 4 Tabs count variants and all 7 valid _Tab primitive variants, backed by controlled selection intents.",
+        section: StorySection::Molecules,
+        reference_window_size: (1240., 900.),
+        gallery_surface_size: (900., 780.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 520., 640.),
+            ViewportPreset::new("Default", 900., 780.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Enter / Space", "Select the focused tab"),
+            KeyboardHint::new("← → ↑ ↓ / Home / End", "Move the selected tab"),
+        ],
+        render_story: |story, cx| story.render_tabs_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_tabs_reference(cx),
+        render_knobs: None,
+        focus: |story, window, cx| story.tabs_story.focus_handle.focus(window, cx),
+        last_action: |story| story.tabs_story.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::Tooltips,
+        id: "tooltips",
+        aliases: &["tooltip", "tooltip-link"],
+        title: "Tooltips",
+        nav_label: "Tooltips",
+        description: "All 8 tooltip directions and 8 Tooltip link actions, including live hover, pointer, and keyboard examples.",
+        section: StorySection::Molecules,
+        reference_window_size: (1240., 900.),
+        gallery_surface_size: (900., 840.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 520., 680.),
+            ViewportPreset::new("Default", 900., 840.),
+        ],
+        keyboard_hints: &[KeyboardHint::new(
+            "Enter / Space",
+            "Show a focused tooltip or activate a tooltip link",
+        )],
+        render_story: |story, cx| story.render_tooltips_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_tooltips_reference(cx),
+        render_knobs: None,
+        focus: |story, window, cx| story.tooltips_story.focus_handle.focus(window, cx),
+        last_action: |story| story.tooltips_story.last_action.clone(),
     },
     StoryDescriptor {
         kind: StoryKind::ListRows,
@@ -903,7 +1323,11 @@ mod tests {
                 );
             }
         }
-        assert_eq!(registry().len(), 20);
+        assert_eq!(registry().len(), 34);
+        assert_eq!(
+            story_from_name("color-picker"),
+            Some(StoryKind::ColorPicker)
+        );
         assert_eq!(story_from_name("TOOLBAR"), Some(StoryKind::Toolbar));
         // Launch names of the retired Foundations catalog keep resolving to
         // the specimen stories that absorbed it.
@@ -953,6 +1377,7 @@ mod tests {
             (StoryKind::PseudoEditor, StorySection::Layouts),
             (StoryKind::Icons, StorySection::Atoms),
             (StoryKind::Tokens, StorySection::Atoms),
+            (StoryKind::Inputs, StorySection::Atoms),
             (StoryKind::Fields, StorySection::Molecules),
             (StoryKind::Structure, StorySection::Molecules),
             (StoryKind::Overlays, StorySection::Molecules),

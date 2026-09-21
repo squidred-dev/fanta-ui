@@ -340,12 +340,12 @@ impl DesignOptionsController for DesignPanel {
                 .rounded(px(4.))
                 .border_1()
                 .border_color(cx.theme().transparent)
-                .bg(cx.theme().secondary)
+                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                 .child(
                     div()
                         .w(px(14.))
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(prefix),
                 );
             if additional_label.is_some() {
@@ -357,7 +357,7 @@ impl DesignOptionsController for DesignPanel {
                         .flex_1()
                         .min_w(px(0.))
                         .truncate()
-                        .text_xs()
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
                         .child(value),
                 )
                 .when_some(
@@ -443,7 +443,7 @@ impl DesignOptionsController for DesignPanel {
             SharedString::from(format!("{}-{id_suffix}-preview-menu-trigger", self.id));
         let trigger_debug_selector = trigger_selector.to_string();
         let cell_id = SharedString::from(format!("{}-{id_suffix}", self.id));
-        let trigger = Button::new(trigger_selector)
+        let trigger = crate::atoms::ui_button(trigger_selector)
             .debug_selector(move || trigger_debug_selector.clone())
             .label(SharedString::from(label))
             .dropdown_caret(true)
@@ -521,7 +521,7 @@ impl DesignOptionsController for DesignPanel {
                                 "{panel_id}-{id_suffix}-preview-option-{option_index}"
                             ));
                             let option_debug_selector = option_selector.to_string();
-                            Button::new(option_selector)
+                            crate::atoms::ui_button(option_selector)
                                 .debug_selector(move || option_debug_selector.clone())
                                 .label(option.label)
                                 .xsmall()
@@ -646,12 +646,12 @@ impl DesignOptionsController for DesignPanel {
             .justify_center()
             .rounded(px(4.))
             .cursor_pointer()
-            .hover(|style| style.bg(cx.theme().accent))
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
             .focus(|style| {
                 style
-                    .bg(cx.theme().accent)
+                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
                     .border_1()
-                    .border_color(cx.theme().selection)
+                    .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
             })
             .on_activate(cx.listener(move |this, _, _, cx| {
                 this.emit_remove(collection, index, cx);
@@ -932,9 +932,9 @@ impl DesignOptionsController for DesignPanel {
                 .rounded(px(4.))
                 .border_1()
                 .border_color(cx.theme().transparent)
-                .bg(cx.theme().secondary)
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .opacity(0.62)
                 .child(label)
                 .into_any_element();
@@ -951,14 +951,14 @@ impl DesignOptionsController for DesignPanel {
             .rounded(px(4.))
             .border_1()
             .border_color(cx.theme().transparent)
-            .bg(cx.theme().secondary)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
             .cursor_pointer()
-            .text_xs()
-            .hover(|style| style.bg(cx.theme().accent))
+            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
             .focus(|style| {
                 style
-                    .bg(cx.theme().accent)
-                    .border_color(cx.theme().selection)
+                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
             })
             .on_activate(cx.listener(move |this, _, _, cx| {
                 cx.emit_design_panel_action(this, action.clone());
@@ -990,15 +990,21 @@ impl DesignOptionsController for DesignPanel {
                     .key_context(CONTROL_KEY_CONTEXT)
                     .tab_index(0)
                     .cursor_pointer()
-                    .hover(|style| style.bg(cx.theme().accent))
+                    .hover(|style| {
+                        style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    })
                     .focus(|style| {
                         style
-                            .bg(cx.theme().accent)
-                            .border_color(cx.theme().selection)
+                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .border_color(
+                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                            )
                     })
             })
             .when(!enabled, |button| {
-                button.text_color(cx.theme().muted_foreground).opacity(0.62)
+                button
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    .opacity(0.62)
             });
         if enabled {
             button = button.on_activate(cx.listener(move |this, _, _, cx| {

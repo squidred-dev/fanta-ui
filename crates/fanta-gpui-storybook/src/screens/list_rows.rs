@@ -6,6 +6,7 @@
 //! focus ring, and emit selection/lock demo intents through the single
 //! activation path.
 
+use fanta_gpui::atoms::TypographyExt as _;
 use gpui::FocusHandle;
 
 use crate::*;
@@ -63,8 +64,12 @@ impl Storybook {
         .debug_selector(move || format!("list-rows-row-{index}"))
         .px_2()
         .gap_2()
-        .hover(|style| style.bg(cx.theme().accent))
-        .when(selected, |row| row.bg(cx.theme().selection.opacity(0.18)))
+        .hover(|style| style.bg(fanta_gpui::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+        .when(selected, |row| {
+            row.bg(fanta_gpui::atoms::SemanticColor::BackgroundSelected
+                .resolve(cx)
+                .opacity(0.18))
+        })
         .on_activate(cx.listener(move |this, event: &ActivateEvent, _, cx| {
             this.list_rows_screen.selected = Some(index);
             this.list_rows_screen.last_action = format!(
@@ -78,8 +83,12 @@ impl Storybook {
             .into();
             cx.notify();
         }))
-        .child(render_lucide_icon(icon, cx.theme().muted_foreground, 13.))
-        .child(truncating_label(label).text_sm())
+        .child(render_lucide_icon(
+            icon,
+            fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
+            13.,
+        ))
+        .child(truncating_label(label).typography(fanta_gpui::atoms::TypographyToken::BodyLarge))
         .when_some(state_tag, |row, tag| {
             row.child(
                 div()
@@ -87,16 +96,18 @@ impl Storybook {
                     .px_1p5()
                     .rounded(px(3.))
                     .border_1()
-                    .border_color(cx.theme().border)
+                    .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
                     .text_size(px(10.))
-                    .text_color(cx.theme().muted_foreground)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(tag),
             )
         })
         .child(
             icon_button(satellite_id, px(22.), px(4.), cx)
                 .debug_selector(move || format!("list-rows-lock-{index}"))
-                .when(locked, |button| button.bg(cx.theme().accent))
+                .when(locked, |button| {
+                    button.bg(fanta_gpui::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                })
                 .on_activate(cx.listener(move |this, event: &ActivateEvent, _, cx| {
                     cx.stop_propagation();
                     this.list_rows_screen.locked[index] = !this.list_rows_screen.locked[index];
@@ -119,9 +130,9 @@ impl Storybook {
                         LucideIcon::LockOpen
                     },
                     if locked {
-                        cx.theme().foreground
+                        fanta_gpui::atoms::SemanticColor::Text.resolve(cx)
                     } else {
-                        cx.theme().muted_foreground
+                        fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx)
                     },
                     12.,
                 )),
@@ -141,8 +152,10 @@ impl Storybook {
             .gap_1()
             .rounded(px(8.))
             .border_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().secondary.opacity(0.35));
+            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+            .bg(fanta_gpui::atoms::SemanticColor::BackgroundSecondary
+                .resolve(cx)
+                .opacity(0.35));
         for index in 0..LIST_ROW_SPECIMENS.len() {
             rows = rows.child(self.render_list_row_specimen(index, cx));
         }
@@ -176,8 +189,8 @@ impl Storybook {
                  typed intents. The Layers and Pages organisms demonstrate the \
                  full recipe.",
                 div()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("Open the Layers panel story under Organisms to compare.")
                     .into_any_element(),
                 cx,

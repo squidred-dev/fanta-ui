@@ -96,20 +96,22 @@ impl DesignScrubController for DesignPanel {
                         .gap_2()
                         .rounded(px(7.))
                         .border_1()
-                        .border_color(cx.theme().border)
-                        .bg(cx.theme().popover.opacity(0.96))
-                        .text_color(cx.theme().popover_foreground)
+                        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                        .bg(crate::atoms::SemanticColor::BackgroundMenu
+                            .resolve(cx)
+                            .opacity(0.96))
+                        .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
                         .shadow_lg()
                         .child(
                             div()
                                 .w(px(speed.cue_width()))
                                 .h(px(2.))
                                 .rounded_full()
-                                .bg(cx.theme().selection),
+                                .bg(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)),
                         )
                         .child(
                             div()
-                                .text_xs()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
                                 .font_semibold()
                                 .child(format!("Scrub {}", speed.label())),
                         ),

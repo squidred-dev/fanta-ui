@@ -3,9 +3,9 @@
 mod commands;
 mod context;
 mod field_value;
-mod format;
+pub(crate) mod format;
 mod model;
-mod paint_picker;
+pub(crate) use crate::organisms::color_picker::paint as paint_picker;
 mod panel;
 mod sections;
 mod typography_style_picker;

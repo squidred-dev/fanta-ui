@@ -1,0 +1,75 @@
+[[test]]
+name = "video_playback"
+path = "tests/video_playback.rs"
+harness = false
+
+[package]
+name = "fanta-gpui-media"
+version = "0.1.0"
+edition = "2024"
+publish = true
+license = "Apache-2.0"
+description = "Bindings to macos media handling APIs for Zed"
+repository = "https://github.com/squidred-dev/fanta-ui"
+
+[lib]
+path = "src/media.rs"
+doctest = false
+name = "media"
+
+[build-dependencies]
+bindgen = "0.71"
+
+[lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+declare_interior_mutable_const = "deny"
+redundant_clone = "deny"
+disallowed_methods = "deny"
+type_complexity = "allow"
+let_underscore_future = "allow"
+single_range_in_vec_init = "allow"
+too_many_arguments = "allow"
+large_enum_variant = "allow"
+nonminimal_bool = "allow"
+
+[dependencies.anyhow]
+version = "1.0.86"
+
+[lints.clippy.style]
+level = "allow"
+priority = -1
+
+[lints.rust.unexpected_cfgs]
+level = "allow"
+
+[target."cfg(target_os = \"macos\")".dependencies]
+block = "0.1"
+foreign-types = "0.5"
+
+[target."cfg(target_os = \"macos\")".dependencies.core-foundation]
+version = "=0.10.0"
+
+[target."cfg(target_os = \"macos\")".dependencies.ctor]
+version = "1.0.6"
+
+[target."cfg(target_os = \"macos\")".dependencies.metal]
+version = "0.33"
+
+[target."cfg(target_os = \"macos\")".dependencies.core-video]
+version = "0.5.2"
+features = [ "metal",]
+
+[target."cfg(target_os = \"macos\")".dependencies.objc]
+version = "0.2"
+
+[target."cfg(target_os = \"macos\")".dependencies.futures]
+version = "0.3.32"
+
+[target."cfg(target_os = \"macos\")".dependencies.tempfile]
+version = "3.20.0"
+
+[target."cfg(target_os = \"macos\")".dev-dependencies.smol]
+version = "=0.1.0"
+package = "fanta-gpui-smol"
+path = "../smol"

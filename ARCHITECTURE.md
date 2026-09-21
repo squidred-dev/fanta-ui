@@ -13,10 +13,10 @@ rendering, or editing behavior.
 unstyled or renderer-agnostic. The crate deliberately owns themed GPUI
 presentation, interaction continuity, and accessibility behavior.
 
-The workspace has two layers:
+The workspace owns the framework, platform backends, and component layers:
 
 ```text
-fanta-gpui-storybook ──► fanta-gpui ──► gpui-component ──► gpui
+fanta-gpui-storybook ──► fanta-gpui ──► fanta-gpui-components ──► fanta-gpui-core
 ```
 
 `fanta-gpui` is the facade consumed by a host. The storybook is a development
@@ -71,6 +71,20 @@ lets another host reuse the component with its own model.
 Components use `gpui-component` primitives and its active theme. They should
 prefer theme tokens over hard-coded colors. Fixed dimensions are acceptable
 for intentional editor chrome geometry.
+
+`atoms::SemanticColor` is the application-facing color vocabulary. Its stable
+UI3-style roles group border, background, icon, and text intent while resolving
+from the active `gpui-component` theme at render time. Components use semantic
+roles when the meaning crosses component boundaries; document and canvas
+colors remain controlled host data.
+
+`atoms::TypographyToken` supplies the UI3 display, heading, and body hierarchy;
+`TypographyExt::typography` applies the complete size, line-height, and weight
+recipe while inheriting the host theme's font family. `ui_button` and
+`semantic_button` are the construction boundary for action controls, mapping
+the shared default/large sizes and purpose variants onto `gpui-component`
+behavior. Production components do not construct raw buttons or select ad-hoc
+text-size utilities.
 
 The library can reference the canonical `IconName` paths. Asset ownership stays
 with the application because GPUI installs one application-level asset source.
@@ -141,13 +155,15 @@ registering.
 
 ## §7 Safety and quality
 
-- `unsafe` code is forbidden.
+- `unsafe` code is forbidden in Fanta components and the storybook. Imported
+  framework, platform, and supporting crates retain their upstream safety
+  policies, including native FFI.
 - Public intent and prop types should implement useful comparison/debug traits.
-- `cargo fmt -p fanta-gpui -p fanta-gpui-storybook -- --check`,
+- `cargo fmt --all -- --check`,
   `cargo test --workspace`, and
-  `cargo clippy --workspace --all-targets -- -D warnings` must pass. Scoped
-  `fmt` is deliberate: `--all` would also reformat the patched sibling
-  `fanta-edit` sources.
+  `cargo clippy --workspace --all-targets -- -D warnings` must pass. Imported
+  crates retain explicit upstream lint policies. No command depends on a
+  sibling editor checkout.
 - New dependencies should preserve the seam in §2.
 
 ## §8 Pages panel integration contract
@@ -393,6 +409,20 @@ position, dismissed educational hints, focus, and open/closed empty-state
 guidance. They do not create variables, change prototype settings, add
 keyframes, seek, or run an agent.
 
+`color_picker::ColorPicker` is a reusable organism with an RGBA-only public
+contract (`PickerColor`, `ColorPickerAction`, and `ColorPickerPhase`). It owns
+the retained editor extracted from Design; the inspector’s richer paint adapter
+uses that same implementation. Hosts supply accepted colors, while spectrum,
+hue, alpha and text previews remain transient until commit. Closing cancels
+unfinished edits. The standalone `color-picker` story echoes commits and offers
+opaque and translucent fixtures.
+
+Variable cells mount this component in a trigger-anchored popup and translate
+only committed colors into `VariablesAction::ValueChanged`; they no longer
+construct Design paint targets. Variable dropdowns use the shared popup chrome
+and window clamping, anchored to measured trigger bounds. Cell text uses the
+body type token and inline editors use the compact field height.
+
 ## §14 Layout composition contracts
 
 `FileInspectorSidebar` places the existing `PagesPanel` above the existing
@@ -542,3 +572,50 @@ icons, or menu chrome per control:
 New feature work must consume this layer; adding a bespoke control stanza,
 menu implementation, or glyph icon to a feature module is an architecture
 violation unless this section records why the shared piece cannot serve it.
+
+## §17 Slider family
+
+`atoms::{SliderBackground, SliderHandle, SliderGradientStop}` are theme-aware
+presentation primitives. `molecules::Slider` composes them into a normalized,
+host-controlled control with range, stepped, centered, reference-marker, hue,
+and opacity variants. The host echoes accepted values through `set_value`;
+only pointer drafts, focus, and measured bounds live in the component.
+`SliderAction` emits balanced Begin/Preview/Commit/Cancel phases, with arrows,
+Shift-arrows, Home/End, and Escape sharing the same value constraints.
+
+The existing gpui-component slider exposes Change events and owns its accepted
+value. This molecule uses GPUI primitives to preserve our controlled phased-edit
+contract and support custom color rails. It uses active theme colors and shared
+`SliderGeometry` tokens. Rounded layers paint their own corners, and handle
+travel stays inset from both ends. Gradient stops use the shared activation
+contract; their host owns positioning and drag transactions.
+
+The Color picker and Design paint adapter use these same atoms and slider
+molecule for spectrum handles, hue, opacity, gradient backgrounds and stops.
+Four interactive stories cover Slider, Slider background, Slider handle, and
+Slider gradient stop in the gallery's existing theme/viewport harness. The UI3
+Figma references (2015:23280, 2015:23271, 2015:23235, 2015:23409) inform variant
+and state coverage; Fanta's GPUI theme and geometry remain authoritative.
+
+## §18 Framework ownership and publication
+
+This workspace owns the GPUI fork and its complete local dependency closure.
+Package names and provenance are recorded in `docs/extraction/packages.json`;
+Rust library names and dependency aliases preserve the existing imports. All
+published local dependencies carry an exact coordinated registry version plus
+a repository-local path. No published crate requires root-level patches, a
+sibling editor checkout, or a Fanta engine crate.
+
+The framework's native implementations retain their FFI and upstream safety
+policies. The component and storybook unsafe-code prohibition remains intact.
+The imported libraries retain their per-crate licenses; the workspace license
+is not imposed on Apache-licensed framework code.
+
+The unpublished framework-example and macro-test hosts break development-only
+publication cycles while retaining example and macro coverage. The standalone
+registry consumer verifies actual archives independently of workspace feature
+unification. `docs/releasing.md` defines the release and integration gates.
+
+This extraction deliberately leaves `fanta_ui` and `fig_viewer` presentation in
+Fanta Edit. Their existing adapters continue to provide controlled view data and
+apply typed intents. Further screen extraction must preserve the engine seam.

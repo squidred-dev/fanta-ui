@@ -7,6 +7,7 @@
 //! every long title truncates instead of widening the panel.
 
 use crate::*;
+use fanta_gpui::atoms::TypographyExt as _;
 
 use fanta_gpui::prelude::LayersPanelNodeKind;
 
@@ -107,10 +108,19 @@ impl Storybook {
                     .px_2()
                     .rounded(px(4.))
                     .border_1()
-                    .border_color(cx.theme().border)
-                    .bg(cx.theme().secondary.opacity(0.35))
-                    .child(render_lucide_icon(icon, cx.theme().muted_foreground, 13.))
-                    .child(truncating_label(text).text_sm())
+                    .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+                    .bg(fanta_gpui::atoms::SemanticColor::BackgroundSecondary
+                        .resolve(cx)
+                        .opacity(0.35))
+                    .child(render_lucide_icon(
+                        icon,
+                        fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
+                        13.,
+                    ))
+                    .child(
+                        truncating_label(text)
+                            .typography(fanta_gpui::atoms::TypographyToken::BodyLarge),
+                    )
                     .child(
                         div()
                             .flex_none()
@@ -118,9 +128,9 @@ impl Storybook {
                             .py_0p5()
                             .rounded(px(4.))
                             .border_1()
-                            .border_color(cx.theme().border)
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+                            .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                            .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(format!("satellite {}", index + 1)),
                     ),
             );

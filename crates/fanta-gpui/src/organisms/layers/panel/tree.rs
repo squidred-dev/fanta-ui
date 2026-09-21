@@ -1,3 +1,4 @@
+use crate::atoms::TypographyExt as _;
 use std::ops::Range;
 
 use gpui::{ClickEvent, Hsla, InteractiveElement as _, MouseButton, MouseDownEvent, uniform_list};
@@ -23,9 +24,11 @@ impl Render for LayerDragPreview {
             .gap_2()
             .rounded(px(6.))
             .border_1()
-            .border_color(cx.theme().selection)
-            .bg(cx.theme().popover.opacity(0.96))
-            .text_color(cx.theme().popover_foreground)
+            .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+            .bg(crate::atoms::SemanticColor::BackgroundMenu
+                .resolve(cx)
+                .opacity(0.96))
+            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
             .shadow_lg()
             .child(
                 div()
@@ -43,7 +46,7 @@ impl Render for LayerDragPreview {
                 div()
                     .flex_1()
                     .truncate()
-                    .text_xs()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .child(self.drag.title.clone()),
             )
     }
@@ -267,8 +270,10 @@ impl LayersPanel {
             title: node.title.clone(),
             kind: node.kind,
         };
-        let drop_background = cx.theme().selection.opacity(0.22);
-        let drop_border = cx.theme().selection;
+        let drop_background = crate::atoms::SemanticColor::BackgroundSelected
+            .resolve(cx)
+            .opacity(0.22);
+        let drop_border = crate::atoms::SemanticColor::BackgroundSelected.resolve(cx);
         let row_focus_handle = self
             .row_focus_handles
             .entry(node.id.clone())
@@ -288,20 +293,34 @@ impl LayersPanel {
         .border_0()
         .pl(self.row_indent(node.depth) + px(4.))
         .pr_1()
-        .text_xs()
+        .typography(crate::atoms::TypographyToken::BodyMedium)
         .cursor_move()
-        .hover(|style| style.bg(cx.theme().sidebar_accent.opacity(0.7)))
-        .focus(|style| style.bg(cx.theme().sidebar_accent.opacity(0.82)))
+        .hover(|style| {
+            style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                .resolve(cx)
+                .opacity(0.7))
+        })
+        .focus(|style| {
+            style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                .resolve(cx)
+                .opacity(0.82))
+        })
         .when(within_hovered_group, |row| {
-            row.bg(cx.theme().sidebar_accent.opacity(0.32))
+            row.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                .resolve(cx)
+                .opacity(0.32))
         })
         .when(within_selected_group, |row| {
-            row.bg(cx.theme().selection.opacity(0.16))
-                .text_color(cx.theme().sidebar_accent_foreground)
+            row.bg(crate::atoms::SemanticColor::BackgroundSelected
+                .resolve(cx)
+                .opacity(0.16))
+                .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
         })
         .when(selected, |row| {
-            row.bg(cx.theme().selection.opacity(0.32))
-                .text_color(cx.theme().sidebar_accent_foreground)
+            row.bg(crate::atoms::SemanticColor::BackgroundSelected
+                .resolve(cx)
+                .opacity(0.32))
+                .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
         })
         .when(!node.visible, |row| row.opacity(0.5));
 
@@ -427,7 +446,10 @@ impl LayersPanel {
                                 .size_full()
                                 .justify_center()
                                 .rounded(px(3.))
-                                .hover(|style| style.bg(cx.theme().sidebar_accent))
+                                .hover(|style| {
+                                    style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                                        .resolve(cx))
+                                })
                                 .tooltip(move |window, cx| {
                                     Tooltip::new(if expanded { "Collapse" } else { "Expand" })
                                         .build(window, cx)
@@ -501,7 +523,9 @@ impl LayersPanel {
                     .invisible()
                     .group_hover(group_name, |control| control.visible())
             })
-            .hover(|style| style.bg(cx.theme().sidebar_accent))
+            .hover(|style| {
+                style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
+            })
             .tooltip(move |window, cx| {
                 Tooltip::new(if locked { "Unlock" } else { "Lock" })
                     .action(&ToggleLayerLock, Some(LAYERS_PANEL_KEY_CONTEXT))
@@ -520,9 +544,9 @@ impl LayersPanel {
             .child(render_lock_icon(
                 locked,
                 if locked {
-                    cx.theme().sidebar_foreground
+                    crate::atoms::SemanticColor::Text.resolve(cx)
                 } else {
-                    cx.theme().muted_foreground
+                    crate::atoms::SemanticColor::TextTertiary.resolve(cx)
                 },
                 LAYER_KIND_ICON_SIZE,
             ))
@@ -554,7 +578,9 @@ impl LayersPanel {
                     .invisible()
                     .group_hover(group_name, |control| control.visible())
             })
-            .hover(|style| style.bg(cx.theme().sidebar_accent))
+            .hover(|style| {
+                style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
+            })
             .tooltip(move |window, cx| {
                 Tooltip::new(if visible { "Hide" } else { "Show" })
                     .action(&ToggleLayerVisibility, Some(LAYERS_PANEL_KEY_CONTEXT))
@@ -577,7 +603,7 @@ impl LayersPanel {
                     IconName::EyeOff
                 })
                 .with_size(px(LAYER_KIND_ICON_SIZE))
-                .text_color(cx.theme().sidebar_foreground),
+                .text_color(crate::atoms::SemanticColor::Text.resolve(cx)),
             )
             .into_any_element()
     }
@@ -590,8 +616,8 @@ fn layer_kind_color(kind: LayersPanelNodeKind, cx: &App) -> Hsla {
             | LayersPanelNodeKind::ComponentSet
             | LayersPanelNodeKind::Instance
     ) {
-        cx.theme().selection
+        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
     } else {
-        cx.theme().muted_foreground
+        crate::atoms::SemanticColor::TextTertiary.resolve(cx)
     }
 }

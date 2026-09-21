@@ -142,10 +142,10 @@ impl DesignPanelShellController for DesignPanel {
         .child(
             div()
                 .flex_1()
-                .text_sm()
+                .typography(crate::atoms::TypographyToken::BodyLarge)
                 .font_semibold()
                 .when(section_empty, |title| {
-                    title.text_color(cx.theme().muted_foreground)
+                    title.text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 })
                 .child(section.label()),
         )
@@ -195,7 +195,7 @@ impl DesignPanelShellController for DesignPanel {
                 .debug_selector(move || add_selector.clone())
                 .size(px(24.))
                 .when(section_empty, |button| {
-                    button.text_color(cx.theme().muted_foreground)
+                    button.text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 })
                 .on_activate(cx.listener(move |this, _, _, cx| {
                     cx.stop_propagation();
@@ -249,8 +249,8 @@ impl DesignPanelShellController for DesignPanel {
             .debug_selector(move || selector.clone())
             .w_full()
             .p_4()
-            .text_xs()
-            .text_color(cx.theme().muted_foreground)
+            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
             .child(format!(
                 "{} is a host-owned surface. DesignPanel retains the shared sidebar header and does not project Design or Properties content here.",
                 surface.label()
@@ -413,9 +413,9 @@ impl DesignPanelShellController for DesignPanel {
                 }),
             )
             .on_key_down(cx.listener(Self::handle_property_key_down))
-            .bg(cx.theme().sidebar)
-            .text_color(cx.theme().sidebar_foreground)
-            .text_sm()
+            .bg(crate::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
+            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
+            .typography(crate::atoms::TypographyToken::BodyLarge)
             .child(self.render_header(cx))
             .child(
                 div()

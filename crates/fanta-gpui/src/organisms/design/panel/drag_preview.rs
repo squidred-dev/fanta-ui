@@ -13,19 +13,27 @@ fn drag_preview(
         .gap_2()
         .rounded(px(6.))
         .border_1()
-        .border_color(cx.theme().selection)
-        .bg(cx.theme().popover.opacity(0.96))
-        .text_color(cx.theme().popover_foreground)
+        .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+        .bg(crate::atoms::SemanticColor::BackgroundMenu
+            .resolve(cx)
+            .opacity(0.96))
+        .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
         .shadow_lg()
         .child(
             div()
                 .w(px(14.))
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("⠿"),
         )
         .children(swatch)
-        .child(div().flex_1().truncate().text_xs().child(label))
+        .child(
+            div()
+                .flex_1()
+                .truncate()
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .child(label),
+        )
         .into_any_element()
 }
 
@@ -41,7 +49,7 @@ impl Render for PaintDragPreview {
             .size(px(14.))
             .rounded(px(3.))
             .border_1()
-            .border_color(cx.theme().border)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .bg(color_hsla(self.drag.paint.color))
             .into_any_element();
         drag_preview(

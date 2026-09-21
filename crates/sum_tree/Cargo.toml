@@ -1,0 +1,81 @@
+[package]
+name = "fanta-gpui-sum-tree"
+version = "0.1.0"
+edition = "2024"
+publish = true
+license = "Apache-2.0"
+description = "A sum tree data structure, a concurrency-friendly B-tree"
+repository = "https://github.com/squidred-dev/fanta-ui"
+
+[lib]
+path = "src/sum_tree.rs"
+doctest = false
+name = "sum_tree"
+
+[features]
+test-support = [ "proptest",]
+
+[lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+declare_interior_mutable_const = "deny"
+redundant_clone = "deny"
+disallowed_methods = "deny"
+type_complexity = "allow"
+let_underscore_future = "allow"
+single_range_in_vec_init = "allow"
+too_many_arguments = "allow"
+large_enum_variant = "allow"
+nonminimal_bool = "allow"
+
+[dependencies.heapless]
+version = "0.9.2"
+
+[dependencies.rayon]
+version = "1.8"
+
+[dependencies.log]
+version = "0.4.16"
+features = [ "kv_unstable_serde", "serde",]
+
+[dependencies.ztracing]
+path = "../ztracing"
+package = "fanta-gpui-ztracing"
+version = "=0.1.0"
+
+[dependencies.tracing]
+version = "0.1.40"
+
+[dependencies.proptest]
+optional = true
+version = "=0.1.0"
+features = [ "attr-macro",]
+package = "fanta-gpui-proptest"
+path = "../proptest"
+
+[dev-dependencies.ctor]
+version = "1.0.6"
+
+[dev-dependencies.rand]
+version = "0.9"
+
+[dev-dependencies.proptest]
+version = "=0.1.0"
+features = [ "attr-macro",]
+package = "fanta-gpui-proptest"
+path = "../proptest"
+
+[dev-dependencies.zlog]
+path = "../zlog"
+package = "fanta-gpui-zlog"
+version = "=0.1.0"
+
+[package.metadata.cargo-machete]
+ignored = [ "tracing",]
+
+[lints.clippy.style]
+level = "allow"
+priority = -1
+
+[lints.rust.unexpected_cfgs]
+level = "allow"

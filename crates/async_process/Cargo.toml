@@ -1,0 +1,55 @@
+[package]
+name = "fanta-gpui-async-process"
+version = "0.1.0"
+authors = [ "Stjepan Glavina <stjepang@gmail.com>",]
+edition = "2021"
+rust-version = "1.71"
+description = "Async interface for working with processes"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/squidred-dev/fanta-ui"
+keywords = [ "process", "spawn", "command", "subprocess", "child",]
+categories = [ "asynchronous", "os",]
+exclude = [ "/.*",]
+publish = true
+
+[dependencies]
+async-io = "2.3.0"
+cfg-if = "1.0"
+event-listener = "5.1.0"
+futures-lite = "2.0.0"
+
+[dev-dependencies]
+async-executor = "1.5.1"
+
+[lib]
+name = "async_process"
+
+[dependencies.tracing]
+version = "0.1.40"
+default-features = false
+optional = true
+
+[target."cfg(unix)".dependencies]
+async-lock = "3.0.0"
+async-signal = "0.2.3"
+
+[target."cfg(any(windows, target_os = \"linux\"))".dependencies]
+async-channel = "2.0.0"
+async-task = "4.7.0"
+
+[target."cfg(windows)".dependencies]
+blocking = "1.0.0"
+
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = [ "cfg(async_process_force_signal_backend)",]
+
+[target."cfg(unix)".dependencies.rustix]
+version = "1.0"
+default-features = false
+features = [ "std", "fs", "process",]
+
+[target."cfg(windows)".dev-dependencies.windows-sys]
+version = "0.61"
+default-features = false
+features = [ "Win32_Foundation", "Win32_System_Threading",]

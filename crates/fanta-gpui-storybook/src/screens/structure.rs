@@ -8,6 +8,7 @@
 //! density and label-placement knobs drive every specimen from the grid,
 //! which is the contract: fields never choose their own geometry.
 
+use fanta_gpui::atoms::TypographyExt as _;
 use gpui::FocusHandle;
 
 use crate::*;
@@ -172,7 +173,7 @@ impl Storybook {
         inspector_row_with_layout(layout)
             .child(
                 inspector_field_label(layout)
-                    .text_color(cx.theme().muted_foreground)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(label),
             )
             .child(
@@ -234,7 +235,7 @@ impl Storybook {
                 .child(
                     div()
                         .flex_none()
-                        .text_color(cx.theme().muted_foreground)
+                        .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(axis),
                 )
                 .child(div().flex_1().min_w(px(0.)).child(value)),
@@ -262,22 +263,22 @@ impl Storybook {
                 } else {
                     LucideIcon::ChevronRight
                 },
-                cx.theme().muted_foreground,
+                fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
                 14.,
             ))
             .child(
                 div()
                     .flex_1()
                     .min_w(px(0.))
-                    .text_sm()
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyLarge)
                     .font_semibold()
                     .child(title),
             )
             .child(
                 div()
                     .flex_none()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(if expanded { "Expanded" } else { "Collapsed" }),
             );
 
@@ -436,8 +437,8 @@ impl Storybook {
                     .child(
                         div()
                             .w(px(width))
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                            .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(SharedString::from(format!("{} px · {note}", width as i32))),
                     )
                     .into_any_element(),

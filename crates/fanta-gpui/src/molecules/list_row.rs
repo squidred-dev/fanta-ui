@@ -26,5 +26,7 @@ pub fn list_row(id: impl Into<ElementId>, height: Pixels, cx: &App) -> Stateful<
         .cursor_pointer()
         .border_1()
         .border_color(cx.theme().transparent)
-        .focus(|style| style.border_color(cx.theme().selection))
+        .focus(|style| {
+            style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+        })
 }

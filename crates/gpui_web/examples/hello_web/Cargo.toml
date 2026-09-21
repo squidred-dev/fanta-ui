@@ -1,0 +1,22 @@
+[[bin]]
+name = "hello_web"
+path = "main.rs"
+
+[workspace]
+
+[package]
+name = "hello_web"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+web-time = "1"
+
+[dependencies.gpui]
+path = "../../../gpui"
+package = "fanta-gpui-core"
+
+[dependencies.gpui_platform]
+path = "../../../gpui_platform"
+package = "fanta-gpui-gpui-platform"

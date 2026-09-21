@@ -1,8 +1,42 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/async_process",
+    "crates/collections",
     "crates/fanta-gpui",
     "crates/fanta-gpui-storybook",
+    "crates/gpui",
+    "crates/gpui-examples",
+    "crates/gpui-macro-tests",
+    "crates/gpui_component",
+    "crates/gpui_component_assets",
+    "crates/gpui_linux",
+    "crates/gpui_macos",
+    "crates/gpui_macros",
+    "crates/gpui_platform",
+    "crates/gpui_shared_string",
+    "crates/gpui_tokio",
+    "crates/gpui_util",
+    "crates/gpui_web",
+    "crates/gpui_wgpu",
+    "crates/gpui_windows",
+    "crates/http_client",
+    "crates/http_client_tls",
+    "crates/media",
+    "crates/proptest",
+    "crates/proptest-macro",
+    "crates/refineable",
+    "crates/refineable/derive_refineable",
+    "crates/reqwest_client",
+    "crates/scheduler",
+    "crates/smol",
+    "crates/sum_tree",
+    "crates/util",
+    "crates/util_macros",
+    "crates/zlog",
+    "crates/ztracing",
+    "crates/ztracing_macro",
+    "tooling/perf",
 ]
 default-members = ["crates/fanta-gpui"]
 
@@ -12,21 +46,15 @@ edition = "2024"
 rust-version = "1.95"
 publish = false
 license = "GPL-3.0"
-repository = "https://github.com/squidred-dev/fanta-gpui"
+repository = "https://github.com/squidred-dev/fanta-ui"
 
 [workspace.dependencies]
-gpui = "0.2.2"
-gpui-component = "0.5.1"
-gpui-component-assets = "0.5.1"
-# The storybook launches through Zed's platform factory; keep native macOS text
-# rendering plus both Linux backends enabled from the same manifest.
-gpui_platform = { path = "../fanta-edit/crates/gpui_platform", features = ["font-kit", "wayland", "x11"] }
-# gpui-component-assets' derive uses include/exclude filters; this direct entry
-# intentionally unifies rust-embed's feature set for the storybook build.
-rust-embed = { version = "8.12", features = ["include-exclude"] }
+fanta-gpui = { path = "crates/fanta-gpui", version = "=0.1.0" }
+gpui = { package = "fanta-gpui-core", path = "crates/gpui", version = "=0.1.0" }
+gpui-component = { package = "fanta-gpui-components", path = "crates/gpui_component", version = "=0.1.0" }
+gpui-component-assets = { package = "fanta-gpui-component-assets", path = "crates/gpui_component_assets", version = "=0.1.0" }
+gpui_platform = { package = "fanta-gpui-gpui-platform", path = "crates/gpui_platform", version = "=0.1.0", default-features = false, features = ["font-kit", "wayland", "x11"] }
 serde_json = "1"
-
-fanta-gpui = { path = "crates/fanta-gpui" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -40,9 +68,5 @@ codegen-units = 16
 debug = "limited"
 split-debuginfo = "unpacked"
 
-[profile.dev.package]
-gpui = { opt-level = 3 }
-
-[patch.crates-io]
-gpui = { path = "../fanta-edit/crates/gpui" }
-gpui-component = { path = "../fanta-edit/crates/gpui_component" }
+[profile.dev.package.fanta-gpui-core]
+opt-level = 3

@@ -2084,8 +2084,8 @@ fn geometry_constants_resolve_to_shared_tokens() {
     // feature owns. Entries leave this list as constants migrate; a new local
     // dimension belongs in `atoms::tokens` instead of here.
     const ALLOWED_LOCAL_GEOMETRY: &[(&str, &str)] = &[
-        ("organisms/design/paint_picker.rs", "PICKER_MAX_HEIGHT"),
-        ("organisms/design/paint_picker.rs", "COLOR_AREA_HEIGHT"),
+        ("organisms/color_picker/paint.rs", "PICKER_MAX_HEIGHT"),
+        ("organisms/color_picker/paint.rs", "COLOR_AREA_HEIGHT"),
         (
             "organisms/design/typography_style_picker.rs",
             "PICKER_MAX_HEIGHT",
@@ -2234,9 +2234,10 @@ fn raw_pixel_literal_budget_ratchets_down() {
     // excluded, so fixture geometry never buys headroom for shipping code.
     // Every token migration must lower the directory it touches.
     const RAW_PIXEL_BUDGETS: &[(&str, usize)] = &[
-        ("organisms/design", 577),
+        ("organisms/design", 475),
+        ("organisms/color_picker", 102),
         ("organisms/toolbar", 106),
-        ("screens/variables", 73),
+        ("screens/variables", 49),
         ("organisms/pages", 40),
         ("organisms/timeline", 63),
         ("organisms/layers", 15),
@@ -2256,6 +2257,9 @@ fn raw_pixel_literal_budget_ratchets_down() {
             if is_out_of_line_test_module(path) {
                 return;
             }
+            if path.ends_with("atoms/typography.rs") {
+                return;
+            }
             literals += raw_pixel_literals(production_source_before_inline_tests(source));
         });
 
@@ -2272,4 +2276,88 @@ fn raw_pixel_literal_budget_ratchets_down() {
              headroom for new literals"
         );
     }
+}
+
+#[test]
+fn production_colors_resolve_through_the_semantic_color_system() {
+    let source_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut raw_theme_colors = Vec::new();
+
+    visit_rust_sources(&source_root, &mut |path, source| {
+        if is_out_of_line_test_module(path) || path.ends_with("atoms/color_system.rs") {
+            return;
+        }
+        for (line_index, line) in production_source_before_inline_tests(source)
+            .lines()
+            .enumerate()
+        {
+            let Some(theme_access) = line.split("cx.theme().").nth(1) else {
+                continue;
+            };
+            let field = theme_access
+                .split(|character: char| !character.is_ascii_alphanumeric() && character != '_')
+                .next()
+                .unwrap_or_default();
+            // These are presentation mechanics, not palette colors.
+            if !matches!(field, "transparent" | "shadow") {
+                raw_theme_colors.push((
+                    path.strip_prefix(&source_root)
+                        .expect("visited source must be inside src")
+                        .display()
+                        .to_string(),
+                    line_index + 1,
+                    field.to_owned(),
+                ));
+            }
+        }
+    });
+
+    assert!(
+        raw_theme_colors.is_empty(),
+        "production UI colors must use atoms::SemanticColor so their purpose survives theme \
+         changes; raw accesses: {raw_theme_colors:#?}"
+    );
+}
+
+#[test]
+fn production_typography_and_buttons_use_semantic_constructors() {
+    let source_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut raw_usage = Vec::new();
+    visit_rust_sources(&source_root, &mut |path, source| {
+        if is_out_of_line_test_module(path)
+            || path.ends_with("atoms/typography.rs")
+            || path.ends_with("atoms/semantic_button.rs")
+        {
+            return;
+        }
+        for (line_index, line) in production_source_before_inline_tests(source)
+            .lines()
+            .enumerate()
+        {
+            let bypasses_typography = [
+                ".text_xs()",
+                ".text_sm()",
+                ".text_base()",
+                ".text_lg()",
+                ".text_xl()",
+            ]
+            .iter()
+            .any(|method| line.contains(method))
+                || line.contains(".text_size(px(tokens::TypeScale::");
+            if bypasses_typography || line.contains("Button::new(") {
+                raw_usage.push((
+                    path.strip_prefix(&source_root)
+                        .expect("visited source must be inside src")
+                        .display()
+                        .to_string(),
+                    line_index + 1,
+                    line.trim().to_owned(),
+                ));
+            }
+        }
+    });
+    assert!(
+        raw_usage.is_empty(),
+        "production UI must use TypographyToken and ui_button/semantic_button; raw usages: {raw_usage:#?}"
+    );
 }

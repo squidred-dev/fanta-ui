@@ -3,6 +3,7 @@
 //! Each organism is a controlled component following the engine seam (§2-§4):
 //! hosts supply immutable view data and apply the typed intents it emits.
 
+pub mod color_picker;
 pub mod design;
 pub mod layers;
 pub mod pages;

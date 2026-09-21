@@ -1,5 +1,6 @@
 //! Standalone projection, controller, and rendering for the Page inspector.
 
+use crate::atoms::TypographyExt as _;
 use std::collections::HashSet;
 
 use super::super::*;
@@ -631,7 +632,7 @@ pub(in super::super) fn render_page_resource_browser(
         .unwrap_or_default();
     let has_page = projection.page_view_data_for_context().is_some();
     let can_edit = projection.can_edit_page();
-    let trigger = Button::new(SharedString::from(format!(
+    let trigger = crate::atoms::ui_button(SharedString::from(format!(
         "{}-page-resource-{:?}",
         projection.id, category
     )))
@@ -681,11 +682,16 @@ pub(in super::super) fn render_page_resource_browser(
                     .w_full()
                     .justify_between()
                     .gap_2()
-                    .child(div().text_sm().font_semibold().child(category.label()))
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyLarge)
+                            .font_semibold()
+                            .child(category.label()),
+                    )
+                    .child(
+                        div()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("This file + libraries"),
                     ),
             );
@@ -711,14 +717,14 @@ pub(in super::super) fn render_page_resource_browser(
                             .flex_1()
                             .min_w(px(0.))
                             .truncate()
-                            .text_xs()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .font_semibold()
                             .child(group.name.clone()),
                     )
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(SharedString::from(group.source.label().to_owned())),
                     ),
             );
@@ -729,7 +735,7 @@ pub(in super::super) fn render_page_resource_browser(
                     DesignLocalResourceAvailability::Imported => {
                         let events = events_for_content.clone();
                         let selection = selection.clone();
-                        Button::new(SharedString::from(format!("{row_id}-open")))
+                        crate::atoms::ui_button(SharedString::from(format!("{row_id}-open")))
                             .label("Open")
                             .tooltip(SharedString::from(format!(
                                 "Open {}",
@@ -746,7 +752,7 @@ pub(in super::super) fn render_page_resource_browser(
                     DesignLocalResourceAvailability::Available => {
                         let events = events_for_content.clone();
                         let selection = selection.clone();
-                        Button::new(SharedString::from(format!("{row_id}-import")))
+                        crate::atoms::ui_button(SharedString::from(format!("{row_id}-import")))
                             .label("Import")
                             .tooltip(if can_edit {
                                 SharedString::from(format!("Import {}", resource.kind.label()))
@@ -763,7 +769,7 @@ pub(in super::super) fn render_page_resource_browser(
                             .into_any_element()
                     }
                     DesignLocalResourceAvailability::Unavailable { reason } => {
-                        Button::new(SharedString::from(format!("{row_id}-unavailable")))
+                        crate::atoms::ui_button(SharedString::from(format!("{row_id}-unavailable")))
                             .label("Unavailable")
                             .tooltip(reason.clone())
                             .xsmall()
@@ -783,12 +789,19 @@ pub(in super::super) fn render_page_resource_browser(
                             v_flex()
                                 .flex_1()
                                 .min_w(px(0.))
-                                .child(div().truncate().text_xs().child(resource.name.clone()))
                                 .child(
                                     div()
                                         .truncate()
-                                        .text_xs()
-                                        .text_color(cx.theme().muted_foreground)
+                                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                                        .child(resource.name.clone()),
+                                )
+                                .child(
+                                    div()
+                                        .truncate()
+                                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                                        .text_color(
+                                            crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                        )
                                         .child(resource.kind.label()),
                                 ),
                         )
@@ -800,8 +813,8 @@ pub(in super::super) fn render_page_resource_browser(
             content = content.child(
                 div()
                     .py_3()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("No resources supplied by the host"),
             );
         }
@@ -822,12 +835,12 @@ pub(in super::super) fn render_page_resource_browser(
             .gap_1()
             .pt_2()
             .border_t_1()
-            .border_color(cx.theme().border);
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx));
         for kind in create_kinds {
             let events = events_for_content.clone();
             let kind = *kind;
             create_row = create_row.child(
-                Button::new(SharedString::from(format!(
+                crate::atoms::ui_button(SharedString::from(format!(
                     "{panel_id}-create-page-resource-{kind:?}"
                 )))
                 .label(SharedString::from(format!("+ {}", kind.label())))
@@ -868,7 +881,7 @@ pub(in super::super) fn render_variable_mode_popover(
         .iter()
         .filter(|collection| collection.explicit_mode_id.is_some())
         .count();
-    let trigger = Button::new(SharedString::from(format!(
+    let trigger = crate::atoms::ui_button(SharedString::from(format!(
         "{}-variable-modes-trigger",
         projection.id
     )))
@@ -916,11 +929,16 @@ pub(in super::super) fn render_variable_mode_popover(
                     h_flex()
                         .w_full()
                         .justify_between()
-                        .child(div().text_sm().font_semibold().child("Variable modes"))
                         .child(
                             div()
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
+                                .typography(crate::atoms::TypographyToken::BodyLarge)
+                                .font_semibold()
+                                .child("Variable modes"),
+                        )
+                        .child(
+                            div()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child("Explicit overrides"),
                         ),
                 );
@@ -940,7 +958,7 @@ pub(in super::super) fn render_variable_mode_popover(
                         .p_2()
                         .rounded(px(6.))
                         .border_1()
-                        .border_color(cx.theme().border)
+                        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                         .child(
                             h_flex()
                                 .w_full()
@@ -953,15 +971,22 @@ pub(in super::super) fn render_variable_mode_popover(
                                         .child(
                                             div()
                                                 .truncate()
-                                                .text_xs()
+                                                .typography(
+                                                    crate::atoms::TypographyToken::BodyMedium,
+                                                )
                                                 .font_semibold()
                                                 .child(collection.name.clone()),
                                         )
                                         .child(
                                             div()
                                                 .truncate()
-                                                .text_xs()
-                                                .text_color(cx.theme().muted_foreground)
+                                                .typography(
+                                                    crate::atoms::TypographyToken::BodyMedium,
+                                                )
+                                                .text_color(
+                                                    crate::atoms::SemanticColor::TextTertiary
+                                                        .resolve(cx),
+                                                )
                                                 .child(SharedString::from(
                                                     collection.source.label().to_owned(),
                                                 )),
@@ -969,8 +994,10 @@ pub(in super::super) fn render_variable_mode_popover(
                                 )
                                 .child(
                                     div()
-                                        .text_xs()
-                                        .text_color(cx.theme().muted_foreground)
+                                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                                        .text_color(
+                                            crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                        )
                                         .child(status),
                                 ),
                         )
@@ -988,7 +1015,7 @@ pub(in super::super) fn render_variable_mode_popover(
                             } else {
                                 mode.name.clone()
                             };
-                            Button::new(SharedString::from(format!(
+                            crate::atoms::ui_button(SharedString::from(format!(
                                 "{panel_id}-variable-mode-{}-{}",
                                 collection.id, mode.id
                             )))
@@ -1023,7 +1050,7 @@ pub(in super::super) fn render_variable_mode_popover(
                                 collection.disabled_reason.clone()
                             };
                             card.child(
-                                Button::new(SharedString::from(format!(
+                                crate::atoms::ui_button(SharedString::from(format!(
                                     "{panel_id}-clear-variable-mode-{}",
                                     collection.id
                                 )))
@@ -1069,10 +1096,10 @@ fn render_local_style_preview(
             .items_center()
             .justify_center()
             .rounded(px(3.))
-            .bg(cx.theme().secondary)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
             .child(
                 div()
-                    .text_xs()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .font_semibold()
                     .child(SharedString::from(format!(
                         "{} {}",
@@ -1088,7 +1115,7 @@ fn render_local_style_preview(
                         .size(px(14.))
                         .rounded(px(2.))
                         .border_1()
-                        .border_color(cx.theme().border),
+                        .border_color(crate::atoms::SemanticColor::Border.resolve(cx)),
                 );
             } else {
                 for paint in paints.iter().take(3) {
@@ -1112,16 +1139,16 @@ fn render_local_style_preview(
                         .items_center()
                         .justify_center()
                         .rounded(px(3.))
-                        .bg(cx.theme().secondary)
-                        .text_xs()
+                        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
                         .child("fx"),
                 )
                 .child(
                     div()
                         .min_w(px(0.))
                         .truncate()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(summary),
                 )
                 .into_any_element()
@@ -1137,15 +1164,18 @@ fn render_local_style_preview(
                         .size(px(18.))
                         .rounded(px(3.))
                         .border_1()
-                        .border_color(cx.theme().border)
-                        .bg(first.map_or(cx.theme().secondary, |grid| color_hsla(grid.color))),
+                        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                        .bg(first.map_or(
+                            crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx),
+                            |grid| color_hsla(grid.color),
+                        )),
                 )
                 .child(
                     div()
                         .min_w(px(0.))
                         .truncate()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(first.map_or("No guides", |grid| grid.kind().label())),
                 )
                 .into_any_element()
@@ -1224,8 +1254,10 @@ fn render_local_style_entries(
                     local_style_insertion(kind, Some(folder_id.clone()), children, children.len())
                         .expect("folder-end insertion is in bounds");
                 let can_drop_to_folder = projection.can_edit_page() && folder_enabled;
-                let drop_background = cx.theme().selection.opacity(0.18);
-                let drop_border = cx.theme().selection;
+                let drop_background = crate::atoms::SemanticColor::BackgroundSelected
+                    .resolve(cx)
+                    .opacity(0.18);
+                let drop_border = crate::atoms::SemanticColor::BackgroundSelected.resolve(cx);
                 let folder_drop_listener =
                     cx.listener(move |panel, drag: &LocalStyleDrag, _, cx| {
                         cx.stop_propagation();
@@ -1246,7 +1278,7 @@ fn render_local_style_entries(
                     .pl(px((depth as f32) * 12.))
                     .gap_1()
                     .child(
-                        Button::new(SharedString::from(toggle_selector.clone()))
+                        crate::atoms::ui_button(SharedString::from(toggle_selector.clone()))
                             .debug_selector(move || toggle_selector.clone())
                             .label(name.clone())
                             .icon(if collapsed {
@@ -1272,7 +1304,7 @@ fn render_local_style_entries(
                             }),
                     )
                     .child(
-                        Button::new(SharedString::from(create_selector.clone()))
+                        crate::atoms::ui_button(SharedString::from(create_selector.clone()))
                             .debug_selector(move || create_selector.clone())
                             .icon(IconName::Plus)
                             .tooltip(tooltip)
@@ -1361,7 +1393,7 @@ fn render_local_style_entries(
                     let command_selector =
                         format!("{}-local-style-{}-{:?}", projection.id, style.id, command);
                     commands = commands.child(
-                        Button::new(SharedString::from(command_selector.clone()))
+                        crate::atoms::ui_button(SharedString::from(command_selector.clone()))
                             .debug_selector(move || command_selector.clone())
                             .icon(icon)
                             .tooltip(if allowed {
@@ -1391,7 +1423,7 @@ fn render_local_style_entries(
                 let delete_target = target.clone();
                 let delete_selector = format!("{}-local-style-{}-delete", projection.id, style.id);
                 commands = commands.child(
-                    Button::new(SharedString::from(delete_selector.clone()))
+                    crate::atoms::ui_button(SharedString::from(delete_selector.clone()))
                         .debug_selector(move || delete_selector.clone())
                         .icon(IconName::Minus)
                         .tooltip(if can_edit {
@@ -1422,7 +1454,7 @@ fn render_local_style_entries(
                     let move_selector =
                         format!("{}-local-style-{}-move-up", projection.id, style.id);
                     commands = commands.child(
-                        Button::new(SharedString::from(move_selector.clone()))
+                        crate::atoms::ui_button(SharedString::from(move_selector.clone()))
                             .debug_selector(move || move_selector.clone())
                             .icon(IconName::ChevronUp)
                             .tooltip(if can_edit {
@@ -1456,7 +1488,7 @@ fn render_local_style_entries(
                     let move_selector =
                         format!("{}-local-style-{}-move-down", projection.id, style.id);
                     commands = commands.child(
-                        Button::new(SharedString::from(move_selector.clone()))
+                        crate::atoms::ui_button(SharedString::from(move_selector.clone()))
                             .debug_selector(move || move_selector.clone())
                             .icon(IconName::ChevronDown)
                             .tooltip(if can_edit {
@@ -1491,8 +1523,10 @@ fn render_local_style_entries(
                 let style_destination =
                     local_style_insertion(kind, parent_folder_id.clone(), entries, index)
                         .expect("style-before insertion is in bounds");
-                let drop_background = cx.theme().selection.opacity(0.18);
-                let drop_border = cx.theme().selection;
+                let drop_background = crate::atoms::SemanticColor::BackgroundSelected
+                    .resolve(cx)
+                    .opacity(0.18);
+                let drop_border = crate::atoms::SemanticColor::BackgroundSelected.resolve(cx);
                 let style_drop_listener =
                     cx.listener(move |panel, drag: &LocalStyleDrag, _, cx| {
                         cx.stop_propagation();
@@ -1524,11 +1558,12 @@ fn render_local_style_entries(
                                     .child(
                                         div()
                                             .truncate()
-                                            .text_xs()
+                                            .typography(crate::atoms::TypographyToken::BodyMedium)
                                             .text_color(if enabled {
-                                                cx.theme().foreground
+                                                crate::atoms::SemanticColor::Text.resolve(cx)
                                             } else {
-                                                cx.theme().muted_foreground
+                                                crate::atoms::SemanticColor::TextTertiary
+                                                    .resolve(cx)
                                             })
                                             .child(style.name.clone()),
                                     )
@@ -1536,8 +1571,13 @@ fn render_local_style_entries(
                                         details.child(
                                             div()
                                                 .truncate()
-                                                .text_xs()
-                                                .text_color(cx.theme().muted_foreground)
+                                                .typography(
+                                                    crate::atoms::TypographyToken::BodyMedium,
+                                                )
+                                                .text_color(
+                                                    crate::atoms::SemanticColor::TextTertiary
+                                                        .resolve(cx),
+                                                )
                                                 .child(style.description.clone()),
                                         )
                                     }),
@@ -1602,12 +1642,12 @@ fn render_page_local_styles(
         .gap_1()
         .pt_1()
         .border_t_1()
-        .border_color(cx.theme().sidebar_border)
+        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
         .child(
             h_flex().h(px(32.)).w_full().child(
                 div()
                     .flex_1()
-                    .text_xs()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .font_semibold()
                     .child("Local styles"),
             ),
@@ -1626,8 +1666,10 @@ fn render_page_local_styles(
         let root_selector = format!("{}-local-style-{:?}-root-drop", projection.id, kind);
         let root_destination = local_style_insertion(kind, None, entries, entries.len())
             .expect("root-end insertion is in bounds");
-        let root_drop_background = cx.theme().selection.opacity(0.18);
-        let root_drop_border = cx.theme().selection;
+        let root_drop_background = crate::atoms::SemanticColor::BackgroundSelected
+            .resolve(cx)
+            .opacity(0.18);
+        let root_drop_border = crate::atoms::SemanticColor::BackgroundSelected.resolve(cx);
         let root_drop_listener = cx.listener(move |panel, drag: &LocalStyleDrag, _, cx| {
             cx.stop_propagation();
             PageEventSink::dispatch_in_context(
@@ -1645,9 +1687,15 @@ fn render_page_local_styles(
             .h(px(28.))
             .w_full()
             .gap_1()
-            .child(div().flex_1().text_xs().font_semibold().child(kind.label()))
             .child(
-                Button::new(SharedString::from(folder_selector.clone()))
+                div()
+                    .flex_1()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .font_semibold()
+                    .child(kind.label()),
+            )
+            .child(
+                crate::atoms::ui_button(SharedString::from(folder_selector.clone()))
                     .debug_selector(move || folder_selector.clone())
                     .label("Folder")
                     .tooltip(
@@ -1670,7 +1718,7 @@ fn render_page_local_styles(
                     }),
             )
             .child(
-                Button::new(SharedString::from(style_selector.clone()))
+                crate::atoms::ui_button(SharedString::from(style_selector.clone()))
                     .debug_selector(move || style_selector.clone())
                     .icon(IconName::Plus)
                     .tooltip(tooltip)
@@ -1723,11 +1771,13 @@ pub(in super::super) fn render(
     cx: &mut Context<DesignPanel>,
 ) -> AnyElement {
     let page = projection.page_view_data_for_context();
-    let mut header = h_flex()
-        .h(px(40.))
-        .px(px(PANEL_PADDING))
-        .gap_2()
-        .child(div().flex_1().text_sm().font_semibold().child("Page"));
+    let mut header = h_flex().h(px(40.)).px(px(PANEL_PADDING)).gap_2().child(
+        div()
+            .flex_1()
+            .typography(crate::atoms::TypographyToken::BodyLarge)
+            .font_semibold()
+            .child("Page"),
+    );
     if let Some(mode_browser) = render_variable_mode_popover(projection, events.clone(), cx) {
         header = header.child(mode_browser);
     }
@@ -1742,10 +1792,15 @@ pub(in super::super) fn render(
                         .size(px(20.))
                         .rounded(px(4.))
                         .border_1()
-                        .border_color(cx.theme().border)
+                        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                         .bg(color_hsla(page.background.color)),
                 )
-                .child(div().flex_1().text_xs().child("Page background"))
+                .child(
+                    div()
+                        .flex_1()
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .child("Page background"),
+                )
                 .child(chrome.take_background_picker()),
         );
         if let Some(local_styles) = projection.page_local_styles_view_data_for_context() {
@@ -1764,7 +1819,7 @@ pub(in super::super) fn render(
             let enabled = disabled_reason.is_none();
             let selector = format!("{}-open-variables", projection.id);
             page_body = page_body.child(
-                Button::new(SharedString::from(selector.clone()))
+                crate::atoms::ui_button(SharedString::from(selector.clone()))
                     .debug_selector(move || selector.clone())
                     .label("Open variables")
                     .tooltip(
@@ -1786,8 +1841,8 @@ pub(in super::super) fn render(
         page_body = page_body.child(
             div()
                 .py_2()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("Supply DesignPageViewData to inspect this Page"),
         );
     }
@@ -1795,7 +1850,7 @@ pub(in super::super) fn render(
         .w_full()
         .flex_none()
         .border_b_1()
-        .border_color(cx.theme().sidebar_border)
+        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
         .child(header)
         .child(page_body)
         .into_any_element()

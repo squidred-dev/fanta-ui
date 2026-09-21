@@ -7,6 +7,7 @@
 //! env var, so the screenshot-CI launch interface keeps working.
 
 use crate::*;
+use fanta_gpui::atoms::TypographyExt as _;
 
 /// One selectable value inside an enum or numeric knob row.
 pub(crate) struct KnobOption<T> {
@@ -38,12 +39,12 @@ pub(crate) fn knobs_panel(
         .gap_3()
         .rounded(px(8.))
         .border_1()
-        .border_color(cx.theme().border)
-        .bg(cx.theme().sidebar)
+        .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+        .bg(fanta_gpui::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
         .child(
             div()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("KNOBS"),
         )
         .children(rows)
@@ -52,8 +53,8 @@ pub(crate) fn knobs_panel(
 
 fn knob_heading(label: &'static str, cx: &mut Context<Storybook>) -> AnyElement {
     div()
-        .text_xs()
-        .text_color(cx.theme().muted_foreground)
+        .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+        .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
         .child(label)
         .into_any_element()
 }
@@ -66,19 +67,23 @@ pub(crate) fn knob_chip(
     on_select: impl Fn(&mut Storybook, &mut Window, &mut Context<Storybook>) + 'static,
     cx: &mut Context<Storybook>,
 ) -> Button {
-    Button::new(id)
+    fanta_gpui::atoms::ui_button(id)
         .label(label)
         .custom(
             ButtonCustomVariant::new(cx)
-                .color(cx.theme().secondary)
-                .foreground(cx.theme().foreground)
+                .color(fanta_gpui::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                .foreground(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
                 .border(if active {
-                    cx.theme().selection
+                    fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx)
                 } else {
-                    cx.theme().border
+                    fanta_gpui::atoms::SemanticColor::Border.resolve(cx)
                 })
-                .hover(cx.theme().accent)
-                .active(cx.theme().selection.opacity(0.22)),
+                .hover(fanta_gpui::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                .active(
+                    fanta_gpui::atoms::SemanticColor::BackgroundSelected
+                        .resolve(cx)
+                        .opacity(0.22),
+                ),
         )
         .xsmall()
         .selected(active)
@@ -87,7 +92,9 @@ pub(crate) fn knob_chip(
         .rounded(px(5.))
         .border_1()
         .when(active, |button| {
-            button.hover(|style| style.bg(cx.theme().accent))
+            button.hover(|style| {
+                style.bg(fanta_gpui::atoms::SemanticColor::BackgroundHover.resolve(cx))
+            })
         })
         .cursor_pointer()
         .on_click(cx.listener(move |this, _, window, cx| {
@@ -174,7 +181,7 @@ pub(crate) fn bool_knob_row(
         .gap_2()
         .child(knob_heading(heading, cx))
         .child(
-            Button::new(SharedString::from(id))
+            fanta_gpui::atoms::ui_button(SharedString::from(id))
                 .label(format!("{label} · {}", if value { "On" } else { "Off" }))
                 .xsmall()
                 .compact()

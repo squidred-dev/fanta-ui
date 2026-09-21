@@ -7,6 +7,7 @@
 //! renderers live here so screens never re-implement them.
 
 use crate::*;
+use fanta_gpui::atoms::TypographyExt as _;
 
 /// The labeled "LAST TYPED INTENT" section used inside story rails and
 /// reference shells.
@@ -15,11 +16,15 @@ pub(crate) fn intent_section(last_action: SharedString, cx: &mut Context<Storybo
         .gap_1()
         .child(
             div()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("LAST TYPED INTENT"),
         )
-        .child(div().text_sm().child(last_action))
+        .child(
+            div()
+                .typography(fanta_gpui::atoms::TypographyToken::BodyLarge)
+                .child(last_action),
+        )
         .into_any_element()
 }
 
@@ -40,8 +45,10 @@ impl Storybook {
             .py(px(7.))
             .rounded(px(6.))
             .border_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().popover.opacity(0.96))
+            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+            .bg(fanta_gpui::atoms::SemanticColor::BackgroundMenu
+                .resolve(cx)
+                .opacity(0.96))
             .shadow_lg()
             .text_size(px(11.))
             .child(last_action)
@@ -66,7 +73,7 @@ impl Storybook {
             .size_full()
             .min_h(px(0.))
             .overflow_hidden()
-            .bg(cx.theme().background)
+            .bg(fanta_gpui::atoms::SemanticColor::Background.resolve(cx))
             .child(component)
             .when(show_last_action, |fixture| {
                 fixture.child(self.render_reference_last_action(last_action, cx))

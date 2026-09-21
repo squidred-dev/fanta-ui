@@ -1,0 +1,383 @@
+[package]
+name = "fanta-gpui-core"
+version = "0.1.0"
+edition = "2024"
+authors = [ "Nathan Sobo <nathan@zed.dev>",]
+description = "Zed's GPU-accelerated UI framework"
+repository = "https://github.com/squidred-dev/fanta-ui"
+publish = true
+license = "Apache-2.0"
+homepage = "https://gpui.rs"
+readme = "README.md"
+keywords = [ "desktop", "gui", "immediate",]
+categories = [ "gui",]
+autoexamples = false
+
+[features]
+default = [ "font-kit", "wayland", "x11", "windows-manifest",]
+test-support = [ "leak-detection", "collections/test-support", "http_client/test-support", "wayland", "x11", "proptest",]
+bench = [ "test-support", "dep:criterion", "dep:hdrhistogram",]
+inspector = [ "gpui_macros/inspector",]
+leak-detection = [ "backtrace",]
+wayland = [ "bitflags",]
+x11 = [ "scap?/x11",]
+screen-capture = [ "scap",]
+windows-manifest = [ "dep:embed-resource",]
+input-latency-histogram = [ "dep:hdrhistogram",]
+profiler = []
+
+[lib]
+path = "src/gpui.rs"
+doctest = false
+name = "gpui"
+
+[dependencies]
+async-task = "4.7"
+etagere = "0.2"
+num_cpus = "1.13"
+parking = "2.0.0"
+raw-window-handle = "0.6"
+ttf-parser = "0.25"
+seahash = "4.1"
+taffy = "=0.10.1"
+waker-fn = "1.2.0"
+lyon = "1.0"
+pin-project = "1.1.10"
+spin = "0.10.0"
+
+[dependencies.accesskit]
+version = "0.24.0"
+
+[dependencies.anyhow]
+version = "1.0.86"
+
+[dependencies.backtrace]
+version = "0.3"
+optional = true
+
+[dependencies.bitflags]
+version = "2.6.0"
+optional = true
+
+[dependencies.collections]
+path = "../collections"
+version = "=0.1.0"
+package = "fanta-gpui-collections"
+
+[dependencies.criterion]
+version = "0.5"
+features = [ "html_reports",]
+optional = true
+
+[dependencies.ctor]
+version = "1.0.6"
+
+[dependencies.derive_more]
+version = "2.1.1"
+features = [ "add", "add_assign", "deref", "deref_mut", "display", "from_str", "mul", "mul_assign", "not",]
+
+[dependencies.futures]
+version = "0.3.32"
+
+[dependencies.futures-concurrency]
+version = "7.7.1"
+
+[dependencies.gpui_macros]
+path = "../gpui_macros"
+package = "fanta-gpui-gpui-macros"
+version = "=0.1.0"
+
+[dependencies.gpui_shared_string]
+path = "../gpui_shared_string"
+package = "fanta-gpui-gpui-shared-string"
+version = "=0.1.0"
+
+[dependencies.http_client]
+path = "../http_client"
+package = "fanta-gpui-http-client"
+version = "=0.1.0"
+
+[dependencies.image]
+version = "0.25.1"
+
+[dependencies.inventory]
+version = "0.3.19"
+
+[dependencies.itertools]
+version = "0.14.0"
+
+[dependencies.log]
+version = "0.4.16"
+features = [ "kv_unstable_serde", "serde",]
+
+[dependencies.parking_lot]
+version = "0.12.1"
+
+[dependencies.postage]
+version = "0.5"
+features = [ "futures-traits",]
+
+[dependencies.proptest]
+optional = true
+version = "=0.1.0"
+features = [ "attr-macro",]
+package = "fanta-gpui-proptest"
+path = "../proptest"
+
+[dependencies.chrono]
+version = "0.4"
+features = [ "serde",]
+
+[dependencies.profiling]
+version = "1"
+
+[dependencies.rand]
+version = "0.9"
+
+[dependencies.regex]
+version = "1.5"
+
+[dependencies.refineable]
+path = "../refineable"
+package = "fanta-gpui-refineable"
+version = "=0.1.0"
+
+[dependencies.scheduler]
+path = "../scheduler"
+package = "fanta-gpui-scheduler"
+version = "=0.1.0"
+
+[dependencies.resvg]
+version = "0.46.0"
+default-features = false
+features = [ "memmap-fonts", "raster-images", "system-fonts", "text",]
+
+[dependencies.usvg]
+version = "0.46.0"
+default-features = false
+
+[dependencies.util_macros]
+path = "../util_macros"
+package = "fanta-gpui-util-macros"
+version = "=0.1.0"
+
+[dependencies.schemars]
+version = "1.0"
+features = [ "indexmap2",]
+
+[dependencies.serde]
+version = "1.0.221"
+features = [ "derive", "rc",]
+
+[dependencies.serde_json]
+version = "1.0.144"
+features = [ "preserve_order", "raw_value",]
+
+[dependencies.slotmap]
+version = "1.0.6"
+
+[dependencies.smallvec]
+version = "1.6"
+features = [ "const_new", "union",]
+
+[dependencies.async-channel]
+version = "2.5.0"
+
+[dependencies.stacksafe]
+version = "0.1"
+
+[dependencies.strum]
+version = "0.27.2"
+features = [ "derive",]
+
+[dependencies.sum_tree]
+path = "../sum_tree"
+package = "fanta-gpui-sum-tree"
+version = "=0.1.0"
+
+[dependencies.thiserror]
+version = "2.0.12"
+
+[dependencies.gpui_util]
+path = "../gpui_util"
+package = "fanta-gpui-gpui-util"
+version = "=0.1.0"
+
+[dependencies.hdrhistogram]
+version = "7"
+optional = true
+
+[dependencies.pollster]
+version = "0.4.0"
+
+[dependencies.url]
+version = "2.2"
+
+[dependencies.uuid]
+version = "1.1.2"
+features = [ "serde", "v4", "v5", "v7",]
+
+[dependencies.web-time]
+version = "1.1.0"
+
+[dependencies.heapless]
+version = "0.9.2"
+
+[lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+declare_interior_mutable_const = "deny"
+redundant_clone = "deny"
+disallowed_methods = "deny"
+type_complexity = "allow"
+let_underscore_future = "allow"
+single_range_in_vec_init = "allow"
+too_many_arguments = "allow"
+large_enum_variant = "allow"
+nonminimal_bool = "allow"
+
+[build-dependencies.embed-resource]
+version = "3.0"
+optional = true
+
+[dev-dependencies.backtrace]
+version = "0.3"
+
+[dev-dependencies.collections]
+path = "../collections"
+version = "=0.1.0"
+features = [ "test-support",]
+package = "fanta-gpui-collections"
+
+[dev-dependencies.env_logger]
+version = "0.11"
+
+[dev-dependencies.gpui_util]
+path = "../gpui_util"
+package = "fanta-gpui-gpui-util"
+version = "=0.1.0"
+
+[dev-dependencies.lyon]
+version = "1.0"
+features = [ "extra",]
+
+[dev-dependencies.rand]
+version = "0.9"
+
+[dev-dependencies.scheduler]
+path = "../scheduler"
+features = [ "test-support",]
+package = "fanta-gpui-scheduler"
+version = "=0.1.0"
+
+[dev-dependencies.unicode-segmentation]
+version = "1.10"
+
+[lints.clippy.style]
+level = "allow"
+priority = -1
+
+[lints.rust.unexpected_cfgs]
+level = "allow"
+
+[target."cfg(target_os = \"macos\")".dependencies]
+block = "0.1"
+core-graphics = "0.24"
+core-text = "21"
+foreign-types = "0.5"
+
+[target."cfg(target_os = \"macos\")".build-dependencies]
+bindgen = "0.71"
+
+[target."cfg(any(target_os = \"linux\", target_os = \"freebsd\", target_os = \"macos\"))".dependencies]
+pathfinder_geometry = "0.5"
+
+[target."cfg(target_os = \"macos\")".dependencies.cocoa]
+version = "=0.26.0"
+
+[target."cfg(target_os = \"macos\")".dependencies.cocoa-foundation]
+version = "=0.2.0"
+
+[target."cfg(target_os = \"macos\")".dependencies.core-foundation]
+version = "=0.10.0"
+
+[target."cfg(target_os = \"macos\")".dependencies.core-foundation-sys]
+version = "0.8.6"
+
+[target."cfg(target_os = \"macos\")".dependencies.core-video]
+version = "0.5.2"
+features = [ "metal",]
+
+[target."cfg(target_os = \"macos\")".dependencies.font-kit]
+package = "zed-font-kit"
+version = "0.14.1-zed"
+optional = true
+
+[target."cfg(target_os = \"macos\")".dependencies.log]
+version = "0.4.16"
+features = [ "kv_unstable_serde", "serde",]
+
+[target."cfg(target_os = \"macos\")".dependencies.media]
+path = "../media"
+package = "fanta-gpui-media"
+version = "=0.1.0"
+
+[target."cfg(target_os = \"macos\")".dependencies.objc]
+version = "0.2"
+
+[target."cfg(target_os = \"macos\")".dependencies.objc2]
+version = "0.6"
+optional = true
+
+[target."cfg(target_os = \"macos\")".dependencies.objc2-metal]
+version = "0.3"
+optional = true
+
+[target."cfg(target_os = \"macos\")".dependencies.mach2]
+version = "0.5"
+
+[target."cfg(target_os = \"macos\")".dependencies.metal]
+version = "0.33"
+
+[target."cfg(target_os = \"macos\")".build-dependencies.cbindgen]
+version = "0.28.0"
+default-features = false
+
+[target."cfg(target_family = \"wasm\")".dependencies.getrandom]
+version = "0.3.4"
+features = [ "wasm_js",]
+
+[target."cfg(target_family = \"wasm\")".dependencies.uuid]
+version = "1.1.2"
+features = [ "js", "serde", "v4", "v5", "v7",]
+
+[target."cfg(target_family = \"wasm\")".dev-dependencies.wasm-bindgen]
+version = "0.2.120"
+
+[target."cfg(any(target_os = \"linux\", target_os = \"freebsd\", target_os = \"windows\"))".dependencies.scap]
+default-features = false
+package = "zed-scap"
+version = "0.0.8-zed"
+optional = true
+
+[target."cfg(target_os = \"windows\")".dependencies.windows]
+version = "0.61"
+features = [ "Win32_Foundation", "Win32_System_Power",]
+
+[target."cfg(not(target_family = \"wasm\"))".dev-dependencies.http_client]
+path = "../http_client"
+features = [ "test-support",]
+package = "fanta-gpui-http-client"
+version = "=0.1.0"
+
+[target."cfg(not(target_family = \"wasm\"))".dev-dependencies.proptest]
+version = "=0.1.0"
+features = [ "attr-macro",]
+package = "fanta-gpui-proptest"
+path = "../proptest"
+
+[target."cfg(not(target_family = \"wasm\"))".dev-dependencies.reqwest_client]
+path = "../reqwest_client"
+features = [ "test-support",]
+package = "fanta-gpui-reqwest-client"
+version = "=0.1.0"

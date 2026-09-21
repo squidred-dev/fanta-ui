@@ -321,11 +321,21 @@ fn creation_controls_emit_collection_variable_and_mode_intents(cx: &mut TestAppC
         &actions,
         VariablesAction::CreateCollectionRequested,
     );
-    assert_pointer_and_keyboard_parity(
-        cx,
-        "variables-create-variable",
-        &actions,
-        VariablesAction::CreateVariableRequested,
+    let position = cx
+        .debug_bounds("variables-create-variable")
+        .unwrap()
+        .center();
+    cx.simulate_click(position, Modifiers::none());
+    cx.run_until_parked();
+    actions.borrow_mut().clear();
+    let position = cx.debug_bounds("variables-create-Number").unwrap().center();
+    cx.simulate_click(position, Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(
+        actions.borrow().as_slice(),
+        &[VariablesAction::CreateTypedVariableRequested {
+            kind: VariableKind::Number
+        }]
     );
     assert_pointer_and_keyboard_parity(
         cx,
@@ -422,27 +432,28 @@ fn vertical_scrolling_moves_all_body_columns_but_keeps_the_header_fixed(cx: &mut
 }
 
 #[gpui::test]
-fn value_cells_request_edits_for_their_variable_and_mode(cx: &mut TestAppContext) {
-    let (_host, actions, cx) = mount(cx);
-
-    assert_pointer_and_keyboard_parity(
-        cx,
-        "variables-value-color-light",
-        &actions,
-        VariablesAction::ValueEditRequested {
-            variable_id: "color".into(),
-            mode_id: "light".into(),
-        },
-    );
-    assert_pointer_and_keyboard_parity(
-        cx,
-        "variables-value-radius-light",
-        &actions,
-        VariablesAction::ValueEditRequested {
+fn value_cells_commit_numeric_drafts_without_mutating_host_data(cx: &mut TestAppContext) {
+    let (host, actions, cx) = mount(cx);
+    let component = cx.read(|app| host.read(app).component.clone());
+    let position = cx
+        .debug_bounds("variables-value-radius-light")
+        .unwrap()
+        .center();
+    cx.simulate_click(position, Modifiers::none());
+    cx.run_until_parked();
+    cx.simulate_keystrokes("cmd-a 4 2 enter");
+    cx.run_until_parked();
+    assert_eq!(
+        actions.borrow().as_slice(),
+        &[VariablesAction::ValueChanged {
             variable_id: "radius".into(),
             mode_id: "light".into(),
-        },
+            value: "42".into()
+        }]
     );
+    component.read_with(cx, |page, _| {
+        assert_eq!(page.view_data.variables[1].values[0].value.as_ref(), "8")
+    });
 }
 
 #[gpui::test]
@@ -518,4 +529,170 @@ fn search_typing_emits_query_changes_and_filters_rows(cx: &mut TestAppContext) {
         cx.debug_bounds("variables-value-color-light").is_none(),
         "non-matching row should be filtered out"
     );
+}
+
+#[gpui::test]
+fn name_and_mode_edits_emit_commits_and_escape_cancels(cx: &mut TestAppContext) {
+    let (_host, actions, cx) = mount(cx);
+    for (selector, action) in [
+        (
+            "variables-name-cell-radius",
+            VariablesAction::VariableRenameRequested {
+                variable_id: "radius".into(),
+                name: "Renamed".into(),
+            },
+        ),
+        (
+            "variables-mode-header-light",
+            VariablesAction::ModeRenameRequested {
+                mode_id: "light".into(),
+                name: "Renamed".into(),
+            },
+        ),
+    ] {
+        actions.borrow_mut().clear();
+        let position = cx.debug_bounds(selector).unwrap().center();
+        cx.simulate_click(position, Modifiers::none());
+        cx.run_until_parked();
+        cx.simulate_keystrokes("cmd-a R e n a m e d enter");
+        cx.run_until_parked();
+        assert_eq!(actions.borrow().as_slice(), &[action]);
+    }
+    actions.borrow_mut().clear();
+    let position = cx
+        .debug_bounds("variables-name-cell-radius")
+        .unwrap()
+        .center();
+    cx.simulate_click(position, Modifiers::none());
+    cx.run_until_parked();
+    cx.simulate_keystrokes("cmd-a x escape");
+    cx.run_until_parked();
+    assert!(actions.borrow().is_empty());
+}
+
+#[gpui::test]
+fn aliases_reject_cycles_and_collection_changes_clear_editors(cx: &mut TestAppContext) {
+    let (host, _, cx) = mount(cx);
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |page, cx| {
+        let mut data = fixture();
+        let mut alias = VariableModeValue::new("light", "0");
+        alias.alias_id = Some("radius".into());
+        data.variables.push(VariableRow::new(
+            "alias",
+            "Alias",
+            "all",
+            VariableKind::Number,
+            [alias],
+        ));
+        page.set_view_data(data, cx);
+        assert!(page.alias_would_cycle(&"radius".into(), &"alias".into(), &"light".into()));
+        assert!(!page.alias_would_cycle(&"alias".into(), &"radius".into(), &"light".into()));
+        page.settings_id = Some("radius".into());
+        page.alias_target = Some(("radius".into(), "light".into()));
+        let mut next = fixture();
+        next.selected_collection_id = "tokens".into();
+        page.set_view_data(next, cx);
+        assert!(page.settings_id.is_none());
+        assert!(page.alias_target.is_none());
+    });
+}
+
+#[gpui::test]
+fn numeric_input_rejects_letters_and_saves_when_clicking_blank_chrome(cx: &mut TestAppContext) {
+    let (_host, actions, cx) = mount(cx);
+    let position = cx
+        .debug_bounds("variables-value-radius-light")
+        .unwrap()
+        .center();
+    cx.simulate_click(position, Modifiers::none());
+    cx.run_until_parked();
+    cx.simulate_keystrokes("cmd-a 1 a 2");
+    cx.run_until_parked();
+    let position = cx.debug_bounds("variables-name-header").unwrap().center();
+    cx.simulate_click(position, Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(
+        actions.borrow().as_slice(),
+        &[VariablesAction::ValueChanged {
+            variable_id: "radius".into(),
+            mode_id: "light".into(),
+            value: "12".into()
+        }]
+    );
+}
+
+#[gpui::test]
+fn type_dropdown_anchors_to_create_and_uses_compact_rows(cx: &mut TestAppContext) {
+    let (_host, _, cx) = mount(cx);
+    cx.simulate_resize(size(px(560.), px(600.)));
+    cx.run_until_parked();
+    let trigger = cx.debug_bounds("variables-create-variable").unwrap();
+    cx.simulate_click(trigger.center(), Modifiers::none());
+    cx.run_until_parked();
+    let popup = cx.debug_bounds("variables-type-dropdown").unwrap();
+    let item = cx.debug_bounds("variables-create-Color").unwrap();
+    assert_eq!(item.size.height, px(tokens::RowHeight::FIELD));
+    assert!(popup.bottom() <= trigger.top());
+    assert!(popup.left() >= px(8.));
+    assert!(popup.right() <= px(552.));
+}
+
+#[gpui::test]
+fn shared_color_picker_accepts_real_pointer_input(cx: &mut TestAppContext) {
+    let (host, actions, cx) = mount(cx);
+    let component = cx.read(|app| host.read(app).component.clone());
+    let trigger = cx
+        .debug_bounds("variables-color-color-light-false")
+        .unwrap();
+    cx.simulate_click(trigger.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("fanta-color-picker").is_some());
+    let spectrum = cx.debug_bounds("color-picker-spectrum").unwrap();
+    cx.simulate_click(spectrum.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(actions.borrow().iter().any(|action|matches!(action,VariablesAction::ValueChanged {variable_id,mode_id,..} if variable_id.as_ref()=="color" && mode_id.as_ref()=="light")));
+    component.read_with(cx, |page, _| {
+        assert_eq!(
+            page.view_data.variables[0].values[0].value.as_ref(),
+            "#336699"
+        )
+    });
+    let hue = cx.debug_bounds("color-picker-hue").unwrap();
+    actions.borrow_mut().clear();
+    cx.simulate_click(hue.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(
+        actions
+            .borrow()
+            .iter()
+            .any(|action| matches!(action, VariablesAction::ValueChanged { .. }))
+    );
+    let hex = cx.debug_bounds("color-picker-hex").unwrap();
+    cx.simulate_click(hex.center(), Modifiers::none());
+    cx.run_until_parked();
+    actions.borrow_mut().clear();
+    cx.simulate_keystrokes("cmd-a F F 0 0 0 0 enter");
+    cx.run_until_parked();
+    assert!(
+        actions.borrow().iter().any(|action| matches!(action,
+        VariablesAction::ValueChanged {value, ..} if value.as_ref()=="FF0000")),
+        "{:?}",
+        actions.borrow()
+    );
+    let format = cx.debug_bounds("color-picker-format").unwrap();
+    cx.simulate_click(format.center(), Modifiers::none());
+    cx.run_until_parked();
+    let rgb = cx.debug_bounds("color-picker-format-RGB").unwrap();
+    cx.simulate_click(rgb.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("color-picker-format-RGB").is_none(),
+        "format menu remains open"
+    );
+    component.read_with(cx, |page, _| assert!(page.color_target.is_some()));
+    assert!(cx.debug_bounds("fanta-color-picker").is_some());
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    component.read_with(cx, |page, _| assert!(page.color_target.is_none()));
 }

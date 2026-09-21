@@ -7,6 +7,7 @@
 //! surface reflows to whatever size the viewport currently has.
 
 use crate::*;
+use fanta_gpui::atoms::TypographyExt as _;
 
 use super::knobs;
 
@@ -332,7 +333,7 @@ impl Storybook {
             ViewportAxis::Width => div().w(px(2.)).h(px(36.)),
             ViewportAxis::Height => div().w(px(36.)).h(px(2.)),
         };
-        Button::new(id)
+        fanta_gpui::atoms::ui_button(id)
             .debug_selector(move || selector.to_owned())
             .tooltip(tooltip)
             .xsmall()
@@ -373,9 +374,9 @@ impl Storybook {
                 }
             }))
             .child(grip.rounded_full().bg(if active {
-                cx.theme().selection
+                fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx)
             } else {
-                cx.theme().border
+                fanta_gpui::atoms::SemanticColor::Border.resolve(cx)
             }))
             .into_any_element()
     }
@@ -428,8 +429,8 @@ impl Storybook {
                     .id("story-viewport-readout")
                     .debug_selector(|| "story-viewport-readout".to_owned())
                     .flex_none()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(self.story_viewport.readout()),
             )
             .into_any_element()
@@ -451,7 +452,7 @@ impl Storybook {
             .w(px(width))
             .h(px(height))
             .overflow_hidden()
-            .bg(cx.theme().background)
+            .bg(fanta_gpui::atoms::SemanticColor::Background.resolve(cx))
             .child(self.render_gallery_story_component(cx));
 
         v_flex()

@@ -46,9 +46,9 @@ pub fn popup_surface(id: impl Into<ElementId>, radius: Pixels, cx: &App) -> Stat
         .block_mouse_except_scroll()
         .rounded(radius)
         .border_1()
-        .border_color(cx.theme().border)
-        .bg(cx.theme().popover)
-        .text_color(cx.theme().popover_foreground)
+        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+        .bg(crate::atoms::SemanticColor::BackgroundMenu.resolve(cx))
+        .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
         .when(cx.theme().shadow, |surface| surface.shadow_lg())
         .overflow_y_scroll()
 }

@@ -27,7 +27,7 @@ mod text_input_fallback;
 
 pub use atoms::ActivateControl;
 pub use layouts::{file_inspector, pseudo_editor};
-pub use organisms::{design, layers, pages, prototype, timeline, toolbar};
+pub use organisms::{color_picker, design, layers, pages, prototype, timeline, toolbar};
 pub use screens::variables;
 
 /// Registers Fanta GPUI commands and their default key bindings.
@@ -45,11 +45,35 @@ pub fn init(cx: &mut gpui::App) {
 /// Common imports for Fanta GPUI hosts.
 pub mod prelude {
     pub use crate::ActivateControl;
+    pub use crate::atoms::{
+        Checkbox, CheckboxState, CheckboxType, ColorChit, ColorChitKind, ColorChitShape,
+        ColorChitSize, ColorInput, ColorInputKind, ComboInput, ComboInputDropdown, ComboInputState,
+        Dropdown, DropdownSize, DropdownState, FantaTextInput, InputChip, InputChipState,
+        InputSize, InputVisualState, NumericInput, NumericInputMulti, RadioButton,
+        RadioButtonSelection, RadioButtonState, RadioButtonVariant, SegmentIcon, SegmentIconOption,
+        SegmentLabel, SegmentState, SegmentedControl, SegmentedControlSelection,
+        SegmentedControlState, SegmentedControlVariant, SemanticButton,
+        SemanticButtonIconAlignment, SemanticButtonSize, SemanticButtonState,
+        SemanticButtonVariant, SemanticColor, SemanticColorGroup, SemanticIconButton,
+        SemanticIconButtonKind, SemanticSplitButtonState, SliderBackground, SliderGradientStop,
+        SliderHandle, SliderHandleVariant, SliderState, Tab, TabSelection, TabState, Tabs,
+        TextInputLabel, TextInputVariant, Tooltip, TooltipDirection, TooltipLink,
+        TooltipLinkAction, TooltipLinkVariant, TypographyExt, TypographyStyle, TypographyToken,
+        VariableCell, VariableChip, VariableChipState, semantic_button, semantic_icon_button,
+        ui_button,
+    };
+    pub use crate::molecules::{
+        MenuCheckRow, MenuCheckVariant, MenuComplexRow, MenuDivider, MenuExpandRow, MenuFooter,
+        MenuHeading, MenuHeadingAlignment, MenuLead, MenuMultiSelectVariant, MenuRowState,
+        MenuSimpleRow, MenuToggleRow, MenuToolbarRow, MenuTrail, Slider, SliderAction, SliderPhase,
+        SliderVariant,
+    };
     // Shared control atoms (ARCHITECTURE.md §16).
     pub use crate::atoms::{
         ActivateEvent, ButtonControlExt, CONTROL_KEY_CONTEXT, ControlExt, LucideIcon, icon_button,
         render_lucide_icon, track_bounds, truncating_label,
     };
+    pub use crate::color_picker::{ColorPicker, ColorPickerAction, ColorPickerPhase, PickerColor};
     pub use crate::design::*;
     pub use crate::file_inspector::{
         FILE_INSPECTOR_MIN_HEIGHT, FILE_INSPECTOR_MIN_WIDTH, FileInspectorSidebar,
@@ -83,7 +107,7 @@ pub mod prelude {
         inspector_row_with_layout, inspector_section, inspector_section_group,
         inspector_section_header, inspector_segment, inspector_segmented_control,
         inspector_slider_field, inspector_text_field, inspector_toggle_field, list_row, menu_item,
-        menu_surface, popup_height, popup_max_height, popup_surface, popup_width,
+        menu_panel, menu_surface, popup_height, popup_max_height, popup_surface, popup_width,
         track_horizontal_edge_fades,
     };
     pub use crate::pages::{

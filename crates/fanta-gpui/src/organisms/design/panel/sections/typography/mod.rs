@@ -292,8 +292,8 @@ fn group_label(label: &'static str, cx: &mut Context<DesignPanel>) -> AnyElement
         .h(px(16.))
         .flex()
         .items_center()
-        .text_xs()
-        .text_color(cx.theme().muted_foreground)
+        .typography(crate::atoms::TypographyToken::BodyMedium)
+        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
         .child(label)
         .into_any_element()
 }
@@ -312,13 +312,13 @@ fn bound_style_summary(
         .px_2()
         .gap_2()
         .rounded(px(4.))
-        .bg(cx.theme().secondary)
+        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
         .child(
             div()
                 .flex_1()
                 .min_w(px(0.))
                 .truncate()
-                .text_xs()
+                .typography(crate::atoms::TypographyToken::BodyMedium)
                 .child(name),
         )
         .into_any_element()
@@ -339,7 +339,7 @@ fn alignment_icon(
         (_, Some(DesignTextVerticalAlignment::Bottom)) => LucideIcon::AlignVerticalJustifyEnd,
         (None, None) => LucideIcon::TextAlignStart,
     };
-    render_lucide_icon(icon, cx.theme().foreground, 16.)
+    render_lucide_icon(icon, crate::atoms::SemanticColor::Text.resolve(cx), 16.)
 }
 
 struct TypographyAlignmentOption {
@@ -396,7 +396,7 @@ fn alignment_segment(
     cx: &mut Context<DesignPanel>,
 ) -> AnyElement {
     let events = events.clone();
-    Button::new(SharedString::from(format!(
+    crate::atoms::ui_button(SharedString::from(format!(
         "{panel_id}-{}",
         option.id_suffix
     )))
@@ -490,14 +490,14 @@ fn text_path_orientation(
         .border_1()
         .border_color(cx.theme().transparent)
         .bg(if orientation == DesignTextPathOrientation::Flipped {
-            cx.theme().accent
+            crate::atoms::SemanticColor::BackgroundHover.resolve(cx)
         } else {
-            cx.theme().secondary
+            crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx)
         })
-        .text_xs()
+        .typography(crate::atoms::TypographyToken::BodyMedium)
         .when(!enabled, |control| {
             control
-                .text_color(cx.theme().muted_foreground)
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .opacity(0.62)
         });
     if enabled {
@@ -506,11 +506,11 @@ fn text_path_orientation(
             .key_context(CONTROL_KEY_CONTEXT)
             .tab_index(0)
             .cursor_pointer()
-            .hover(|style| style.bg(cx.theme().accent))
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
             .focus(|style| {
                 style
-                    .bg(cx.theme().accent)
-                    .border_color(cx.theme().selection)
+                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
             })
             .on_activate(move |_, _, cx| {
                 events.send(&identity, TypographyEvent::FlipTextPath, cx);
@@ -524,8 +524,8 @@ fn text_path_orientation(
             .child(
                 div()
                     .px_1()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(tooltip),
             )
             .into_any_element(),
@@ -642,7 +642,7 @@ fn render_content(
                             .flex_1()
                             .overflow_hidden()
                             .rounded(px(4.))
-                            .bg(cx.theme().secondary)
+                            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                             .child(alignment_segment(
                                 &projection.identity.panel_id,
                                 TypographyAlignmentOption::horizontal(
@@ -686,7 +686,7 @@ fn render_content(
                             .flex_1()
                             .overflow_hidden()
                             .rounded(px(4.))
-                            .bg(cx.theme().secondary)
+                            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                             .child(alignment_segment(
                                 &projection.identity.panel_id,
                                 TypographyAlignmentOption::vertical(
@@ -807,7 +807,7 @@ pub(in super::super) fn render(
     .child(
         div()
             .flex_1()
-            .text_sm()
+            .typography(crate::atoms::TypographyToken::BodyLarge)
             .font_semibold()
             .child(DesignPanelSection::Typography.label()),
     )

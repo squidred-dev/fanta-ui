@@ -8,6 +8,7 @@
 //! something the reader watches arrive under their own pointer instead of
 //! something the doc comments assert.
 
+use fanta_gpui::atoms::TypographyExt as _;
 use gpui::{Bounds, FocusHandle, Hsla, Pixels};
 
 use crate::*;
@@ -634,10 +635,10 @@ const fn phase_label(phase: InspectorEditPhase) -> &'static str {
 
 fn phase_color(phase: InspectorEditPhase, cx: &Context<Storybook>) -> Hsla {
     match phase {
-        InspectorEditPhase::Begin => cx.theme().blue,
-        InspectorEditPhase::Preview => cx.theme().yellow,
-        InspectorEditPhase::Commit => cx.theme().green,
-        InspectorEditPhase::Cancel => cx.theme().red,
+        InspectorEditPhase::Begin => fanta_gpui::atoms::SemanticColor::TextBrand.resolve(cx),
+        InspectorEditPhase::Preview => fanta_gpui::atoms::SemanticColor::TextWarning.resolve(cx),
+        InspectorEditPhase::Commit => fanta_gpui::atoms::SemanticColor::TextSuccess.resolve(cx),
+        InspectorEditPhase::Cancel => fanta_gpui::atoms::SemanticColor::TextDanger.resolve(cx),
     }
 }
 
@@ -666,7 +667,11 @@ fn field_caption(
         .min_w(px(0.))
         .truncate()
         .when(placeholder, |text| {
-            text.text_color(cx.theme().muted_foreground.opacity(0.7))
+            text.text_color(
+                fanta_gpui::atoms::SemanticColor::TextTertiary
+                    .resolve(cx)
+                    .opacity(0.7),
+            )
         })
         .child(caption)
         .into_any_element()
@@ -682,15 +687,19 @@ fn switch_specimen(
     let on = matches!(value, InspectorValue::Uniform(true));
     let mixed = value.is_mixed();
     let knob = if mixed {
-        render_lucide_icon(LucideIcon::Minus, cx.theme().muted_foreground, 10.)
+        render_lucide_icon(
+            LucideIcon::Minus,
+            fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
+            10.,
+        )
     } else {
         div()
             .size(px(10.))
             .rounded_full()
             .bg(if editable {
-                cx.theme().foreground
+                fanta_gpui::atoms::SemanticColor::Text.resolve(cx)
             } else {
-                cx.theme().muted_foreground
+                fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx)
             })
             .into_any_element()
     };
@@ -702,9 +711,9 @@ fn switch_specimen(
         .px(px(2.))
         .rounded_full()
         .bg(if on {
-            cx.theme().selection
+            fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx)
         } else {
-            cx.theme().border
+            fanta_gpui::atoms::SemanticColor::Border.resolve(cx)
         })
         .when(on, |track| track.justify_end())
         .when(mixed, |track| track.justify_center())
@@ -731,19 +740,21 @@ fn checkbox_specimen(value: &InspectorValue<bool>, cx: &mut Context<Storybook>) 
         .rounded(px(3.))
         .border_1()
         .border_color(if checked {
-            cx.theme().selection
+            fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx)
         } else {
-            cx.theme().border
+            fanta_gpui::atoms::SemanticColor::Border.resolve(cx)
         })
-        .when(checked, |field| field.bg(cx.theme().selection))
+        .when(checked, |field| {
+            field.bg(fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+        })
         .when(value.is_unset(), |field| field.opacity(0.62))
         .when_some(glyph, |field, icon| {
             field.child(render_lucide_icon(
                 icon,
                 if checked {
-                    cx.theme().background
+                    fanta_gpui::atoms::SemanticColor::Background.resolve(cx)
                 } else {
-                    cx.theme().muted_foreground
+                    fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx)
                 },
                 10.,
             ))
@@ -759,14 +770,14 @@ fn slider_track_specimen(value: &InspectorValue<f64>, cx: &mut Context<Storybook
         .min_w(px(0.))
         .h(px(4.))
         .rounded_full()
-        .bg(cx.theme().border)
+        .bg(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
         .when(value.is_uniform(), |track| {
             track.child(
                 div()
                     .h_full()
                     .w(gpui::relative(ratio))
                     .rounded_full()
-                    .bg(cx.theme().selection),
+                    .bg(fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx)),
             )
         })
         .into_any_element()
@@ -838,7 +849,11 @@ impl Storybook {
                 .child(
                     div()
                         .flex_none()
-                        .text_color(cx.theme().muted_foreground.opacity(0.7))
+                        .text_color(
+                            fanta_gpui::atoms::SemanticColor::TextTertiary
+                                .resolve(cx)
+                                .opacity(0.7),
+                        )
                         .child("px"),
                 )
                 .into_any_element(),
@@ -859,7 +874,7 @@ impl Storybook {
                 .child(field_caption(picker_caption, picker_placeholder, cx))
                 .child(render_lucide_icon(
                     LucideIcon::ChevronDown,
-                    cx.theme().muted_foreground,
+                    fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
                     12.,
                 ))
                 .into_any_element(),
@@ -881,7 +896,11 @@ impl Storybook {
                         .w(px(34.))
                         .flex_none()
                         .when(slider_placeholder, |caption| {
-                            caption.text_color(cx.theme().muted_foreground.opacity(0.7))
+                            caption.text_color(
+                                fanta_gpui::atoms::SemanticColor::TextTertiary
+                                    .resolve(cx)
+                                    .opacity(0.7),
+                            )
                         })
                         .child(slider_caption),
                 )
@@ -916,13 +935,17 @@ impl Storybook {
                 .into_any_element(),
         );
 
-        let fill = cx.theme().blue;
+        let fill = fanta_gpui::atoms::SemanticColor::TextBrand.resolve(cx);
         let swatch = InspectorColorSwatch::new(state.value(fill), presentation.clone());
         let color = InspectorColorField::new(state.value(fill), presentation);
         let (color_caption, color_placeholder) =
             value_caption(color.frame().value(), |_| "0C8CE9".to_owned());
         let swatch_element = swatch
-            .render(cx.theme().muted, metrics, cx)
+            .render(
+                fanta_gpui::atoms::SemanticColor::BackgroundTertiary.resolve(cx),
+                metrics,
+                cx,
+            )
             .w(metrics.row_height);
         let color_row = property_row(
             layout,
@@ -1068,8 +1091,8 @@ impl Storybook {
             .gap_0p5()
             .rounded(px(6.))
             .border_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().background);
+            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+            .bg(fanta_gpui::atoms::SemanticColor::Background.resolve(cx));
         for (index, (name, _)) in MIXED_SELECTION_LAYERS.iter().enumerate() {
             let selected = screen.selection[index];
             let radius = screen.radii[index];
@@ -1083,18 +1106,27 @@ impl Storybook {
                 .debug_selector(move || format!("fields-mixed-layer-{index}"))
                 .px_1p5()
                 .gap_2()
-                .hover(|style| style.bg(cx.theme().accent))
-                .when(selected, |row| row.bg(cx.theme().selection.opacity(0.18)))
+                .hover(|style| {
+                    style.bg(fanta_gpui::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                })
+                .when(selected, |row| {
+                    row.bg(fanta_gpui::atoms::SemanticColor::BackgroundSelected
+                        .resolve(cx)
+                        .opacity(0.18))
+                })
                 .on_activate(cx.listener(move |this, _: &ActivateEvent, _, cx| {
                     this.fields_screen.toggle_selection(index, cx);
                 }))
                 .child(checkbox_specimen(&InspectorValue::Uniform(selected), cx))
-                .child(truncating_label(name).text_xs())
+                .child(
+                    truncating_label(name)
+                        .typography(fanta_gpui::atoms::TypographyToken::BodyMedium),
+                )
                 .child(
                     div()
                         .flex_none()
                         .text_size(px(10.))
-                        .text_color(cx.theme().muted_foreground)
+                        .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(format!("radius {}", format_number(radius))),
                 ),
             );
@@ -1109,8 +1141,8 @@ impl Storybook {
             .gap_2()
             .child(
                 div()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(format!(
                         "{selected_count} of {} layers selected",
                         MIXED_SELECTION_LAYERS.len()
@@ -1124,7 +1156,7 @@ impl Storybook {
                         div()
                             .w(px(64.))
                             .flex_none()
-                            .text_xs()
+                            .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
                             .child("Corner radius"),
                     )
                     .child(
@@ -1144,16 +1176,16 @@ impl Storybook {
                     .py_0p5()
                     .rounded(px(4.))
                     .border_1()
-                    .border_color(cx.theme().border)
+                    .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
                     .text_size(px(10.))
-                    .text_color(cx.theme().muted_foreground)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(format!("InspectorValue::{}", describe_value(&value))),
             )
             .child(
                 inspector_action_group(metrics)
                     .child(
                         inspector_action_button("fields-mixed-commit", &access, metrics, cx)
-                            .border_color(cx.theme().border)
+                            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
                             .debug_selector(|| "fields-mixed-commit".to_owned())
                             .child(format!("Set radius {}", format_number(MIXED_COMMIT_RADIUS)))
                             .on_activate(cx.listener(|this, _: &ActivateEvent, _, cx| {
@@ -1167,7 +1199,7 @@ impl Storybook {
                             metrics,
                             cx,
                         )
-                        .border_color(cx.theme().border)
+                        .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
                         .debug_selector(|| "fields-mixed-reset".to_owned())
                         .child("Reset")
                         .on_activate(cx.listener(
@@ -1247,7 +1279,11 @@ impl Storybook {
             .child(
                 div()
                     .flex_none()
-                    .text_color(cx.theme().muted_foreground.opacity(0.7))
+                    .text_color(
+                        fanta_gpui::atoms::SemanticColor::TextTertiary
+                            .resolve(cx)
+                            .opacity(0.7),
+                    )
                     .child("px"),
             )
             .into_any_element()
@@ -1298,13 +1334,13 @@ impl Storybook {
                     .w_full()
                     .h(px(4.))
                     .rounded_full()
-                    .bg(cx.theme().border)
+                    .bg(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
                     .child(
                         div()
                             .h_full()
                             .w(gpui::relative(value as f32))
                             .rounded_full()
-                            .bg(cx.theme().selection),
+                            .bg(fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx)),
                     ),
             )
             .child(
@@ -1316,8 +1352,8 @@ impl Storybook {
                     .size(px(10.))
                     .rounded_full()
                     .border_1()
-                    .border_color(cx.theme().border)
-                    .bg(cx.theme().foreground),
+                    .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+                    .bg(fanta_gpui::atoms::SemanticColor::Text.resolve(cx)),
             )
             .child(track_bounds(entity, |story: &mut Storybook, bounds| {
                 story.fields_screen.set_slider_bounds(bounds);
@@ -1344,20 +1380,23 @@ impl Storybook {
             .p_2()
             .rounded(px(6.))
             .border_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().background);
+            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+            .bg(fanta_gpui::atoms::SemanticColor::Background.resolve(cx));
         if screen.log.is_empty() {
             column = column.child(
                 div()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("No edits yet — press and drag the X field or the opacity track."),
             );
         }
         for entry in &screen.log {
             let (tag, color) = match entry.phase {
                 Some(phase) => (phase_label(phase), phase_color(phase, cx)),
-                None => ("Refused", cx.theme().red),
+                None => (
+                    "Refused",
+                    fanta_gpui::atoms::SemanticColor::TextDanger.resolve(cx),
+                ),
             };
             column = column.child(
                 h_flex()
@@ -1380,8 +1419,8 @@ impl Storybook {
                         div()
                             .w(px(52.))
                             .flex_none()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                            .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(entry.field),
                     )
                     .child(
@@ -1389,7 +1428,7 @@ impl Storybook {
                             .flex_1()
                             .min_w(px(0.))
                             .truncate()
-                            .text_xs()
+                            .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
                             .child(entry.detail.clone()),
                     ),
             );
@@ -1405,14 +1444,14 @@ impl Storybook {
                     .child(
                         div()
                             .text_size(px(10.))
-                            .text_color(cx.theme().muted_foreground)
+                            .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(format!(
                                 "{} repeat previews coalesced away",
                                 screen.coalesced
                             )),
                     )
                     .child(
-                        Button::new("fields-clear-log")
+                        fanta_gpui::atoms::ui_button("fields-clear-log")
                             .label("Clear")
                             .xsmall()
                             .compact()

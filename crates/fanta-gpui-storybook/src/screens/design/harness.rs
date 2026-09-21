@@ -10,6 +10,7 @@
 
 use super::*;
 use crate::screens::knobs::{self, KnobOption};
+use fanta_gpui::atoms::TypographyExt as _;
 
 impl Storybook {
     fn render_design_context_selector(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -17,22 +18,26 @@ impl Storybook {
         for scenario in DesignInspectionScenario::ALL {
             let active = self.design_screen.harness.inspection_scenario == scenario;
             buttons = buttons.child(
-                Button::new(SharedString::from(format!(
+                fanta_gpui::atoms::ui_button(SharedString::from(format!(
                     "design-inspection-scenario-{}",
                     scenario.id()
                 )))
                 .label(scenario.label())
                 .custom(
                     ButtonCustomVariant::new(cx)
-                        .color(cx.theme().secondary)
-                        .foreground(cx.theme().foreground)
+                        .color(fanta_gpui::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                        .foreground(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
                         .border(if active {
-                            cx.theme().selection
+                            fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx)
                         } else {
-                            cx.theme().border
+                            fanta_gpui::atoms::SemanticColor::Border.resolve(cx)
                         })
-                        .hover(cx.theme().accent)
-                        .active(cx.theme().selection.opacity(0.22)),
+                        .hover(fanta_gpui::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .active(
+                            fanta_gpui::atoms::SemanticColor::BackgroundSelected
+                                .resolve(cx)
+                                .opacity(0.22),
+                        ),
                 )
                 .xsmall()
                 .selected(active)
@@ -41,7 +46,9 @@ impl Storybook {
                 .rounded(px(5.))
                 .border_1()
                 .when(active, |button| {
-                    button.hover(|style| style.bg(cx.theme().accent))
+                    button.hover(|style| {
+                        style.bg(fanta_gpui::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    })
                 })
                 .cursor_pointer()
                 .on_click(cx.listener(move |this, _, window, cx| {
@@ -57,8 +64,8 @@ impl Storybook {
             .gap_2()
             .child(
                 div()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("INSPECTION CONTEXT"),
             )
             .child(buttons)
@@ -67,14 +74,29 @@ impl Storybook {
                     == DesignInspectionScenario::TextEdit,
                 |content| {
                     content.child(
-                        Button::new("design-text-range-revision")
+                        fanta_gpui::atoms::ui_button("design-text-range-revision")
                             .custom(
                                 ButtonCustomVariant::new(cx)
-                                    .color(cx.theme().selection.opacity(0.14))
-                                    .foreground(cx.theme().foreground)
-                                    .border(cx.theme().selection)
-                                    .hover(cx.theme().selection.opacity(0.24))
-                                    .active(cx.theme().selection.opacity(0.14)),
+                                    .color(
+                                        fanta_gpui::atoms::SemanticColor::BackgroundSelected
+                                            .resolve(cx)
+                                            .opacity(0.14),
+                                    )
+                                    .foreground(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
+                                    .border(
+                                        fanta_gpui::atoms::SemanticColor::BackgroundSelected
+                                            .resolve(cx),
+                                    )
+                                    .hover(
+                                        fanta_gpui::atoms::SemanticColor::BackgroundSelected
+                                            .resolve(cx)
+                                            .opacity(0.24),
+                                    )
+                                    .active(
+                                        fanta_gpui::atoms::SemanticColor::BackgroundSelected
+                                            .resolve(cx)
+                                            .opacity(0.14),
+                                    ),
                             )
                             .xsmall()
                             .selected(true)
@@ -84,7 +106,11 @@ impl Storybook {
                             .rounded(px(5.))
                             .border_1()
                             .cursor_pointer()
-                            .hover(|style| style.bg(cx.theme().selection.opacity(0.24)))
+                            .hover(|style| {
+                                style.bg(fanta_gpui::atoms::SemanticColor::BackgroundSelected
+                                    .resolve(cx)
+                                    .opacity(0.24))
+                            })
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.design_screen.advance_text_range(cx);
                                 this.design_screen.panel.focus_handle(cx).focus(window, cx);
@@ -93,11 +119,23 @@ impl Storybook {
                                 h_flex()
                                     .w_full()
                                     .justify_between()
-                                    .child(div().text_xs().child(format!(
-                                        "Selected text · revision {}",
-                                        self.design_screen.harness.text_range_revision
-                                    )))
-                                    .child(div().text_xs().child("Select next range")),
+                                    .child(
+                                        div()
+                                            .typography(
+                                                fanta_gpui::atoms::TypographyToken::BodyMedium,
+                                            )
+                                            .child(format!(
+                                                "Selected text · revision {}",
+                                                self.design_screen.harness.text_range_revision
+                                            )),
+                                    )
+                                    .child(
+                                        div()
+                                            .typography(
+                                                fanta_gpui::atoms::TypographyToken::BodyMedium,
+                                            )
+                                            .child("Select next range"),
+                                    ),
                             ),
                     )
                 },
@@ -111,7 +149,7 @@ impl Storybook {
             "Resize Design inspector · {:.0} px · drag or use arrows and +/− (Shift for 32 px)",
             self.design_screen.harness.panel_width
         );
-        Button::new("design-panel-resize-handle")
+        fanta_gpui::atoms::ui_button("design-panel-resize-handle")
             .debug_selector(|| "design-panel-resize-handle".to_owned())
             .tooltip(tooltip)
             .xsmall()
@@ -135,9 +173,9 @@ impl Storybook {
                     .handle_panel_resize_key(event, window, cx);
             }))
             .child(div().w(px(2.)).h(px(36.)).rounded_full().bg(if active {
-                cx.theme().selection
+                fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx)
             } else {
-                cx.theme().border
+                fanta_gpui::atoms::SemanticColor::Border.resolve(cx)
             }))
             .into_any_element()
     }
@@ -147,16 +185,18 @@ impl Storybook {
         for width in DESIGN_PANEL_WIDTH_PRESETS {
             let active = (self.design_screen.harness.panel_width - width).abs() < f32::EPSILON;
             buttons = buttons.child(
-                Button::new(SharedString::from(format!("design-panel-width-{width:.0}")))
-                    .label(format!("{width:.0}"))
-                    .tooltip(format!("Set inspector width to {width:.0} px"))
-                    .xsmall()
-                    .compact()
-                    .flex_1()
-                    .selected(active)
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.design_screen.set_panel_width(width, "set", cx);
-                    })),
+                fanta_gpui::atoms::ui_button(SharedString::from(format!(
+                    "design-panel-width-{width:.0}"
+                )))
+                .label(format!("{width:.0}"))
+                .tooltip(format!("Set inspector width to {width:.0} px"))
+                .xsmall()
+                .compact()
+                .flex_1()
+                .selected(active)
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.design_screen.set_panel_width(width, "set", cx);
+                })),
             );
         }
         v_flex()
@@ -164,8 +204,8 @@ impl Storybook {
             .gap_2()
             .child(
                 div()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(format!(
                         "PANEL WIDTH · {:.0} PX",
                         self.design_screen.harness.panel_width
@@ -174,8 +214,8 @@ impl Storybook {
             .child(buttons)
             .child(
                 div()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("Drag the inspector divider, or use arrows and +/− (Shift: 32 px)."),
             )
             .into_any_element()
@@ -250,8 +290,8 @@ impl Storybook {
             ))
             .child(
                 div()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(
                         "Arrow uses Small; Shift+Arrow uses Big across numeric inspector fields.",
                     ),
@@ -267,22 +307,28 @@ impl Storybook {
             let kind = node.kind;
             let label = node.name.clone();
             buttons = buttons.child(
-                Button::new(SharedString::from(format!("design-preset-{index}")))
+                fanta_gpui::atoms::ui_button(SharedString::from(format!("design-preset-{index}")))
                     .debug_selector(move || format!("design-preset-{index}"))
                     .when(index == last_index, |button| {
                         button.debug_selector(|| "design-preset-last".to_owned())
                     })
                     .custom(
                         ButtonCustomVariant::new(cx)
-                            .color(cx.theme().secondary)
-                            .foreground(cx.theme().foreground)
+                            .color(
+                                fanta_gpui::atoms::SemanticColor::BackgroundSecondary.resolve(cx),
+                            )
+                            .foreground(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
                             .border(if selected {
-                                cx.theme().selection
+                                fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx)
                             } else {
-                                cx.theme().border
+                                fanta_gpui::atoms::SemanticColor::Border.resolve(cx)
                             })
-                            .hover(cx.theme().accent)
-                            .active(cx.theme().selection.opacity(0.22)),
+                            .hover(fanta_gpui::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .active(
+                                fanta_gpui::atoms::SemanticColor::BackgroundSelected
+                                    .resolve(cx)
+                                    .opacity(0.22),
+                            ),
                     )
                     .xsmall()
                     .selected(selected)
@@ -291,7 +337,9 @@ impl Storybook {
                     .rounded(px(5.))
                     .border_1()
                     .when(selected, |button| {
-                        button.hover(|style| style.bg(cx.theme().accent))
+                        button.hover(|style| {
+                            style.bg(fanta_gpui::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        })
                     })
                     .cursor_pointer()
                     .on_click(cx.listener(move |this, _, window, cx| {
@@ -315,14 +363,20 @@ impl Storybook {
                                 div()
                                     .w(px(16.))
                                     .text_center()
-                                    .text_color(cx.theme().muted_foreground)
+                                    .text_color(
+                                        fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child(render_lucide_icon(
                                         kind.lucide_icon(),
-                                        cx.theme().muted_foreground,
+                                        fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
                                         16.,
                                     )),
                             )
-                            .child(div().text_xs().child(label)),
+                            .child(
+                                div()
+                                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                                    .child(label),
+                            ),
                     ),
             );
         }
@@ -332,8 +386,8 @@ impl Storybook {
             .child(
                 div()
                     .debug_selector(|| "design-node-variation-matrix-heading".to_owned())
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("NODE + VARIATION MATRIX"),
             )
             .child(div().id("design-selector-scroll").pb_6().child(buttons))
@@ -345,15 +399,15 @@ impl Storybook {
             .gap_1()
             .child(
                 div()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("LAST TYPED INTENT"),
             )
             .child(
                 div()
                     .max_h(px(52.))
                     .overflow_hidden()
-                    .text_xs()
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
                     .child(self.design_screen.harness.last_action.clone()),
             )
             .into_any_element()
@@ -386,7 +440,7 @@ impl Storybook {
             .p_3()
             .gap_3()
             .border_r_1()
-            .border_color(cx.theme().border)
+            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
             .bg(bg)
             .children(self.design_fixture_controls(cx))
             .into_any_element()
@@ -416,7 +470,9 @@ impl Storybook {
             .items_center()
             .justify_center()
             .gap_3()
-            .bg(cx.theme().muted.opacity(0.45))
+            .bg(fanta_gpui::atoms::SemanticColor::BackgroundTertiary
+                .resolve(cx)
+                .opacity(0.45))
             .child(
                 div()
                     .w(px(264.))
@@ -425,8 +481,8 @@ impl Storybook {
                     .overflow_hidden()
                     .rounded(px(10.))
                     .border_1()
-                    .border_color(cx.theme().selection)
-                    .bg(cx.theme().secondary)
+                    .border_color(fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+                    .bg(fanta_gpui::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                     .shadow_lg()
                     .child(
                         v_flex()
@@ -437,10 +493,14 @@ impl Storybook {
                             .child(
                                 div()
                                     .text_size(px(24.))
-                                    .text_color(cx.theme().selection)
+                                    .text_color(
+                                        fanta_gpui::atoms::SemanticColor::BackgroundSelected
+                                            .resolve(cx),
+                                    )
                                     .child(render_lucide_icon(
                                         selected_kind.lucide_icon(),
-                                        cx.theme().selection,
+                                        fanta_gpui::atoms::SemanticColor::BackgroundSelected
+                                            .resolve(cx),
                                         24.,
                                     )),
                             )
@@ -448,14 +508,16 @@ impl Storybook {
                                 div()
                                     .max_w(px(220.))
                                     .truncate()
-                                    .text_sm()
+                                    .typography(fanta_gpui::atoms::TypographyToken::BodyLarge)
                                     .font_semibold()
                                     .child(selected_name),
                             )
                             .child(
                                 div()
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground)
+                                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                                    .text_color(
+                                        fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child(selected_size),
                             ),
                     ),
@@ -463,8 +525,8 @@ impl Storybook {
             .when_some(caption, |column, caption| {
                 column.child(
                     div()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                        .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(caption),
                 )
             })
@@ -490,7 +552,7 @@ impl Storybook {
             .min_h(px(0.))
             .overflow_hidden()
             .border_l_1()
-            .border_color(cx.theme().border)
+            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
             .child(self.design_screen.panel.clone())
             .into_any_element()
     }
@@ -504,10 +566,10 @@ impl Storybook {
             .flex_none()
             .w_full()
             .border_t_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().sidebar)
+            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+            .bg(fanta_gpui::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
             .child(
-                Button::new("design-harness-controls-toggle")
+                fanta_gpui::atoms::ui_button("design-harness-controls-toggle")
                     .debug_selector(|| "design-harness-controls-toggle".to_owned())
                     .tooltip(
                         "Scenario, node, and preference controls for the Design story fold \
@@ -537,7 +599,7 @@ impl Storybook {
                         .p_3()
                         .gap_3()
                         .border_t_1()
-                        .border_color(cx.theme().border)
+                        .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
                         .children(self.design_fixture_controls(cx)),
                 )
             })
@@ -627,7 +689,7 @@ impl Storybook {
         } else {
             self.render_design_wide_harness(
                 harness_width,
-                cx.theme().sidebar,
+                fanta_gpui::atoms::SemanticColor::BackgroundToolbar.resolve(cx),
                 "The mock canvas keeps left-opening inspectors visible",
                 cx,
             )
@@ -640,13 +702,15 @@ impl Storybook {
     pub(crate) fn render_design_reference(&self, cx: &mut Context<Self>) -> AnyElement {
         v_flex()
             .size_full()
-            .bg(cx.theme().background)
-            .text_color(cx.theme().foreground)
+            .bg(fanta_gpui::atoms::SemanticColor::Background.resolve(cx))
+            .text_color(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
             .child(self.render_reference_nav(cx))
             .child(
                 self.render_design_wide_harness(
                     f32::MAX,
-                    cx.theme().secondary.opacity(0.32),
+                    fanta_gpui::atoms::SemanticColor::BackgroundSecondary
+                        .resolve(cx)
+                        .opacity(0.32),
                     "Neutral canvas keeps left-opening inspectors visible",
                     cx,
                 )

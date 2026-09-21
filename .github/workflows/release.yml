@@ -1,0 +1,80 @@
+name: Publish crates
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish or resume (for example v0.1.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crates-io-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: macos-latest
+    timeout-minutes: 120
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.95.0'
+          components: rustfmt, clippy
+      - name: Check release version
+        run: python3 script/release.py --release-tag "$RELEASE_TAG"
+      - name: Check publication credentials
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        run: |
+          if [ -z "$CARGO_REGISTRY_TOKEN" ]; then
+            echo '::error::Add the CRATES_IO_TOKEN Actions secret with permission to publish the Fanta crates.'
+            exit 1
+          fi
+      - name: Prepare Metal compiler
+        run: |
+          if ! xcrun -sdk macosx metal --version >/dev/null 2>&1; then
+            xcodebuild -downloadComponent MetalToolchain
+          fi
+      - name: Validate workspace
+        run: |
+          cargo fmt --all -- --check
+          cargo check --workspace --locked
+          cargo test --workspace --locked
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+          cargo check -p fanta-gpui-gpui-platform --locked --features font-kit,screen-capture,runtime_shaders
+          python3 script/release.py --package-lists
+      - name: Verify packaged consumer before publishing
+        run: python3 script/verify-packages.py
+      - name: Publish in dependency order
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        run: python3 script/release.py --publish --resume --release-tag "$RELEASE_TAG"
+      - name: Verify public registry consumer
+        working-directory: examples/registry-smoke
+        run: |
+          cargo check
+          cargo test
+      - name: Save archive verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crate-archive-verification
+          path: target/release-verification/archives.json
+          if-no-files-found: ignore

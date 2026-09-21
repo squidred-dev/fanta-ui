@@ -1,0 +1,44 @@
+[package]
+name = "fanta-gpui-derive-refineable"
+version = "0.1.0"
+edition = "2024"
+publish = true
+license = "Apache-2.0"
+description = "A derive macro for creating refinement types in Rust"
+repository = "https://github.com/squidred-dev/fanta-ui"
+
+[lib]
+path = "src/derive_refineable.rs"
+proc-macro = true
+doctest = false
+name = "derive_refineable"
+
+[lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+declare_interior_mutable_const = "deny"
+redundant_clone = "deny"
+disallowed_methods = "deny"
+type_complexity = "allow"
+let_underscore_future = "allow"
+single_range_in_vec_init = "allow"
+too_many_arguments = "allow"
+large_enum_variant = "allow"
+nonminimal_bool = "allow"
+
+[dependencies.proc-macro2]
+version = "1.0.93"
+
+[dependencies.quote]
+version = "1.0.9"
+
+[dependencies.syn]
+version = "2.0.101"
+features = [ "extra-traits", "full", "visit-mut",]
+
+[lints.clippy.style]
+level = "allow"
+priority = -1
+
+[lints.rust.unexpected_cfgs]
+level = "allow"

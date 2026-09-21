@@ -1,3 +1,4 @@
+use crate::atoms::TypographyExt as _;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
@@ -8,7 +9,7 @@ use gpui::{
     Subscription, UniformListScrollHandle, Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_component::{
-    ActiveTheme as _, Icon, IconName, Sizable as _, StyledExt as _, h_flex,
+    Icon, IconName, Sizable as _, StyledExt as _, h_flex,
     input::{Input, InputEvent, InputState, SelectAll},
     scroll::Scrollbar,
     tooltip::Tooltip,
@@ -429,8 +430,16 @@ impl LayersPanel {
             .px_3()
             .justify_between()
             .cursor_pointer()
-            .hover(|style| style.bg(cx.theme().sidebar_accent.opacity(0.55)))
-            .focus(|style| style.bg(cx.theme().sidebar_accent.opacity(0.75)))
+            .hover(|style| {
+                style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                    .resolve(cx)
+                    .opacity(0.55))
+            })
+            .focus(|style| {
+                style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                    .resolve(cx)
+                    .opacity(0.75))
+            })
             .on_activate(cx.listener(|this, _, _, cx| {
                 this.toggle_panel_expanded(cx);
             }))
@@ -442,7 +451,12 @@ impl LayersPanel {
                     .when(!expanded, |title| {
                         title.child(Icon::new(IconName::ChevronRight).xsmall())
                     })
-                    .child(div().text_sm().font_semibold().child("Layers")),
+                    .child(
+                        div()
+                            .typography(crate::atoms::TypographyToken::BodyLarge)
+                            .font_semibold()
+                            .child("Layers"),
+                    ),
             )
             .child(
                 icon_button(
@@ -501,10 +515,10 @@ impl Render for LayersPanel {
             .when(!self.panel_expanded, |panel| {
                 panel.h(px(HEADER_HEIGHT)).flex_none()
             })
-            .bg(cx.theme().sidebar)
-            .text_color(cx.theme().sidebar_foreground)
+            .bg(crate::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
+            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
             .border_1()
-            .border_color(cx.theme().border)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .child(track_bounds(cx.entity(), |this, bounds| {
                 this.panel_bounds = Some(bounds);
             }))

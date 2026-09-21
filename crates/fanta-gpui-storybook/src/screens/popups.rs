@@ -6,6 +6,7 @@
 //! fades through `track_horizontal_edge_fades` + `horizontal_fade_overlays`.
 //! Both demos emit intents into the shared intent log.
 
+use fanta_gpui::atoms::TypographyExt as _;
 use gpui::{Anchor, FocusHandle, point};
 
 use crate::*;
@@ -50,7 +51,7 @@ impl PopupsScreen {
 impl Storybook {
     fn render_popup_demo(&self, cx: &mut Context<Self>) -> AnyElement {
         let open = self.popups_screen.popup_open;
-        let trigger = Button::new("popups-trigger")
+        let trigger = fanta_gpui::atoms::ui_button("popups-trigger")
             .debug_selector(|| "popups-trigger".to_owned())
             .outline()
             .small()
@@ -85,11 +86,16 @@ impl Storybook {
                     this.popups_screen.set_popup_open(false, "clicked outside");
                     cx.notify();
                 }))
-                .child(div().text_sm().font_semibold().child("Anchored popup"))
                 .child(
                     div()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(fanta_gpui::atoms::TypographyToken::BodyLarge)
+                        .font_semibold()
+                        .child("Anchored popup"),
+                )
+                .child(
+                    div()
+                        .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                        .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(
                             "popup_surface owns the chrome; anchored_popup renders it \
                              in a deferred layer snapped inside the window with the \
@@ -98,7 +104,7 @@ impl Storybook {
                         ),
                 )
                 .child(
-                    Button::new("popups-demo-intent")
+                    fanta_gpui::atoms::ui_button("popups-demo-intent")
                         .debug_selector(|| "popups-demo-intent".to_owned())
                         .outline()
                         .small()
@@ -127,7 +133,7 @@ impl Storybook {
     }
 
     fn render_fade_demo(&self, cx: &mut Context<Self>) -> AnyElement {
-        let background = cx.theme().background;
+        let background = fanta_gpui::atoms::SemanticColor::Background.resolve(cx);
         let mut chip_row = h_flex()
             .id("popups-fade-row")
             .debug_selector(|| "popups-fade-row".to_owned())
@@ -144,9 +150,9 @@ impl Storybook {
                     .py_1()
                     .rounded(px(4.))
                     .border_1()
-                    .border_color(cx.theme().border)
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(format!("Chip {:02}", index + 1)),
             );
         }
@@ -157,7 +163,7 @@ impl Storybook {
             .w_full()
             .rounded(px(6.))
             .border_1()
-            .border_color(cx.theme().border)
+            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
             .bg(background)
             .child(chip_row)
             .child(track_horizontal_edge_fades(

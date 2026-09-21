@@ -967,7 +967,7 @@ impl DesignTypographyController for DesignPanel {
             .into_any_element()
     }
     fn render_text_resize_icon(&self, icon: TextResizeIcon, cx: &mut Context<Self>) -> AnyElement {
-        let color = cx.theme().foreground;
+        let color = crate::atoms::SemanticColor::Text.resolve(cx);
         render_lucide_icon(
             match icon {
                 TextResizeIcon::AutoWidth => LucideIcon::MoveHorizontal,
@@ -995,7 +995,7 @@ impl DesignTypographyController for DesignPanel {
             .w_full()
             .overflow_hidden()
             .rounded(px(4.))
-            .bg(cx.theme().secondary);
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx));
         for (resize, icon) in options {
             let selected = resize == current;
             control = control.child(
@@ -1014,21 +1014,27 @@ impl DesignTypographyController for DesignPanel {
                     .when(!editable, |button| button.opacity(0.62))
                     .when(selected, |button| {
                         button
-                            .bg(cx.theme().accent)
+                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
                             .border_1()
-                            .border_color(cx.theme().selection)
+                            .border_color(
+                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                            )
                     })
                     .when(editable, |button| {
                         button
                             .key_context(CONTROL_KEY_CONTEXT)
                             .tab_index(0)
                             .cursor_pointer()
-                            .hover(|style| style.bg(cx.theme().accent))
+                            .hover(|style| {
+                                style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            })
                             .focus(|style| {
                                 style
-                                    .bg(cx.theme().accent)
+                                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
                                     .border_1()
-                                    .border_color(cx.theme().selection)
+                                    .border_color(
+                                        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                                    )
                             })
                             .on_activate(cx.listener(move |this, _, _, cx| {
                                 this.emit_property(
@@ -1149,11 +1155,11 @@ impl DesignTypographyController for DesignPanel {
                 .rounded(px(4.))
                 .border_1()
                 .border_color(if invalid {
-                    cx.theme().red
+                    crate::atoms::SemanticColor::TextDanger.resolve(cx)
                 } else {
-                    cx.theme().selection
+                    crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
                 })
-                .bg(cx.theme().secondary)
+                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                 .child(
                     Input::new(&property_input)
                         .appearance(false)
@@ -1178,7 +1184,7 @@ impl DesignTypographyController for DesignPanel {
             )
             .into()
         });
-        let button = Button::new(SharedString::from(format!("{id}-activate")))
+        let button = crate::atoms::ui_button(SharedString::from(format!("{id}-activate")))
             .label(format_number(displayed_value))
             .xsmall()
             .compact()
@@ -1271,7 +1277,11 @@ impl DesignTypographyController for DesignPanel {
                     .key_context(CONTROL_KEY_CONTEXT)
                     .tab_index(0)
                     .cursor_pointer()
-                    .focus(|style| style.border_color(cx.theme().selection))
+                    .focus(|style| {
+                        style.border_color(
+                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                        )
+                    })
                     .on_key_down(move |event: &KeyDownEvent, window, cx| {
                         let tag = key_tag.clone();
                         panel_for_key.update(cx, |this, cx| {
@@ -1286,7 +1296,7 @@ impl DesignTypographyController for DesignPanel {
                     .h(px(4.))
                     .w_full()
                     .rounded_full()
-                    .bg(cx.theme().secondary)
+                    .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                     .child(
                         div()
                             .absolute()
@@ -1295,7 +1305,7 @@ impl DesignTypographyController for DesignPanel {
                             .h_full()
                             .w(relative(percentage))
                             .rounded_full()
-                            .bg(cx.theme().selection),
+                            .bg(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)),
                     )
                     .child(
                         div()
@@ -1306,8 +1316,8 @@ impl DesignTypographyController for DesignPanel {
                             .size(px(12.))
                             .rounded_full()
                             .border_1()
-                            .border_color(cx.theme().border)
-                            .bg(cx.theme().foreground),
+                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                            .bg(crate::atoms::SemanticColor::Text.resolve(cx)),
                     ),
             )
             .into_any_element();
@@ -1327,7 +1337,7 @@ impl DesignTypographyController for DesignPanel {
         panel: Entity<Self>,
         cx: &mut App,
     ) -> AnyElement {
-        let muted = cx.theme().muted_foreground;
+        let muted = crate::atoms::SemanticColor::TextTertiary.resolve(cx);
         let binding_summary = axis.binding.as_ref().map(|binding| {
             binding.collection_name.as_ref().map_or_else(
                 || format!("Variable · {}", binding.variable_name),
@@ -1353,13 +1363,13 @@ impl DesignTypographyController for DesignPanel {
                         div()
                             .min_w(px(0.))
                             .truncate()
-                            .text_xs()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .child(axis.name.clone()),
                     )
                     .child(
                         div()
                             .flex_none()
-                            .text_xs()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .text_color(muted)
                             .child(axis.tag.clone()),
                     ),
@@ -1390,17 +1400,27 @@ impl DesignTypographyController for DesignPanel {
                 h_flex()
                     .w_full()
                     .justify_between()
-                    .text_xs()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .text_color(muted)
                     .child(format_number(axis.min))
                     .child(format!("Default {}", format_number(axis.default)))
                     .child(format_number(axis.max)),
             )
             .when_some(binding_summary, |row, summary| {
-                row.child(div().text_xs().text_color(muted).child(summary))
+                row.child(
+                    div()
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(muted)
+                        .child(summary),
+                )
             })
             .when_some(disabled_reason, |row, reason| {
-                row.child(div().text_xs().text_color(muted).child(reason))
+                row.child(
+                    div()
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(muted)
+                        .child(reason),
+                )
             })
             .into_any_element()
     }
@@ -1553,7 +1573,7 @@ impl DesignTypographyController for DesignPanel {
         .trigger(trigger)
         .content(move |_, window, cx| {
             let popover = cx.entity();
-            let muted_foreground = cx.theme().muted_foreground;
+            let muted_foreground = crate::atoms::SemanticColor::TextTertiary.resolve(cx);
             let layout = sections::typography::type_settings::grid_layout();
             let metrics = layout.metrics;
             let tab_button = |candidate: TypographySettingsTab| {
@@ -1674,10 +1694,22 @@ impl DesignTypographyController for DesignPanel {
                                 .justify_center()
                                 .gap_2()
                                 .rounded(px(5.))
-                                .bg(cx.theme().secondary)
-                                .child(div().text_lg().child("The quick brown"))
-                                .child(div().text_lg().child("fox jumps over"))
-                                .child(div().text_lg().child("17 lazy dogs.")),
+                                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                                .child(
+                                    div()
+                                        .typography(crate::atoms::TypographyToken::HeadingMedium)
+                                        .child("The quick brown"),
+                                )
+                                .child(
+                                    div()
+                                        .typography(crate::atoms::TypographyToken::HeadingMedium)
+                                        .child("fox jumps over"),
+                                )
+                                .child(
+                                    div()
+                                        .typography(crate::atoms::TypographyToken::HeadingMedium)
+                                        .child("17 lazy dogs."),
+                                ),
                         )
                         .child(control_row(
                             "Alignment",
@@ -1715,7 +1747,12 @@ impl DesignTypographyController for DesignPanel {
                                 cx,
                             ),
                         ))
-                        .child(div().h(px(1.)).w_full().bg(cx.theme().border))
+                        .child(
+                            div()
+                                .h(px(1.))
+                                .w_full()
+                                .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
+                        )
                         .child(control_row(
                             "Vertical trim",
                             Self::render_type_setting_segments(
@@ -1922,12 +1959,30 @@ impl DesignTypographyController for DesignPanel {
                                 .justify_center()
                                 .gap_2()
                                 .rounded(px(5.))
-                                .bg(cx.theme().secondary)
-                                .child(div().text_lg().child("The quick brown"))
-                                .child(div().text_lg().child("fox jumps over"))
-                                .child(div().text_lg().child("17 lazy dogs.")),
+                                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                                .child(
+                                    div()
+                                        .typography(crate::atoms::TypographyToken::HeadingMedium)
+                                        .child("The quick brown"),
+                                )
+                                .child(
+                                    div()
+                                        .typography(crate::atoms::TypographyToken::HeadingMedium)
+                                        .child("fox jumps over"),
+                                )
+                                .child(
+                                    div()
+                                        .typography(crate::atoms::TypographyToken::HeadingMedium)
+                                        .child("17 lazy dogs."),
+                                ),
                         )
-                        .child(div().pt_1().text_sm().font_semibold().child("Indentation"))
+                        .child(
+                            div()
+                                .pt_1()
+                                .typography(crate::atoms::TypographyToken::BodyLarge)
+                                .font_semibold()
+                                .child("Indentation"),
+                        )
                         .child(control_row(
                             "Hanging punctuation",
                             Self::render_type_setting_segments(
@@ -1992,7 +2047,13 @@ impl DesignTypographyController for DesignPanel {
                                 ))
                             },
                         )
-                        .child(div().pt_1().text_sm().font_semibold().child("Letter case"))
+                        .child(
+                            div()
+                                .pt_1()
+                                .typography(crate::atoms::TypographyToken::BodyLarge)
+                                .font_semibold()
+                                .child("Letter case"),
+                        )
                         .child(control_row(
                             "Case",
                             Self::render_type_setting_segments(
@@ -2008,7 +2069,7 @@ impl DesignTypographyController for DesignPanel {
                         .child(
                             div()
                                 .pt_1()
-                                .text_sm()
+                                .typography(crate::atoms::TypographyToken::BodyLarge)
                                 .font_semibold()
                                 .child("Decoration details"),
                         );
@@ -2102,7 +2163,7 @@ impl DesignTypographyController for DesignPanel {
                     } else {
                         body = body.child(
                             div()
-                                .text_xs()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
                                 .text_color(muted_foreground)
                                 .child("Select underline or strikethrough to edit its details."),
                         );
@@ -2111,14 +2172,14 @@ impl DesignTypographyController for DesignPanel {
                     body = body.child(
                         div()
                             .pt_1()
-                            .text_sm()
+                            .typography(crate::atoms::TypographyToken::BodyLarge)
                             .font_semibold()
                             .child("OpenType features"),
                     );
                     if open_type_features.is_empty() {
                         body = body.child(
                             div()
-                                .text_xs()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
                                 .text_color(muted_foreground)
                                 .child("The selected font exposes no feature records."),
                         );
@@ -2152,9 +2213,9 @@ impl DesignTypographyController for DesignPanel {
                             .w_full()
                             .overflow_hidden()
                             .rounded(px(4.))
-                            .bg(cx.theme().secondary)
+                            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                             .child(
-                                Button::new(SharedString::from(format!(
+                                crate::atoms::ui_button(SharedString::from(format!(
                                     "{panel_id}-feature-{index}-off"
                                 )))
                                 .label("Off")
@@ -2172,7 +2233,7 @@ impl DesignTypographyController for DesignPanel {
                                 }),
                             )
                             .child(
-                                Button::new(SharedString::from(format!(
+                                crate::atoms::ui_button(SharedString::from(format!(
                                     "{panel_id}-feature-{index}-on"
                                 )))
                                 .label("On")
@@ -2208,7 +2269,7 @@ impl DesignTypographyController for DesignPanel {
                                 .child(
                                     div()
                                         .pl(px(120.))
-                                        .text_xs()
+                                        .typography(crate::atoms::TypographyToken::BodyMedium)
                                         .text_color(muted_foreground)
                                         .child(detail),
                                 ),
@@ -2219,11 +2280,16 @@ impl DesignTypographyController for DesignPanel {
                     body = body
                         .child(
                             div()
-                                .text_xs()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
                                 .text_color(muted_foreground)
                                 .child("Arrow keys adjust by the host step; Shift ×10, Alt ×0.1."),
                         )
-                        .child(div().h(px(1.)).w_full().bg(cx.theme().border));
+                        .child(
+                            div()
+                                .h(px(1.))
+                                .w_full()
+                                .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
+                        );
                     for (index, axis) in axes.iter().cloned().enumerate() {
                         body = body.child(Self::render_variable_font_axis_row(
                             panel_id.clone(),
@@ -2249,7 +2315,7 @@ impl DesignTypographyController for DesignPanel {
                 .overflow_hidden()
                 .child(
                     h_flex().h(layout.row_height()).gap_1().child(tabs).child(
-                        Button::new(SharedString::from(format!(
+                        crate::atoms::ui_button(SharedString::from(format!(
                             "{}-type-settings-close",
                             panel_id
                         )))
@@ -2266,7 +2332,12 @@ impl DesignTypographyController for DesignPanel {
                         }),
                     ),
                 )
-                .child(div().h(px(1.)).w_full().bg(cx.theme().border))
+                .child(
+                    div()
+                        .h(px(1.))
+                        .w_full()
+                        .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
+                )
                 .child(
                     div()
                         .flex_1()

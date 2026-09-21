@@ -425,7 +425,7 @@ impl Storybook {
             .justify_end()
             .items_center()
             .overflow_hidden()
-            .bg(cx.theme().muted)
+            .bg(fanta_gpui::atoms::SemanticColor::BackgroundTertiary.resolve(cx))
             .child(
                 h_flex()
                     .w_full()
@@ -443,8 +443,8 @@ impl Storybook {
             .id("storybook-reference-toolbar")
             .debug_selector(|| "storybook-reference-toolbar".to_owned())
             .size_full()
-            .bg(cx.theme().background)
-            .text_color(cx.theme().foreground)
+            .bg(fanta_gpui::atoms::SemanticColor::Background.resolve(cx))
+            .text_color(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
             .child(self.render_reference_nav(cx))
             // The story surface fills its parent, so the reference window
             // gives it a flex row of its own below the nav.

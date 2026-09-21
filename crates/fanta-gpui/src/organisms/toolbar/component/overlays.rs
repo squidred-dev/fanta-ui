@@ -3,6 +3,7 @@
 //! chips' choice editor. All ride the shared anchored-popup molecule
 //! (`crate::molecules::popup`).
 
+use crate::atoms::TypographyExt as _;
 use gpui::{
     Anchor, AnyElement, Context, FontWeight, HighlightStyle, InteractiveElement as _, IntoElement,
     MouseDownEvent, ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _,
@@ -101,12 +102,18 @@ impl EditorToolbar {
                     .border_1()
                     .border_color(cx.theme().transparent)
                     .bg(if highlighted {
-                        cx.theme().list_active
+                        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
                     } else {
                         cx.theme().transparent
                     })
-                    .hover(|style| style.bg(cx.theme().list_hover))
-                    .focus(|style| style.border_color(cx.theme().selection))
+                    .hover(|style| {
+                        style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    })
+                    .focus(|style| {
+                        style.border_color(
+                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                        )
+                    })
                     .on_hover(cx.listener(move |this, hovered, _, cx| {
                         if *hovered && this.menu_cursor != index {
                             this.menu_cursor = index;
@@ -119,26 +126,31 @@ impl EditorToolbar {
                     .child(render_tool_icon(
                         tool,
                         if selected {
-                            cx.theme().primary
+                            crate::atoms::SemanticColor::BackgroundBrand.resolve(cx)
                         } else {
-                            cx.theme().popover_foreground
+                            crate::atoms::SemanticColor::Text.resolve(cx)
                         },
                         16.,
                     ))
-                    .child(div().flex_1().text_sm().child(tool.label()))
+                    .child(
+                        div()
+                            .flex_1()
+                            .typography(crate::atoms::TypographyToken::BodyLarge)
+                            .child(tool.label()),
+                    )
                     .when_some(tool.shortcut(), |row, shortcut| {
                         row.child(
                             div()
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child(shortcut),
                         )
                     })
                     .when(selected, |row| {
                         row.child(
-                            Icon::new(IconName::Check)
-                                .xsmall()
-                                .text_color(cx.theme().primary),
+                            Icon::new(IconName::Check).xsmall().text_color(
+                                crate::atoms::SemanticColor::BackgroundBrand.resolve(cx),
+                            ),
                         )
                     }),
             );
@@ -163,7 +175,7 @@ impl EditorToolbar {
         } = entry;
         let selected = self.command_cursor == index;
         let highlight_style = HighlightStyle {
-            color: Some(cx.theme().primary),
+            color: Some(crate::atoms::SemanticColor::BackgroundBrand.resolve(cx)),
             font_weight: Some(FontWeight::SEMIBOLD),
             ..HighlightStyle::default()
         };
@@ -190,12 +202,14 @@ impl EditorToolbar {
             .border_1()
             .border_color(cx.theme().transparent)
             .bg(if selected {
-                cx.theme().list_active
+                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
             } else {
                 cx.theme().transparent
             })
-            .hover(|style| style.bg(cx.theme().list_hover))
-            .focus(|style| style.border_color(cx.theme().selection))
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+            .focus(|style| {
+                style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+            })
             .on_hover(cx.listener(move |this, hovered, _, cx| {
                 if *hovered {
                     this.command_cursor = index;
@@ -211,14 +225,14 @@ impl EditorToolbar {
                     .justify_center()
                     .rounded(px(7.))
                     .bg(if command.category() == "AI" {
-                        cx.theme().magenta_light
+                        crate::atoms::SemanticColor::BackgroundAssistive.resolve(cx)
                     } else {
-                        cx.theme().secondary
+                        crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx)
                     })
                     .text_color(if command.category() == "AI" {
-                        cx.theme().magenta
+                        crate::atoms::SemanticColor::TextAssistive.resolve(cx)
                     } else {
-                        cx.theme().secondary_foreground
+                        crate::atoms::SemanticColor::TextSecondary.resolve(cx)
                     })
                     .child(
                         Icon::new(if command.category() == "AI" {
@@ -234,24 +248,27 @@ impl EditorToolbar {
                     .flex_1()
                     .min_w(px(0.))
                     .gap(px(1.))
-                    .child(div().truncate().text_sm().child(
-                        StyledText::new(command.label()).with_highlights(
-                            highlights.into_iter().map(|range| (range, highlight_style)),
-                        ),
-                    ))
                     .child(
                         div()
                             .truncate()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyLarge)
+                            .child(StyledText::new(command.label()).with_highlights(
+                                highlights.into_iter().map(|range| (range, highlight_style)),
+                            )),
+                    )
+                    .child(
+                        div()
+                            .truncate()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(command.category()),
                     ),
             )
             .when_some(command.shortcut(), |row, shortcut| {
                 row.child(
                     div()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(shortcut),
                 )
             })
@@ -287,9 +304,17 @@ impl EditorToolbar {
                     .items_center()
                     .justify_center()
                     .gap_1()
-                    .text_color(cx.theme().muted_foreground)
-                    .child(div().text_sm().child("No matching actions"))
-                    .child(div().text_xs().child("Try a tool, plugin, or AI task")),
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    .child(
+                        div()
+                            .typography(crate::atoms::TypographyToken::BodyLarge)
+                            .child("No matching actions"),
+                    )
+                    .child(
+                        div()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .child("Try a tool, plugin, or AI task"),
+                    ),
             );
         } else {
             for (index, entry) in commands.into_iter().enumerate() {
@@ -316,7 +341,7 @@ impl EditorToolbar {
                 .px_3()
                 .gap_2()
                 .border_b_1()
-                .border_color(cx.theme().border)
+                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                 .child(Icon::new(IconName::Search).small())
                 .child(
                     div().flex_1().min_w(px(0.)).child(
@@ -333,9 +358,9 @@ impl EditorToolbar {
                         .px_2()
                         .py_1()
                         .rounded(px(5.))
-                        .bg(cx.theme().secondary)
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("esc"),
                 ),
         )
@@ -345,7 +370,7 @@ impl EditorToolbar {
                 .px_2()
                 .gap_1()
                 .border_b_1()
-                .border_color(cx.theme().border)
+                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                 .children(
                     CommandScope::ALL
                         .into_iter()
@@ -369,22 +394,30 @@ impl EditorToolbar {
                                 .justify_center()
                                 .rounded(px(7.))
                                 .cursor_pointer()
-                                .text_xs()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
                                 .font_medium()
                                 .border_1()
                                 .border_color(cx.theme().transparent)
                                 .bg(if self.command_scope == scope {
-                                    cx.theme().selection
+                                    crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
                                 } else {
                                     cx.theme().transparent
                                 })
                                 .text_color(if self.command_scope == scope {
-                                    cx.theme().primary
+                                    crate::atoms::SemanticColor::BackgroundBrand.resolve(cx)
                                 } else {
-                                    cx.theme().muted_foreground
+                                    crate::atoms::SemanticColor::TextTertiary.resolve(cx)
                                 })
-                                .hover(|style| style.bg(cx.theme().accent))
-                                .focus(|style| style.border_color(cx.theme().selection))
+                                .hover(|style| {
+                                    style
+                                        .bg(crate::atoms::SemanticColor::BackgroundHover
+                                            .resolve(cx))
+                                })
+                                .focus(|style| {
+                                    style.border_color(
+                                        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                                    )
+                                })
                                 .on_activate(cx.listener(move |this, _, window, cx| {
                                     this.set_command_scope(scope, window, cx);
                                 }))
@@ -399,9 +432,9 @@ impl EditorToolbar {
                 .px_3()
                 .gap_3()
                 .border_t_1()
-                .border_color(cx.theme().border)
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("Arrow keys · Navigate")
                 .child("Enter · Run")
                 .child(div().flex_1())
@@ -436,12 +469,14 @@ impl EditorToolbar {
             .px_2()
             .rounded(px(8.))
             .border_1()
-            .border_color(cx.theme().border)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .cursor_pointer()
-            .text_xs()
-            .text_color(cx.theme().popover_foreground)
-            .hover(|style| style.bg(cx.theme().accent))
-            .focus(|style| style.border_color(cx.theme().selection))
+            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+            .focus(|style| {
+                style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+            })
             .on_activate(cx.listener(move |this, _, window, cx| {
                 this.set_ai_suggestion(activate_label.clone(), window, cx);
             }))
@@ -492,15 +527,15 @@ impl EditorToolbar {
                         .size(px(24.))
                         .justify_center()
                         .rounded(px(7.))
-                        .bg(cx.theme().magenta_light)
-                        .text_color(cx.theme().magenta)
+                        .bg(crate::atoms::SemanticColor::BackgroundAssistive.resolve(cx))
+                        .text_color(crate::atoms::SemanticColor::TextAssistive.resolve(cx))
                         .child(Icon::new(IconName::Bot).xsmall()),
                 )
                 .child(
                     div()
                         .flex_none()
                         .font_semibold()
-                        .text_sm()
+                        .typography(crate::atoms::TypographyToken::BodyLarge)
                         .child("Figma Agent"),
                 )
                 .child(
@@ -511,10 +546,10 @@ impl EditorToolbar {
                         .px_2()
                         .py_1()
                         .rounded(px(6.))
-                        .bg(cx.theme().secondary)
+                        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                         .truncate()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(self.agent_options.context_label.clone()),
                 )
                 .child(
@@ -535,7 +570,7 @@ impl EditorToolbar {
             div()
                 .min_h(px(44.))
                 .rounded(px(10.))
-                .bg(cx.theme().secondary)
+                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                 .child(
                     Input::new(&self.ai_input)
                         .appearance(false)
@@ -571,7 +606,7 @@ impl EditorToolbar {
                         cx,
                     )
                     .flex_none()
-                    .border_color(cx.theme().border)
+                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                     .on_activate(cx.listener(|_, _, _, cx| {
                         cx.emit(ToolbarAction::AgentAttachmentRequested);
                     }))
@@ -583,8 +618,8 @@ impl EditorToolbar {
                         .flex_1()
                         .min_w(px(0.))
                         .truncate()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(self.agent_options.mention_hint.clone()),
                 )
                 .child(
@@ -600,17 +635,23 @@ impl EditorToolbar {
                         .border_1()
                         .border_color(cx.theme().transparent)
                         .bg(if has_prompt {
-                            cx.theme().primary
+                            crate::atoms::SemanticColor::BackgroundBrand.resolve(cx)
                         } else {
-                            cx.theme().selection
+                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
                         })
                         .text_color(if has_prompt {
-                            cx.theme().primary_foreground
+                            crate::atoms::SemanticColor::TextOnBrand.resolve(cx)
                         } else {
-                            cx.theme().primary
+                            crate::atoms::SemanticColor::BackgroundBrand.resolve(cx)
                         })
-                        .hover(|style| style.bg(cx.theme().primary_hover))
-                        .focus(|style| style.border_color(cx.theme().selection))
+                        .hover(|style| {
+                            style.bg(crate::atoms::SemanticColor::BackgroundBrandHover.resolve(cx))
+                        })
+                        .focus(|style| {
+                            style.border_color(
+                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                            )
+                        })
                         .on_activate(cx.listener(|this, _, window, cx| {
                             this.activate_agent_send(window, cx);
                         }))
@@ -682,16 +723,22 @@ impl EditorToolbar {
                     .gap_2()
                     .rounded(px(6.))
                     .cursor_pointer()
-                    .text_xs()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .border_1()
                     .border_color(cx.theme().transparent)
                     .bg(if highlighted {
-                        cx.theme().list_active
+                        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
                     } else {
                         cx.theme().transparent
                     })
-                    .hover(|style| style.bg(cx.theme().list_hover))
-                    .focus(|style| style.border_color(cx.theme().selection))
+                    .hover(|style| {
+                        style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    })
+                    .focus(|style| {
+                        style.border_color(
+                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                        )
+                    })
                     .on_hover(cx.listener(move |this, hovered, _, cx| {
                         if *hovered && this.menu_cursor != index {
                             this.menu_cursor = index;
@@ -705,16 +752,16 @@ impl EditorToolbar {
                     .when_some(entry.shortcut(), |row, shortcut| {
                         row.child(
                             div()
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child(shortcut),
                         )
                     })
                     .when(checked, |row| {
                         row.child(
-                            Icon::new(IconName::Check)
-                                .xsmall()
-                                .text_color(cx.theme().primary),
+                            Icon::new(IconName::Check).xsmall().text_color(
+                                crate::atoms::SemanticColor::BackgroundBrand.resolve(cx),
+                            ),
                         )
                     }),
             );
@@ -779,49 +826,54 @@ impl EditorToolbar {
                 candidate.to_lowercase().replace(' ', "-")
             );
             let chosen = candidate.clone();
-            menu = menu.child(
-                h_flex()
-                    .id(SharedString::from(format!(
-                        "{}-{prefix}-option-{index}",
-                        self.id
-                    )))
-                    .debug_selector(move || selector.clone())
-                    .key_context(CONTROL_KEY_CONTEXT)
-                    .tab_index(0)
-                    .flex_none()
-                    .h(px(MENU_ROW_HEIGHT))
-                    .px_2()
-                    .gap_2()
-                    .rounded(px(6.))
-                    .cursor_pointer()
-                    .text_xs()
-                    .border_1()
-                    .border_color(cx.theme().transparent)
-                    .bg(if highlighted {
-                        cx.theme().list_active
-                    } else {
-                        cx.theme().transparent
-                    })
-                    .hover(|style| style.bg(cx.theme().list_hover))
-                    .focus(|style| style.border_color(cx.theme().selection))
-                    .on_hover(cx.listener(move |this, hovered, _, cx| {
-                        if *hovered && this.menu_cursor != index {
-                            this.menu_cursor = index;
-                            cx.notify();
-                        }
-                    }))
-                    .on_activate(cx.listener(move |this, _, window, cx| {
-                        this.choose_option_candidate(control, chosen.clone(), window, cx);
-                    }))
-                    .child(div().flex_1().child(candidate))
-                    .when(selected, |row| {
-                        row.child(
-                            Icon::new(IconName::Check)
-                                .xsmall()
-                                .text_color(cx.theme().primary),
-                        )
-                    }),
-            );
+            menu =
+                menu.child(
+                    h_flex()
+                        .id(SharedString::from(format!(
+                            "{}-{prefix}-option-{index}",
+                            self.id
+                        )))
+                        .debug_selector(move || selector.clone())
+                        .key_context(CONTROL_KEY_CONTEXT)
+                        .tab_index(0)
+                        .flex_none()
+                        .h(px(MENU_ROW_HEIGHT))
+                        .px_2()
+                        .gap_2()
+                        .rounded(px(6.))
+                        .cursor_pointer()
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .border_1()
+                        .border_color(cx.theme().transparent)
+                        .bg(if highlighted {
+                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
+                        } else {
+                            cx.theme().transparent
+                        })
+                        .hover(|style| {
+                            style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        })
+                        .focus(|style| {
+                            style.border_color(
+                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                            )
+                        })
+                        .on_hover(cx.listener(move |this, hovered, _, cx| {
+                            if *hovered && this.menu_cursor != index {
+                                this.menu_cursor = index;
+                                cx.notify();
+                            }
+                        }))
+                        .on_activate(cx.listener(move |this, _, window, cx| {
+                            this.choose_option_candidate(control, chosen.clone(), window, cx);
+                        }))
+                        .child(div().flex_1().child(candidate))
+                        .when(selected, |row| {
+                            row.child(Icon::new(IconName::Check).xsmall().text_color(
+                                crate::atoms::SemanticColor::BackgroundBrand.resolve(cx),
+                            ))
+                        }),
+                );
         }
         anchored_popup(
             Anchor::BottomLeft,

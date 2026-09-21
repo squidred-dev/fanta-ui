@@ -1000,7 +1000,7 @@ impl DesignComponentController for DesignPanel {
             || format!("Apply variable to {}", target.field.api_name()).into(),
             |binding| binding.variable_name.clone(),
         );
-        let trigger = Button::new(SharedString::from(format!(
+        let trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{}-component-variable-{}-{}",
             self.id,
             property.id,
@@ -1065,11 +1065,18 @@ impl DesignComponentController for DesignPanel {
                             .w_full()
                             .justify_between()
                             .gap_2()
-                            .child(div().text_sm().font_semibold().child("Variables"))
                             .child(
                                 div()
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground)
+                                    .typography(crate::atoms::TypographyToken::BodyLarge)
+                                    .font_semibold()
+                                    .child("Variables"),
+                            )
+                            .child(
+                                div()
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .text_color(
+                                        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child(target.field.api_name()),
                             ),
                     )
@@ -1092,11 +1099,11 @@ impl DesignComponentController for DesignPanel {
                                     .flex_1()
                                     .min_w(px(0.))
                                     .truncate()
-                                    .text_xs()
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
                                     .child(binding.variable_name),
                             )
                             .child(
-                                Button::new(SharedString::from(format!(
+                                crate::atoms::ui_button(SharedString::from(format!(
                                     "component-variable-detach-{property_id}"
                                 )))
                                 .label("Detach")
@@ -1126,8 +1133,8 @@ impl DesignComponentController for DesignPanel {
                         div()
                             .px_1()
                             .py_3()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("No compatible variables"),
                     );
                 }
@@ -1148,8 +1155,8 @@ impl DesignComponentController for DesignPanel {
                         div()
                             .px_1()
                             .pt_2()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(heading),
                     );
                     for variable in variables {
@@ -1162,7 +1169,7 @@ impl DesignComponentController for DesignPanel {
                             binding.variable_id.as_ref() == variable.id.as_ref()
                         });
                         rows = rows.child(
-                            Button::new(SharedString::from(format!(
+                            crate::atoms::ui_button(SharedString::from(format!(
                                 "component-variable-{}-{}",
                                 property_id, variable.id
                             )))
@@ -1279,7 +1286,7 @@ impl DesignComponentController for DesignPanel {
         let property_id_for_open = property.id.clone();
         let property_id_for_content = property.id.clone();
         let search_input = self.retained.inputs.component_swap_search.clone();
-        let trigger = Button::new(SharedString::from(format!(
+        let trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{}-component-swap-{}",
             self.id, property.id
         )))
@@ -1333,7 +1340,12 @@ impl DesignComponentController for DesignPanel {
                 .max_h(popup_height(window, 460.))
                 .gap_1()
                 .p_2()
-                .child(div().text_sm().font_semibold().child("Swap instance"))
+                .child(
+                    div()
+                        .typography(crate::atoms::TypographyToken::BodyLarge)
+                        .font_semibold()
+                        .child("Swap instance"),
+                )
                 .child(
                     Input::new(&search_input)
                         .small()
@@ -1342,7 +1354,7 @@ impl DesignComponentController for DesignPanel {
             let panel = panel_for_content.clone();
             let property_id = browser_property_id.clone();
             content = content.child(
-                Button::new(SharedString::from(format!(
+                crate::atoms::ui_button(SharedString::from(format!(
                     "component-swap-none-{property_id}"
                 )))
                 .label("None")
@@ -1366,8 +1378,8 @@ impl DesignComponentController for DesignPanel {
                     div()
                         .px_1()
                         .py_3()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("No components found"),
                 );
             }
@@ -1380,8 +1392,8 @@ impl DesignComponentController for DesignPanel {
                     div()
                         .px_1()
                         .pt_2()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(heading),
                 );
                 for candidate in candidates {
@@ -1434,7 +1446,7 @@ impl DesignComponentController for DesignPanel {
                                 });
                             })
                             .child(
-                                Button::new(SharedString::from(format!(
+                                crate::atoms::ui_button(SharedString::from(format!(
                                     "component-swap-{}-{}",
                                     browser_property_id, candidate.component_key
                                 )))
@@ -3338,8 +3350,8 @@ impl DesignComponentController for DesignPanel {
                             div()
                                 .w(px(88.))
                                 .truncate()
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child(control.layer_name),
                         )
                         .child(
@@ -3352,10 +3364,18 @@ impl DesignComponentController for DesignPanel {
                                 .items_center()
                                 .rounded(px(999.))
                                 .border_1()
-                                .border_color(cx.theme().selection.opacity(0.55))
-                                .bg(cx.theme().selection.opacity(0.16))
-                                .text_color(cx.theme().selection)
-                                .text_xs()
+                                .border_color(
+                                    crate::atoms::SemanticColor::BackgroundSelected
+                                        .resolve(cx)
+                                        .opacity(0.55),
+                                )
+                                .bg(crate::atoms::SemanticColor::BackgroundSelected
+                                    .resolve(cx)
+                                    .opacity(0.16))
+                                .text_color(
+                                    crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                                )
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
                                 .child(div().truncate().child(pill_label)),
                         ),
                 )
@@ -3367,8 +3387,8 @@ impl DesignComponentController for DesignPanel {
                 .gap_1()
                 .child(
                     div()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(format!("Applied property · {}", surface.label())),
                 )
                 .child(rows)
@@ -3386,7 +3406,7 @@ impl DesignComponentController for DesignPanel {
         let panel_for_open = panel.clone();
         let panel_for_content = panel;
         let panel_for_keyboard = panel_for_open.clone();
-        let trigger = Button::new(SharedString::from(format!(
+        let trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{}-component-property-create-menu-trigger",
             self.id
         )))
@@ -3438,14 +3458,14 @@ impl DesignComponentController for DesignPanel {
                 div()
                     .px_2()
                     .py_1()
-                    .text_xs()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .font_semibold()
                     .child("Create component property"),
             );
             for kind in kinds.clone() {
                 let panel = panel_for_content.clone();
                 menu = menu.child(
-                    Button::new(SharedString::from(format!(
+                    crate::atoms::ui_button(SharedString::from(format!(
                         "create-component-property-kind-{kind:?}"
                     )))
                     .label(kind.label())
@@ -3494,8 +3514,8 @@ impl DesignComponentController for DesignPanel {
             .gap_2()
             .child(
                 div()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("Name"),
             )
             .child(
@@ -3546,8 +3566,8 @@ impl DesignComponentController for DesignPanel {
                 fields = fields
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(if draft.kind == DesignComponentPropertyKind::Variant {
                                 "Default value and first Variant value"
                             } else {
@@ -3574,12 +3594,12 @@ impl DesignComponentController for DesignPanel {
                 fields = fields
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("Default and preferred instances"),
                     )
                     .child(
-                        Button::new("component-property-instance-default-none")
+                        crate::atoms::ui_button("component-property-instance-default-none")
                             .label("None")
                             .xsmall()
                             .compact()
@@ -3625,14 +3645,17 @@ impl DesignComponentController for DesignPanel {
                                 div()
                                     .size(px(20.))
                                     .rounded(px(4.))
-                                    .bg(cx.theme().secondary)
+                                    .bg(crate::atoms::SemanticColor::BackgroundSecondary
+                                        .resolve(cx))
                                     .flex()
                                     .items_center()
                                     .justify_center()
-                                    .text_color(cx.theme().selection)
+                                    .text_color(
+                                        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                                    )
                                     .child(render_lucide_icon(
                                         LucideIcon::Diamond,
-                                        cx.theme().selection,
+                                        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
                                         16.,
                                     )),
                             )
@@ -3641,11 +3664,11 @@ impl DesignComponentController for DesignPanel {
                                     .flex_1()
                                     .min_w(px(0.))
                                     .truncate()
-                                    .text_xs()
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
                                     .child(reference.name.clone()),
                             )
                             .child(
-                                Button::new(SharedString::from(format!(
+                                crate::atoms::ui_button(SharedString::from(format!(
                                     "component-property-instance-default-{}",
                                     reference.id
                                 )))
@@ -3672,7 +3695,7 @@ impl DesignComponentController for DesignPanel {
                                 }),
                             )
                             .child(
-                                Button::new(SharedString::from(format!(
+                                crate::atoms::ui_button(SharedString::from(format!(
                                     "component-property-instance-preferred-{}",
                                     reference.id
                                 )))
@@ -3726,8 +3749,8 @@ impl DesignComponentController for DesignPanel {
                 fields = fields
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("Description"),
                     )
                     .child(
@@ -3745,7 +3768,11 @@ impl DesignComponentController for DesignPanel {
                                 v_flex()
                                     .flex_1()
                                     .gap_0p5()
-                                    .child(div().text_xs().child("Minimum layers"))
+                                    .child(
+                                        div()
+                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .child("Minimum layers"),
+                                    )
                                     .child(
                                         Input::new(&self.component_authoring.slot_minimum_input)
                                             .appearance(false)
@@ -3758,7 +3785,11 @@ impl DesignComponentController for DesignPanel {
                                 v_flex()
                                     .flex_1()
                                     .gap_0p5()
-                                    .child(div().text_xs().child("Maximum layers"))
+                                    .child(
+                                        div()
+                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .child("Maximum layers"),
+                                    )
                                     .child(
                                         Input::new(&self.component_authoring.slot_maximum_input)
                                             .appearance(false)
@@ -3771,8 +3802,8 @@ impl DesignComponentController for DesignPanel {
                     .when(settings_invalid, |fields| {
                         fields.child(
                             div()
-                                .text_xs()
-                                .text_color(cx.theme().red)
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .text_color(crate::atoms::SemanticColor::TextDanger.resolve(cx))
                                 .child("Use whole numbers and keep minimum ≤ maximum."),
                         )
                     })
@@ -3854,7 +3885,7 @@ impl DesignComponentController for DesignPanel {
                     .child(
                         div()
                             .pt_1()
-                            .text_xs()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .font_semibold()
                             .child("Preferred instances"),
                     );
@@ -3870,7 +3901,7 @@ impl DesignComponentController for DesignPanel {
                     let reference_for_click = reference.clone();
                     let panel_for_click = panel.clone();
                     fields = fields.child(
-                        Button::new(SharedString::from(format!(
+                        crate::atoms::ui_button(SharedString::from(format!(
                             "component-property-slot-preferred-{}",
                             reference.id
                         )))
@@ -3920,12 +3951,12 @@ impl DesignComponentController for DesignPanel {
                 .child(
                     div()
                         .pt_1()
-                        .text_xs()
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
                         .font_semibold()
                         .child("Default variable"),
                 )
                 .child(
-                    Button::new("component-property-create-variable-none")
+                    crate::atoms::ui_button("component-property-create-variable-none")
                         .label("No variable")
                         .xsmall()
                         .compact()
@@ -3958,7 +3989,7 @@ impl DesignComponentController for DesignPanel {
                 let selected = draft.default_variable_id.as_ref() == Some(&variable.id);
                 let panel_for_variable = panel.clone();
                 fields = fields.child(
-                    Button::new(SharedString::from(format!(
+                    crate::atoms::ui_button(SharedString::from(format!(
                         "component-property-create-variable-{}",
                         variable.id
                     )))
@@ -3985,14 +4016,14 @@ impl DesignComponentController for DesignPanel {
             .justify_between()
             .child(
                 div()
-                    .text_sm()
+                    .typography(crate::atoms::TypographyToken::BodyLarge)
                     .font_semibold()
                     .child("Create component property"),
             )
             .child(
                 div()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(draft.kind.label()),
             )
             .into_any_element();
@@ -4001,7 +4032,7 @@ impl DesignComponentController for DesignPanel {
             .justify_end()
             .gap_1()
             .child(
-                Button::new("component-property-create-cancel")
+                crate::atoms::ui_button("component-property-create-cancel")
                     .label("Cancel")
                     .xsmall()
                     .compact()
@@ -4013,7 +4044,7 @@ impl DesignComponentController for DesignPanel {
                     }),
             )
             .child(
-                Button::new("component-property-create-submit")
+                crate::atoms::ui_button("component-property-create-submit")
                     .label("Create")
                     .xsmall()
                     .compact()
@@ -4066,15 +4097,15 @@ impl DesignComponentController for DesignPanel {
                     .child(
                         div()
                             .truncate()
-                            .text_sm()
+                            .typography(crate::atoms::TypographyToken::BodyLarge)
                             .font_semibold()
                             .child("Edit component property"),
                     )
                     .child(
                         div()
                             .truncate()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(format!(
                                 "{} · {}",
                                 property.definition.kind().label(),
@@ -4083,7 +4114,7 @@ impl DesignComponentController for DesignPanel {
                     ),
             )
             .child(
-                Button::new("component-property-edit-close")
+                crate::atoms::ui_button("component-property-edit-close")
                     .label("Cancel")
                     .xsmall()
                     .compact()
@@ -4102,8 +4133,8 @@ impl DesignComponentController for DesignPanel {
         {
             modal = modal.child(
                 div()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("Description editing is available for Slot properties."),
             );
         }
@@ -4112,7 +4143,7 @@ impl DesignComponentController for DesignPanel {
             let panel_for_rename = panel.clone();
             let property_id_for_rename = property_id.clone();
             modal = modal.child(
-                Button::new("component-property-edit-rename")
+                crate::atoms::ui_button("component-property-edit-rename")
                     .label("Rename property")
                     .xsmall()
                     .compact()
@@ -4137,7 +4168,13 @@ impl DesignComponentController for DesignPanel {
             {
                 let panel_for_toggle = panel.clone();
                 modal = modal
-                    .child(div().pt_1().text_xs().font_semibold().child("Value"))
+                    .child(
+                        div()
+                            .pt_1()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .font_semibold()
+                            .child("Value"),
+                    )
                     .child(
                         Switch::new("component-property-edit-boolean-default")
                             .label("Default value")
@@ -4164,7 +4201,13 @@ impl DesignComponentController for DesignPanel {
                 if definition.capabilities.edit_default_value =>
             {
                 modal = modal
-                    .child(div().pt_1().text_xs().font_semibold().child("Value"))
+                    .child(
+                        div()
+                            .pt_1()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .font_semibold()
+                            .child("Value"),
+                    )
                     .child(
                         h_flex()
                             .w_full()
@@ -4192,11 +4235,17 @@ impl DesignComponentController for DesignPanel {
                 default_value,
                 preferred_values,
             } => {
-                modal = modal.child(div().pt_1().text_xs().font_semibold().child("Value"));
+                modal = modal.child(
+                    div()
+                        .pt_1()
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .font_semibold()
+                        .child("Value"),
+                );
                 if definition.capabilities.edit_default_value {
                     let panel_for_none = panel.clone();
                     modal = modal.child(
-                        Button::new("component-property-edit-instance-default-none")
+                        crate::atoms::ui_button("component-property-edit-instance-default-none")
                             .label("No default instance")
                             .xsmall()
                             .compact()
@@ -4243,14 +4292,14 @@ impl DesignComponentController for DesignPanel {
                                 div()
                                     .size(px(20.))
                                     .rounded(px(4.))
-                                    .bg(cx.theme().secondary)
+                                    .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                                     .flex()
                                     .items_center()
                                     .justify_center()
-                                    .text_color(cx.theme().selection)
+                                    .text_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                                     .child(render_lucide_icon(
                                         LucideIcon::Diamond,
-                                        cx.theme().selection,
+                                        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
                                         16.,
                                     )),
                             )
@@ -4259,12 +4308,12 @@ impl DesignComponentController for DesignPanel {
                                     .flex_1()
                                     .min_w(px(0.))
                                     .truncate()
-                                    .text_xs()
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
                                     .child(reference.name.clone()),
                             )
                             .when(definition.capabilities.edit_default_value, |row| {
                                 row.child(
-                                    Button::new(SharedString::from(format!(
+                                    crate::atoms::ui_button(SharedString::from(format!(
                                         "component-property-edit-instance-default-{}",
                                         reference.id
                                     )))
@@ -4294,7 +4343,7 @@ impl DesignComponentController for DesignPanel {
                             })
                             .when(definition.capabilities.edit_preferred_values, |row| {
                                 row.child(
-                                    Button::new(SharedString::from(format!(
+                                    crate::atoms::ui_button(SharedString::from(format!(
                                         "component-property-edit-instance-preferred-{}",
                                         reference.id
                                     )))
@@ -4348,7 +4397,11 @@ impl DesignComponentController for DesignPanel {
                         h_flex()
                             .w_full()
                             .justify_between()
-                            .child(div().text_xs().child("Default variable"))
+                            .child(
+                                div()
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .child("Default variable"),
+                            )
                             .child(variable_button),
                     );
                 }
@@ -4364,11 +4417,15 @@ impl DesignComponentController for DesignPanel {
                     .child(
                         div()
                             .pt_1()
-                            .text_xs()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .font_semibold()
                             .child("Slot settings"),
                     )
-                    .child(div().text_xs().child("Description"))
+                    .child(
+                        div()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .child("Description"),
+                    )
                     .child(
                         Input::new(&self.component_authoring.default_input)
                             .appearance(false)
@@ -4384,7 +4441,11 @@ impl DesignComponentController for DesignPanel {
                                 v_flex()
                                     .flex_1()
                                     .gap_0p5()
-                                    .child(div().text_xs().child("Minimum layers"))
+                                    .child(
+                                        div()
+                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .child("Minimum layers"),
+                                    )
                                     .child(
                                         Input::new(&self.component_authoring.slot_minimum_input)
                                             .appearance(false)
@@ -4397,7 +4458,11 @@ impl DesignComponentController for DesignPanel {
                                 v_flex()
                                     .flex_1()
                                     .gap_0p5()
-                                    .child(div().text_xs().child("Maximum layers"))
+                                    .child(
+                                        div()
+                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .child("Maximum layers"),
+                                    )
                                     .child(
                                         Input::new(&self.component_authoring.slot_maximum_input)
                                             .appearance(false)
@@ -4410,8 +4475,8 @@ impl DesignComponentController for DesignPanel {
                     .when(settings_invalid, |modal| {
                         modal.child(
                             div()
-                                .text_xs()
-                                .text_color(cx.theme().red)
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .text_color(crate::atoms::SemanticColor::TextDanger.resolve(cx))
                                 .child("Use whole numbers and keep minimum ≤ maximum."),
                         )
                     })
@@ -4487,7 +4552,7 @@ impl DesignComponentController for DesignPanel {
                     .child(
                         div()
                             .pt_1()
-                            .text_xs()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .font_semibold()
                             .child("Preferred instances"),
                     );
@@ -4503,7 +4568,7 @@ impl DesignComponentController for DesignPanel {
                     let panel_for_click = panel.clone();
                     let reference_for_click = reference.clone();
                     modal = modal.child(
-                        Button::new(SharedString::from(format!(
+                        crate::atoms::ui_button(SharedString::from(format!(
                             "component-property-edit-slot-preferred-{}",
                             reference.id
                         )))
@@ -4547,7 +4612,7 @@ impl DesignComponentController for DesignPanel {
             modal = modal.child(
                 div()
                     .pt_1()
-                    .text_xs()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .font_semibold()
                     .child("Variant values"),
             );
@@ -4592,8 +4657,8 @@ impl DesignComponentController for DesignPanel {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground);
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx));
                 if option.can_reorder {
                     handle = handle
                         .invisible()
@@ -4641,7 +4706,11 @@ impl DesignComponentController for DesignPanel {
                     .rounded(px(4.))
                     .border_1()
                     .border_color(cx.theme().transparent)
-                    .hover(|style| style.bg(cx.theme().sidebar_accent.opacity(0.6)))
+                    .hover(|style| {
+                        style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                            .resolve(cx)
+                            .opacity(0.6))
+                    })
                     .child(handle);
                 if editing {
                     row = row.child(
@@ -4660,7 +4729,7 @@ impl DesignComponentController for DesignPanel {
                             .flex_1()
                             .min_w(px(0.))
                             .truncate()
-                            .text_xs()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .child(option.name.clone()),
                     );
                 }
@@ -4670,7 +4739,7 @@ impl DesignComponentController for DesignPanel {
                     let option_id_for_delete = option.id.clone();
                     let expected_name = option.name.clone();
                     row = row.child(
-                        Button::new(SharedString::from(format!(
+                        crate::atoms::ui_button(SharedString::from(format!(
                             "delete-variant-option-{}-{}",
                             property_id, option.id
                         )))
@@ -4738,8 +4807,12 @@ impl DesignComponentController for DesignPanel {
                             && drag.option_id != option_id_for_style
                         {
                             style
-                                .bg(cx.theme().selection.opacity(0.18))
-                                .border_color(cx.theme().selection)
+                                .bg(crate::atoms::SemanticColor::BackgroundSelected
+                                    .resolve(cx)
+                                    .opacity(0.18))
+                                .border_color(
+                                    crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                                )
                         } else {
                             style
                         }
@@ -4780,7 +4853,7 @@ impl DesignComponentController for DesignPanel {
                 let panel = panel.clone();
                 let property_id = property_id.clone();
                 modal = modal.child(
-                    Button::new("component-variant-option-create")
+                    crate::atoms::ui_button("component-variant-option-create")
                         .label("+ Add value")
                         .xsmall()
                         .compact()
@@ -4807,7 +4880,7 @@ impl DesignComponentController for DesignPanel {
             .w_full()
             .justify_end()
             .child(
-                Button::new("component-property-edit-save")
+                crate::atoms::ui_button("component-property-edit-save")
                     .label("Save")
                     .xsmall()
                     .compact()
@@ -4834,13 +4907,18 @@ impl DesignComponentController for DesignPanel {
             .gap_2()
             .pb_2()
             .border_b_1()
-            .border_color(cx.theme().border)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .child(
                 h_flex()
                     .w_full()
                     .h(px(ROW_HEIGHT))
                     .justify_between()
-                    .child(div().text_xs().font_semibold().child("Properties"))
+                    .child(
+                        div()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .font_semibold()
+                            .child("Properties"),
+                    )
                     .child(self.render_component_property_create_popover(cx)),
             );
         if !authoring.preserves_variant_partition(&self.host.inspected_node().component_properties)
@@ -4849,8 +4927,8 @@ impl DesignComponentController for DesignPanel {
                 content
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(cx.theme().red)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextDanger.resolve(cx))
                             .child("Host definition order crosses the Variant partition"),
                     )
                     .into_any_element(),
@@ -4884,8 +4962,8 @@ impl DesignComponentController for DesignPanel {
             }
             content = content.child(
                 div()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(partition.label()),
             );
             let property_order = partition_properties
@@ -4930,8 +5008,8 @@ impl DesignComponentController for DesignPanel {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground);
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx));
                 if definition.capabilities.reorder {
                     handle = handle
                         .invisible()
@@ -4988,16 +5066,26 @@ impl DesignComponentController for DesignPanel {
                     .border_1()
                     .border_color(cx.theme().transparent)
                     .cursor_pointer()
-                    .hover(|style| style.bg(cx.theme().sidebar_accent.opacity(0.6)))
-                    .focus(|style| style.border_color(cx.theme().selection))
-                    .when(selected, |row| row.bg(cx.theme().sidebar_accent))
+                    .hover(|style| {
+                        style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                            .resolve(cx)
+                            .opacity(0.6))
+                    })
+                    .focus(|style| {
+                        style.border_color(
+                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                        )
+                    })
+                    .when(selected, |row| {
+                        row.bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
+                    })
                     .child(handle)
                     .child(
                         div()
                             .w(px(16.))
                             .flex_none()
-                            .text_xs()
-                            .text_color(cx.theme().selection)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                             .child(match kind {
                                 DesignComponentPropertyKind::Variant => "V",
                                 DesignComponentPropertyKind::Text => "T",
@@ -5022,12 +5110,19 @@ impl DesignComponentController for DesignPanel {
                         v_flex()
                             .flex_1()
                             .min_w(px(0.))
-                            .child(div().truncate().text_xs().child(property.name.clone()))
                             .child(
                                 div()
                                     .truncate()
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground)
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .child(property.name.clone()),
+                            )
+                            .child(
+                                div()
+                                    .truncate()
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .text_color(
+                                        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child(kind.label()),
                             ),
                     );
@@ -5041,7 +5136,7 @@ impl DesignComponentController for DesignPanel {
                     let panel_for_edit = panel.clone();
                     let property_id_for_edit = property.id.clone();
                     row = row.child(
-                        Button::new(SharedString::from(format!(
+                        crate::atoms::ui_button(SharedString::from(format!(
                             "component-property-edit-{}",
                             property.id
                         )))
@@ -5139,8 +5234,12 @@ impl DesignComponentController for DesignPanel {
                             && drag.property_id != target_property_id_for_style
                         {
                             style
-                                .bg(cx.theme().selection.opacity(0.18))
-                                .border_color(cx.theme().selection)
+                                .bg(crate::atoms::SemanticColor::BackgroundSelected
+                                    .resolve(cx)
+                                    .opacity(0.18))
+                                .border_color(
+                                    crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                                )
                         } else {
                             style
                         }
@@ -5171,12 +5270,12 @@ impl DesignComponentController for DesignPanel {
                         .gap_0p5()
                         .rounded(px(6.))
                         .border_1()
-                        .border_color(cx.theme().border)
-                        .bg(cx.theme().popover)
+                        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                        .bg(crate::atoms::SemanticColor::BackgroundMenu.resolve(cx))
                         .shadow_lg();
                     if definition.capabilities.rename {
                         menu = menu.child(
-                            Button::new(SharedString::from(format!(
+                            crate::atoms::ui_button(SharedString::from(format!(
                                 "component-property-context-rename-{}",
                                 property.id
                             )))
@@ -5198,7 +5297,7 @@ impl DesignComponentController for DesignPanel {
                     }
                     if definition.capabilities.delete {
                         menu = menu.child(
-                            Button::new(SharedString::from(format!(
+                            crate::atoms::ui_button(SharedString::from(format!(
                                 "component-property-context-delete-{}",
                                 property.id
                             )))
@@ -5246,7 +5345,7 @@ impl DesignComponentController for DesignPanel {
                     })
                     .drag_over::<ComponentPropertyDefinitionDrag>(move |style, drag, _, cx| {
                         if drag.partition == partition {
-                            style.bg(cx.theme().selection)
+                            style.bg(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                         } else {
                             style
                         }
@@ -5270,8 +5369,8 @@ impl DesignComponentController for DesignPanel {
         if self.host.inspected_node().component_properties.is_empty() {
             content = content.child(
                 div()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("Create a property with +"),
             );
         }
@@ -5295,10 +5394,10 @@ impl DesignComponentController for DesignPanel {
             .gap_1()
             .pt_2()
             .border_t_1()
-            .border_color(cx.theme().border)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .child(
                 div()
-                    .text_xs()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .font_semibold()
                     .child("Expose nested properties"),
             );
@@ -5362,7 +5461,7 @@ impl DesignComponentController for DesignPanel {
                         })
                         .child(render_lucide_icon(
                             LucideIcon::Diamond,
-                            cx.theme().selection,
+                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
                             16.,
                         ))
                         .child(
@@ -5372,14 +5471,16 @@ impl DesignComponentController for DesignPanel {
                                 .child(
                                     div()
                                         .truncate()
-                                        .text_xs()
+                                        .typography(crate::atoms::TypographyToken::BodyMedium)
                                         .child(candidate.nested_property.property_name.clone()),
                                 )
                                 .child(
                                     div()
                                         .truncate()
-                                        .text_xs()
-                                        .text_color(cx.theme().muted_foreground)
+                                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                                        .text_color(
+                                            crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                        )
                                         .child(format!(
                                             "{} · {}",
                                             candidate.nested_instance_name,
@@ -5425,18 +5526,18 @@ impl DesignComponentController for DesignPanel {
                 .gap_2()
                 .rounded(px(4.))
                 .cursor_pointer()
-                .text_xs()
+                .typography(crate::atoms::TypographyToken::BodyMedium)
                 .text_color(if unmet {
-                    cx.theme().warning
+                    crate::atoms::SemanticColor::BackgroundWarning.resolve(cx)
                 } else {
-                    cx.theme().muted_foreground
+                    crate::atoms::SemanticColor::TextTertiary.resolve(cx)
                 })
-                .hover(|style| style.bg(cx.theme().accent))
+                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
                 .focus(|style| {
                     style
-                        .bg(cx.theme().accent)
+                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
                         .border_1()
-                        .border_color(cx.theme().selection)
+                        .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
                 .on_activate(cx.listener(move |this, _, _, cx| {
                     if this.component_authoring.open_slot_limits.as_ref()
@@ -5452,11 +5553,11 @@ impl DesignComponentController for DesignPanel {
                 .child(
                     div()
                         .w(px(14.))
-                        .text_color(cx.theme().warning)
+                        .text_color(crate::atoms::SemanticColor::BackgroundWarning.resolve(cx))
                         .when(unmet, |warning| {
                             warning.child(render_lucide_icon(
                                 LucideIcon::TriangleAlert,
-                                cx.theme().warning,
+                                crate::atoms::SemanticColor::BackgroundWarning.resolve(cx),
                                 14.,
                             ))
                         }),
@@ -5487,19 +5588,27 @@ impl DesignComponentController for DesignPanel {
                 .py_1()
                 .rounded(px(4.))
                 .border_1()
-                .border_color(cx.theme().border)
-                .bg(cx.theme().secondary);
+                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx));
             for guideline in guidelines {
                 let (icon, color) = match guideline.status {
-                    SlotLimitGuidelineStatus::Met => ("Met", cx.theme().green),
-                    SlotLimitGuidelineStatus::Unmet => ("Unmet", cx.theme().warning),
-                    SlotLimitGuidelineStatus::Unknown => ("Unknown", cx.theme().muted_foreground),
+                    SlotLimitGuidelineStatus::Met => {
+                        ("Met", crate::atoms::SemanticColor::TextSuccess.resolve(cx))
+                    }
+                    SlotLimitGuidelineStatus::Unmet => (
+                        "Unmet",
+                        crate::atoms::SemanticColor::BackgroundWarning.resolve(cx),
+                    ),
+                    SlotLimitGuidelineStatus::Unknown => (
+                        "Unknown",
+                        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                    ),
                 };
                 details = details.child(
                     h_flex()
                         .min_h(px(ROW_HEIGHT))
                         .gap_2()
-                        .text_xs()
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
                         .child(div().w(px(14.)).text_color(color).child(icon))
                         .child(div().flex_1().min_w(px(0.)).child(guideline.label))
                         .when_some(
@@ -5556,7 +5665,7 @@ impl DesignComponentController for DesignPanel {
                     DesignComponentPropertyValue::Text(value) => value.replace('\n', " ↵ ").into(),
                     _ => value.display_value(),
                 };
-                Button::new(SharedString::from(format!(
+                crate::atoms::ui_button(SharedString::from(format!(
                     "{}-component-multiline-{}",
                     self.id, property.id
                 )))
@@ -5595,8 +5704,8 @@ impl DesignComponentController for DesignPanel {
                     div()
                         .w(px(104.))
                         .truncate()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(property.name.clone()),
                 )
                 .child(
@@ -5623,7 +5732,9 @@ impl DesignComponentController for DesignPanel {
                             .w_full()
                             .rounded(px(4.))
                             .border_1()
-                            .border_color(cx.theme().selection)
+                            .border_color(
+                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                            )
                             .child(
                                 Input::new(&self.retained.inputs.component_multiline)
                                     .appearance(false)
@@ -5639,7 +5750,7 @@ impl DesignComponentController for DesignPanel {
                             .justify_end()
                             .gap_1()
                             .child(
-                                Button::new(SharedString::from(format!(
+                                crate::atoms::ui_button(SharedString::from(format!(
                                     "{}-component-multiline-cancel-{}",
                                     self.id, property.id
                                 )))
@@ -5654,7 +5765,7 @@ impl DesignComponentController for DesignPanel {
                                 )),
                             )
                             .child(
-                                Button::new(SharedString::from(format!(
+                                crate::atoms::ui_button(SharedString::from(format!(
                                     "{}-component-multiline-apply-{}",
                                     self.id, property.id
                                 )))
@@ -5679,8 +5790,8 @@ impl DesignComponentController for DesignPanel {
             property_content = property_content.child(
                 div()
                     .pl(px(112.))
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(description.clone()),
             );
         }
@@ -5689,11 +5800,11 @@ impl DesignComponentController for DesignPanel {
                 h_flex()
                     .pl(px(112.))
                     .gap_1()
-                    .text_xs()
-                    .text_color(cx.theme().selection)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                     .child(render_lucide_icon(
                         LucideIcon::ExternalLink,
-                        cx.theme().selection,
+                        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
                         14.,
                     ))
                     .child(link.label.clone()),
@@ -5707,8 +5818,8 @@ impl DesignComponentController for DesignPanel {
                     .child(
                         div()
                             .flex_1()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(match property.override_state {
                                 DesignComponentPropertyOverrideState::Default => "",
                                 DesignComponentPropertyOverrideState::Overridden => "Overridden",
@@ -5820,8 +5931,8 @@ impl DesignComponentController for DesignPanel {
             if !settings.preferred_values.is_empty() {
                 property_content = property_content.child(
                     div()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("Preferred instances"),
                 );
                 for preferred in &settings.preferred_values {
@@ -5835,20 +5946,22 @@ impl DesignComponentController for DesignPanel {
                             .gap_2()
                             .child(render_lucide_icon(
                                 LucideIcon::Diamond,
-                                cx.theme().selection,
+                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
                                 16.,
                             ))
                             .child(
                                 div()
                                     .flex_1()
                                     .truncate()
-                                    .text_xs()
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
                                     .child(preferred.name.clone()),
                             )
                             .child(
                                 div()
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground)
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .text_color(
+                                        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child(preferred.origin.label()),
                             )
                             .when(role.can_modify_slot_instances(), |row| {
@@ -5885,24 +5998,33 @@ impl DesignComponentController for DesignPanel {
                             .child(
                                 h_flex()
                                     .gap_2()
-                                    .child(div().text_color(cx.theme().selection).child(
-                                        render_lucide_icon(
-                                            child.kind.lucide_icon(),
-                                            cx.theme().selection,
-                                            16.,
-                                        ),
-                                    ))
+                                    .child(
+                                        div()
+                                            .text_color(
+                                                crate::atoms::SemanticColor::BackgroundSelected
+                                                    .resolve(cx),
+                                            )
+                                            .child(render_lucide_icon(
+                                                child.kind.lucide_icon(),
+                                                crate::atoms::SemanticColor::BackgroundSelected
+                                                    .resolve(cx),
+                                                16.,
+                                            )),
+                                    )
                                     .child(
                                         div()
                                             .flex_1()
                                             .truncate()
-                                            .text_xs()
+                                            .typography(crate::atoms::TypographyToken::BodyMedium)
                                             .child(child.name.clone()),
                                     )
                                     .child(
                                         div()
-                                            .text_xs()
-                                            .text_color(cx.theme().muted_foreground)
+                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .text_color(
+                                                crate::atoms::SemanticColor::TextTertiary
+                                                    .resolve(cx),
+                                            )
                                             .child(child.kind.label()),
                                     ),
                             )
@@ -6053,7 +6175,7 @@ impl DesignComponentController for DesignPanel {
         property_content
             .pb_2()
             .border_b_1()
-            .border_color(cx.theme().border)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .into_any_element()
     }
 
@@ -6458,22 +6580,28 @@ impl DesignComponentController for DesignPanel {
             .rounded(px(4.))
             .border_1()
             .border_color(cx.theme().transparent)
-            .bg(cx.theme().secondary)
-            .text_xs()
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+            .typography(crate::atoms::TypographyToken::BodyMedium)
             .when(enabled, |button| {
                 button
                     .key_context(CONTROL_KEY_CONTEXT)
                     .tab_index(0)
                     .cursor_pointer()
-                    .hover(|style| style.bg(cx.theme().accent))
+                    .hover(|style| {
+                        style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    })
                     .focus(|style| {
                         style
-                            .bg(cx.theme().accent)
-                            .border_color(cx.theme().selection)
+                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .border_color(
+                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                            )
                     })
             })
             .when(!enabled, |button| {
-                button.text_color(cx.theme().muted_foreground).opacity(0.62)
+                button
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    .opacity(0.62)
             });
         if enabled {
             button = button.on_activate(cx.listener(move |this, _, _, cx| {

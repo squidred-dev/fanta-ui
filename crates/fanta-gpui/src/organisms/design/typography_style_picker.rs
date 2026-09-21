@@ -4,6 +4,7 @@
 //! Page/library data and the current style binding remain host-controlled, and
 //! every apply or detach operation is emitted as a typed candidate event.
 
+use crate::atoms::TypographyExt as _;
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Point, Render,
@@ -11,9 +12,8 @@ use gpui::{
     div, prelude::FluentBuilder as _, px,
 };
 use gpui_component::{
-    ActiveTheme as _, Disableable as _, Icon, IconName, Selectable as _, Sizable as _,
-    StyledExt as _,
-    button::{Button, ButtonVariants as _},
+    Disableable as _, Icon, IconName, Selectable as _, Sizable as _, StyledExt as _,
+    button::ButtonVariants as _,
     h_flex,
     input::{Input, InputEvent, InputState},
     scroll::{Scrollbar, ScrollbarAxis},
@@ -272,18 +272,18 @@ impl TypographyStylePicker {
                 .gap_2()
                 .rounded(px(5.))
                 .border_1()
-                .border_color(cx.theme().border)
-                .bg(cx.theme().secondary)
+                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                 .child(
                     div()
                         .flex_1()
                         .min_w(px(0.))
                         .truncate()
-                        .text_xs()
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
                         .child(format!("Applied · {}", binding.name)),
                 )
                 .child(
-                    Button::new(SharedString::from(format!("{}-detach", self.id)))
+                    crate::atoms::ui_button(SharedString::from(format!("{}-detach", self.id)))
                         .label("Detach")
                         .tooltip(reason)
                         .xsmall()
@@ -326,7 +326,7 @@ impl TypographyStylePicker {
             }
         };
 
-        Button::new(SharedString::from(row_id))
+        crate::atoms::ui_button(SharedString::from(row_id))
             .tooltip(style.name.clone())
             .w_full()
             .h(px(48.))
@@ -336,7 +336,9 @@ impl TypographyStylePicker {
             .selected(selected)
             .disabled(self.disabled)
             .when(highlighted && !selected, |button| {
-                button.bg(cx.theme().accent.opacity(0.72))
+                button.bg(crate::atoms::SemanticColor::BackgroundHover
+                    .resolve(cx)
+                    .opacity(0.72))
             })
             .child(
                 h_flex()
@@ -352,8 +354,8 @@ impl TypographyStylePicker {
                             .justify_center()
                             .rounded(px(4.))
                             .border_1()
-                            .border_color(cx.theme().border)
-                            .text_sm()
+                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                            .typography(crate::atoms::TypographyToken::BodyLarge)
                             .font_semibold()
                             .child("Aa"),
                     )
@@ -366,7 +368,7 @@ impl TypographyStylePicker {
                                 div()
                                     .truncate()
                                     .text_left()
-                                    .text_xs()
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
                                     .font_semibold()
                                     .child(style.name.clone()),
                             )
@@ -374,8 +376,10 @@ impl TypographyStylePicker {
                                 div()
                                     .truncate()
                                     .text_left()
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground)
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .text_color(
+                                        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child(metadata),
                             ),
                     )
@@ -405,15 +409,20 @@ impl TypographyStylePicker {
             .child(
                 Icon::new(IconName::BookOpen)
                     .small()
-                    .text_color(cx.theme().muted_foreground),
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx)),
             )
-            .child(div().text_sm().font_semibold().child(title))
+            .child(
+                div()
+                    .typography(crate::atoms::TypographyToken::BodyLarge)
+                    .font_semibold()
+                    .child(title),
+            )
             .child(
                 div()
                     .max_w(px(224.))
                     .text_center()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(detail),
             )
             .into_any_element()
@@ -458,14 +467,14 @@ impl TypographyStylePicker {
                     .child(
                         div()
                             .flex_1()
-                            .text_xs()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .font_semibold()
                             .child("On this page"),
                     )
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(page_styles.len().to_string()),
                     ),
             );
@@ -475,8 +484,8 @@ impl TypographyStylePicker {
                         .min_h(px(28.))
                         .flex()
                         .items_center()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("No page text styles supplied by the host"),
                 );
             } else {
@@ -510,21 +519,21 @@ impl TypographyStylePicker {
                     .child(
                         Icon::new(IconName::BookOpen)
                             .xsmall()
-                            .text_color(cx.theme().muted_foreground),
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx)),
                     )
                     .child(
                         div()
                             .flex_1()
                             .min_w(px(0.))
                             .truncate()
-                            .text_xs()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .font_semibold()
                             .child(library.name.clone()),
                     )
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(styles.len().to_string()),
                     ),
             );
@@ -535,8 +544,8 @@ impl TypographyStylePicker {
                         .min_h(px(28.))
                         .flex()
                         .items_center()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("No available text styles"),
                 );
             } else {
@@ -572,9 +581,9 @@ impl Render for TypographyStylePicker {
             .overflow_hidden()
             .rounded(px(10.))
             .border_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().popover)
-            .text_color(cx.theme().popover_foreground)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .bg(crate::atoms::SemanticColor::BackgroundMenu.resolve(cx))
+            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
             .shadow_lg()
             .child(
                 h_flex()
@@ -583,16 +592,16 @@ impl Render for TypographyStylePicker {
                     .px_3()
                     .gap_2()
                     .border_b_1()
-                    .border_color(cx.theme().border)
+                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                     .child(
                         div()
                             .flex_1()
-                            .text_sm()
+                            .typography(crate::atoms::TypographyToken::BodyLarge)
                             .font_semibold()
                             .child("Text styles"),
                     )
                     .child(
-                        Button::new(SharedString::from(format!("{}-close", self.id)))
+                        crate::atoms::ui_button(SharedString::from(format!("{}-close", self.id)))
                             .icon(IconName::Close)
                             .tooltip("Close")
                             .xsmall()
@@ -609,7 +618,7 @@ impl Render for TypographyStylePicker {
                     .gap_2()
                     .p_3()
                     .border_b_1()
-                    .border_color(cx.theme().border)
+                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                     .child(
                         Input::new(&self.search_input)
                             .small()
@@ -619,8 +628,8 @@ impl Render for TypographyStylePicker {
                     .when(self.disabled, |header| {
                         header.child(
                             div()
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child(
                                     "View only · Search is available, style changes are disabled",
                                 ),

@@ -1,5 +1,6 @@
 //! A composed, simulated editor shell for exercising Fanta GPUI components.
 
+use crate::atoms::TypographyExt as _;
 use gpui::{
     AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
@@ -8,7 +9,7 @@ use gpui::{
 use gpui_component::{ActiveTheme as _, StyledExt as _, h_flex, v_flex};
 
 use crate::atoms::{
-    CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon, tokens,
+    CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon,
 };
 use crate::{
     design::DesignPanel, layers::LayersPanel, pages::PagesPanel, prototype::PrototypePanel,
@@ -147,16 +148,18 @@ impl PseudoEditor {
             .items_center()
             .rounded(px(5.))
             .cursor_pointer()
-            .text_size(px(tokens::TypeScale::MICRO))
+            .typography(crate::atoms::TypographyToken::BodySmall)
             .border_1()
             .border_color(cx.theme().transparent)
             .when(selected, |tab| {
-                tab.bg(cx.theme().tab_active)
-                    .text_color(cx.theme().tab_active_foreground)
+                tab.bg(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+                    .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
                     .font_semibold()
             })
-            .hover(|style| style.bg(cx.theme().accent))
-            .focus(|style| style.border_color(cx.theme().selection))
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+            .focus(|style| {
+                style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+            })
             .on_activate(cx.listener(move |this, _, _, cx| on_activate(this, cx)))
             .child(label)
             .into_any_element()
@@ -176,7 +179,7 @@ impl PseudoEditor {
             .min_h(px(0.))
             .overflow_hidden()
             .border_r_1()
-            .border_color(cx.theme().border)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .child(panel)
             .into_any_element()
     }
@@ -197,7 +200,7 @@ impl PseudoEditor {
             .min_h(px(0.))
             .overflow_hidden()
             .border_l_1()
-            .border_color(cx.theme().border)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .child(panel)
             .into_any_element()
     }
@@ -212,7 +215,7 @@ impl PseudoEditor {
             .items_center()
             .justify_center()
             .overflow_hidden()
-            .bg(cx.theme().muted)
+            .bg(crate::atoms::SemanticColor::BackgroundTertiary.resolve(cx))
             .child(
                 v_flex()
                     .w(px(360.))
@@ -223,20 +226,20 @@ impl PseudoEditor {
                     .gap(px(8.))
                     .rounded(px(8.))
                     .border_1()
-                    .border_color(cx.theme().selection)
-                    .bg(cx.theme().background)
-                    .text_color(cx.theme().foreground)
+                    .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+                    .bg(crate::atoms::SemanticColor::Background.resolve(cx))
+                    .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
                     .when(cx.theme().shadow, |card| card.shadow_lg())
                     .child(
                         div()
-                            .text_size(px(tokens::TypeScale::DISPLAY))
+                            .typography(crate::atoms::TypographyToken::HeadingLarge)
                             .font_semibold()
                             .child("Fanta"),
                     )
                     .child(
                         div()
-                            .text_size(px(tokens::TypeScale::BODY))
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("A simulated editor canvas"),
                     ),
             )
@@ -270,8 +273,8 @@ impl Render for PseudoEditor {
             .size_full()
             .min_h(px(0.))
             .overflow_hidden()
-            .bg(cx.theme().background)
-            .text_color(cx.theme().foreground)
+            .bg(crate::atoms::SemanticColor::Background.resolve(cx))
+            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
             .child(
                 h_flex()
                     .h(px(PSEUDO_EDITOR_TOP_BAR_HEIGHT))
@@ -280,11 +283,11 @@ impl Render for PseudoEditor {
                     .px(px(12.))
                     .gap(px(10.))
                     .border_b_1()
-                    .border_color(cx.theme().border)
+                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                     .child(
                         div()
                             .font_semibold()
-                            .text_size(px(tokens::TypeScale::BODY))
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .child("Untitled"),
                     )
                     .child(self.small_tab(
@@ -355,11 +358,17 @@ impl Render for PseudoEditor {
                             .items_center()
                             .rounded(px(5.))
                             .cursor_pointer()
-                            .text_size(px(tokens::TypeScale::MICRO))
+                            .typography(crate::atoms::TypographyToken::BodySmall)
                             .border_1()
                             .border_color(cx.theme().transparent)
-                            .hover(|style| style.bg(cx.theme().accent))
-                            .focus(|style| style.border_color(cx.theme().selection))
+                            .hover(|style| {
+                                style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            })
+                            .focus(|style| {
+                                style.border_color(
+                                    crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                                )
+                            })
                             .on_activate(cx.listener(|this, _, _, cx| {
                                 this.variables_visible = true;
                                 cx.emit(PseudoEditorAction::VariablesVisibilityChanged {
@@ -380,11 +389,17 @@ impl Render for PseudoEditor {
                             .items_center()
                             .rounded(px(5.))
                             .cursor_pointer()
-                            .text_size(px(tokens::TypeScale::MICRO))
+                            .typography(crate::atoms::TypographyToken::BodySmall)
                             .border_1()
                             .border_color(cx.theme().transparent)
-                            .hover(|style| style.bg(cx.theme().accent))
-                            .focus(|style| style.border_color(cx.theme().selection))
+                            .hover(|style| {
+                                style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            })
+                            .focus(|style| {
+                                style.border_color(
+                                    crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                                )
+                            })
                             .on_activate(cx.listener(|_, _, _, cx| {
                                 cx.emit(PseudoEditorAction::PresentRequested);
                             }))
@@ -400,15 +415,23 @@ impl Render for PseudoEditor {
                             .px(px(12.))
                             .items_center()
                             .rounded(px(6.))
-                            .bg(cx.theme().primary)
-                            .text_color(cx.theme().primary_foreground)
+                            .bg(crate::atoms::SemanticColor::BackgroundBrand.resolve(cx))
+                            .text_color(crate::atoms::SemanticColor::TextOnBrand.resolve(cx))
                             .cursor_pointer()
                             .font_semibold()
-                            .text_size(px(tokens::TypeScale::MICRO))
+                            .typography(crate::atoms::TypographyToken::BodySmall)
                             .border_1()
                             .border_color(cx.theme().transparent)
-                            .hover(|style| style.bg(cx.theme().primary_hover))
-                            .focus(|style| style.border_color(cx.theme().selection))
+                            .hover(|style| {
+                                style
+                                    .bg(crate::atoms::SemanticColor::BackgroundBrandHover
+                                        .resolve(cx))
+                            })
+                            .focus(|style| {
+                                style.border_color(
+                                    crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                                )
+                            })
                             .on_activate(cx.listener(|_, _, _, cx| {
                                 cx.emit(PseudoEditorAction::ShareRequested);
                             }))
@@ -445,7 +468,7 @@ impl Render for PseudoEditor {
                         .top_0()
                         .bottom_0()
                         .occlude()
-                        .bg(cx.theme().background)
+                        .bg(crate::atoms::SemanticColor::Background.resolve(cx))
                         // The close control lives in an overlay-owned header
                         // strip, anchored by the overlay's own layout instead
                         // of offsets tuned to the Variables page's internal
@@ -459,7 +482,7 @@ impl Render for PseudoEditor {
                                 .px(px(10.))
                                 .py(px(6.))
                                 .border_b_1()
-                                .border_color(cx.theme().border)
+                                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                                 .child(
                                     icon_button(
                                         SharedString::from(format!("{}-close-variables", self.id)),
@@ -468,7 +491,8 @@ impl Render for PseudoEditor {
                                         cx,
                                     )
                                     .debug_selector(|| "pseudo-editor-close-variables".to_owned())
-                                    .bg(cx.theme().secondary)
+                                    .bg(crate::atoms::SemanticColor::BackgroundSecondary
+                                        .resolve(cx))
                                     .on_activate(cx.listener(|this, _, _, cx| {
                                         this.variables_visible = false;
                                         cx.emit(PseudoEditorAction::VariablesVisibilityChanged {
@@ -478,7 +502,7 @@ impl Render for PseudoEditor {
                                     }))
                                     .child(render_lucide_icon(
                                         LucideIcon::X,
-                                        cx.theme().foreground,
+                                        crate::atoms::SemanticColor::Text.resolve(cx),
                                         12.,
                                     )),
                                 ),

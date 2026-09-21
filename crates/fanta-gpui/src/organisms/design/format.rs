@@ -8,7 +8,7 @@
 const NEAR_INTEGER_TOLERANCE: f32 = 0.001;
 
 /// Formats a value with up to two decimals, trimming trailing zeros.
-pub(super) fn format_compact_number(value: f32) -> String {
+pub(crate) fn format_compact_number(value: f32) -> String {
     if (value - value.round()).abs() < NEAR_INTEGER_TOLERANCE {
         format!("{}", value.round() as i64)
     } else {

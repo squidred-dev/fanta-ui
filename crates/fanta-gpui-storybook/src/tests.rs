@@ -264,12 +264,35 @@ fn every_reference_fixture_renders_through_the_registry(cx: &mut TestAppContext)
     visual_cx.simulate_resize(size(px(1240.), px(820.)));
 
     let fixture_selectors: &[(StoryKind, &str)] = &[
+        (StoryKind::ColorPicker, "storybook-color-picker-reference"),
+        (StoryKind::Sliders, "storybook-sliders-reference"),
+        (
+            StoryKind::SliderBackgrounds,
+            "storybook-slider-backgrounds-reference",
+        ),
+        (
+            StoryKind::SliderHandles,
+            "storybook-slider-handles-reference",
+        ),
+        (StoryKind::SliderStops, "storybook-slider-stops-reference"),
         (StoryKind::Welcome, "storybook-reference-welcome"),
         (StoryKind::Buttons, "storybook-reference-buttons"),
+        (StoryKind::Checkbox, "storybook-reference-checkbox"),
+        (StoryKind::Dropdown, "storybook-reference-dropdown"),
+        (StoryKind::Inputs, "storybook-reference-inputs"),
         (StoryKind::Labels, "storybook-reference-labels"),
         (StoryKind::Icons, "storybook-icon-gallery"),
         (StoryKind::Tokens, "storybook-reference-tokens"),
+        (StoryKind::Typography, "storybook-reference-typography"),
+        (StoryKind::ColorSystem, "storybook-reference-color-system"),
         (StoryKind::Menus, "storybook-reference-menus"),
+        (StoryKind::RadioButton, "storybook-reference-radio-button"),
+        (
+            StoryKind::SegmentedControl,
+            "storybook-reference-segmented-control",
+        ),
+        (StoryKind::Tabs, "storybook-reference-tabs"),
+        (StoryKind::Tooltips, "storybook-reference-tooltips"),
         (StoryKind::ListRows, "storybook-reference-list-rows"),
         (StoryKind::Popups, "storybook-reference-popups"),
         (StoryKind::Fields, "storybook-reference-fields"),
@@ -6960,4 +6983,185 @@ fn every_named_state_story_renders_all_states(cx: &mut TestAppContext) {
             );
         }
     }
+}
+
+#[gpui::test]
+fn gradient_story_stops_drag_and_move_with_keyboard(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_design_story(cx);
+    cx.update(|_, app| {
+        storybook.update(app, |story, cx| {
+            story.active_story = StoryKind::SliderStops;
+            cx.notify();
+        })
+    });
+    cx.run_until_parked();
+    let rail = cx.debug_bounds("slider-gradient-demo").unwrap();
+    assert!(f32::from(rail.size.width) <= 440.);
+    let before = cx.debug_bounds("slider-stop-story-1").unwrap();
+    let target = gpui::point(rail.left() + rail.size.width * 0.75, before.center().y);
+    cx.simulate_mouse_down(before.center(), gpui::MouseButton::Left, Modifiers::none());
+    cx.simulate_mouse_move(target, Some(gpui::MouseButton::Left), Modifiers::none());
+    cx.simulate_mouse_up(target, gpui::MouseButton::Left, Modifiers::none());
+    cx.run_until_parked();
+    let moved = cx.debug_bounds("slider-stop-story-1").unwrap();
+    assert!(moved.left() > before.right());
+    cx.simulate_click(moved.center(), Modifiers::none());
+    cx.simulate_keystrokes("home");
+    cx.run_until_parked();
+    let at_start = cx.debug_bounds("slider-stop-story-1").unwrap();
+    assert!((f32::from(at_start.left() - rail.left())).abs() < 1.);
+}
+
+#[gpui::test]
+fn color_picker_story_applies_its_mock_canvas_sample(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_design_story(cx);
+    cx.update(|_, app| {
+        storybook.update(app, |story, cx| {
+            story.active_story = StoryKind::ColorPicker;
+            cx.notify();
+        });
+    });
+    cx.run_until_parked();
+
+    let eyedropper = cx.debug_bounds("color-picker-eyedropper").unwrap();
+    cx.simulate_click(eyedropper.center(), Modifiers::none());
+    cx.run_until_parked();
+
+    storybook.read_with(cx, |story, _| {
+        assert_eq!(
+            story.color_picker_screen.color,
+            PickerColor::rgba(0x16, 0xb8, 0xa6, 255)
+        );
+    });
+}
+
+#[gpui::test]
+fn segmented_control_story_updates_its_host_controlled_selection(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_design_story(cx);
+    cx.update(|_, app| {
+        storybook.update(app, |story, cx| {
+            story.active_story = StoryKind::SegmentedControl;
+            cx.notify();
+        });
+    });
+    cx.run_until_parked();
+
+    let second_segment = cx
+        .debug_bounds("segmented-live-labels-segment-1")
+        .expect("the second live label segment should render");
+    cx.simulate_click(second_segment.center(), Modifiers::none());
+    cx.run_until_parked();
+
+    storybook.read_with(cx, |story, _| {
+        assert_eq!(story.segmented_control_story.selected_label, 1);
+        assert!(
+            story
+                .segmented_control_story
+                .last_action
+                .contains("pointer")
+        );
+    });
+
+    cx.simulate_keystrokes("right");
+    cx.run_until_parked();
+    storybook.read_with(cx, |story, _| {
+        assert_eq!(story.segmented_control_story.selected_label, 2);
+        assert!(
+            story
+                .segmented_control_story
+                .last_action
+                .contains("keyboard")
+        );
+    });
+
+    let matrix_segment = cx
+        .debug_bounds("segmented-main-label-3-default-segment-2")
+        .expect("enabled taxonomy specimens should expose real segments");
+    cx.simulate_click(matrix_segment.center(), Modifiers::none());
+    cx.run_until_parked();
+    storybook.read_with(cx, |story, _| {
+        assert_eq!(
+            story
+                .segmented_control_story
+                .specimen_selections
+                .get("segmented-main-label-3-default"),
+            Some(&2)
+        );
+    });
+}
+
+#[gpui::test]
+fn radio_button_story_updates_its_host_controlled_group(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_design_story(cx);
+    cx.update(|_, app| {
+        storybook.update(app, |story, cx| {
+            story.active_story = StoryKind::RadioButton;
+            cx.notify();
+        });
+    });
+    cx.run_until_parked();
+
+    let option = cx
+        .debug_bounds("radio-live-1")
+        .expect("the second live radio option should render");
+    cx.simulate_click(option.center(), Modifiers::none());
+    cx.run_until_parked();
+
+    storybook.read_with(cx, |story, _| {
+        assert_eq!(story.radio_button_story.selected_live, 1);
+        assert!(story.radio_button_story.last_action.contains("pointer"));
+    });
+}
+
+#[gpui::test]
+fn tabs_story_updates_selection_by_pointer_and_arrows(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_design_story(cx);
+    cx.update(|_, app| {
+        storybook.update(app, |story, cx| {
+            story.active_story = StoryKind::Tabs;
+            cx.notify();
+        });
+    });
+    cx.run_until_parked();
+
+    let second_tab = cx
+        .debug_bounds("tabs-count-3-tab-1")
+        .expect("the second tab in the 3-tab specimen should render");
+    cx.simulate_click(second_tab.center(), Modifiers::none());
+    cx.run_until_parked();
+    storybook.read_with(cx, |story, _| {
+        assert_eq!(story.tabs_story.selected_by_count[2], 1);
+        assert!(story.tabs_story.last_action.contains("pointer"));
+    });
+
+    cx.simulate_keystrokes("right");
+    cx.run_until_parked();
+    storybook.read_with(cx, |story, _| {
+        assert_eq!(story.tabs_story.selected_by_count[2], 2);
+        assert!(story.tabs_story.last_action.contains("keyboard"));
+    });
+}
+
+#[gpui::test]
+fn tooltip_story_trigger_responds_to_hover(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_design_story(cx);
+    cx.update(|_, app| {
+        storybook.update(app, |story, cx| {
+            story.active_story = StoryKind::Tooltips;
+            cx.notify();
+        });
+    });
+    cx.run_until_parked();
+
+    let trigger = cx
+        .debug_bounds("tooltip-trigger-TopCenter")
+        .expect("the top-center tooltip trigger should render");
+    cx.simulate_mouse_move(trigger.center(), None, Modifiers::none());
+    cx.run_until_parked();
+    storybook.read_with(cx, |story, _| {
+        assert_eq!(
+            story.tooltips_story.hovered_direction,
+            Some(TooltipDirection::TopCenter)
+        );
+    });
 }

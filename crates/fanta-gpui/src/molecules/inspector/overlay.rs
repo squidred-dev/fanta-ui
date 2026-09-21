@@ -1,5 +1,6 @@
 //! Inspector-specific placement, chrome, dismissal, and focus-return policy.
 
+use crate::atoms::TypographyExt as _;
 use gpui::{
     Anchor, AnyElement, App, Context, Div, ElementId, FocusHandle, InteractiveElement as _, Pixels,
     Point, Stateful, StatefulInteractiveElement as _, Styled as _, Window,
@@ -157,8 +158,8 @@ fn inspector_overlay_chrome(
         .block_mouse_except_scroll()
         .rounded(metrics.radius)
         .border_1()
-        .border_color(cx.theme().border)
-        .bg(cx.theme().popover)
+        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+        .bg(crate::atoms::SemanticColor::BackgroundMenu.resolve(cx))
         .overflow_y_scroll()
 }
 
@@ -170,7 +171,7 @@ pub fn inspector_popover_surface(
     cx: &App,
 ) -> Stateful<Div> {
     inspector_overlay_chrome(id, metrics, cx)
-        .text_color(cx.theme().popover_foreground)
+        .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
         .when(cx.theme().shadow, |surface| surface.shadow_lg())
 }
 
@@ -259,7 +260,7 @@ pub fn inspector_menu_item(
             .px_2()
             .gap_2()
             .rounded(metrics.radius)
-            .text_xs()
+            .typography(crate::atoms::TypographyToken::BodyMedium)
             .text_color(gpui_component::ActiveTheme::theme(cx).muted_foreground)
             .opacity(0.62)
     }

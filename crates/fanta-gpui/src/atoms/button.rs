@@ -35,7 +35,9 @@ pub fn icon_button(
         .cursor_pointer()
         .border_1()
         .border_color(cx.theme().transparent)
-        .hover(|style| style.bg(cx.theme().accent))
-        .active(|style| style.bg(cx.theme().secondary_active))
-        .focus(|style| style.border_color(cx.theme().selection))
+        .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+        .active(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+        .focus(|style| {
+            style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+        })
 }

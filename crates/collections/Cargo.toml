@@ -1,0 +1,48 @@
+[package]
+name = "fanta-gpui-collections"
+version = "0.1.0"
+edition = "2024"
+publish = true
+license = "Apache-2.0"
+description = "Standard collection types used by Zed and GPUI"
+repository = "https://github.com/squidred-dev/fanta-ui"
+
+[lib]
+path = "src/collections.rs"
+doctest = false
+name = "collections"
+
+[features]
+test-support = []
+
+[lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+declare_interior_mutable_const = "deny"
+redundant_clone = "deny"
+disallowed_methods = "deny"
+type_complexity = "allow"
+let_underscore_future = "allow"
+single_range_in_vec_init = "allow"
+too_many_arguments = "allow"
+large_enum_variant = "allow"
+nonminimal_bool = "allow"
+
+[dependencies.indexmap]
+version = "2.7.0"
+features = [ "serde",]
+
+[dependencies.rustc-hash]
+version = "2.1.0"
+
+[dependencies.gpui_util]
+path = "../gpui_util"
+package = "fanta-gpui-gpui-util"
+version = "=0.1.0"
+
+[lints.clippy.style]
+level = "allow"
+priority = -1
+
+[lints.rust.unexpected_cfgs]
+level = "allow"

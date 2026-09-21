@@ -352,9 +352,9 @@ fn render_direct_icon_action(
     cx: &mut Context<DesignPanel>,
 ) -> AnyElement {
     let icon_color = if enabled {
-        cx.theme().foreground
+        crate::atoms::SemanticColor::Text.resolve(cx)
     } else {
-        cx.theme().muted_foreground
+        crate::atoms::SemanticColor::TextTertiary.resolve(cx)
     };
     let mut button = div()
         .id(SharedString::from(format!(
@@ -374,15 +374,17 @@ fn render_direct_icon_action(
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(cx.theme().accent))
+                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
                 .focus(|style| {
                     style
-                        .bg(cx.theme().accent)
-                        .border_color(cx.theme().selection)
+                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
         })
         .when(!enabled, |button| {
-            button.text_color(cx.theme().muted_foreground).opacity(0.62)
+            button
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                .opacity(0.62)
         });
     if enabled {
         let expected_node_id = identity.node_id.clone();
@@ -407,9 +409,9 @@ fn render_direct_compact_icon_action(
     cx: &mut Context<DesignPanel>,
 ) -> AnyElement {
     let icon_color = if enabled {
-        cx.theme().foreground
+        crate::atoms::SemanticColor::Text.resolve(cx)
     } else {
-        cx.theme().muted_foreground
+        crate::atoms::SemanticColor::TextTertiary.resolve(cx)
     };
     let mut button = div()
         .id(SharedString::from(format!(
@@ -424,21 +426,23 @@ fn render_direct_compact_icon_action(
         .rounded(px(4.))
         .border_1()
         .border_color(cx.theme().transparent)
-        .text_xs()
+        .typography(crate::atoms::TypographyToken::BodyMedium)
         .when(enabled, |button| {
             button
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(cx.theme().accent))
+                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
                 .focus(|style| {
                     style
-                        .bg(cx.theme().accent)
-                        .border_color(cx.theme().selection)
+                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
         })
         .when(!enabled, |button| {
-            button.text_color(cx.theme().muted_foreground).opacity(0.62)
+            button
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                .opacity(0.62)
         });
     if enabled {
         let expected_node_id = identity.node_id.clone();
@@ -869,8 +873,8 @@ pub(in super::super) fn render_stroke(
                     geometry = geometry
                         .child(
                             div()
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child(format!("Point {}", index + 1)),
                         )
                         .child(
@@ -1049,9 +1053,12 @@ pub(in super::super) fn render_stroke(
                                     .px_2()
                                     .py_1()
                                     .rounded(px(4.))
-                                    .bg(cx.theme().secondary)
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground)
+                                    .bg(crate::atoms::SemanticColor::BackgroundSecondary
+                                        .resolve(cx))
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .text_color(
+                                        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child(format!("{} · {}", opaque.type_name, opaque.raw)),
                             ),
                     );

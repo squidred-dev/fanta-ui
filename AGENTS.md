@@ -10,7 +10,9 @@ This repository contains headless, host-controlled GPUI components for Fanta.
 3. The storybook may own mock state, but reusable components may only own
    transient presentation state.
 4. Prefer `gpui-component` primitives and active theme tokens.
-5. All crates forbid unsafe code.
+5. Fanta components and the storybook forbid unsafe code. Imported GPUI,
+   platform, and support crates retain their upstream native-code safety
+   policies; do not apply the component prohibition to their FFI boundaries.
 
 Read `ARCHITECTURE.md` before changing component boundaries.
 
@@ -23,4 +25,3 @@ cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all -- --check
 ```
-

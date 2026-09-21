@@ -1,3 +1,4 @@
+use fanta_gpui::atoms::TypographyExt as _;
 use gpui::{
     AppContext as _, Context, Entity, FocusHandle, Focusable, InteractiveElement as _, IntoElement,
     ParentElement as _, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
@@ -106,12 +107,16 @@ impl Render for IconGallery {
                     .px_3()
                     .rounded(cx.theme().radius_lg)
                     .border_1()
-                    .border_color(cx.theme().border)
-                    .bg(cx.theme().group_box)
+                    .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+                    .bg(fanta_gpui::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                     .hover(|style| {
                         style
-                            .border_color(cx.theme().primary.opacity(0.5))
-                            .bg(cx.theme().accent)
+                            .border_color(
+                                fanta_gpui::atoms::SemanticColor::BackgroundBrand
+                                    .resolve(cx)
+                                    .opacity(0.5),
+                            )
+                            .bg(fanta_gpui::atoms::SemanticColor::BackgroundHover.resolve(cx))
                     })
                     .child(
                         div()
@@ -120,8 +125,8 @@ impl Render for IconGallery {
                             .items_center()
                             .justify_center()
                             .rounded_lg()
-                            .bg(cx.theme().secondary)
-                            .text_color(cx.theme().foreground)
+                            .bg(fanta_gpui::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                            .text_color(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
                             .child(Icon::new(spec.icon).size_6()),
                     )
                     .child(
@@ -130,14 +135,21 @@ impl Render for IconGallery {
                             .min_w(gpui::px(0.))
                             .items_center()
                             .gap_0p5()
-                            .child(div().text_sm().font_medium().child(spec.name))
+                            .child(
+                                div()
+                                    .typography(fanta_gpui::atoms::TypographyToken::BodyLarge)
+                                    .font_medium()
+                                    .child(spec.name),
+                            )
                             .child(
                                 div()
                                     .w_full()
                                     .truncate()
                                     .text_center()
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground)
+                                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                                    .text_color(
+                                        fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child(path),
                             ),
                     ),
@@ -150,8 +162,8 @@ impl Render for IconGallery {
             .size_full()
             .min_h(gpui::px(0.))
             .overflow_hidden()
-            .bg(cx.theme().background)
-            .text_color(cx.theme().foreground)
+            .bg(fanta_gpui::atoms::SemanticColor::Background.resolve(cx))
+            .text_color(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
             .child(
                 h_flex()
                     .w_full()
@@ -162,16 +174,23 @@ impl Render for IconGallery {
                     .px_6()
                     .py_5()
                     .border_b_1()
-                    .border_color(cx.theme().border)
+                    .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
                     .child(
                         v_flex()
                             .min_w(gpui::px(0.))
                             .gap_1()
-                            .child(div().text_xl().font_semibold().child("Icon catalog"))
                             .child(
                                 div()
-                                    .text_sm()
-                                    .text_color(cx.theme().muted_foreground)
+                                    .typography(fanta_gpui::atoms::TypographyToken::HeadingLarge)
+                                    .font_semibold()
+                                    .child("Icon catalog"),
+                            )
+                            .child(
+                                div()
+                                    .typography(fanta_gpui::atoms::TypographyToken::BodyLarge)
+                                    .text_color(
+                                        fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child(format!(
                                         "{visible_count} of {ICON_COUNT} bundled icons"
                                     )),
@@ -200,7 +219,9 @@ impl Render for IconGallery {
                                 .items_center()
                                 .justify_center()
                                 .gap_2()
-                                .text_color(cx.theme().muted_foreground)
+                                .text_color(
+                                    fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                )
                                 .child(Icon::new(IconName::Search).size_6())
                                 .child("No icons match this filter"),
                         )

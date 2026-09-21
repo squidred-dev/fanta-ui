@@ -1,0 +1,103 @@
+[package]
+name = "fanta-gpui-http-client"
+version = "0.1.0"
+edition = "2024"
+publish = true
+license = "Apache-2.0"
+description = "A HTTP client library for Zed and GPUI"
+repository = "https://github.com/squidred-dev/fanta-ui"
+
+[features]
+test-support = []
+github-download = [ "dep:async-fs", "dep:async-tar", "dep:sha2", "dep:tempfile", "dep:util",]
+
+[lib]
+path = "src/http_client.rs"
+doctest = true
+name = "http_client"
+
+[lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+declare_interior_mutable_const = "deny"
+redundant_clone = "deny"
+disallowed_methods = "deny"
+type_complexity = "allow"
+let_underscore_future = "allow"
+single_range_in_vec_init = "allow"
+too_many_arguments = "allow"
+large_enum_variant = "allow"
+nonminimal_bool = "allow"
+
+[dependencies.anyhow]
+version = "1.0.86"
+
+[dependencies.async-compression]
+version = "0.4"
+features = [ "bzip2", "futures-io", "gzip",]
+
+[dependencies.bytes]
+version = "1.0"
+
+[dependencies.derive_more]
+version = "2.1.1"
+features = [ "add", "add_assign", "deref", "deref_mut", "display", "from_str", "mul", "mul_assign", "not",]
+
+[dependencies.futures]
+version = "0.3.32"
+
+[dependencies.http-body]
+version = "1.0"
+
+[dependencies.http]
+version = "1.1"
+
+[dependencies.log]
+version = "0.4.16"
+features = [ "kv_unstable_serde", "serde",]
+
+[dependencies.parking_lot]
+version = "0.12.1"
+
+[dependencies.serde]
+version = "1.0.221"
+features = [ "derive", "rc",]
+
+[dependencies.serde_json]
+version = "1.0.144"
+features = [ "preserve_order", "raw_value",]
+
+[dependencies.serde_urlencoded]
+version = "0.7"
+
+[dependencies.url]
+version = "2.2"
+
+[lints.clippy.style]
+level = "allow"
+priority = -1
+
+[lints.rust.unexpected_cfgs]
+level = "allow"
+
+[target."cfg(not(target_family = \"wasm\"))".dependencies.util]
+path = "../util"
+optional = true
+package = "fanta-gpui-util"
+version = "=0.1.0"
+
+[target."cfg(not(target_family = \"wasm\"))".dependencies.async-fs]
+version = "2.1"
+optional = true
+
+[target."cfg(not(target_family = \"wasm\"))".dependencies.async-tar]
+version = "0.5.1"
+optional = true
+
+[target."cfg(not(target_family = \"wasm\"))".dependencies.sha2]
+version = "0.10"
+optional = true
+
+[target."cfg(not(target_family = \"wasm\"))".dependencies.tempfile]
+version = "3.20.0"
+optional = true

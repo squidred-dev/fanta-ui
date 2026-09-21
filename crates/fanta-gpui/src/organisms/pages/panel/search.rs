@@ -1,4 +1,5 @@
 use super::*;
+use crate::atoms::TypographyExt as _;
 
 impl PagesPanel {
     /// Node-kind icon shared with the Layers iconography. Every glyph comes
@@ -6,9 +7,9 @@ impl PagesPanel {
     pub(super) fn element_icon(kind: PagesPanelElementKind, cx: &App) -> AnyElement {
         let color = match kind {
             PagesPanelElementKind::Component | PagesPanelElementKind::Instance => {
-                cx.theme().selection
+                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
             }
-            _ => cx.theme().muted_foreground,
+            _ => crate::atoms::SemanticColor::TextTertiary.resolve(cx),
         };
         let icon = match kind {
             PagesPanelElementKind::All => {
@@ -58,7 +59,7 @@ impl PagesPanel {
             .gap_2()
             .p_3()
             .border_b_1()
-            .border_color(cx.theme().border)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .child(
                 h_flex()
                     .w_full()
@@ -86,7 +87,11 @@ impl PagesPanel {
                             .debug_selector(|| "pages-filter-trigger".to_owned())
                             .key_context(CONTROL_KEY_CONTEXT)
                             .track_focus(&settings_focus_handle)
-                            .focus(|style| style.bg(cx.theme().accent).rounded(px(5.)))
+                            .focus(|style| {
+                                style
+                                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                                    .rounded(px(5.))
+                            })
                             .on_activate(cx.listener(|this, event: &ActivateEvent, window, cx| {
                                 cx.stop_propagation();
                                 if event.keyboard {
@@ -96,17 +101,20 @@ impl PagesPanel {
                                 }
                             }))
                             .child(
-                                Button::new(SharedString::from(format!("{}-filters", self.id)))
-                                    .ghost()
-                                    .small()
-                                    .compact()
-                                    .tab_stop(false)
-                                    .icon(IconName::Settings2)
-                                    .tooltip_with_action(
-                                        "Settings",
-                                        &ToggleSearchSettings,
-                                        Some(PAGES_PANEL_KEY_CONTEXT),
-                                    ),
+                                crate::atoms::ui_button(SharedString::from(format!(
+                                    "{}-filters",
+                                    self.id
+                                )))
+                                .ghost()
+                                .small()
+                                .compact()
+                                .tab_stop(false)
+                                .icon(IconName::Settings2)
+                                .tooltip_with_action(
+                                    "Settings",
+                                    &ToggleSearchSettings,
+                                    Some(PAGES_PANEL_KEY_CONTEXT),
+                                ),
                             )
                             .child(self.control_bounds_tracker(FocusTooltipKind::Settings, cx))
                             .child(track_bounds(cx.entity(), |this, bounds| {
@@ -124,13 +132,17 @@ impl PagesPanel {
                             .debug_selector(|| "pages-close-search".to_owned())
                             .key_context(CONTROL_KEY_CONTEXT)
                             .track_focus(&close_search_focus_handle)
-                            .focus(|style| style.bg(cx.theme().accent).rounded(px(5.)))
+                            .focus(|style| {
+                                style
+                                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                                    .rounded(px(5.))
+                            })
                             .on_activate(cx.listener(|this, _, window, cx| {
                                 cx.stop_propagation();
                                 this.close_search(window, cx);
                             }))
                             .child(
-                                Button::new(SharedString::from(format!(
+                                crate::atoms::ui_button(SharedString::from(format!(
                                     "{}-close-search",
                                     self.id
                                 )))
@@ -179,7 +191,12 @@ impl PagesPanel {
                                     .when(can_replace_one, |control| {
                                         control.track_focus(&replace_current_focus_handle)
                                     })
-                                    .focus(|style| style.bg(cx.theme().accent).rounded(px(5.)))
+                                    .focus(|style| {
+                                        style
+                                            .bg(crate::atoms::SemanticColor::BackgroundHover
+                                                .resolve(cx))
+                                            .rounded(px(5.))
+                                    })
                                     .on_activate(cx.listener(move |this, _, _, cx| {
                                         cx.stop_propagation();
                                         if can_replace_one {
@@ -187,7 +204,7 @@ impl PagesPanel {
                                         }
                                     }))
                                     .child(
-                                        Button::new(SharedString::from(format!(
+                                        crate::atoms::ui_button(SharedString::from(format!(
                                             "{}-replace-one",
                                             self.id
                                         )))
@@ -219,7 +236,12 @@ impl PagesPanel {
                                     .when(can_replace_all, |control| {
                                         control.track_focus(&replace_all_focus_handle)
                                     })
-                                    .focus(|style| style.bg(cx.theme().accent).rounded(px(5.)))
+                                    .focus(|style| {
+                                        style
+                                            .bg(crate::atoms::SemanticColor::BackgroundHover
+                                                .resolve(cx))
+                                            .rounded(px(5.))
+                                    })
                                     .on_activate(cx.listener(move |this, _, _, cx| {
                                         cx.stop_propagation();
                                         if can_replace_all {
@@ -227,7 +249,7 @@ impl PagesPanel {
                                         }
                                     }))
                                     .child(
-                                        Button::new(SharedString::from(format!(
+                                        crate::atoms::ui_button(SharedString::from(format!(
                                             "{}-replace-all",
                                             self.id
                                         )))
@@ -266,13 +288,17 @@ impl PagesPanel {
                             .px_2()
                             .rounded(px(6.))
                             .border_1()
-                            .border_color(cx.theme().border)
+                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                             .cursor_pointer()
-                            .hover(|style| style.bg(cx.theme().accent))
+                            .hover(|style| {
+                                style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            })
                             .focus(|style| {
                                 style
-                                    .bg(cx.theme().accent)
-                                    .border_color(cx.theme().selection)
+                                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                                    .border_color(
+                                        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                                    )
                             })
                             .on_activate(cx.listener(move |this, _, _, cx| {
                                 this.toggle_filter(kind, cx);
@@ -311,16 +337,21 @@ impl PagesPanel {
             .px_3()
             .gap_2()
             .border_b_1()
-            .border_color(cx.theme().border)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .child(
                 div()
                     .debug_selector(|| "pages-result-count".to_owned())
                     .flex_none()
                     .whitespace_nowrap()
-                    .text_sm()
+                    .typography(crate::atoms::TypographyToken::BodyLarge)
                     .child(result_label),
             )
-            .child(div().flex_none().text_sm().child("·"))
+            .child(
+                div()
+                    .flex_none()
+                    .typography(crate::atoms::TypographyToken::BodyLarge)
+                    .child("·"),
+            )
             .child(
                 h_flex()
                     .id(SharedString::from(format!("{}-scope", self.id)))
@@ -333,12 +364,14 @@ impl PagesPanel {
                     .key_context(CONTROL_KEY_CONTEXT)
                     .track_focus(&scope_trigger_focus_handle)
                     .gap_1()
-                    .text_sm()
+                    .typography(crate::atoms::TypographyToken::BodyLarge)
                     .cursor_pointer()
                     .focus(|style| {
                         style
-                            .bg(cx.theme().accent)
-                            .border_color(cx.theme().selection)
+                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .border_color(
+                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                            )
                     })
                     .on_activate(cx.listener(|this, event: &ActivateEvent, window, cx| {
                         cx.stop_propagation();
@@ -369,7 +402,11 @@ impl PagesPanel {
                     .when(can_navigate, |control| {
                         control.track_focus(&previous_result_focus_handle)
                     })
-                    .focus(|style| style.bg(cx.theme().accent).rounded(px(5.)))
+                    .focus(|style| {
+                        style
+                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .rounded(px(5.))
+                    })
                     .on_activate(cx.listener(move |this, _, _, cx| {
                         cx.stop_propagation();
                         if can_navigate {
@@ -377,18 +414,21 @@ impl PagesPanel {
                         }
                     }))
                     .child(
-                        Button::new(SharedString::from(format!("{}-previous", self.id)))
-                            .ghost()
-                            .xsmall()
-                            .compact()
-                            .tab_stop(false)
-                            .icon(IconName::ChevronUp)
-                            .disabled(!can_navigate)
-                            .tooltip_with_action(
-                                "Previous result",
-                                &PreviousSearchResult,
-                                Some(PAGES_PANEL_KEY_CONTEXT),
-                            ),
+                        crate::atoms::ui_button(SharedString::from(format!(
+                            "{}-previous",
+                            self.id
+                        )))
+                        .ghost()
+                        .xsmall()
+                        .compact()
+                        .tab_stop(false)
+                        .icon(IconName::ChevronUp)
+                        .disabled(!can_navigate)
+                        .tooltip_with_action(
+                            "Previous result",
+                            &PreviousSearchResult,
+                            Some(PAGES_PANEL_KEY_CONTEXT),
+                        ),
                     )
                     .child(self.control_bounds_tracker(FocusTooltipKind::PreviousResult, cx)),
             )
@@ -402,7 +442,11 @@ impl PagesPanel {
                     .when(can_navigate, |control| {
                         control.track_focus(&next_result_focus_handle)
                     })
-                    .focus(|style| style.bg(cx.theme().accent).rounded(px(5.)))
+                    .focus(|style| {
+                        style
+                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .rounded(px(5.))
+                    })
                     .on_activate(cx.listener(move |this, _, _, cx| {
                         cx.stop_propagation();
                         if can_navigate {
@@ -410,7 +454,7 @@ impl PagesPanel {
                         }
                     }))
                     .child(
-                        Button::new(SharedString::from(format!("{}-next", self.id)))
+                        crate::atoms::ui_button(SharedString::from(format!("{}-next", self.id)))
                             .ghost()
                             .xsmall()
                             .compact()
@@ -444,8 +488,8 @@ impl PagesPanel {
                         .debug_selector(|| "pages-results-empty".to_owned())
                         .w_full()
                         .p_4()
-                        .text_sm()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyLarge)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(empty_results_label(self.search_scope)),
                 )
             })
@@ -470,17 +514,17 @@ impl PagesPanel {
                             .px_4()
                             .py_2()
                             .cursor_pointer()
-                            .when(is_hovered && !is_active, |row| row.bg(cx.theme().accent))
+                            .when(is_hovered && !is_active, |row| row.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
                             .focus(|style| {
                                 style
-                                    .bg(cx.theme().accent)
+                                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
                                     .border_l_2()
-                                    .border_color(cx.theme().selection)
+                                    .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                             })
                             .when(is_active, |row| {
-                                row.bg(cx.theme().list_active)
+                                row.bg(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                                     .border_l_2()
-                                    .border_color(cx.theme().list_active_border)
+                                    .border_color(crate::atoms::SemanticColor::BorderSelected.resolve(cx))
                             })
                             .on_hover(cx.listener(move |this, hovered, _, cx| {
                                 let changed = if *hovered {
@@ -512,12 +556,12 @@ impl PagesPanel {
                                             .gap_1()
                                             .child(
                                                 div()
-                                                    .text_sm()
+                                                    .typography(crate::atoms::TypographyToken::BodyLarge)
                                                     .when(
                                                         replace_mode && !replacement.is_empty(),
                                                         |text| {
                                                             text.text_color(
-                                                                cx.theme().muted_foreground,
+                                                                crate::atoms::SemanticColor::TextTertiary.resolve(cx),
                                                             )
                                                             .line_through()
                                                         },
@@ -532,8 +576,8 @@ impl PagesPanel {
                                     .when_some(result.parent, |column, parent| {
                                         column.child(
                                             div()
-                                                .text_sm()
-                                                .text_color(cx.theme().muted_foreground)
+                                                .typography(crate::atoms::TypographyToken::BodyLarge)
+                                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                                 .child(parent),
                                         )
                                     }),
@@ -549,7 +593,7 @@ impl PagesPanel {
             .relative()
             .size_full()
             .min_h(px(280.))
-            .bg(cx.theme().sidebar)
+            .bg(crate::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
             .child(track_bounds(cx.entity(), |this, bounds| {
                 this.search_panel_bounds = Some(bounds);
             }))

@@ -230,19 +230,37 @@ impl VariablesStory {
                 self.last_action =
                     format!("Created and selected {collection_id} through the host adapter").into();
             }
-            VariablesAction::CreateVariableRequested => {
+            VariablesAction::CreateVariableRequested
+            | VariablesAction::CreateTypedVariableRequested { .. } => {
+                let kind = match action {
+                    VariablesAction::CreateTypedVariableRequested { kind } => *kind,
+                    _ => VariableKind::Number,
+                };
+                let (label, default) = match kind {
+                    VariableKind::Color => ("Color", "FFFFFF"),
+                    VariableKind::Number => ("Number", "0"),
+                    VariableKind::String => ("String", "String value"),
+                    VariableKind::Boolean => ("Boolean", "False"),
+                };
                 let ordinal = self.view_data.variables.len() + 1;
                 let values = self
                     .view_data
                     .modes
                     .iter()
-                    .map(|mode| VariableModeValue::new(mode.id.clone(), "0"))
+                    .map(|mode| {
+                        let value = VariableModeValue::new(mode.id.clone(), default);
+                        if kind == VariableKind::Color {
+                            value.color(default)
+                        } else {
+                            value
+                        }
+                    })
                     .collect::<Vec<_>>();
                 self.view_data.variables.push(VariableRow::new(
                     format!("spacing-{ordinal}"),
-                    format!("Spacing {ordinal}"),
-                    "all",
-                    VariableKind::Number,
+                    format!("{label} {ordinal}"),
+                    self.view_data.selected_group_id.clone(),
+                    kind,
                     values,
                 ));
                 let variable_count = self.view_data.variables.len();
@@ -300,55 +318,74 @@ impl VariablesStory {
                 }
                 self.last_action = format!("Added Mode {ordinal} through the host adapter").into();
             }
-            VariablesAction::ValueEditRequested {
-                variable_id,
-                mode_id,
-            } => {
-                if let Some(variable) = self
+            VariablesAction::ValueEditRequested { .. } => {}
+            VariablesAction::VariableRenameRequested { variable_id, name } => {
+                if let Some(v) = self
                     .view_data
                     .variables
                     .iter_mut()
-                    .find(|variable| variable.id == *variable_id)
+                    .find(|v| v.id == *variable_id)
                 {
-                    let kind = variable.kind;
-                    if let Some(value) = variable
-                        .values
-                        .iter_mut()
-                        .find(|value| value.mode_id == *mode_id)
-                    {
-                        match kind {
-                            VariableKind::Color => {
-                                let next = if value.value.as_ref() == "FFFFFF" {
-                                    "0D99FF"
-                                } else {
-                                    "FFFFFF"
-                                };
-                                value.value = next.into();
-                                value.color_hex = Some(next.into());
-                            }
-                            VariableKind::Number => {
-                                value.value = if value.value.as_ref() == "0" {
-                                    "8".into()
-                                } else {
-                                    "0".into()
-                                };
-                            }
-                            VariableKind::String => value.value = "Edited".into(),
-                            VariableKind::Boolean => {
-                                value.value = if value.value.as_ref() == "True" {
-                                    "False".into()
-                                } else {
-                                    "True".into()
-                                };
-                            }
-                        }
+                    v.name = name.clone();
+                }
+            }
+            VariablesAction::ModeRenameRequested { mode_id, name } => {
+                if let Some(m) = self.view_data.modes.iter_mut().find(|m| m.id == *mode_id) {
+                    m.name = name.clone();
+                }
+            }
+            VariablesAction::DescriptionChanged {
+                variable_id,
+                description,
+            } => {
+                if let Some(v) = self
+                    .view_data
+                    .variables
+                    .iter_mut()
+                    .find(|v| v.id == *variable_id)
+                {
+                    v.description = description.clone();
+                }
+            }
+            VariablesAction::ValueChanged {
+                variable_id,
+                mode_id,
+                value,
+            } => {
+                if let Some(v) = self
+                    .view_data
+                    .variables
+                    .iter_mut()
+                    .find(|v| v.id == *variable_id)
+                {
+                    let color = v.kind == VariableKind::Color;
+                    if let Some(cell) = v.values.iter_mut().find(|v| v.mode_id == *mode_id) {
+                        cell.value = value.clone();
+                        cell.color_hex = color.then(|| value.clone());
+                        cell.alias_id = None;
                     }
                 }
-                self.last_action =
-                    format!("Edited {variable_id} in {mode_id} through the host adapter").into();
+            }
+            VariablesAction::AliasChanged {
+                variable_id,
+                mode_id,
+                alias_id,
+            } => {
+                if let Some(v) = self
+                    .view_data
+                    .variables
+                    .iter_mut()
+                    .find(|v| v.id == *variable_id)
+                    && let Some(cell) = v.values.iter_mut().find(|v| v.mode_id == *mode_id)
+                {
+                    cell.alias_id = alias_id.clone();
+                }
             }
             VariablesAction::VariableSettingsRequested { variable_id } => {
                 self.last_action = format!("Host opened settings for {variable_id}").into();
+            }
+            VariablesAction::ColorEyedropperRequested { .. } => {
+                self.last_action = "Eyedropper requested from variable color".into();
             }
             VariablesAction::HelpRequested => {
                 self.last_action = "Host opened Variables help".into();

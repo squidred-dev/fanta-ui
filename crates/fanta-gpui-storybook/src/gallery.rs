@@ -1,4 +1,5 @@
 use super::*;
+use fanta_gpui::atoms::TypographyExt as _;
 
 /// Below this window width the gallery runs its narrow layout: the
 /// sidebar auto-collapses and story knobs default to collapsed.
@@ -161,8 +162,12 @@ impl Storybook {
                                         .items_center()
                                         .justify_center()
                                         .rounded_lg()
-                                        .bg(cx.theme().primary)
-                                        .text_color(cx.theme().primary_foreground)
+                                        .bg(fanta_gpui::atoms::SemanticColor::BackgroundBrand
+                                            .resolve(cx))
+                                        .text_color(
+                                            fanta_gpui::atoms::SemanticColor::TextOnBrand
+                                                .resolve(cx),
+                                        )
                                         .child(Icon::new(IconName::GalleryVerticalEnd).size_4()),
                                 )
                                 .child(
@@ -171,11 +176,23 @@ impl Storybook {
                                         .min_w(px(0.))
                                         .gap_0()
                                         .line_height(gpui::relative(1.25))
-                                        .child(div().text_sm().font_semibold().child("Fanta GPUI"))
                                         .child(
                                             div()
-                                                .text_xs()
-                                                .text_color(cx.theme().muted_foreground)
+                                                .typography(
+                                                    fanta_gpui::atoms::TypographyToken::BodyLarge,
+                                                )
+                                                .font_semibold()
+                                                .child("Fanta GPUI"),
+                                        )
+                                        .child(
+                                            div()
+                                                .typography(
+                                                    fanta_gpui::atoms::TypographyToken::BodyMedium,
+                                                )
+                                                .text_color(
+                                                    fanta_gpui::atoms::SemanticColor::TextTertiary
+                                                        .resolve(cx),
+                                                )
                                                 .child("Component gallery"),
                                         ),
                                 ),
@@ -185,7 +202,8 @@ impl Storybook {
                         div()
                             .w_full()
                             .rounded(cx.theme().radius)
-                            .bg(cx.theme().sidebar_accent)
+                            .bg(fanta_gpui::atoms::SemanticColor::BackgroundToolbarHover
+                                .resolve(cx))
                             .child(
                                 Input::new(&self.gallery_search_input)
                                     .small()
@@ -229,7 +247,7 @@ impl Storybook {
                     div()
                         .flex_1()
                         .min_w(px(0.))
-                        .text_color(cx.theme().muted_foreground)
+                        .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(hint.action),
                 )
                 .into_any_element()
@@ -243,7 +261,7 @@ impl Storybook {
             rows.push(
                 div()
                     .mt_1()
-                    .text_color(cx.theme().muted_foreground)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(format!("{} bindings", descriptor.title))
                     .into_any_element(),
             );
@@ -264,13 +282,15 @@ impl Storybook {
             .gap_2()
             .rounded(px(8.))
             .border_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().popover.opacity(0.98))
+            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+            .bg(fanta_gpui::atoms::SemanticColor::BackgroundMenu
+                .resolve(cx)
+                .opacity(0.98))
             .shadow_lg()
-            .text_xs()
+            .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
             .child(
                 div()
-                    .text_color(cx.theme().muted_foreground)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("KEYBOARD"),
             )
             .children(rows)
@@ -302,19 +322,19 @@ impl Storybook {
             .size_full()
             .min_h(px(0.))
             .overflow_hidden()
-            .bg(cx.theme().background)
-            .text_color(cx.theme().foreground)
+            .bg(fanta_gpui::atoms::SemanticColor::Background.resolve(cx))
+            .text_color(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
             .child(
                 h_flex()
                     .h(px(34.))
                     .w_full()
                     .flex_none()
                     .border_b_1()
-                    .border_color(cx.theme().border)
-                    .bg(cx.theme().title_bar)
+                    .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+                    .bg(fanta_gpui::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
                     .child(
                         h_flex().h_full().pl_1().flex_none().items_center().child(
-                            Button::new("storybook-sidebar-toggle")
+                            fanta_gpui::atoms::ui_button("storybook-sidebar-toggle")
                                 .debug_selector(|| "storybook-sidebar-toggle".to_owned())
                                 .ghost()
                                 .small()
@@ -349,10 +369,10 @@ impl Storybook {
                             .h_full()
                             .px_2()
                             .gap_2()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                            .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(
-                                Button::new("storybook-toggle-gallery-theme")
+                                fanta_gpui::atoms::ui_button("storybook-toggle-gallery-theme")
                                     .ghost()
                                     .small()
                                     .icon(
@@ -393,27 +413,27 @@ impl Storybook {
                                 .px_4()
                                 .py_4()
                                 .border_b_1()
-                                .border_color(cx.theme().border)
+                                .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
                                 .child(
                                     v_flex()
                                         .min_w(px(0.))
                                         .gap_1()
                                         .child(
                                             div()
-                                                .text_xl()
+                                                .typography(fanta_gpui::atoms::TypographyToken::HeadingLarge)
                                                 .font_semibold()
                                                 .child(active_story.title()),
                                         )
                                         .child(
                                             div()
                                                 .max_w(px(780.))
-                                                .text_sm()
-                                                .text_color(cx.theme().muted_foreground)
+                                                .typography(fanta_gpui::atoms::TypographyToken::BodyLarge)
+                                                .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                                                 .child(active_story.description()),
                                         ),
                                 )
                                 .child(
-                                    Button::new("storybook-open-story-window")
+                                    fanta_gpui::atoms::ui_button("storybook-open-story-window")
                                         .outline()
                                         .small()
                                         .icon(Icon::new(IconName::ExternalLink).size_4())
@@ -451,7 +471,7 @@ impl Storybook {
                                         .size_full()
                                         .overflow_scroll()
                                         .track_scroll(&self.gallery_story_scroll_handle)
-                                        .bg(cx.theme().background)
+                                        .bg(fanta_gpui::atoms::SemanticColor::Background.resolve(cx))
                                         .p(px(screens::viewport::GALLERY_CANVAS_PADDING))
                                         .child(
                                             v_flex()
@@ -503,11 +523,11 @@ impl Storybook {
                     .gap_2()
                     .overflow_hidden()
                     .border_t_1()
-                    .border_color(cx.theme().border)
-                    .bg(cx.theme().title_bar)
-                    .text_xs()
+                    .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+                    .bg(fanta_gpui::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
                     .child(
-                        Button::new("storybook-keyboard-help-toggle")
+                        fanta_gpui::atoms::ui_button("storybook-keyboard-help-toggle")
                             .debug_selector(|| "storybook-keyboard-help-toggle".to_owned())
                             .ghost()
                             .xsmall()
@@ -519,13 +539,13 @@ impl Storybook {
                                 this.toggle_keyboard_help(cx);
                             })),
                     )
-                    .child(div().size(px(7.)).rounded_full().bg(cx.theme().success))
+                    .child(div().size(px(7.)).rounded_full().bg(fanta_gpui::atoms::SemanticColor::BackgroundSuccess.resolve(cx)))
                     .child(div().font_medium().child(active_story.title()))
                     .child(
                         div()
                             .max_w(px(720.))
                             .truncate()
-                            .text_color(cx.theme().muted_foreground)
+                            .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(last_action),
                     )
                     .child(div().flex_1())
@@ -533,7 +553,7 @@ impl Storybook {
                         footer.child(
                             div()
                                 .flex_none()
-                                .text_color(cx.theme().muted_foreground)
+                                .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child(format!(
                                     "{} stories · {} · typed host intents",
                                     screens::registry().len(),
@@ -564,7 +584,7 @@ impl Storybook {
             .mt_3()
             .child(
                 h_flex().w_full().child(
-                    Button::new("storybook-knobs-toggle")
+                    fanta_gpui::atoms::ui_button("storybook-knobs-toggle")
                         .debug_selector(|| "storybook-knobs-toggle".to_owned())
                         .outline()
                         .xsmall()
@@ -605,8 +625,8 @@ impl Storybook {
             .min_w(px(0.))
             .min_h(px(0.))
             .overflow_scroll()
-            .bg(cx.theme().background)
-            .text_color(cx.theme().foreground)
+            .bg(fanta_gpui::atoms::SemanticColor::Background.resolve(cx))
+            .text_color(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
             .child(
                 div()
                     .id("storybook-story-window-content")

@@ -2,6 +2,7 @@
 //! tool strip, and the utility row with the mode tray, zoom cluster, Agent
 //! launcher, and the host chrome capsule.
 
+use crate::atoms::TypographyExt as _;
 use gpui::{
     AnyElement, Context, InteractiveElement as _, IntoElement, MouseButton, MouseDownEvent,
     ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, canvas,
@@ -34,7 +35,7 @@ impl EditorToolbar {
         let color = if selected {
             Self::mode_accent_foreground(Self::mode_accent(self.mode, cx), cx)
         } else {
-            cx.theme().foreground
+            crate::atoms::SemanticColor::Text.resolve(cx)
         };
         render_tool_icon(tool, color, if compact { 15. } else { 17. })
     }
@@ -73,8 +74,16 @@ impl EditorToolbar {
             } else {
                 cx.theme().transparent
             })
-            .hover(|style| style.bg(if selected { accent } else { cx.theme().accent }))
-            .focus(|style| style.border_color(cx.theme().selection))
+            .hover(|style| {
+                style.bg(if selected {
+                    accent
+                } else {
+                    crate::atoms::SemanticColor::BackgroundHover.resolve(cx)
+                })
+            })
+            .focus(|style| {
+                style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+            })
             .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
             .when(tool == ToolbarTool::Actions, |button| {
                 // Contract (§16): the Actions trigger activates on mouse-down
@@ -152,8 +161,18 @@ impl EditorToolbar {
                     } else {
                         cx.theme().transparent
                     })
-                    .hover(|style| style.bg(if selected { accent } else { cx.theme().accent }))
-                    .focus(|style| style.border_color(cx.theme().selection))
+                    .hover(|style| {
+                        style.bg(if selected {
+                            accent
+                        } else {
+                            crate::atoms::SemanticColor::BackgroundHover.resolve(cx)
+                        })
+                    })
+                    .focus(|style| {
+                        style.border_color(
+                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                        )
+                    })
                     .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
                     .on_activate(cx.listener(move |this, _, _, cx| {
                         this.request_tool(tool, cx);
@@ -185,9 +204,15 @@ impl EditorToolbar {
                     .cursor_pointer()
                     .border_1()
                     .border_color(cx.theme().transparent)
-                    .text_color(cx.theme().muted_foreground)
-                    .hover(|style| style.bg(cx.theme().accent))
-                    .focus(|style| style.border_color(cx.theme().selection))
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    .hover(|style| {
+                        style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    })
+                    .focus(|style| {
+                        style.border_color(
+                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                        )
+                    })
                     // Contract (§16): press-activation so the caret wins the
                     // race against its flyout's capture-phase outside-dismiss;
                     // a click handler would reopen the flyout it just closed.
@@ -241,13 +266,15 @@ impl EditorToolbar {
             .border_1()
             .border_color(cx.theme().transparent)
             .bg(if selected {
-                cx.theme().background
+                crate::atoms::SemanticColor::Background.resolve(cx)
             } else {
                 cx.theme().transparent
             })
             .when(selected && cx.theme().shadow, |button| button.shadow_sm())
-            .hover(|style| style.bg(cx.theme().background))
-            .focus(|style| style.border_color(cx.theme().selection))
+            .hover(|style| style.bg(crate::atoms::SemanticColor::Background.resolve(cx)))
+            .focus(|style| {
+                style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+            })
             .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
             .on_activate(cx.listener(move |this, _, _, cx| {
                 this.request_mode(mode, cx);
@@ -257,7 +284,7 @@ impl EditorToolbar {
                 if selected {
                     accent
                 } else {
-                    cx.theme().muted_foreground
+                    crate::atoms::SemanticColor::TextTertiary.resolve(cx)
                 },
                 17.,
             ))
@@ -277,9 +304,13 @@ impl EditorToolbar {
                 }
                 ToolbarItem::Tool(ToolbarTool::Actions) => tools,
                 ToolbarItem::Tool(tool) => tools.child(self.render_tool_button(*tool, window, cx)),
-                ToolbarItem::Separator => {
-                    tools.child(div().w(px(1.)).h(px(24.)).mx_1().bg(cx.theme().border))
-                }
+                ToolbarItem::Separator => tools.child(
+                    div()
+                        .w(px(1.))
+                        .h(px(24.))
+                        .mx_1()
+                        .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
+                ),
             };
         }
 
@@ -320,7 +351,7 @@ impl EditorToolbar {
                     .children(horizontal_fade_overlays(
                         self.primary_fades,
                         px(ROW_FADE_WIDTH),
-                        cx.theme().popover,
+                        crate::atoms::SemanticColor::BackgroundMenu.resolve(cx),
                         "toolbar-primary",
                     ))
                     .child(track_horizontal_edge_fades(
@@ -330,7 +361,13 @@ impl EditorToolbar {
                         |this, fades| this.primary_fades = fades,
                     )),
             )
-            .child(div().w(px(1.)).h(px(24.)).flex_none().bg(cx.theme().border))
+            .child(
+                div()
+                    .w(px(1.))
+                    .h(px(24.))
+                    .flex_none()
+                    .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
+            )
             // Keep Actions visible while mode-specific tools scroll, so a
             // keyboard invocation always has a real, nearby anchor.
             .child(self.render_tool_button(ToolbarTool::Actions, window, cx))
@@ -344,7 +381,7 @@ impl EditorToolbar {
             .px_1()
             .gap(px(2.))
             .rounded(px(10.))
-            .bg(cx.theme().secondary);
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx));
         for mode in ToolbarMode::ALL {
             modes = modes.child(self.render_mode_button(*mode, cx));
         }
@@ -412,18 +449,26 @@ impl EditorToolbar {
                             .px_1()
                             .gap_1()
                             .border_t_1()
-                            .border_color(cx.theme().border)
+                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                             .child(self.render_mode_tray(cx))
                             .child(div().flex_1().min_w(px(0.)))
                             .when(tier != ZoomClusterTier::Hidden, |row| {
                                 row.child(self.render_zoom_control(tier, window, cx)).child(
-                                    div().w(px(1.)).h(px(22.)).flex_none().bg(cx.theme().border),
+                                    div()
+                                        .w(px(1.))
+                                        .h(px(22.))
+                                        .flex_none()
+                                        .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
                                 )
                             })
                             .child(self.render_agent_launcher(window, cx))
                             .when(!self.chrome_controls.is_empty(), |row| {
                                 row.child(
-                                    div().w(px(1.)).h(px(22.)).flex_none().bg(cx.theme().border),
+                                    div()
+                                        .w(px(1.))
+                                        .h(px(22.))
+                                        .flex_none()
+                                        .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
                                 )
                                 .child(self.render_chrome_cluster(cx))
                             }),
@@ -432,7 +477,7 @@ impl EditorToolbar {
             .children(horizontal_fade_overlays(
                 self.utility_fades,
                 px(ROW_FADE_WIDTH),
-                cx.theme().popover,
+                crate::atoms::SemanticColor::BackgroundMenu.resolve(cx),
                 "toolbar-utility",
             ))
             .child(track_horizontal_edge_fades(
@@ -468,7 +513,7 @@ impl EditorToolbar {
             .gap_1()
             .rounded(px(7.))
             .cursor_pointer()
-            .text_xs()
+            .typography(crate::atoms::TypographyToken::BodyMedium)
             .font_medium()
             .border_1()
             .border_color(cx.theme().transparent)
@@ -480,10 +525,12 @@ impl EditorToolbar {
             .text_color(if selected {
                 accent
             } else {
-                cx.theme().popover_foreground
+                crate::atoms::SemanticColor::Text.resolve(cx)
             })
-            .hover(|style| style.bg(cx.theme().accent))
-            .focus(|style| style.border_color(cx.theme().selection))
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+            .focus(|style| {
+                style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+            })
             .on_activate(cx.listener(move |this, _, _, cx| {
                 this.request_secondary(control, cx);
             }))
@@ -516,7 +563,7 @@ impl EditorToolbar {
             .gap_1()
             .rounded(px(7.))
             .cursor_pointer()
-            .text_xs()
+            .typography(crate::atoms::TypographyToken::BodyMedium)
             .font_medium()
             .border_1()
             .border_color(cx.theme().transparent)
@@ -528,10 +575,12 @@ impl EditorToolbar {
             .text_color(if selected {
                 accent
             } else {
-                cx.theme().popover_foreground
+                crate::atoms::SemanticColor::Text.resolve(cx)
             })
-            .hover(|style| style.bg(cx.theme().accent))
-            .focus(|style| style.border_color(cx.theme().selection))
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+            .focus(|style| {
+                style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+            })
             .on_activate(cx.listener(move |this, _, _, cx| {
                 this.request_control_value(control, value.clone(), cx);
             }))
@@ -570,14 +619,22 @@ impl EditorToolbar {
                     .gap_1()
                     .rounded(px(7.))
                     .cursor_pointer()
-                    .text_xs()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .font_medium()
                     .border_1()
                     .border_color(cx.theme().transparent)
-                    .text_color(cx.theme().popover_foreground)
-                    .when(open, |chip| chip.bg(cx.theme().accent))
-                    .hover(|style| style.bg(cx.theme().accent))
-                    .focus(|style| style.border_color(cx.theme().selection))
+                    .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
+                    .when(open, |chip| {
+                        chip.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    })
+                    .hover(|style| {
+                        style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    })
+                    .focus(|style| {
+                        style.border_color(
+                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                        )
+                    })
                     // Contract (§16): press-activation so the chip wins the
                     // race against its editor's capture-phase outside-dismiss;
                     // a click handler would reopen the editor it just closed.
@@ -602,7 +659,7 @@ impl EditorToolbar {
                             IconName::ChevronDown
                         })
                         .xsmall()
-                        .text_color(cx.theme().muted_foreground),
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx)),
                     ),
             )
             .when(open, |chip| {
@@ -618,8 +675,8 @@ impl EditorToolbar {
             .px_1()
             .gap_1()
             .rounded(px(10.))
-            .bg(cx.theme().secondary)
-            .text_color(cx.theme().popover_foreground)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
             .child(self.render_secondary_button(
                 "dev-inspect",
                 "Inspect",
@@ -641,7 +698,12 @@ impl EditorToolbar {
                 self.active_tool == ToolbarTool::Measure,
                 cx,
             ))
-            .child(div().w(px(1.)).h(px(22.)).bg(cx.theme().border))
+            .child(
+                div()
+                    .w(px(1.))
+                    .h(px(22.))
+                    .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
+            )
             .child(self.render_value_button(
                 "dev-ready",
                 if self.dev_options.ready_for_development {
@@ -666,8 +728,8 @@ impl EditorToolbar {
             .px_1()
             .gap_1()
             .rounded(px(10.))
-            .bg(cx.theme().secondary)
-            .text_color(cx.theme().popover_foreground)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
             .child(self.render_value_button(
                 "motion-play",
                 if self.motion_options.playing {
@@ -695,8 +757,8 @@ impl EditorToolbar {
                     .flex()
                     .items_center()
                     .rounded(px(7.))
-                    .bg(cx.theme().secondary)
-                    .text_xs()
+                    .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .child(format!("{current_seconds:.1}s / {duration_seconds:.1}s")),
             )
             .child(self.render_value_button(
@@ -775,7 +837,7 @@ impl EditorToolbar {
             .children(horizontal_fade_overlays(
                 self.secondary_fades,
                 px(ROW_FADE_WIDTH),
-                cx.theme().popover,
+                crate::atoms::SemanticColor::BackgroundMenu.resolve(cx),
                 "toolbar-secondary",
             ))
             .child(track_horizontal_edge_fades(
@@ -822,8 +884,8 @@ impl EditorToolbar {
             .px_1()
             .gap(px(1.))
             .rounded(px(10.))
-            .bg(cx.theme().secondary)
-            .text_color(cx.theme().popover_foreground)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
             .debug_selector(|| "toolbar-zoom-control".to_owned())
             .when(tier == ZoomClusterTier::Full, |cluster| {
                 cluster.child(self.render_zoom_stepper(false, cx))
@@ -849,8 +911,14 @@ impl EditorToolbar {
                             .cursor_pointer()
                             .border_1()
                             .border_color(cx.theme().transparent)
-                            .hover(|style| style.bg(cx.theme().accent))
-                            .focus(|style| style.border_color(cx.theme().selection))
+                            .hover(|style| {
+                                style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            })
+                            .focus(|style| {
+                                style.border_color(
+                                    crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                                )
+                            })
                             // Contract (§16): press-activation so the trigger
                             // wins the race against the zoom menu's
                             // capture-phase outside-dismiss; a click handler
@@ -869,7 +937,7 @@ impl EditorToolbar {
                             )
                             .child(
                                 div()
-                                    .text_xs()
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
                                     .font_semibold()
                                     .child(format!("{}%", self.zoom_percent)),
                             )
@@ -921,13 +989,13 @@ impl EditorToolbar {
         .flex_none()
         .when(active, |button| {
             button
-                .bg(cx.theme().background)
+                .bg(crate::atoms::SemanticColor::Background.resolve(cx))
                 .when(cx.theme().shadow, |button| button.shadow_sm())
         })
         .text_color(if active {
-            cx.theme().foreground
+            crate::atoms::SemanticColor::Text.resolve(cx)
         } else {
-            cx.theme().muted_foreground
+            crate::atoms::SemanticColor::TextTertiary.resolve(cx)
         })
         .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
         .on_activate(cx.listener(move |this, _, _, cx| {
@@ -940,9 +1008,9 @@ impl EditorToolbar {
                 .child(render_icon_asset(
                     control.icon.clone(),
                     if active {
-                        cx.theme().foreground
+                        crate::atoms::SemanticColor::Text.resolve(cx)
                     } else {
-                        cx.theme().muted_foreground
+                        crate::atoms::SemanticColor::TextTertiary.resolve(cx)
                     },
                     15.,
                 )),
@@ -960,7 +1028,7 @@ impl EditorToolbar {
             .px_1()
             .gap(px(2.))
             .rounded(px(10.))
-            .bg(cx.theme().secondary);
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx));
         for control in &self.chrome_controls {
             cluster = cluster.child(self.render_chrome_control(control, cx));
         }
@@ -982,11 +1050,11 @@ impl EditorToolbar {
         .flex_none()
         .items_start()
         .bg(if open {
-            cx.theme().magenta_light
+            crate::atoms::SemanticColor::BackgroundAssistive.resolve(cx)
         } else {
-            cx.theme().secondary
+            crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx)
         })
-        .text_color(cx.theme().magenta)
+        .text_color(crate::atoms::SemanticColor::TextAssistive.resolve(cx))
         .tooltip(|window, cx| Tooltip::new("Agent · Command/Ctrl+Enter").build(window, cx))
         // Contract (§16): press-activation so the launcher wins the race
         // against the composer's capture-phase outside-dismiss; a click

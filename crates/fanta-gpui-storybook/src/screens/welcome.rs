@@ -7,6 +7,7 @@
 //! apart: registering a story adds it to both. The map is a map, not a
 //! launcher — the sidebar owns navigation, so the labels link nothing.
 
+use fanta_gpui::atoms::TypographyExt as _;
 use gpui::FocusHandle;
 
 use crate::*;
@@ -80,10 +81,12 @@ impl Storybook {
                     .py_0p5()
                     .rounded(px(4.))
                     .border_1()
-                    .border_color(cx.theme().border)
-                    .bg(cx.theme().secondary.opacity(0.55))
-                    .text_xs()
-                    .text_color(cx.theme().foreground)
+                    .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+                    .bg(fanta_gpui::atoms::SemanticColor::BackgroundSecondary
+                        .resolve(cx)
+                        .opacity(0.55))
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                    .text_color(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
                     .child(title),
             );
         }
@@ -93,29 +96,34 @@ impl Storybook {
             .gap_2()
             .rounded(px(8.))
             .border_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().sidebar)
+            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+            .bg(fanta_gpui::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
             .child(
                 h_flex()
                     .items_center()
                     .gap_2()
-                    .child(div().text_sm().font_semibold().child(section.label()))
+                    .child(
+                        div()
+                            .typography(fanta_gpui::atoms::TypographyToken::BodyLarge)
+                            .font_semibold()
+                            .child(section.label()),
+                    )
                     .child(
                         div()
                             .flex_none()
                             .px_1p5()
                             .rounded(px(4.))
-                            .bg(cx.theme().secondary)
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .bg(fanta_gpui::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                            .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                            .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(count_label),
                     ),
             )
             .child(
                 div()
                     .max_w(px(720.))
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(tier_copy(section)),
             )
             .child(chips)
@@ -138,15 +146,15 @@ impl Storybook {
                     .gap_1()
                     .child(
                         div()
-                            .text_lg()
+                            .typography(fanta_gpui::atoms::TypographyToken::HeadingMedium)
                             .font_semibold()
                             .child("Fanta GPUI is organized by atomic design"),
                     )
                     .child(
                         div()
                             .max_w(px(760.))
-                            .text_sm()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(fanta_gpui::atoms::TypographyToken::BodyLarge)
+                            .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(
                                 "The sidebar mirrors the library source tree: Atoms and \
                                  Molecules are the shared control layer every surface is \

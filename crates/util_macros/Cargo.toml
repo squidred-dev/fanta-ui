@@ -1,0 +1,49 @@
+[package]
+name = "fanta-gpui-util-macros"
+version = "0.1.0"
+edition = "2024"
+publish = true
+license = "Apache-2.0"
+description = "Utility macros for Zed"
+repository = "https://github.com/squidred-dev/fanta-ui"
+
+[lib]
+path = "src/util_macros.rs"
+proc-macro = true
+doctest = false
+name = "util_macros"
+
+[features]
+perf-enabled = []
+
+[lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+declare_interior_mutable_const = "deny"
+redundant_clone = "deny"
+disallowed_methods = "deny"
+type_complexity = "allow"
+let_underscore_future = "allow"
+single_range_in_vec_init = "allow"
+too_many_arguments = "allow"
+large_enum_variant = "allow"
+nonminimal_bool = "allow"
+
+[dependencies.quote]
+version = "1.0.9"
+
+[dependencies.syn]
+version = "2.0.101"
+features = [ "extra-traits", "full", "visit-mut",]
+
+[dependencies.perf]
+path = "../../tooling/perf"
+package = "fanta-gpui-perf"
+version = "=0.1.0"
+
+[lints.clippy.style]
+level = "allow"
+priority = -1
+
+[lints.rust.unexpected_cfgs]
+level = "allow"

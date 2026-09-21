@@ -36,10 +36,12 @@ use gpui_component::{
     v_flex,
 };
 use screens::{
-    ButtonsScreen, DesignScreen, FieldsScreen, FileInspectorScreen, IconsScreen, LabelsScreen,
-    LayersScreen, ListRowsScreen, MenusScreen, OverlaysScreen, PagesScreen, PopupsScreen,
-    PrototypeScreen, PseudoEditorScreen, StructureScreen, TimelineScreen, TokensScreen,
-    ToolbarScreen, VariablesStory, WelcomeScreen, viewport::StoryViewport,
+    ButtonsScreen, CheckboxStory, DesignScreen, DropdownStory, FieldsScreen, FileInspectorScreen,
+    IconsScreen, InputsStory, LabelsScreen, LayersScreen, ListRowsScreen, MenusScreen,
+    OverlaysScreen, PagesScreen, PopupsScreen, PrototypeScreen, PseudoEditorScreen,
+    RadioButtonStory, SegmentedControlStory, StructureScreen, TabsStory, TimelineScreen,
+    TokensScreen, ToolbarScreen, TooltipsStory, VariablesStory, WelcomeScreen,
+    viewport::StoryViewport,
 };
 use themes::{apply_zed_theme, initial_zed_theme_index, zed_themes};
 
@@ -66,16 +68,25 @@ struct Storybook {
     knobs_user_expanded: Option<bool>,
     welcome_screen: WelcomeScreen,
     buttons_screen: ButtonsScreen,
+    checkbox_story: CheckboxStory,
+    dropdown_story: DropdownStory,
+    inputs_story: InputsStory,
     labels_screen: LabelsScreen,
     icons_screen: IconsScreen,
     tokens_screen: TokensScreen,
     menus_screen: MenusScreen,
+    radio_button_story: RadioButtonStory,
+    segmented_control_story: SegmentedControlStory,
+    tabs_story: TabsStory,
+    tooltips_story: TooltipsStory,
     list_rows_screen: ListRowsScreen,
     popups_screen: PopupsScreen,
     fields_screen: FieldsScreen,
     structure_screen: StructureScreen,
     overlays_screen: OverlaysScreen,
     variables_screen: VariablesStory,
+    sliders_screen: screens::sliders::SlidersStory,
+    color_picker_screen: screens::color_picker::ColorPickerStory,
     prototype_screen: PrototypeScreen,
     timeline_screen: TimelineScreen,
     file_inspector_screen: FileInspectorScreen,
@@ -97,16 +108,25 @@ impl Storybook {
         let gallery_story_scroll_handle = ScrollHandle::new();
         let welcome_screen = WelcomeScreen::new(cx);
         let buttons_screen = ButtonsScreen::new(cx);
+        let checkbox_story = CheckboxStory::new(cx);
+        let dropdown_story = DropdownStory::new(cx);
+        let inputs_story = InputsStory::new(window, cx);
         let labels_screen = LabelsScreen::new(window, cx);
         let icons_screen = IconsScreen::new(window, cx);
         let tokens_screen = TokensScreen::new(cx);
         let menus_screen = MenusScreen::new(cx);
+        let radio_button_story = RadioButtonStory::new(cx);
+        let segmented_control_story = SegmentedControlStory::new(cx);
+        let tabs_story = TabsStory::new(cx);
+        let tooltips_story = TooltipsStory::new(cx);
         let list_rows_screen = ListRowsScreen::new(cx);
         let popups_screen = PopupsScreen::new(cx);
         let fields_screen = FieldsScreen::new(cx);
         let structure_screen = StructureScreen::new(cx);
         let overlays_screen = OverlaysScreen::new(cx);
         let variables_screen = VariablesStory::new(window, cx);
+        let sliders_screen = screens::sliders::SlidersStory::new(cx);
+        let color_picker_screen = screens::color_picker::ColorPickerStory::new(window, cx);
         let prototype_screen = PrototypeScreen::new(cx);
         let timeline_screen = TimelineScreen::new(cx);
         let pages_screen = PagesScreen::new(window, cx);
@@ -130,6 +150,13 @@ impl Storybook {
         );
 
         let mut subscriptions = vec![
+            cx.subscribe_in(
+                &color_picker_screen.picker,
+                window,
+                |story, _, action: &ColorPickerAction, window, cx| {
+                    story.color_picker_screen.handle_action(action, window, cx);
+                },
+            ),
             cx.subscribe(&gallery_search_input, |_, _, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
                     cx.notify();
@@ -217,6 +244,18 @@ impl Storybook {
             .iter()
             .position(|theme| theme.name == *Theme::global(cx).theme_name())
             .unwrap_or_else(|| initial_zed_theme_index(Theme::global(cx).mode));
+        for slider in &sliders_screen.sliders {
+            subscriptions.push(
+                cx.subscribe(slider, |story, slider, action: &SliderAction, cx| {
+                    if action.phase == SliderPhase::Commit {
+                        slider.update(cx, |slider, cx| slider.set_value(action.value, cx));
+                    }
+                    story.sliders_screen.last_action =
+                        format!("{:?}: {:.0}%", action.phase, action.value * 100.).into();
+                    cx.notify();
+                }),
+            );
+        }
         let storybook = Self {
             active_story: launch.story,
             launch_mode: launch.mode,
@@ -233,16 +272,25 @@ impl Storybook {
             knobs_user_expanded: None,
             welcome_screen,
             buttons_screen,
+            checkbox_story,
+            dropdown_story,
+            inputs_story,
             labels_screen,
             icons_screen,
             tokens_screen,
             menus_screen,
+            radio_button_story,
+            segmented_control_story,
+            tabs_story,
+            tooltips_story,
             list_rows_screen,
             popups_screen,
             fields_screen,
             structure_screen,
             overlays_screen,
             variables_screen,
+            sliders_screen,
+            color_picker_screen,
             prototype_screen,
             timeline_screen,
             file_inspector_screen,

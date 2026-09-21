@@ -433,22 +433,24 @@ pub(in super::super) fn render_intent_button(
         .rounded(px(4.))
         .border_1()
         .border_color(cx.theme().transparent)
-        .bg(cx.theme().secondary)
-        .text_xs()
+        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+        .typography(crate::atoms::TypographyToken::BodyMedium)
         .when(enabled, |button| {
             button
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(cx.theme().accent))
+                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
                 .focus(|style| {
                     style
-                        .bg(cx.theme().accent)
-                        .border_color(cx.theme().selection)
+                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
         })
         .when(!enabled, |button| {
-            button.text_color(cx.theme().muted_foreground).opacity(0.62)
+            button
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                .opacity(0.62)
         });
     if enabled {
         let event_sink = event_sink.clone();
@@ -513,9 +515,9 @@ pub(in super::super) fn render_section_properties(
                 .px_2()
                 .py_1()
                 .rounded(px(5.))
-                .bg(cx.theme().secondary)
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child(description),
         );
     }
@@ -586,12 +588,17 @@ pub(in super::super) fn render_transform_modifiers(
                 .gap_2()
                 .rounded(px(6.))
                 .border_1()
-                .border_color(cx.theme().border)
+                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                 .child(
                     h_flex()
                         .h(px(24.))
                         .justify_between()
-                        .child(div().text_xs().font_semibold().child(repeat_type.label()))
+                        .child(
+                            div()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .font_semibold()
+                                .child(repeat_type.label()),
+                        )
                         .child(render_intent_button(
                             projection,
                             &event_sink,

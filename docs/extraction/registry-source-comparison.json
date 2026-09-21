@@ -1,0 +1,30 @@
+[
+  {
+    "package": "zed-font-kit",
+    "version": "0.14.1-zed",
+    "compared_files": 35,
+    "different_files": [],
+    "checked": true
+  },
+  {
+    "package": "zed-reqwest",
+    "version": "0.12.15-zed",
+    "compared_files": 67,
+    "different_files": [],
+    "checked": true
+  },
+  {
+    "package": "zed-scap",
+    "version": "0.0.8-zed",
+    "compared_files": 0,
+    "different_files": [],
+    "checked": false
+  },
+  {
+    "package": "zed-xim",
+    "version": "0.4.0-zed",
+    "compared_files": 0,
+    "different_files": [],
+    "checked": false
+  }
+]

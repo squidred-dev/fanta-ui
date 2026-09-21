@@ -15,8 +15,8 @@ use gpui::{
 #[cfg(not(test))]
 use gpui_component::animation::cubic_bezier;
 use gpui_component::{
-    ActiveTheme as _, Disableable as _, Icon, IconName, Sizable as _, StyledExt as _,
-    button::{Button, ButtonVariants as _},
+    Disableable as _, Icon, IconName, Sizable as _, StyledExt as _,
+    button::ButtonVariants as _,
     h_flex,
     input::{Input, InputEvent, InputState, SelectAll},
     scroll::{Scrollbar, ScrollbarAxis},
@@ -401,10 +401,10 @@ impl Render for PagesPanel {
             .relative()
             .w_full()
             .max_h_full()
-            .bg(cx.theme().sidebar)
-            .text_color(cx.theme().sidebar_foreground)
+            .bg(crate::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
+            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
             .border_1()
-            .border_color(cx.theme().border)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .child(track_bounds(cx.entity(), |this, bounds| {
                 this.panel_bounds = Some(bounds);
             }));

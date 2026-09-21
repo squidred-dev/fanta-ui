@@ -1,0 +1,96 @@
+[package]
+name = "fanta-gpui-gpui-web"
+version = "0.1.0"
+publish = true
+edition = "2024"
+license = "Apache-2.0"
+autoexamples = false
+repository = "https://github.com/squidred-dev/fanta-ui"
+description = "Fanta GPUI fork of gpui_web"
+
+[features]
+default = [ "multithreaded",]
+multithreaded = [ "dep:wasm_thread",]
+
+[lib]
+path = "src/gpui_web.rs"
+name = "gpui_web"
+
+[lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+declare_interior_mutable_const = "deny"
+redundant_clone = "deny"
+disallowed_methods = "deny"
+type_complexity = "allow"
+let_underscore_future = "allow"
+single_range_in_vec_init = "allow"
+too_many_arguments = "allow"
+large_enum_variant = "allow"
+nonminimal_bool = "allow"
+
+[lints.clippy.style]
+level = "allow"
+priority = -1
+
+[lints.rust.unexpected_cfgs]
+level = "allow"
+
+[target."cfg(target_family = \"wasm\")".dependencies]
+wasm-bindgen-futures = "0.4"
+console_error_panic_hook = "0.1.7"
+js-sys = "0.3"
+raw-window-handle = "0.6"
+
+[target."cfg(target_family = \"wasm\")".dependencies.gpui]
+path = "../gpui"
+default-features = false
+package = "fanta-gpui-core"
+version = "=0.1.0"
+
+[target."cfg(target_family = \"wasm\")".dependencies.parking_lot]
+version = "0.12.1"
+features = [ "nightly",]
+
+[target."cfg(target_family = \"wasm\")".dependencies.gpui_wgpu]
+path = "../gpui_wgpu"
+package = "fanta-gpui-gpui-wgpu"
+version = "=0.1.0"
+
+[target."cfg(target_family = \"wasm\")".dependencies.http_client]
+path = "../http_client"
+package = "fanta-gpui-http-client"
+version = "=0.1.0"
+
+[target."cfg(target_family = \"wasm\")".dependencies.anyhow]
+version = "1.0.86"
+
+[target."cfg(target_family = \"wasm\")".dependencies.futures]
+version = "0.3.32"
+
+[target."cfg(target_family = \"wasm\")".dependencies.log]
+version = "0.4.16"
+features = [ "kv_unstable_serde", "serde",]
+
+[target."cfg(target_family = \"wasm\")".dependencies.smallvec]
+version = "1.6"
+features = [ "const_new", "union",]
+
+[target."cfg(target_family = \"wasm\")".dependencies.uuid]
+version = "1.1.2"
+features = [ "serde", "v4", "v5", "v7",]
+
+[target."cfg(target_family = \"wasm\")".dependencies.wasm-bindgen]
+version = "0.2.120"
+
+[target."cfg(target_family = \"wasm\")".dependencies.web-time]
+version = "1.1.0"
+
+[target."cfg(target_family = \"wasm\")".dependencies.wasm_thread]
+version = "0.3"
+features = [ "es_modules",]
+optional = true
+
+[target."cfg(target_family = \"wasm\")".dependencies.web-sys]
+version = "0.3"
+features = [ "console", "CompositionEvent", "CssStyleDeclaration", "DataTransfer", "Document", "DomRect", "DragEvent", "Element", "EventTarget", "File", "FileList", "HtmlCanvasElement", "HtmlElement", "HtmlInputElement", "KeyboardEvent", "MediaQueryList", "MediaQueryListEvent", "MouseEvent", "Navigator", "PointerEvent", "ResizeObserver", "ResizeObserverBoxOptions", "ResizeObserverEntry", "ResizeObserverSize", "ResizeObserverOptions", "Screen", "Storage", "VisualViewport", "Headers", "Request", "RequestInit", "RequestRedirect", "Response", "WheelEvent", "Window",]

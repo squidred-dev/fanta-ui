@@ -3,7 +3,6 @@
 //! helpers for [`EditorToolbar`].
 
 use gpui::{App, Context, SharedString, Window};
-use gpui_component::ActiveTheme as _;
 
 use super::{CommandScope, EditorToolbar, ToolbarOverlay, ZoomMenuEntry};
 use crate::toolbar::{
@@ -776,23 +775,23 @@ impl EditorToolbar {
 
     pub(super) fn mode_accent(mode: ToolbarMode, cx: &App) -> gpui::Hsla {
         match mode {
-            ToolbarMode::Design => cx.theme().blue,
-            ToolbarMode::Motion => cx.theme().magenta,
-            ToolbarMode::Dev => cx.theme().green,
+            ToolbarMode::Design => crate::atoms::SemanticColor::TextBrand.resolve(cx),
+            ToolbarMode::Motion => crate::atoms::SemanticColor::TextAssistive.resolve(cx),
+            ToolbarMode::Dev => crate::atoms::SemanticColor::TextSuccess.resolve(cx),
         }
     }
 
     pub(super) fn mode_accent_pale(mode: ToolbarMode, cx: &App) -> gpui::Hsla {
         match mode {
-            ToolbarMode::Design => cx.theme().blue_light,
-            ToolbarMode::Motion => cx.theme().magenta_light,
-            ToolbarMode::Dev => cx.theme().green_light,
+            ToolbarMode::Design => crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+            ToolbarMode::Motion => crate::atoms::SemanticColor::BackgroundAssistive.resolve(cx),
+            ToolbarMode::Dev => crate::atoms::SemanticColor::BackgroundSuccess.resolve(cx),
         }
     }
 
     pub(super) fn mode_accent_foreground(accent: gpui::Hsla, cx: &App) -> gpui::Hsla {
-        let foreground = cx.theme().foreground;
-        let background = cx.theme().background;
+        let foreground = crate::atoms::SemanticColor::Text.resolve(cx);
+        let background = crate::atoms::SemanticColor::Background.resolve(cx);
         if (accent.l - foreground.l).abs() >= (accent.l - background.l).abs() {
             foreground
         } else {

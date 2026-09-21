@@ -9,6 +9,7 @@
 //! restore settled, which is the half of the contract a reader cannot see by
 //! looking at the surfaces.
 
+use fanta_gpui::atoms::TypographyExt as _;
 use gpui::{Anchor, FocusHandle, point};
 
 use crate::*;
@@ -400,11 +401,16 @@ impl Storybook {
                     cx,
                 );
             }))
-            .child(div().text_sm().font_semibold().child("Corner radius"))
             .child(
                 div()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyLarge)
+                    .font_semibold()
+                    .child("Corner radius"),
+            )
+            .child(
+                div()
+                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(
                         "inspector_popover_surface owns this chrome; the placement \
                          comes from the shared InspectorOverlayPlacement, so the \
@@ -419,7 +425,7 @@ impl Storybook {
                     cx,
                 )
                 .debug_selector(|| "overlays-popover-commit".to_owned())
-                .border_color(cx.theme().border)
+                .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
                 .on_activate(cx.listener(|this, event: &ActivateEvent, window, cx| {
                     this.overlays_screen.dismiss(
                         OverlaySurface::Popover,
@@ -519,9 +525,9 @@ impl Storybook {
         let trigger = inspector_action_button(id, &InspectorFieldAccess::Editable, metrics, cx)
             .debug_selector(move || id.to_owned())
             .border_color(if open {
-                cx.theme().selection
+                fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx)
             } else {
-                cx.theme().border
+                fanta_gpui::atoms::SemanticColor::Border.resolve(cx)
             })
             .track_focus(handle)
             .on_activate(cx.listener(move |this, event: &ActivateEvent, window, cx| {
@@ -565,7 +571,7 @@ impl Storybook {
             cx,
         )
         .debug_selector(|| "overlays-neighbor".to_owned())
-        .border_color(cx.theme().border)
+        .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
         .track_focus(&self.overlays_screen.neighbor)
         .on_activate(cx.listener(|this, _: &ActivateEvent, window, cx| {
             this.overlays_screen.last_action =
@@ -584,8 +590,10 @@ impl Storybook {
             .p_3()
             .rounded(px(8.))
             .border_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().secondary.opacity(0.35))
+            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+            .bg(fanta_gpui::atoms::SemanticColor::BackgroundSecondary
+                .resolve(cx)
+                .opacity(0.35))
             .child(
                 h_flex()
                     .items_start()
@@ -604,14 +612,14 @@ impl Storybook {
                     .child(
                         div()
                             .text_size(px(10.))
-                            .text_color(cx.theme().muted_foreground)
+                            .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("FOCUS NOW"),
                     )
                     .child(
                         div()
                             .id("overlays-focus-readout")
                             .debug_selector(|| "overlays-focus-readout".to_owned())
-                            .text_sm()
+                            .typography(fanta_gpui::atoms::TypographyToken::BodyLarge)
                             .child(self.overlays_screen.focused_control.clone()),
                     ),
             )
@@ -628,8 +636,8 @@ impl Storybook {
             return log
                 .child(
                     div()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                        .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(
                             "Nothing closed yet. Open a surface, then press Esc, click \
                              the neighbor control, or activate a row — each close adds \
@@ -652,11 +660,11 @@ impl Storybook {
                     .rounded(px(6.))
                     .border_1()
                     .border_color(if index == 0 {
-                        cx.theme().selection
+                        fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx)
                     } else {
-                        cx.theme().border
+                        fanta_gpui::atoms::SemanticColor::Border.resolve(cx)
                     })
-                    .bg(cx.theme().background)
+                    .bg(fanta_gpui::atoms::SemanticColor::Background.resolve(cx))
                     .child(
                         h_flex()
                             .w_full()
@@ -670,17 +678,20 @@ impl Storybook {
                                     .rounded(px(4.))
                                     .border_1()
                                     .border_color(if record.cause.is_some() {
-                                        cx.theme().selection
+                                        fanta_gpui::atoms::SemanticColor::BackgroundSelected
+                                            .resolve(cx)
                                     } else {
-                                        cx.theme().border
+                                        fanta_gpui::atoms::SemanticColor::Border.resolve(cx)
                                     })
                                     .text_size(px(11.))
                                     .child(cause),
                             )
                             .child(
                                 div()
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground)
+                                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                                    .text_color(
+                                        fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child(format!(
                                         "{} · {} · {}",
                                         record.surface.label(),
@@ -692,7 +703,7 @@ impl Storybook {
                     .child(
                         div()
                             .text_size(px(11.))
-                            .text_color(cx.theme().muted_foreground)
+                            .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(format!(
                                 "focus {} → {} · restore_focus() → {} · generation {}",
                                 record.focus_before,
@@ -721,15 +732,15 @@ impl Storybook {
                     .rounded(px(4.))
                     .border_1()
                     .border_color(if reported {
-                        cx.theme().selection
+                        fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx)
                     } else {
-                        cx.theme().border
+                        fanta_gpui::atoms::SemanticColor::Border.resolve(cx)
                     })
                     .text_size(px(10.))
                     .text_color(if reported {
-                        cx.theme().foreground
+                        fanta_gpui::atoms::SemanticColor::Text.resolve(cx)
                     } else {
-                        cx.theme().muted_foreground
+                        fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx)
                     })
                     .child(text)
                     .into_any_element()
@@ -804,7 +815,9 @@ impl Storybook {
                             .child(
                                 div()
                                     .text_size(px(11.))
-                                    .text_color(cx.theme().muted_foreground)
+                                    .text_color(
+                                        fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child(routes),
                             )
                             .child(log)

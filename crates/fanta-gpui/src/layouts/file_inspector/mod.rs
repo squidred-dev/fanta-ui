@@ -4,7 +4,7 @@ use gpui::{
     App, Context, Entity, FocusHandle, Focusable, InteractiveElement as _, IntoElement,
     ParentElement as _, Render, SharedString, Styled as _, Window, div, px,
 };
-use gpui_component::{ActiveTheme as _, v_flex};
+use gpui_component::v_flex;
 
 use crate::{layers::LayersPanel, pages::PagesPanel};
 
@@ -56,7 +56,7 @@ impl Render for FileInspectorSidebar {
             .min_w(px(0.))
             .min_h(px(0.))
             .overflow_hidden()
-            .bg(cx.theme().sidebar)
+            .bg(crate::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
             .child(
                 div()
                     .debug_selector(|| "file-inspector-pages".to_owned())

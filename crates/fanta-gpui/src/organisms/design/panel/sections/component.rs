@@ -347,22 +347,24 @@ fn render_direct_action_button(
         .rounded(px(4.))
         .border_1()
         .border_color(cx.theme().transparent)
-        .bg(cx.theme().secondary)
-        .text_xs()
+        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+        .typography(crate::atoms::TypographyToken::BodyMedium)
         .when(enabled, |button| {
             button
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(cx.theme().accent))
+                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
                 .focus(|style| {
                     style
-                        .bg(cx.theme().accent)
-                        .border_color(cx.theme().selection)
+                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
         })
         .when(!enabled, |button| {
-            button.text_color(cx.theme().muted_foreground).opacity(0.62)
+            button
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                .opacity(0.62)
         });
     if enabled {
         let identity = identity.clone();
@@ -388,8 +390,8 @@ fn render_context<T: ParentElement>(
             .justify_between()
             .child(
                 div()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(role.label()),
             )
             .when(context.overrides.reset_state.is_overridden(), |row| {
@@ -398,8 +400,8 @@ fn render_context<T: ParentElement>(
                         .px_2()
                         .py(px(2.))
                         .rounded(px(4.))
-                        .bg(cx.theme().accent)
-                        .text_xs()
+                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
                         .child(format!(
                             "{} overrides",
                             context.overrides.overridden_property_count
@@ -426,44 +428,49 @@ fn render_context<T: ParentElement>(
                 .gap_2()
                 .rounded(px(5.))
                 .border_1()
-                .border_color(cx.theme().border)
-                .bg(cx.theme().secondary)
+                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                 .child(render_lucide_icon(
                     if role.uses_instance_section() {
                         LucideIcon::Diamond
                     } else {
                         LucideIcon::Component
                     },
-                    cx.theme().selection,
+                    crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
                     16.,
                 ))
                 .child(
                     v_flex()
                         .flex_1()
                         .min_w(px(0.))
-                        .child(div().truncate().text_xs().child(main.name.clone()))
                         .child(
                             div()
                                 .truncate()
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .child(main.name.clone()),
+                        )
+                        .child(
+                            div()
+                                .truncate()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child(origin),
                         ),
                 )
                 .child(
                     div()
-                        .text_xs()
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
                         .text_color(if available {
-                            cx.theme().green
+                            crate::atoms::SemanticColor::TextSuccess.resolve(cx)
                         } else {
-                            cx.theme().red
+                            crate::atoms::SemanticColor::TextDanger.resolve(cx)
                         })
                         .child(main.availability.label()),
                 )
                 .when(available && role.uses_instance_section(), |row| {
                     row.child(render_lucide_icon(
                         LucideIcon::ChevronRight,
-                        cx.theme().foreground,
+                        crate::atoms::SemanticColor::Text.resolve(cx),
                         12.,
                     ))
                 }),
@@ -473,8 +480,8 @@ fn render_context<T: ParentElement>(
     if let Some(description) = context.description.as_ref() {
         content = content.child(
             div()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child(description.clone()),
         );
     }
@@ -484,22 +491,22 @@ fn render_context<T: ParentElement>(
                 .gap_2()
                 .child(render_lucide_icon(
                     LucideIcon::ExternalLink,
-                    cx.theme().selection,
+                    crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
                     16.,
                 ))
                 .child(
                     div()
                         .flex_1()
                         .truncate()
-                        .text_xs()
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
                         .child(link.label.clone()),
                 )
                 .child(
                     div()
                         .max_w(px(120.))
                         .truncate()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(link.url.clone()),
                 ),
         );
@@ -543,10 +550,10 @@ pub(in super::super) fn render_component(
                     .gap_2()
                     .pt_2()
                     .border_t_1()
-                    .border_color(cx.theme().border)
+                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                     .child(render_lucide_icon(
                         LucideIcon::Diamond,
-                        cx.theme().selection,
+                        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
                         16.,
                     ))
                     .child(
@@ -556,15 +563,17 @@ pub(in super::super) fn render_component(
                             .child(
                                 div()
                                     .truncate()
-                                    .text_xs()
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
                                     .font_semibold()
                                     .child(instance_name.clone()),
                             )
                             .child(
                                 div()
                                     .truncate()
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground)
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .text_color(
+                                        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child("Nested instance"),
                             ),
                     )

@@ -249,7 +249,11 @@ impl DesignBrowserController for DesignPanel {
     }
 
     fn render_color_styles_icon(&self, cx: &mut Context<Self>) -> AnyElement {
-        render_lucide_icon(LucideIcon::Palette, cx.theme().foreground, 16.)
+        render_lucide_icon(
+            LucideIcon::Palette,
+            crate::atoms::SemanticColor::Text.resolve(cx),
+            16.,
+        )
     }
 
     fn normalized_style_browser_query(&self, cx: &App) -> String {
@@ -331,7 +335,7 @@ impl DesignBrowserController for DesignPanel {
             };
             let selected = source_filter == filter;
             source_controls = source_controls.child(
-                Button::new(SharedString::from(format!("{scope}-source-{option_id}")))
+                crate::atoms::ui_button(SharedString::from(format!("{scope}-source-{option_id}")))
                     .label(label.clone())
                     .tooltip(label)
                     .xsmall()
@@ -350,7 +354,7 @@ impl DesignBrowserController for DesignPanel {
         for candidate in StyleBrowserViewMode::ALL {
             let panel = panel.clone();
             view_controls = view_controls.child(
-                Button::new(SharedString::from(format!(
+                crate::atoms::ui_button(SharedString::from(format!(
                     "{scope}-{}",
                     candidate.label().to_ascii_lowercase().replace(' ', "-")
                 )))
@@ -483,7 +487,7 @@ impl DesignBrowserController for DesignPanel {
             },
             |binding| binding.name().clone(),
         );
-        let trigger = Button::new(SharedString::from(format!(
+        let trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{}-property-variable-{property:?}",
             panel_id
         )))
@@ -535,13 +539,20 @@ impl DesignBrowserController for DesignPanel {
                             .w_full()
                             .justify_between()
                             .gap_2()
-                            .child(div().text_sm().font_semibold().child("Variables"))
+                            .child(
+                                div()
+                                    .typography(crate::atoms::TypographyToken::BodyLarge)
+                                    .font_semibold()
+                                    .child("Variables"),
+                            )
                             .child(
                                 div()
                                     .min_w(px(0.))
                                     .truncate()
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground)
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .text_color(
+                                        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child(fields_label.clone()),
                             ),
                     )
@@ -563,11 +574,11 @@ impl DesignBrowserController for DesignPanel {
                                     .flex_1()
                                     .min_w(px(0.))
                                     .truncate()
-                                    .text_xs()
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
                                     .child(binding.name().clone()),
                             )
                             .child(
-                                Button::new(SharedString::from(format!(
+                                crate::atoms::ui_button(SharedString::from(format!(
                                     "{panel_id}-detach-property-variable-{property:?}"
                                 )))
                                 .label("Detach")
@@ -596,8 +607,8 @@ impl DesignBrowserController for DesignPanel {
                     content = content.child(
                         div()
                             .px_1()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(reason),
                     );
                 }
@@ -606,8 +617,8 @@ impl DesignBrowserController for DesignPanel {
                         div()
                             .px_1()
                             .py_3()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("No compatible variables"),
                     );
                 }
@@ -628,8 +639,8 @@ impl DesignBrowserController for DesignPanel {
                         div()
                             .px_1()
                             .pt_2()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(heading),
                     );
                     for variable in variables {
@@ -665,7 +676,7 @@ impl DesignBrowserController for DesignPanel {
                             .into()
                         });
                         rows = rows.child(
-                            Button::new(SharedString::from(format!(
+                            crate::atoms::ui_button(SharedString::from(format!(
                                 "{panel_id}-property-variable-{property:?}-{}",
                                 variable.id
                             )))
@@ -947,13 +958,13 @@ impl DesignBrowserController for DesignPanel {
             .px_2()
             .gap_2()
             .rounded(px(4.))
-            .bg(cx.theme().secondary)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
             .child(
                 div()
                     .flex_1()
                     .min_w(px(0.))
                     .truncate()
-                    .text_xs()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .child(name),
             )
             .into_any_element()

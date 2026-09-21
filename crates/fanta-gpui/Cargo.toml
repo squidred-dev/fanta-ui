@@ -4,7 +4,7 @@ description = "Engine-decoupled, host-controlled GPUI components for Fanta appli
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-publish.workspace = true
+publish = true
 license.workspace = true
 repository.workspace = true
 

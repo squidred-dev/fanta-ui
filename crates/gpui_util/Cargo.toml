@@ -1,0 +1,41 @@
+[package]
+name = "fanta-gpui-gpui-util"
+version = "0.1.0"
+publish = true
+edition = "2024"
+repository = "https://github.com/squidred-dev/fanta-ui"
+description = "Fanta GPUI fork of gpui_util"
+license = "Apache-2.0"
+
+[lib]
+name = "gpui_util"
+
+[dependencies.log]
+version = "0.4.16"
+features = [ "kv_unstable_serde", "serde",]
+
+[dependencies.anyhow]
+version = "1.0.86"
+
+[lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+declare_interior_mutable_const = "deny"
+redundant_clone = "deny"
+disallowed_methods = "deny"
+type_complexity = "allow"
+let_underscore_future = "allow"
+single_range_in_vec_init = "allow"
+too_many_arguments = "allow"
+large_enum_variant = "allow"
+nonminimal_bool = "allow"
+
+[lints.clippy.style]
+level = "allow"
+priority = -1
+
+[lints.rust.unexpected_cfgs]
+level = "allow"
+
+[target."cfg(target_os = \"windows\")".dependencies.which]
+version = "6.0.0"

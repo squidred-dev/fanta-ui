@@ -2,7 +2,8 @@
 
 Engine-decoupled, host-controlled GPUI components for Fanta applications.
 
-This repository owns reusable UI composition only. Fanta Engine remains the
+This repository owns GPUI, its native and web backends, supporting libraries,
+and reusable Fanta UI composition. Fanta Engine remains the
 source of truth for documents, selections, history, and mutations. Components
 receive plain view data and emit typed intents that the host maps to Fanta
 operations.
@@ -19,6 +20,16 @@ The visual layer is built on
 - `crates/fanta-gpui` — the reusable component library and facade.
 - `crates/fanta-gpui-storybook` — a small desktop gallery for developing
   components in isolation.
+- `crates/gpui*` — the forked framework, platforms, components, and assets.
+- Supporting crates and `tooling/perf` — the framework's dependency closure.
+- `crates/gpui-examples` and `crates/gpui-macro-tests` — unpublished hosts that
+  keep development dependencies out of the publication graph.
+
+See [release and integration instructions](docs/releasing.md) and the
+[extraction inventory](docs/extraction/packages.json). This phase leaves
+`fanta_ui` and `fig_viewer` presentation in the editor; their further extraction
+is separate work. macOS is the first release gate; Linux, Windows, and web
+sources are included but are not yet validated release targets.
 
 The library source is organized by atomic design tier (`ARCHITECTURE.md` §16):
 
@@ -53,14 +64,14 @@ maximized, full-window surface.
 ## Validate the workspace
 
 ```sh
-cargo fmt -p fanta-gpui -p fanta-gpui-storybook -- --check
+cargo fmt --all -- --check
 cargo check --workspace
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-Scope `cargo fmt` to the workspace crates: `--all` would also reformat the
-patched `gpui`/`gpui-component` sources in the sibling `fanta-edit` checkout.
+The workspace builds without a sibling editor checkout. A separate consumer
+in `examples/registry-smoke` exercises the published dependency aliases.
 
 The test suite includes executable dependency-boundary checks, model tests,
 real GPUI pointer/keyboard interaction tests, and a composed mock-host workflow

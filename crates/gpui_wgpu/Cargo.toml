@@ -1,0 +1,112 @@
+[[bench]]
+name = "layout_line"
+harness = false
+
+[package]
+name = "fanta-gpui-gpui-wgpu"
+version = "0.1.0"
+edition = "2024"
+publish = true
+license = "Apache-2.0"
+repository = "https://github.com/squidred-dev/fanta-ui"
+description = "Fanta GPUI fork of gpui_wgpu"
+
+[lib]
+path = "src/gpui_wgpu.rs"
+name = "gpui_wgpu"
+
+[features]
+default = []
+font-kit = [ "dep:font-kit",]
+
+[dependencies]
+bytemuck = "1"
+cosmic-text = "0.19.0"
+etagere = "0.2"
+raw-window-handle = "0.6"
+swash = "0.2.6"
+
+[dependencies.gpui]
+path = "../gpui"
+default-features = false
+package = "fanta-gpui-core"
+version = "=0.1.0"
+
+[dependencies.anyhow]
+version = "1.0.86"
+
+[dependencies.collections]
+path = "../collections"
+version = "=0.1.0"
+package = "fanta-gpui-collections"
+
+[dependencies.itertools]
+version = "0.14.0"
+
+[dependencies.log]
+version = "0.4.16"
+features = [ "kv_unstable_serde", "serde",]
+
+[dependencies.parking_lot]
+version = "0.12.1"
+
+[dependencies.profiling]
+version = "1"
+
+[dependencies.smallvec]
+version = "1.6"
+features = [ "const_new", "union",]
+
+[dependencies.unicode-segmentation]
+version = "1.10"
+
+[dependencies.gpui_util]
+path = "../gpui_util"
+package = "fanta-gpui-gpui-util"
+version = "=0.1.0"
+
+[dependencies.wgpu]
+version = "29.0.4"
+
+[dependencies.font-kit]
+package = "zed-font-kit"
+version = "0.14.1-zed"
+optional = true
+
+[lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+declare_interior_mutable_const = "deny"
+redundant_clone = "deny"
+disallowed_methods = "deny"
+type_complexity = "allow"
+let_underscore_future = "allow"
+single_range_in_vec_init = "allow"
+too_many_arguments = "allow"
+large_enum_variant = "allow"
+nonminimal_bool = "allow"
+
+[dev-dependencies.criterion]
+version = "0.5"
+features = [ "html_reports",]
+
+[lints.clippy.style]
+level = "allow"
+priority = -1
+
+[lints.rust.unexpected_cfgs]
+level = "allow"
+
+[target."cfg(target_family = \"wasm\")".dependencies]
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+
+[target."cfg(target_family = \"wasm\")".dependencies.wasm-bindgen]
+version = "0.2.120"
+
+[target."cfg(target_family = \"wasm\")".dependencies.web-sys]
+version = "0.3"
+features = [ "HtmlCanvasElement",]
+
+[target."cfg(not(target_family = \"wasm\"))".dependencies.pollster]
+version = "0.4.0"

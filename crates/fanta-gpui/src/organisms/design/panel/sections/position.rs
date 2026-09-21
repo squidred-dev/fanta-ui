@@ -467,9 +467,9 @@ fn render_action_icon(
     cx: &mut Context<DesignPanel>,
 ) -> AnyElement {
     let color = if enabled {
-        cx.theme().foreground
+        crate::atoms::SemanticColor::Text.resolve(cx)
     } else {
-        cx.theme().muted_foreground
+        crate::atoms::SemanticColor::TextTertiary.resolve(cx)
     };
     let icon = match icon {
         PositionActionIcon::AlignLeft => LucideIcon::AlignHorizontalJustifyStart,
@@ -510,15 +510,17 @@ fn render_position_action_button(
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(cx.theme().accent))
+                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
                 .focus(|style| {
                     style
-                        .bg(cx.theme().accent)
-                        .border_color(cx.theme().selection)
+                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
         })
         .when(!enabled, |button| {
-            button.text_color(cx.theme().muted_foreground).opacity(0.62)
+            button
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                .opacity(0.62)
         });
     if enabled {
         let events = events.clone();
@@ -551,9 +553,9 @@ fn render_text_action_button(
             .rounded(px(4.))
             .border_1()
             .border_color(cx.theme().transparent)
-            .bg(cx.theme().secondary)
-            .text_xs()
-            .text_color(cx.theme().muted_foreground)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
             .opacity(0.62)
             .child(label)
             .into_any_element();
@@ -571,14 +573,14 @@ fn render_text_action_button(
         .rounded(px(4.))
         .border_1()
         .border_color(cx.theme().transparent)
-        .bg(cx.theme().secondary)
+        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
         .cursor_pointer()
-        .text_xs()
-        .hover(|style| style.bg(cx.theme().accent))
+        .typography(crate::atoms::TypographyToken::BodyMedium)
+        .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
         .focus(|style| {
             style
-                .bg(cx.theme().accent)
-                .border_color(cx.theme().selection)
+                .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
         })
         .on_activate(move |_, _, cx| {
             let action = action.clone();
@@ -615,19 +617,21 @@ fn render_grid_child_alignment_button(
         .border_color(cx.theme().transparent)
         .when(selected, |button| {
             button
-                .bg(cx.theme().selection.opacity(0.22))
-                .text_color(cx.theme().selection)
+                .bg(crate::atoms::SemanticColor::BackgroundSelected
+                    .resolve(cx)
+                    .opacity(0.22))
+                .text_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
         })
         .when(enabled, |button| {
             button
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(cx.theme().accent))
+                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
                 .focus(|style| {
                     style
-                        .bg(cx.theme().accent)
-                        .border_color(cx.theme().selection)
+                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
         })
         .when(!enabled, |button| button.opacity(0.62));
@@ -689,22 +693,30 @@ pub(in super::super) fn render_vector_edit_selection(
             .rounded(px(4.))
             .border_1()
             .border_color(if vertex.selected {
-                cx.theme().selection
+                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
             } else {
                 cx.theme().transparent
             })
             .bg(if vertex.selected {
-                cx.theme().selection.opacity(0.2)
+                crate::atoms::SemanticColor::BackgroundSelected
+                    .resolve(cx)
+                    .opacity(0.2)
             } else {
-                cx.theme().secondary
+                crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx)
             })
-            .text_xs()
+            .typography(crate::atoms::TypographyToken::BodyMedium)
             .when(can_select, |chip| {
                 chip.key_context(CONTROL_KEY_CONTEXT)
                     .tab_index(0)
                     .cursor_pointer()
-                    .hover(|style| style.border_color(cx.theme().muted_foreground))
-                    .focus(|style| style.border_color(cx.theme().selection))
+                    .hover(|style| {
+                        style.border_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    })
+                    .focus(|style| {
+                        style.border_color(
+                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                        )
+                    })
                     .on_activate(move |_, _, cx| {
                         events.send(
                             PositionEvent::SelectVertices(selection_for_action.clone()),
@@ -724,8 +736,8 @@ pub(in super::super) fn render_vector_edit_selection(
         .child(
             h_flex()
                 .justify_between()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("Vector selection")
                 .child(format!("{selected_count} selected")),
         )
@@ -773,16 +785,16 @@ pub(in super::super) fn render_vector_edit_selection(
     if !single_path_controls {
         controls = controls.child(
             div()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("Branch topology: radius and handle mirroring are unavailable"),
         );
     }
     if view_data.read_only {
         controls = controls.child(
             div()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child(
                     view_data
                         .disabled_reason
@@ -793,8 +805,8 @@ pub(in super::super) fn render_vector_edit_selection(
     } else if view_data.selected_vertices().any(|vertex| vertex.read_only) {
         controls = controls.child(
             div()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("One or more selected vertices are read only"),
         );
     }
@@ -891,23 +903,25 @@ fn render_smart_selection_operation_button(
         .rounded(px(4.))
         .border_1()
         .border_color(cx.theme().transparent)
-        .bg(cx.theme().secondary)
-        .text_xs()
+        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+        .typography(crate::atoms::TypographyToken::BodyMedium)
         .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
         .when(enabled, |button| {
             button
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(cx.theme().accent))
+                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
                 .focus(|style| {
                     style
-                        .bg(cx.theme().accent)
-                        .border_color(cx.theme().selection)
+                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
         })
         .when(!enabled, |button| {
-            button.text_color(cx.theme().muted_foreground).opacity(0.62)
+            button
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                .opacity(0.62)
         });
     if enabled {
         let events = events.clone();
@@ -965,8 +979,8 @@ fn render_smart_selection_controls(
     if let Some(reason) = view_data.read_only_reason.clone() {
         controls = controls.child(
             div()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child(reason),
         );
     }
@@ -986,7 +1000,7 @@ fn render_constraints_controls(
         .relative()
         .rounded(px(4.))
         .border_1()
-        .border_color(cx.theme().border)
+        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
         .child(
             div()
                 .absolute()
@@ -996,7 +1010,7 @@ fn render_constraints_controls(
                 .h(px(34.))
                 .rounded(px(3.))
                 .border_1()
-                .border_color(cx.theme().selection),
+                .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)),
         )
         .child(
             div()
@@ -1005,7 +1019,9 @@ fn render_constraints_controls(
                 .top(px(4.))
                 .w(px(2.))
                 .h(px(48.))
-                .bg(cx.theme().selection.opacity(0.65)),
+                .bg(crate::atoms::SemanticColor::BackgroundSelected
+                    .resolve(cx)
+                    .opacity(0.65)),
         );
     h_flex()
         .pt_1()
@@ -1047,7 +1063,7 @@ pub(in super::super) fn render(
             .flex_1()
             .gap_0p5()
             .rounded(px(5.))
-            .bg(cx.theme().secondary)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
             .child(render_grid_child_alignment_button(
                 projection,
                 "grid-child-align-left",
@@ -1087,7 +1103,7 @@ pub(in super::super) fn render(
             .flex_1()
             .gap_0p5()
             .rounded(px(5.))
-            .bg(cx.theme().secondary)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
             .child(render_position_action_button(
                 &projection.panel_id,
                 "align-left",
@@ -1131,7 +1147,7 @@ pub(in super::super) fn render(
             .flex_1()
             .gap_0p5()
             .rounded(px(5.))
-            .bg(cx.theme().secondary)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
             .child(render_grid_child_alignment_button(
                 projection,
                 "grid-child-align-top",
@@ -1171,7 +1187,7 @@ pub(in super::super) fn render(
             .flex_1()
             .gap_0p5()
             .rounded(px(5.))
-            .bg(cx.theme().secondary)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
             .child(render_position_action_button(
                 &projection.panel_id,
                 "align-top",
@@ -1229,12 +1245,12 @@ pub(in super::super) fn render(
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(cx.theme().accent))
+                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
                 .focus(|style| {
                     style
-                        .bg(cx.theme().accent)
+                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
                         .border_1()
-                        .border_color(cx.theme().selection)
+                        .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
         })
         .when(!can_constrain, |button| button.opacity(0.38))
@@ -1245,8 +1261,10 @@ pub(in super::super) fn render(
         })
         .when(projection.constraints_expanded, |button| {
             button
-                .bg(cx.theme().selection.opacity(0.22))
-                .text_color(cx.theme().selection)
+                .bg(crate::atoms::SemanticColor::BackgroundSelected
+                    .resolve(cx)
+                    .opacity(0.22))
+                .text_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
         })
         .child(Icon::new(IconName::Inspector).xsmall());
 
@@ -1328,7 +1346,7 @@ pub(in super::super) fn render(
                             .flex_1()
                             .overflow_hidden()
                             .rounded(px(4.))
-                            .bg(cx.theme().secondary)
+                            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                             .child(render_position_action_button(
                                 &projection.panel_id,
                                 "rotate-clockwise-90",
@@ -1426,7 +1444,7 @@ pub(in super::super) fn render(
             .w_full()
             .flex_none()
             .border_b_1()
-            .border_color(cx.theme().sidebar_border)
+            .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
             .child(content.into_any_element())
             .into_any_element()
     } else {
@@ -1740,11 +1758,15 @@ impl PositionPanelCompat for DesignPanel {
             .rounded(px(6.))
             .border_1()
             .border_color(cx.theme().transparent)
-            .bg(cx.theme().secondary)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
             .when(keyboard_enabled, |grid| {
                 grid.key_context(CONTROL_KEY_CONTEXT)
                     .tab_index(0)
-                    .focus(|style| style.border_color(cx.theme().selection))
+                    .focus(|style| {
+                        style.border_color(
+                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                        )
+                    })
                     .on_key_down(cx.listener(Self::handle_alignment_grid_key_down))
             })
             .when(!keyboard_enabled, |grid| grid.opacity(0.62));
@@ -1762,10 +1784,16 @@ impl PositionPanelCompat for DesignPanel {
                     .justify_center()
                     .rounded(px(3.))
                     .when(!editable, |cell| cell.opacity(0.62))
-                    .when(selected, |cell| cell.bg(cx.theme().selection.opacity(0.38)))
+                    .when(selected, |cell| {
+                        cell.bg(crate::atoms::SemanticColor::BackgroundSelected
+                            .resolve(cx)
+                            .opacity(0.38))
+                    })
                     .when(editable, |cell| {
                         cell.cursor_pointer()
-                            .hover(|style| style.bg(cx.theme().accent))
+                            .hover(|style| {
+                                style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            })
                             .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                                 if !event.is_keyboard() {
                                     this.emit_property(
@@ -1780,7 +1808,7 @@ impl PositionPanelCompat for DesignPanel {
                         div()
                             .size(px(4.))
                             .rounded(px(2.))
-                            .bg(cx.theme().muted_foreground),
+                            .bg(crate::atoms::SemanticColor::TextTertiary.resolve(cx)),
                     );
                 row = row.child(cell);
             }
@@ -1796,9 +1824,9 @@ impl PositionPanelCompat for DesignPanel {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let color = if enabled {
-            cx.theme().foreground
+            crate::atoms::SemanticColor::Text.resolve(cx)
         } else {
-            cx.theme().muted_foreground
+            crate::atoms::SemanticColor::TextTertiary.resolve(cx)
         };
         let icon = match icon {
             PositionActionIcon::AlignLeft => LucideIcon::AlignHorizontalJustifyStart,
@@ -1854,15 +1882,21 @@ impl PositionPanelCompat for DesignPanel {
                     .key_context(CONTROL_KEY_CONTEXT)
                     .tab_index(0)
                     .cursor_pointer()
-                    .hover(|style| style.bg(cx.theme().accent))
+                    .hover(|style| {
+                        style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    })
                     .focus(|style| {
                         style
-                            .bg(cx.theme().accent)
-                            .border_color(cx.theme().selection)
+                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .border_color(
+                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                            )
                     })
             })
             .when(!enabled, |button| {
-                button.text_color(cx.theme().muted_foreground).opacity(0.62)
+                button
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    .opacity(0.62)
             });
         if enabled {
             button = button.on_activate(cx.listener(move |this, _, _, cx| {
@@ -1896,19 +1930,25 @@ impl PositionPanelCompat for DesignPanel {
             .border_color(cx.theme().transparent)
             .when(selected, |button| {
                 button
-                    .bg(cx.theme().selection.opacity(0.22))
-                    .text_color(cx.theme().selection)
+                    .bg(crate::atoms::SemanticColor::BackgroundSelected
+                        .resolve(cx)
+                        .opacity(0.22))
+                    .text_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
             })
             .when(enabled, |button| {
                 button
                     .key_context(CONTROL_KEY_CONTEXT)
                     .tab_index(0)
                     .cursor_pointer()
-                    .hover(|style| style.bg(cx.theme().accent))
+                    .hover(|style| {
+                        style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    })
                     .focus(|style| {
                         style
-                            .bg(cx.theme().accent)
-                            .border_color(cx.theme().selection)
+                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .border_color(
+                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                            )
                     })
             })
             .when(!enabled, |button| button.opacity(0.62));

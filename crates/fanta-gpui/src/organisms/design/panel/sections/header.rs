@@ -227,7 +227,7 @@ pub(in super::super) fn render_tab(
     let id = SharedString::from(format!("{}-tab-{}", projection.panel_id, surface.slug()));
     let selector = id.to_string();
     let active_selector = format!("{selector}-active");
-    let button = Button::new(id)
+    let button = crate::atoms::ui_button(id)
         .debug_selector(move || selector.clone())
         .label(surface.label())
         .tooltip(SharedString::from(format!("Open {}", surface.label())))
@@ -264,7 +264,7 @@ pub(in super::super) fn render_surface_tabs(
         .gap_1()
         .items_center()
         .border_b_1()
-        .border_color(cx.theme().sidebar_border)
+        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
         .children(tabs)
         .into_any_element()
 }
@@ -350,7 +350,7 @@ pub(in super::super) fn render_selection_header_control_icon(
 
     let kind = control.kind;
     if let IconPresentation::Lucide(icon) = &control.icon {
-        return render_lucide_icon(*icon, cx.theme().foreground, 16.);
+        return render_lucide_icon(*icon, crate::atoms::SemanticColor::Text.resolve(cx), 16.);
     }
     let named_icon = match &control.icon {
         IconPresentation::Default if kind == DesignSelectionHeaderControlKind::HostDefined => {
@@ -371,7 +371,7 @@ pub(in super::super) fn render_selection_header_control_icon(
     if let Some(icon) = named_icon {
         return Icon::new(icon).xsmall().into_any_element();
     }
-    let color = cx.theme().foreground;
+    let color = crate::atoms::SemanticColor::Text.resolve(cx);
     let icon = match kind {
         DesignSelectionHeaderControlKind::SelectMatchingLayers => LucideIcon::ScanSearch,
         DesignSelectionHeaderControlKind::CreateLink => LucideIcon::Link,
@@ -395,7 +395,7 @@ pub(in super::super) fn render_selection_header_title(
             .flex_1()
             .min_w(px(0.))
             .truncate()
-            .text_sm()
+            .typography(crate::atoms::TypographyToken::BodyLarge)
             .font_semibold()
             .child(data.title.clone())
             .into_any_element();
@@ -411,7 +411,7 @@ pub(in super::super) fn render_selection_header_title(
     let panel_id = projection.panel_id.clone();
     let sink_for_keyboard = sink_for_open.clone();
     let overlay_for_keyboard = overlay.clone();
-    let trigger = Button::new(SharedString::from(format!(
+    let trigger = crate::atoms::ui_button(SharedString::from(format!(
         "{}-selection-header-title",
         projection.panel_id
     )))
@@ -475,7 +475,7 @@ pub(in super::super) fn render_selection_header_title(
                         });
                     format!("{} — {reason}", item.label).into()
                 };
-                Button::new(SharedString::from(format!(
+                crate::atoms::ui_button(SharedString::from(format!(
                     "{panel_id}-selection-header-title-item-{}",
                     item.id,
                 )))
@@ -539,7 +539,7 @@ pub(in super::super) fn render_selection_header_control(
             Some(access),
         );
         let debug_selector = tooltip.clone();
-        return Button::new(SharedString::from(format!(
+        return crate::atoms::ui_button(SharedString::from(format!(
             "{}-selection-header-control-{}",
             projection.panel_id, control.id
         )))
@@ -589,7 +589,7 @@ pub(in super::super) fn render_selection_header_control(
     );
     let sink_for_keyboard = sink_for_open.clone();
     let overlay_for_keyboard = overlay.clone();
-    let trigger = Button::new(SharedString::from(format!(
+    let trigger = crate::atoms::ui_button(SharedString::from(format!(
         "{}-selection-header-control-{}",
         projection.panel_id, control.id
     )))
@@ -650,7 +650,7 @@ pub(in super::super) fn render_selection_header_control(
                         });
                     format!("{} — {reason}", item.label).into()
                 };
-                Button::new(SharedString::from(format!(
+                crate::atoms::ui_button(SharedString::from(format!(
                     "{panel_id}-selection-header-control-{control_id}-menu-item-{}",
                     item.id,
                 )))
@@ -699,7 +699,7 @@ pub(in super::super) fn render_selection_header_more(
     let panel_id = projection.panel_id.clone();
     let sink_for_keyboard = sink_for_open.clone();
     let overlay_for_keyboard = overlay.clone();
-    let trigger = Button::new(SharedString::from(format!(
+    let trigger = crate::atoms::ui_button(SharedString::from(format!(
         "{}-selection-header-more",
         projection.panel_id
     )))
@@ -765,7 +765,7 @@ pub(in super::super) fn render_selection_header_more(
                 let event_sink = sink_for_content.clone();
                 let popover = popover.clone();
                 rows.push(
-                    Button::new(SharedString::from(format!(
+                    crate::atoms::ui_button(SharedString::from(format!(
                         "{panel_id}-selection-header-more-control-{}",
                         control.id,
                     )))
@@ -805,8 +805,8 @@ pub(in super::super) fn render_selection_header_more(
                         .px_2()
                         .flex()
                         .items_center()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(control.tooltip.clone())
                         .into_any_element(),
                 );
@@ -841,7 +841,7 @@ pub(in super::super) fn render_selection_header_more(
                     let event_sink = sink_for_content.clone();
                     let popover = popover.clone();
                     rows.push(
-                        Button::new(SharedString::from(format!(
+                        crate::atoms::ui_button(SharedString::from(format!(
                             "{panel_id}-selection-header-more-item-{}-{}",
                             control.id, item.id,
                         )))
@@ -889,7 +889,7 @@ pub(in super::super) fn render_viewer_header(
         .w_full()
         .flex_none()
         .border_b_1()
-        .border_color(cx.theme().sidebar_border)
+        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
         .child(render_surface_tabs(projection, event_sink, cx))
         .child(
             h_flex()
@@ -904,7 +904,7 @@ pub(in super::super) fn render_viewer_header(
                         .flex()
                         .items_center()
                         .justify_center()
-                        .text_color(cx.theme().muted_foreground)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(
                             Icon::new(
                                 if projection.selection_kind == DesignPanelSelectionKind::None {
@@ -921,7 +921,7 @@ pub(in super::super) fn render_viewer_header(
                         .flex_1()
                         .min_w(px(0.))
                         .truncate()
-                        .text_sm()
+                        .typography(crate::atoms::TypographyToken::BodyLarge)
                         .font_semibold()
                         .child(projection.viewer_title.clone()),
                 ),
@@ -952,7 +952,7 @@ fn render_editable_selection_row(
                             .flex()
                             .items_center()
                             .justify_center()
-                            .text_color(cx.theme().muted_foreground)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(Icon::new(IconName::File).xsmall()),
                     )
                     .child(
@@ -960,7 +960,7 @@ fn render_editable_selection_row(
                             .flex_1()
                             .min_w(px(0.))
                             .truncate()
-                            .text_sm()
+                            .typography(crate::atoms::TypographyToken::BodyLarge)
                             .font_semibold()
                             .child("Page"),
                     )
@@ -1009,7 +1009,7 @@ pub(in super::super) fn render_draw_header(
         .w_full()
         .flex_none()
         .border_b_1()
-        .border_color(cx.theme().sidebar_border)
+        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
         .child(
             h_flex()
                 .id(heading_id)
@@ -1017,7 +1017,7 @@ pub(in super::super) fn render_draw_header(
                 .h(px(HEADER_HEIGHT))
                 .px(px(PANEL_PADDING))
                 .items_center()
-                .text_sm()
+                .typography(crate::atoms::TypographyToken::BodyLarge)
                 .font_semibold()
                 .child(DesignPanelWorkspaceMode::Draw.label()),
         )
@@ -1034,7 +1034,7 @@ pub(in super::super) fn render_editor_header(
         .w_full()
         .flex_none()
         .border_b_1()
-        .border_color(cx.theme().sidebar_border)
+        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
         .child(render_surface_tabs(projection, event_sink, cx))
         .child(render_editable_selection_row(projection, event_sink, cx))
         .into_any_element()

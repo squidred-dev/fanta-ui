@@ -286,13 +286,18 @@ impl EffectsEventSink {
                 .p_3()
                 .gap_2()
                 .child(
-                    div().text_xs().font_semibold().child(
-                        panel.host.inspected_node().effects
-                            [resolve_effect_index(panel, target).expect("validated effect target")]
-                        .settings
-                        .kind()
-                        .label(),
-                    ),
+                    div()
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .font_semibold()
+                        .child(
+                            panel.host.inspected_node().effects[resolve_effect_index(
+                                panel, target,
+                            )
+                            .expect("validated effect target")]
+                            .settings
+                            .kind()
+                            .label(),
+                        ),
                 )
                 .child(settings)
                 .into_any_element()
@@ -430,12 +435,12 @@ fn render_remove_button(
         .justify_center()
         .rounded(px(4.))
         .cursor_pointer()
-        .hover(|style| style.bg(cx.theme().accent))
+        .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
         .focus(|style| {
             style
-                .bg(cx.theme().accent)
+                .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
                 .border_1()
-                .border_color(cx.theme().selection)
+                .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
         })
         .on_activate(move |_, _, cx| {
             events.send(EffectsEvent::Remove(target.clone()), cx);
@@ -471,7 +476,7 @@ pub(in super::super) fn render(
         let target = projection.target(effect, index);
         let target_for_keyboard = target.clone();
         let events_for_keyboard = events.clone();
-        let settings_trigger = Button::new(SharedString::from(format!(
+        let settings_trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{}-effect-settings-{index}",
             projection.identity.panel_id
         )))
@@ -534,8 +539,10 @@ pub(in super::super) fn render(
         });
         let can_drop_effect_id = effect.id.clone();
         let drop_effect_id = effect.id.clone();
-        let drop_background = cx.theme().selection.opacity(0.18);
-        let drop_border = cx.theme().selection;
+        let drop_background = crate::atoms::SemanticColor::BackgroundSelected
+            .resolve(cx)
+            .opacity(0.18);
+        let drop_border = crate::atoms::SemanticColor::BackgroundSelected.resolve(cx);
         let row_access = if can_reorder {
             InspectorFieldAccess::Editable
         } else {
@@ -582,8 +589,8 @@ pub(in super::super) fn render(
             div()
                 .w(px(14.))
                 .flex_none()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .when(can_reorder, |handle| handle.child("⠇")),
         )
         .child(swatch)

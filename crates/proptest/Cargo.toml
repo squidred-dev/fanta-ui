@@ -1,0 +1,108 @@
+[package]
+name = "fanta-gpui-proptest"
+version = "0.1.0"
+authors = [ "Jason Lingle",]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/squidred-dev/fanta-ui"
+homepage = "https://proptest-rs.github.io/proptest/proptest/index.html"
+documentation = "https://docs.rs/proptest/latest/proptest/"
+keywords = [ "property", "testing", "quickcheck", "fuzz", "hypothesis",]
+categories = [ "development-tools::testing",]
+edition = "2021"
+rust-version = "1.84"
+exclude = [ "/gen-*.sh", "/readme-*.md",]
+description = "Hypothesis-like property-based testing and shrinking.\n"
+publish = true
+
+[features]
+default = [ "std", "fork", "timeout", "bit-set",]
+default-code-coverage = [ "std", "fork", "timeout", "bit-set",]
+attr-macro = [ "proptest-macro",]
+unstable = []
+std = [ "rand/std", "rand/os_rng", "regex-syntax", "num-traits/std",]
+no_std = [ "num-traits/libm",]
+alloc = []
+hardware-rng = [ "x86",]
+fork = [ "std", "rusty-fork", "tempfile",]
+timeout = [ "fork", "rusty-fork/timeout",]
+atomic64bit = []
+bit-set = [ "dep:bit-set", "dep:bit-vec",]
+handle-panics = [ "std",]
+
+[lib]
+name = "proptest"
+
+[dependencies.bitflags]
+version = "2.10"
+
+[dependencies.unarray]
+version = "0.1.4"
+
+[dependencies.proptest-macro]
+version = "=0.1.0"
+path = "../proptest-macro"
+optional = true
+package = "fanta-gpui-proptest-macro"
+
+[dependencies.num-traits]
+version = "0.2.15"
+default-features = false
+
+[dependencies.regex-syntax]
+version = "0.8"
+optional = true
+
+[dependencies.bit-set]
+version = "0.8.0"
+optional = true
+
+[dependencies.bit-vec]
+version = "0.8.0"
+optional = true
+
+[dependencies.rand]
+version = "0.9"
+default-features = false
+features = [ "alloc",]
+
+[dependencies.rand_xorshift]
+version = "0.4"
+
+[dependencies.rand_chacha]
+version = "0.9"
+default-features = false
+
+[dependencies.rusty-fork]
+version = "0.3.0"
+default-features = false
+optional = true
+
+[dependencies.tempfile]
+version = "3.0"
+optional = true
+
+[dependencies.x86]
+version = "0.52.0"
+optional = true
+
+[dev-dependencies.regex]
+version = "1.0"
+
+[dev-dependencies.trybuild]
+version = "=1.0.115"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = [ "--cfg", "docsrs",]
+
+# This is the pinned upstream implementation. Avoid API/style rewrites during extraction.
+[lints.rust]
+renamed_and_removed_lints = "allow"
+unpredictable_function_pointer_comparisons = "allow"
+
+[lints.clippy]
+style = { level = "allow", priority = -1 }
+complexity = { level = "allow", priority = -1 }
+perf = { level = "allow", priority = -1 }
+test_attr_in_doctest = "allow"

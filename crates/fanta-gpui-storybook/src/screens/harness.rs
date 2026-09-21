@@ -2,6 +2,7 @@
 //! descriptive two-column shell used by panel stories.
 
 use crate::*;
+use fanta_gpui::atoms::TypographyExt as _;
 
 use super::intent;
 
@@ -35,7 +36,7 @@ impl Storybook {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let active = self.active_story == kind;
-        Button::new(SharedString::from(format!(
+        fanta_gpui::atoms::ui_button(SharedString::from(format!(
             "storybook-nav-{}",
             label.to_lowercase()
         )))
@@ -43,10 +44,14 @@ impl Storybook {
         .custom(
             ButtonCustomVariant::new(cx)
                 .color(cx.theme().transparent)
-                .foreground(cx.theme().foreground)
+                .foreground(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
                 .border(cx.theme().transparent)
-                .hover(cx.theme().accent)
-                .active(cx.theme().selection.opacity(0.32)),
+                .hover(fanta_gpui::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                .active(
+                    fanta_gpui::atoms::SemanticColor::BackgroundSelected
+                        .resolve(cx)
+                        .opacity(0.32),
+                ),
         )
         .selected(active)
         .h(px(32.))
@@ -55,8 +60,9 @@ impl Storybook {
         .border_0()
         .cursor_pointer()
         .when(active, |item| {
-            item.font_semibold()
-                .hover(|style| style.bg(cx.theme().accent))
+            item.font_semibold().hover(|style| {
+                style.bg(fanta_gpui::atoms::SemanticColor::BackgroundHover.resolve(cx))
+            })
         })
         .on_click(cx.listener(move |this, _, window, cx| {
             this.activate_gallery_story(kind, window, cx);
@@ -73,7 +79,7 @@ impl Storybook {
             .px_5()
             .gap_2()
             .border_b_1()
-            .border_color(cx.theme().border)
+            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
             .child(div().mr_3().font_semibold().child("Fanta GPUI"));
         for kind in REFERENCE_NAV_ORDER {
             nav = nav.child(self.render_navigation_item(kind, kind.descriptor().nav_label, cx));
@@ -95,8 +101,8 @@ impl Storybook {
             .id(SharedString::from(id))
             .debug_selector(move || id.to_owned())
             .size_full()
-            .bg(cx.theme().background)
-            .text_color(cx.theme().foreground)
+            .bg(fanta_gpui::atoms::SemanticColor::Background.resolve(cx))
+            .text_color(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
             .child(self.render_reference_nav(cx))
             .child(
                 h_flex()
@@ -111,8 +117,10 @@ impl Storybook {
                             .gap_3()
                             .child(
                                 div()
-                                    .text_xs()
-                                    .text_color(cx.theme().muted_foreground)
+                                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                                    .text_color(
+                                        fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child(copy.eyebrow),
                             )
                             .child(
@@ -129,14 +137,16 @@ impl Storybook {
                             .flex_1()
                             .h_full()
                             .border_l_1()
-                            .border_color(cx.theme().border)
+                            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
                             .p_8()
                             .gap_4()
                             .child(div().text_2xl().font_semibold().child(copy.title))
                             .child(
                                 div()
                                     .max_w(px(620.))
-                                    .text_color(cx.theme().muted_foreground)
+                                    .text_color(
+                                        fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child(copy.description),
                             )
                             .child(intent::intent_section(last_action, cx))
@@ -144,8 +154,10 @@ impl Storybook {
                                 div()
                                     .mt_4()
                                     .max_w(px(620.))
-                                    .text_sm()
-                                    .text_color(cx.theme().muted_foreground)
+                                    .typography(fanta_gpui::atoms::TypographyToken::BodyLarge)
+                                    .text_color(
+                                        fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
                                     .child(copy.adapter_description),
                             ),
                     ),

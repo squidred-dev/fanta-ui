@@ -18,8 +18,16 @@ mod scroll_fade;
 pub use inspector::*;
 
 pub use list_row::list_row;
-pub use menu::{clamp_menu_origin, menu_item, menu_surface};
+pub use menu::{
+    MenuCheckRow, MenuCheckVariant, MenuComplexRow, MenuDivider, MenuExpandRow, MenuFooter,
+    MenuHeading, MenuHeadingAlignment, MenuLead, MenuMultiSelectVariant, MenuRowState,
+    MenuSimpleRow, MenuToggleRow, MenuToolbarRow, MenuTrail, clamp_menu_origin, menu_item,
+    menu_panel, menu_surface,
+};
 pub use popup::{
     POPUP_SAFE_MARGIN, anchored_popup, popup_height, popup_max_height, popup_surface, popup_width,
 };
 pub use scroll_fade::{EdgeFades, horizontal_fade_overlays, track_horizontal_edge_fades};
+
+mod slider;
+pub use slider::{Slider, SliderAction, SliderPhase, SliderVariant};

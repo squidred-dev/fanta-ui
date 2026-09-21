@@ -1,4 +1,5 @@
 use super::*;
+use crate::atoms::TypographyExt as _;
 
 impl PagesPanel {
     pub(super) fn control_bounds_tracker(
@@ -246,12 +247,17 @@ impl PagesPanel {
                     slot.child(Icon::new(IconName::Check).xsmall())
                 }))
                 .child(Self::element_icon(kind, cx))
-                .child(div().flex_1().text_sm().child(kind.label()))
+                .child(
+                    div()
+                        .flex_1()
+                        .typography(crate::atoms::TypographyToken::BodyLarge)
+                        .child(kind.label()),
+                )
                 .when_some(count, |row, count| {
                     row.child(
                         div()
-                            .text_sm()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyLarge)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(count.to_string()),
                     )
                 })
@@ -293,7 +299,9 @@ impl PagesPanel {
         .when(item_mode == PanelMode::Find, |row| {
             row.track_focus(&menu_focus_handle)
         })
-        .when(item_mode == active_mode, |row| row.bg(cx.theme().accent))
+        .when(item_mode == active_mode, |row| {
+            row.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+        })
         .on_activate(cx.listener(move |this, _, window, cx| {
             this.set_panel_mode(item_mode, window, cx);
         }))
@@ -406,5 +414,5 @@ fn menu_separator(cx: &App) -> gpui::Div {
         .w_full()
         .my_2()
         .flex_none()
-        .bg(cx.theme().border)
+        .bg(crate::atoms::SemanticColor::Border.resolve(cx))
 }

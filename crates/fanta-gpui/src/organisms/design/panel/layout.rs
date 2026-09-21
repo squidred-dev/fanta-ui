@@ -881,11 +881,15 @@ impl DesignLayoutController for DesignPanel {
                 row.key_context(CONTROL_KEY_CONTEXT)
                     .tab_index(0)
                     .cursor_pointer()
-                    .hover(|style| style.bg(cx.theme().accent))
+                    .hover(|style| {
+                        style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    })
                     .focus(|style| {
                         style
-                            .bg(cx.theme().accent)
-                            .border_color(cx.theme().selection)
+                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .border_color(
+                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                            )
                     })
             })
             .when(!editable, |row| row.opacity(0.62));
@@ -894,28 +898,32 @@ impl DesignLayoutController for DesignPanel {
                 this.emit_property(property, DesignPanelValue::GridAutoTracks(next), cx);
             }));
         }
-        row.child(div().text_xs().child("Auto rows"))
-            .child(
-                h_flex()
-                    .w(px(30.))
-                    .h(px(18.))
-                    .p(px(2.))
-                    .justify_end()
-                    .when(!checked, |toggle| toggle.justify_start())
-                    .rounded(px(9.))
-                    .bg(if checked {
-                        cx.theme().selection
-                    } else {
-                        cx.theme().border
-                    })
-                    .child(
-                        div()
-                            .size(px(14.))
-                            .rounded(px(7.))
-                            .bg(cx.theme().background),
-                    ),
-            )
-            .into_any_element()
+        row.child(
+            div()
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .child("Auto rows"),
+        )
+        .child(
+            h_flex()
+                .w(px(30.))
+                .h(px(18.))
+                .p(px(2.))
+                .justify_end()
+                .when(!checked, |toggle| toggle.justify_start())
+                .rounded(px(9.))
+                .bg(if checked {
+                    crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
+                } else {
+                    crate::atoms::SemanticColor::Border.resolve(cx)
+                })
+                .child(
+                    div()
+                        .size(px(14.))
+                        .rounded(px(7.))
+                        .bg(crate::atoms::SemanticColor::Background.resolve(cx)),
+                ),
+        )
+        .into_any_element()
     }
 
     fn render_counter_axis_spacing_controls(
@@ -945,21 +953,25 @@ impl DesignLayoutController for DesignPanel {
             .rounded(px(4.))
             .border_1()
             .border_color(if custom {
-                cx.theme().selection
+                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
             } else {
                 cx.theme().transparent
             })
-            .bg(cx.theme().secondary)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
             .when(editable, |control| {
                 control
                     .key_context(CONTROL_KEY_CONTEXT)
                     .tab_index(0)
                     .cursor_pointer()
-                    .hover(|style| style.border_color(cx.theme().muted_foreground))
+                    .hover(|style| {
+                        style.border_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    })
                     .focus(|style| {
                         style
-                            .bg(cx.theme().accent)
-                            .border_color(cx.theme().selection)
+                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .border_color(
+                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                            )
                     })
                     .on_activate(cx.listener(move |this, _, _, cx| {
                         this.emit_property(
@@ -973,15 +985,17 @@ impl DesignLayoutController for DesignPanel {
             .child(
                 div()
                     .w(px(12.))
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(if custom { "Custom" } else { "V" }),
             )
-            .child(div().flex_1().truncate().text_xs().child(if custom {
-                "Custom"
-            } else {
-                "Linked to gap"
-            }));
+            .child(
+                div()
+                    .flex_1()
+                    .truncate()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .child(if custom { "Custom" } else { "Linked to gap" }),
+            );
 
         h_flex()
             .w_full()
@@ -1008,7 +1022,7 @@ impl DesignLayoutController for DesignPanel {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let panel = cx.entity();
-        Button::new(SharedString::from(format!(
+        crate::atoms::ui_button(SharedString::from(format!(
             "{}-padding-mode-{}",
             self.id,
             label.to_ascii_lowercase()
@@ -1168,7 +1182,7 @@ impl DesignLayoutController for DesignPanel {
         const SELECTOR_ROWS: usize = 6;
 
         let Some(current) = layout.grid_dimensions() else {
-            return Button::new(SharedString::from(format!(
+            return crate::atoms::ui_button(SharedString::from(format!(
                 "{}-grid-dimensions-incomplete",
                 self.id
             )))
@@ -1205,7 +1219,7 @@ impl DesignLayoutController for DesignPanel {
         let panel = cx.entity();
         let panel_for_open = panel.clone();
         let panel_for_content = panel;
-        let trigger = Button::new(SharedString::from(format!(
+        let trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{}-grid-dimensions-picker",
             self.id
         )))
@@ -1280,8 +1294,10 @@ impl DesignLayoutController for DesignPanel {
                 .p_1()
                 .rounded(px(6.))
                 .border_1()
-                .border_color(cx.theme().border)
-                .focus(|style| style.border_color(cx.theme().selection))
+                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                .focus(|style| {
+                    style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+                })
                 .on_action(move |_: &ActivateControl, _, cx| {
                     panel_for_commit.update(cx, |this, cx| {
                         this.commit_grid_dimensions_candidate(cx);
@@ -1320,20 +1336,24 @@ impl DesignLayoutController for DesignPanel {
                         .rounded(px(3.))
                         .border_1()
                         .border_color(if highlighted {
-                            cx.theme().selection
+                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
                         } else {
-                            cx.theme().border
+                            crate::atoms::SemanticColor::Border.resolve(cx)
                         })
                         .bg(if highlighted {
-                            cx.theme().selection.opacity(0.28)
+                            crate::atoms::SemanticColor::BackgroundSelected
+                                .resolve(cx)
+                                .opacity(0.28)
                         } else {
-                            cx.theme().secondary
+                            crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx)
                         })
                         .when(!cell_is_editable, |cell| cell.opacity(0.3));
                     if cell_is_editable {
                         cell = cell
                             .cursor_pointer()
-                            .hover(|style| style.bg(cx.theme().accent))
+                            .hover(|style| {
+                                style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            })
                             .on_mouse_move(move |_: &MouseMoveEvent, _, cx| {
                                 panel_for_hover.update(cx, |this, cx| {
                                     this.set_grid_dimensions_candidate(dimensions, cx);
@@ -1362,19 +1382,24 @@ impl DesignLayoutController for DesignPanel {
                     h_flex()
                         .w_full()
                         .justify_between()
-                        .child(div().text_xs().font_semibold().child("Grid dimensions"))
                         .child(
                             div()
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .font_semibold()
+                                .child("Grid dimensions"),
+                        )
+                        .child(
+                            div()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child(format!("{} × {}", candidate.columns, candidate.rows)),
                         ),
                 )
                 .child(selector)
                 .child(
                     div()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(if automatic_rows {
                             "Rows are derived while Auto rows is on. Use ←/→, then Enter or Space."
                         } else {
@@ -1409,8 +1434,8 @@ impl DesignLayoutController for DesignPanel {
                     div()
                         .w(px(112.))
                         .flex_none()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(label),
                 )
                 .child(self.render_value_cell(
@@ -1440,8 +1465,8 @@ impl DesignLayoutController for DesignPanel {
             controls = controls.child(
                 div()
                     .pl(px(112.))
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("Derived by Auto rows"),
             );
         }
@@ -1549,7 +1574,7 @@ impl DesignLayoutController for DesignPanel {
         let panel_id = self.id.clone();
         let target_node_id = view_data.target_node_id.clone();
         let collapsed_groups = self.features.layout.collapsed_frame_preset_groups.clone();
-        let trigger = Button::new(SharedString::from(format!(
+        let trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{}-frame-preset-browser",
             self.id
         )))
@@ -1619,14 +1644,19 @@ impl DesignLayoutController for DesignPanel {
                     .max_h(popup_height(window, 460.))
                     .gap_1()
                     .p_2()
-                    .child(div().text_sm().font_semibold().child("Frame presets"));
+                    .child(
+                        div()
+                            .typography(crate::atoms::TypographyToken::BodyLarge)
+                            .font_semibold()
+                            .child("Frame presets"),
+                    );
                 if let Some(reason) = view_data.availability.disabled_reason() {
                     content = content.child(
                         div()
                             .px_1()
                             .pb_1()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(reason.clone()),
                     );
                 }
@@ -1650,7 +1680,7 @@ impl DesignLayoutController for DesignPanel {
                             }
                         });
                     groups = groups.child(
-                        Button::new(SharedString::from(format!(
+                        crate::atoms::ui_button(SharedString::from(format!(
                             "{panel_id}-frame-preset-group-{}",
                             group.id
                         )))
@@ -1677,8 +1707,8 @@ impl DesignLayoutController for DesignPanel {
                                 .w_full()
                                 .px_2()
                                 .pb_1()
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child(reason.clone()),
                         );
                     }
@@ -1704,7 +1734,7 @@ impl DesignLayoutController for DesignPanel {
                         let panel = panel_for_content.clone();
                         let selection_for_click = selection.clone();
                         groups = groups.child(
-                            Button::new(SharedString::from(format!(
+                            crate::atoms::ui_button(SharedString::from(format!(
                                 "{panel_id}-frame-preset-{}-{}",
                                 group.id, preset.id
                             )))
@@ -2106,14 +2136,16 @@ impl DesignLayoutController for DesignPanel {
                 .items_center()
                 .justify_center()
                 .rounded(px(4.))
-                .text_xs()
+                .typography(crate::atoms::TypographyToken::BodyMedium)
                 .cursor_pointer()
-                .hover(|trigger| trigger.bg(cx.theme().accent))
+                .hover(|trigger| {
+                    trigger.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                })
                 .focus(|trigger| {
                     trigger
                         .border_1()
-                        .border_color(cx.theme().selection)
-                        .bg(cx.theme().accent)
+                        .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
                 })
                 // Keyboard-only convergence: the pointer path is owned by the
                 // wrapping `Popover` trigger, so this control binds the shared
@@ -2168,7 +2200,7 @@ impl DesignLayoutController for DesignPanel {
                 div()
                     .px_2()
                     .py_1()
-                    .text_xs()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .font_semibold()
                     .child(format!("{} resizing", axis.label())),
             );
@@ -2191,7 +2223,7 @@ impl DesignLayoutController for DesignPanel {
                     DesignSizingMode::Fill => "Fill container".to_owned(),
                 };
                 content = content.child(
-                    Button::new(sizing_selector.clone())
+                    crate::atoms::ui_button(sizing_selector.clone())
                         .debug_selector(move || sizing_selector.to_string())
                         .label(SharedString::from(sizing_label))
                         .xsmall()
@@ -2262,7 +2294,7 @@ impl DesignLayoutController for DesignPanel {
             let panel = panel_for_content.clone();
             let add_min_selector = SharedString::from(format!("{panel_id}-{axis_name}-add-min"));
             content = content.child(
-                Button::new(add_min_selector.clone())
+                crate::atoms::ui_button(add_min_selector.clone())
                     .debug_selector(move || add_min_selector.to_string())
                     .label(SharedString::from(format!(
                         "Add min {}",
@@ -2282,7 +2314,7 @@ impl DesignLayoutController for DesignPanel {
             let panel = panel_for_content.clone();
             let add_max_selector = SharedString::from(format!("{panel_id}-{axis_name}-add-max"));
             content = content.child(
-                Button::new(add_max_selector.clone())
+                crate::atoms::ui_button(add_max_selector.clone())
                     .debug_selector(move || add_max_selector.to_string())
                     .label(SharedString::from(format!(
                         "Add max {}",
@@ -2303,9 +2335,14 @@ impl DesignLayoutController for DesignPanel {
                 let panel = panel_for_content.clone();
                 let remove_selector =
                     SharedString::from(format!("{panel_id}-{axis_name}-remove-min-max"));
-                content = content.child(div().h(px(1.)).my_1().bg(cx.theme().border));
                 content = content.child(
-                    Button::new(remove_selector.clone())
+                    div()
+                        .h(px(1.))
+                        .my_1()
+                        .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
+                );
+                content = content.child(
+                    crate::atoms::ui_button(remove_selector.clone())
                         .xsmall()
                         .compact()
                         .ghost()
@@ -2369,7 +2406,7 @@ impl DesignLayoutController for DesignPanel {
             .min_w(px(0.))
             .overflow_hidden()
             .rounded(px(4.))
-            .bg(cx.theme().secondary)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
             .child(self.render_dimension_menu_trigger(axis, sizing, cx))
             .child(
                 div()
@@ -2474,7 +2511,7 @@ impl DesignLayoutController for DesignPanel {
             }
         });
         let debug_selector = format!("{}-add-auto-layout", self.id);
-        Button::new(SharedString::from(debug_selector.clone()))
+        crate::atoms::ui_button(SharedString::from(debug_selector.clone()))
             .debug_selector(move || debug_selector.clone())
             .label("Add auto layout")
             .icon(IconName::Plus)
@@ -2507,7 +2544,7 @@ impl DesignLayoutController for DesignPanel {
             }
         });
         let debug_selector = format!("{}-draw-add-auto-layout", self.id);
-        Button::new(SharedString::from(debug_selector.clone()))
+        crate::atoms::ui_button(SharedString::from(debug_selector.clone()))
             .debug_selector(move || debug_selector.clone())
             .icon(IconName::Plus)
             .tooltip(tooltip)
@@ -2560,11 +2597,17 @@ impl DesignLayoutController for DesignPanel {
             .pr_2()
             .gap_1()
             .cursor_pointer()
-            .hover(|style| style.bg(cx.theme().sidebar_accent.opacity(0.45)))
+            .hover(|style| {
+                style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                    .resolve(cx)
+                    .opacity(0.45))
+            })
             .focus(|style| {
                 style
-                    .bg(cx.theme().sidebar_accent.opacity(0.45))
-                    .border_color(cx.theme().selection)
+                    .bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                        .resolve(cx)
+                        .opacity(0.45))
+                    .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
             })
             .on_activate(cx.listener(move |this, _, _, cx| {
                 this.toggle_section(section, cx);
@@ -2572,7 +2615,7 @@ impl DesignLayoutController for DesignPanel {
             .child(
                 div()
                     .flex_1()
-                    .text_sm()
+                    .typography(crate::atoms::TypographyToken::BodyLarge)
                     .font_semibold()
                     .child(section.label()),
             )
@@ -2614,15 +2657,21 @@ impl DesignLayoutController for DesignPanel {
                     .key_context(CONTROL_KEY_CONTEXT)
                     .tab_index(0)
                     .cursor_pointer()
-                    .hover(|style| style.bg(cx.theme().accent))
+                    .hover(|style| {
+                        style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    })
                     .focus(|style| {
                         style
-                            .bg(cx.theme().accent)
-                            .border_color(cx.theme().selection)
+                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .border_color(
+                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                            )
                     })
             })
             .when(!enabled, |button| {
-                button.text_color(cx.theme().muted_foreground).opacity(0.42)
+                button
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    .opacity(0.42)
             });
         if enabled {
             button = button.on_activate(cx.listener(move |this, _, _, cx| {

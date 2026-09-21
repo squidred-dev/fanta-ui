@@ -9,6 +9,7 @@
 //! per-molecule screens never re-implement the card chrome.
 
 use crate::*;
+use fanta_gpui::atoms::TypographyExt as _;
 
 /// The shared side of the square specimen cell.
 pub(crate) const SPECIMEN_CELL_SIZE: f32 = 96.;
@@ -29,14 +30,19 @@ pub(crate) fn specimen_card(
         .gap_2()
         .rounded(px(8.))
         .border_1()
-        .border_color(cx.theme().border)
-        .bg(cx.theme().sidebar)
-        .child(div().text_sm().font_semibold().child(title))
+        .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+        .bg(fanta_gpui::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
+        .child(
+            div()
+                .typography(fanta_gpui::atoms::TypographyToken::BodyLarge)
+                .font_semibold()
+                .child(title),
+        )
         .child(
             div()
                 .max_w(px(720.))
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child(copy),
         )
         .child(content)
@@ -67,16 +73,18 @@ pub(crate) fn specimen_cell(
                 .justify_center()
                 .rounded(px(8.))
                 .border_1()
-                .border_color(cx.theme().border)
-                .bg(cx.theme().secondary.opacity(0.55))
+                .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+                .bg(fanta_gpui::atoms::SemanticColor::BackgroundSecondary
+                    .resolve(cx)
+                    .opacity(0.55))
                 .child(content),
         )
         .child(
             div()
                 .w_full()
                 .text_center()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
+                .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child(label.into()),
         )
         .when_some(hint, |cell, hint| {
@@ -85,10 +93,87 @@ pub(crate) fn specimen_cell(
                     .w_full()
                     .text_center()
                     .text_size(px(10.))
-                    .text_color(cx.theme().muted_foreground.opacity(0.75))
+                    .text_color(
+                        fanta_gpui::atoms::SemanticColor::TextTertiary
+                            .resolve(cx)
+                            .opacity(0.75),
+                    )
                     .child(hint),
             )
         })
+        .into_any_element()
+}
+
+/// A wider specimen cell for labeled controls such as checkboxes and
+/// dropdown triggers whose natural width exceeds the square icon cell.
+pub(crate) fn specimen_control_cell(
+    label: impl Into<SharedString>,
+    content: AnyElement,
+    cx: &mut Context<Storybook>,
+) -> AnyElement {
+    v_flex()
+        .w(px(160.))
+        .flex_none()
+        .gap_1p5()
+        .child(
+            div()
+                .w_full()
+                .h(px(72.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded(px(8.))
+                .border_1()
+                .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+                .bg(fanta_gpui::atoms::SemanticColor::BackgroundSecondary
+                    .resolve(cx)
+                    .opacity(0.55))
+                .child(content),
+        )
+        .child(
+            div()
+                .w_full()
+                .text_center()
+                .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
+                .child(label.into()),
+        )
+        .into_any_element()
+}
+
+/// A wide specimen cell for text fields and compound controls.
+pub(crate) fn specimen_wide_control_cell(
+    label: impl Into<SharedString>,
+    content: AnyElement,
+    cx: &mut Context<Storybook>,
+) -> AnyElement {
+    v_flex()
+        .w(px(240.))
+        .flex_none()
+        .gap_1p5()
+        .child(
+            div()
+                .w_full()
+                .h(px(96.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded(px(8.))
+                .border_1()
+                .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+                .bg(fanta_gpui::atoms::SemanticColor::BackgroundSecondary
+                    .resolve(cx)
+                    .opacity(0.55))
+                .child(content),
+        )
+        .child(
+            div()
+                .w_full()
+                .text_center()
+                .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
+                .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
+                .child(label.into()),
+        )
         .into_any_element()
 }
 
@@ -96,21 +181,23 @@ pub(crate) fn specimen_cell(
 /// of cells (or any demo content) with the shared 12 px gap, so rows
 /// reflow instead of clipping when the story viewport narrows.
 pub(crate) fn specimen_row(
-    id: &'static str,
+    id: impl Into<SharedString>,
     title: impl Into<SharedString>,
     cells: Vec<AnyElement>,
     cx: &mut Context<Storybook>,
 ) -> AnyElement {
+    let id = id.into();
+    let selector = id.to_string();
     v_flex()
-        .id(SharedString::from(id))
-        .debug_selector(move || id.to_owned())
+        .id(id)
+        .debug_selector(move || selector.clone())
         .w_full()
         .gap_2()
         .child(
             div()
-                .text_xs()
+                .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
                 .font_semibold()
-                .text_color(cx.theme().muted_foreground)
+                .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child(title.into()),
         )
         .child(
@@ -146,8 +233,8 @@ pub(crate) fn framed_panel(
         .overflow_hidden()
         .rounded(px(6.))
         .border_1()
-        .border_color(cx.theme().border)
-        .bg(cx.theme().background)
+        .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+        .bg(fanta_gpui::atoms::SemanticColor::Background.resolve(cx))
         .child(content)
         .into_any_element()
 }

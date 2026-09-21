@@ -109,7 +109,7 @@ pub(in super::super::super) fn render(
     } else {
         "Text styles · View only"
     };
-    let trigger = Button::new(SharedString::from(format!(
+    let trigger = crate::atoms::ui_button(SharedString::from(format!(
         "{}-typography-styles",
         projection.panel_id
     )))
@@ -122,7 +122,7 @@ pub(in super::super::super) fn render(
     .selected(projection.open)
     .child(render_lucide_icon(
         LucideIcon::Palette,
-        cx.theme().foreground,
+        crate::atoms::SemanticColor::Text.resolve(cx),
         16.,
     ))
     .on_activate(move |_, window, cx| {

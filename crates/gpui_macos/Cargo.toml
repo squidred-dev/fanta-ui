@@ -1,0 +1,179 @@
+[package]
+name = "fanta-gpui-gpui-macos"
+version = "0.1.0"
+edition = "2024"
+publish = true
+license = "Apache-2.0"
+repository = "https://github.com/squidred-dev/fanta-ui"
+description = "Fanta GPUI fork of gpui_macos"
+
+[lib]
+path = "src/gpui_macos.rs"
+name = "gpui_macos"
+
+[features]
+default = [ "gpui/default",]
+test-support = [ "gpui/test-support",]
+runtime_shaders = []
+font-kit = [ "dep:font-kit",]
+screen-capture = [ "gpui/screen-capture",]
+
+[lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+declare_interior_mutable_const = "deny"
+redundant_clone = "deny"
+disallowed_methods = "deny"
+type_complexity = "allow"
+let_underscore_future = "allow"
+single_range_in_vec_init = "allow"
+too_many_arguments = "allow"
+large_enum_variant = "allow"
+nonminimal_bool = "allow"
+
+[dependencies.gpui]
+path = "../gpui"
+default-features = false
+package = "fanta-gpui-core"
+version = "=0.1.0"
+
+[lints.clippy.style]
+level = "allow"
+priority = -1
+
+[lints.rust.unexpected_cfgs]
+level = "allow"
+
+[target."cfg(target_os = \"macos\")".dependencies]
+async-task = "4.7"
+block = "0.1"
+core-graphics = "0.24"
+core-text = "21"
+dispatch2 = "0.3.1"
+etagere = "0.2"
+foreign-types = "0.5"
+pathfinder_geometry = "0.5"
+raw-window-handle = "0.6"
+
+[target."cfg(target_os = \"macos\")".dependencies.accesskit]
+version = "0.24.0"
+
+[target."cfg(target_os = \"macos\")".dependencies.accesskit_macos]
+version = "0.26.0"
+
+[target."cfg(target_os = \"macos\")".dependencies.anyhow]
+version = "1.0.86"
+
+[target."cfg(target_os = \"macos\")".dependencies.cocoa]
+version = "=0.26.0"
+
+[target."cfg(target_os = \"macos\")".dependencies.collections]
+path = "../collections"
+version = "=0.1.0"
+package = "fanta-gpui-collections"
+
+[target."cfg(target_os = \"macos\")".dependencies.core-foundation]
+version = "=0.10.0"
+
+[target."cfg(target_os = \"macos\")".dependencies.core-foundation-sys]
+version = "0.8.6"
+
+[target."cfg(target_os = \"macos\")".dependencies.core-video]
+version = "0.5.2"
+features = [ "metal",]
+
+[target."cfg(target_os = \"macos\")".dependencies.ctor]
+version = "1.0.6"
+
+[target."cfg(target_os = \"macos\")".dependencies.derive_more]
+version = "2.1.1"
+features = [ "add", "add_assign", "deref", "deref_mut", "display", "from_str", "mul", "mul_assign", "not",]
+
+[target."cfg(target_os = \"macos\")".dependencies.font-kit]
+package = "zed-font-kit"
+version = "0.14.1-zed"
+optional = true
+
+[target."cfg(target_os = \"macos\")".dependencies.futures]
+version = "0.3.32"
+
+[target."cfg(target_os = \"macos\")".dependencies.gpui_util]
+path = "../gpui_util"
+package = "fanta-gpui-gpui-util"
+version = "=0.1.0"
+
+[target."cfg(target_os = \"macos\")".dependencies.image]
+version = "0.25.1"
+
+[target."cfg(target_os = \"macos\")".dependencies.itertools]
+version = "0.14.0"
+
+[target."cfg(target_os = \"macos\")".dependencies.libc]
+version = "0.2"
+
+[target."cfg(target_os = \"macos\")".dependencies.log]
+version = "0.4.16"
+features = [ "kv_unstable_serde", "serde",]
+
+[target."cfg(target_os = \"macos\")".dependencies.mach2]
+version = "0.5"
+
+[target."cfg(target_os = \"macos\")".dependencies.media]
+path = "../media"
+package = "fanta-gpui-media"
+version = "=0.1.0"
+
+[target."cfg(target_os = \"macos\")".dependencies.metal]
+version = "0.33"
+
+[target."cfg(target_os = \"macos\")".dependencies.objc]
+version = "0.2"
+
+[target."cfg(target_os = \"macos\")".dependencies.objc2]
+version = "0.6"
+
+[target."cfg(target_os = \"macos\")".dependencies.objc2-app-kit]
+version = "0.3.2"
+default-features = false
+features = [ "NSButton", "NSControl", "NSGraphics", "NSResponder", "NSView", "NSWindow", "objc2-core-foundation",]
+
+[target."cfg(target_os = \"macos\")".dependencies.objc2-foundation]
+version = "=0.3.2"
+default-features = false
+features = [ "NSArray", "NSAttributedString", "NSBundle", "NSCoder", "NSData", "NSDate", "NSDictionary", "NSEnumerator", "NSError", "NSGeometry", "NSNotification", "NSNull", "NSObjCRuntime", "NSObject", "NSProcessInfo", "NSRange", "NSRunLoop", "NSString", "NSURL", "NSUndoManager", "NSValue", "objc2-core-foundation", "std",]
+
+[target."cfg(target_os = \"macos\")".dependencies.parking_lot]
+version = "0.12.1"
+
+[target."cfg(target_os = \"macos\")".dependencies.semver]
+version = "1.0"
+features = [ "serde",]
+
+[target."cfg(target_os = \"macos\")".dependencies.smallvec]
+version = "1.6"
+features = [ "const_new", "union",]
+
+[target."cfg(target_os = \"macos\")".dependencies.strum]
+version = "0.27.2"
+features = [ "derive",]
+
+[target."cfg(target_os = \"macos\")".dependencies.uuid]
+version = "1.1.2"
+features = [ "serde", "v4", "v5", "v7",]
+
+[target."cfg(target_os = \"macos\")".build-dependencies.cbindgen]
+version = "0.28.0"
+default-features = false
+
+[target."cfg(target_os = \"macos\")".build-dependencies.gpui]
+path = "../gpui"
+default-features = false
+package = "fanta-gpui-core"
+version = "=0.1.0"
+
+[target."cfg(target_os = \"macos\")".dev-dependencies.gpui]
+path = "../gpui"
+default-features = false
+features = [ "test-support",]
+package = "fanta-gpui-core"
+version = "=0.1.0"

@@ -4,10 +4,11 @@
 //! module owns only the dialog geometry and chrome, keeping entity callbacks
 //! and Design actions in the panel façade.
 
+use crate::atoms::TypographyExt as _;
 use gpui::{
     AnyElement, App, Div, IntoElement as _, ParentElement as _, Styled as _, Window, div, px,
 };
-use gpui_component::{ActiveTheme as _, dialog::Dialog, v_flex};
+use gpui_component::{dialog::Dialog, v_flex};
 
 use crate::molecules::popup_width;
 
@@ -51,8 +52,8 @@ pub(super) fn render_container(
         .p_3()
         .rounded(px(8.))
         .border_1()
-        .border_color(cx.theme().border)
-        .bg(cx.theme().popover)
+        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+        .bg(crate::atoms::SemanticColor::BackgroundMenu.resolve(cx))
         .shadow_lg();
     let shell = match spacing {
         ComponentAuthoringDialogSpacing::Compact => shell.gap_2(),
@@ -63,8 +64,8 @@ pub(super) fn render_container(
 
 pub(super) fn unavailable_editor(cx: &App) -> AnyElement {
     div()
-        .text_sm()
-        .text_color(cx.theme().muted_foreground)
+        .typography(crate::atoms::TypographyToken::BodyLarge)
+        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
         .child("This component-property editor is no longer available.")
         .into_any_element()
 }

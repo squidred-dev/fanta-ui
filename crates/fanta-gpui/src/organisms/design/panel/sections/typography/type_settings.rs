@@ -124,7 +124,7 @@ pub(in super::super::super) fn render_trigger(
     let focus = projection.focus.clone();
     let target = projection.target.clone();
     let events = events.clone();
-    Button::new(SharedString::from(format!(
+    crate::atoms::ui_button(SharedString::from(format!(
         "{}-type-settings",
         projection.panel_id
     )))
@@ -155,7 +155,7 @@ pub(in super::super::super) fn render_tab(
 ) -> Button {
     let layout = grid_layout();
     let events = events.clone();
-    Button::new(SharedString::from(format!(
+    crate::atoms::ui_button(SharedString::from(format!(
         "{}-type-settings-tab-{}",
         panel_id,
         candidate.label().to_lowercase()
@@ -195,7 +195,7 @@ pub(in super::super::super) fn render_segments(
     let mut segments = crate::molecules::inspector_segmented_control(metrics, cx)
         .border_0()
         .w_full()
-        .bg(cx.theme().secondary);
+        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx));
     for (index, (label, selected, value)) in options.into_iter().enumerate() {
         let events = events.clone();
         let mut segment = crate::molecules::inspector_segment(
@@ -206,9 +206,11 @@ pub(in super::super::super) fn render_segments(
             cx,
         )
         .when(index > 0, |segment| {
-            segment
-                .border_l_1()
-                .border_color(cx.theme().border.opacity(0.72))
+            segment.border_l_1().border_color(
+                crate::atoms::SemanticColor::Border
+                    .resolve(cx)
+                    .opacity(0.72),
+            )
         })
         .child(label);
         if enabled {
@@ -241,7 +243,7 @@ pub(in super::super::super) fn render_number_field(
     let events_for_activate = events.clone();
     let button_id = SharedString::from(format!("{id}-activate"));
     let button_debug_selector = button_id.clone();
-    let button = Button::new(button_id)
+    let button = crate::atoms::ui_button(button_id)
         .debug_selector(move || button_debug_selector.to_string())
         .label(label)
         .xsmall()
@@ -261,11 +263,11 @@ pub(in super::super::super) fn render_number_field(
             .rounded(layout.metrics.radius)
             .border_1()
             .border_color(if invalid {
-                cx.theme().red
+                crate::atoms::SemanticColor::TextDanger.resolve(cx)
             } else {
-                cx.theme().selection
+                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
             })
-            .bg(cx.theme().secondary)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
             .child(button.invisible().tab_stop(false))
             .child(
                 div()

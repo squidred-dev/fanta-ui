@@ -1,0 +1,17 @@
+[workspace]
+
+[package]
+name = "fanta-gpui-registry-smoke"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+fanta-gpui = "=0.1.0"
+gpui = { package = "fanta-gpui-core", version = "=0.1.0" }
+gpui_component = { package = "fanta-gpui-components", version = "=0.1.0" }
+gpui_component_assets = { package = "fanta-gpui-component-assets", version = "=0.1.0" }
+gpui_platform = { package = "fanta-gpui-gpui-platform", version = "=0.1.0" }
+
+[dev-dependencies]
+gpui = { package = "fanta-gpui-core", version = "=0.1.0", features = ["test-support"] }

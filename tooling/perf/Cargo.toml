@@ -1,0 +1,44 @@
+[package]
+name = "fanta-gpui-perf"
+version = "0.1.0"
+publish = true
+edition = "2024"
+license = "Apache-2.0"
+description = "A tool for measuring Zed test performance, with too many Clippy lints"
+repository = "https://github.com/squidred-dev/fanta-ui"
+
+[lib]
+name = "perf"
+
+[lints.rust]
+missing_docs = "warn"
+
+[lints.clippy]
+needless_continue = "allow"
+all = "warn"
+pedantic = "warn"
+style = "warn"
+missing_docs_in_private_items = "warn"
+as_underscore = "deny"
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+let_underscore_must_use = "forbid"
+undocumented_unsafe_blocks = "forbid"
+missing_safety_doc = "forbid"
+
+[dependencies.collections]
+path = "../../crates/collections"
+version = "=0.1.0"
+package = "fanta-gpui-collections"
+
+[dependencies.serde]
+version = "1.0.221"
+features = [ "derive", "rc",]
+
+[dependencies.serde_json]
+version = "1.0.144"
+features = [ "preserve_order", "raw_value",]
+
+[lints.clippy.disallowed_methods]
+level = "allow"
+priority = 1

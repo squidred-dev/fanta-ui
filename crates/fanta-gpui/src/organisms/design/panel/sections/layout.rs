@@ -636,15 +636,17 @@ fn render_lock_aspect_ratio_button(
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(cx.theme().accent))
+                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
                 .focus(|style| {
                     style
-                        .bg(cx.theme().accent)
-                        .border_color(cx.theme().selection)
+                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
         })
         .when(!enabled, |button| {
-            button.text_color(cx.theme().muted_foreground).opacity(0.62)
+            button
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                .opacity(0.62)
         });
     if enabled {
         let events = events.clone();
@@ -681,7 +683,7 @@ pub(in super::super) fn render(
         .h(px(ROW_HEIGHT))
         .w_full()
         .rounded(px(4.))
-        .bg(cx.theme().secondary);
+        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx));
     for (mode, icon) in direction_buttons
         .into_iter()
         .filter(|(mode, _)| *mode != DesignLayoutMode::Grid || projection.grid.supports_auto_layout)
@@ -707,9 +709,9 @@ pub(in super::super) fn render(
                 )
                 .when(layout.mode == mode, |button| {
                     button
-                        .bg(cx.theme().accent)
+                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
                         .border_1()
-                        .border_color(cx.theme().selection)
+                        .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
                 .when(
                     projection.capabilities.can_edit
@@ -719,12 +721,16 @@ pub(in super::super) fn render(
                             .key_context(CONTROL_KEY_CONTEXT)
                             .tab_index(0)
                             .cursor_pointer()
-                            .hover(|style| style.bg(cx.theme().accent))
+                            .hover(|style| {
+                                style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            })
                             .focus(|style| {
                                 style
-                                    .bg(cx.theme().accent)
+                                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
                                     .border_1()
-                                    .border_color(cx.theme().selection)
+                                    .border_color(
+                                        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                                    )
                             })
                             .on_activate(move |_, _, cx| {
                                 mode_events.send(
@@ -758,8 +764,8 @@ pub(in super::super) fn render(
                 div()
                     .id(flow_id)
                     .debug_selector(move || flow_selector.clone())
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("Flow"),
             );
         }
@@ -824,8 +830,13 @@ pub(in super::super) fn render(
                                     projection.auxiliary.dimensions.lock_aspect_ratio,
                                     |button| {
                                         button
-                                            .bg(cx.theme().selection.opacity(0.22))
-                                            .text_color(cx.theme().selection)
+                                            .bg(crate::atoms::SemanticColor::BackgroundSelected
+                                                .resolve(cx)
+                                                .opacity(0.22))
+                                            .text_color(
+                                                crate::atoms::SemanticColor::BackgroundSelected
+                                                    .resolve(cx),
+                                            )
                                     },
                                 )
                                 .child(render_lock_aspect_ratio_button(
@@ -923,15 +934,15 @@ pub(in super::super) fn render(
                         .child(
                             div()
                                 .w(px(88.))
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child("Alignment"),
                         )
                         .child(
                             div()
                                 .flex_1()
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child("Gap"),
                         ),
                 )
@@ -1134,7 +1145,13 @@ pub(in super::super) fn render(
         }
         if layout.mode == DesignLayoutMode::Grid {
             content = content
-                .child(div().pt_1().text_xs().font_semibold().child("Grid"))
+                .child(
+                    div()
+                        .pt_1()
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .font_semibold()
+                        .child("Grid"),
+                )
                 .child(chrome.layout_grid_dimensions_picker(layout, cx))
                 .child(chrome.layout_grid_auto_rows_toggle(cx))
                 .child(chrome.layout_group_label("Positioning", cx))
@@ -1163,7 +1180,7 @@ pub(in super::super) fn render(
             .child(
                 div()
                     .pt_1()
-                    .text_xs()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .font_semibold()
                     .child("Auto-layout child"),
             )
@@ -1266,7 +1283,7 @@ pub(in super::super) fn render(
             .child(
                 div()
                     .pt_1()
-                    .text_xs()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .font_semibold()
                     .child("Auto-layout child"),
             )
@@ -1293,7 +1310,7 @@ pub(in super::super) fn render(
             .w_full()
             .flex_none()
             .border_b_1()
-            .border_color(cx.theme().sidebar_border)
+            .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
             .child(chrome.layout_draw_header(cx))
             .when(projection.presentation.section_expanded, |section| {
                 section.child(content.into_any_element())

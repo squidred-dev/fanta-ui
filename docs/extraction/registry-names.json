@@ -1,0 +1,167 @@
+[
+  {
+    "name": "fanta-gpui-core",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-collections",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-gpui-util",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-gpui-macros",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-gpui-shared-string",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-http-client",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-util",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-util-macros",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-perf",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-refineable",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-derive-refineable",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-scheduler",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-sum-tree",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-ztracing",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-zlog",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-ztracing-macro",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-gpui-platform",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-gpui-macos",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-media",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-gpui-windows",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-gpui-linux",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-gpui-wgpu",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-gpui-web",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-reqwest-client",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-http-client-tls",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-components",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-gpui-tokio",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-component-assets",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-async-process",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-smol",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-proptest",
+    "http_status": "404",
+    "available": true
+  },
+  {
+    "name": "fanta-gpui-proptest-macro",
+    "http_status": "404",
+    "available": true
+  }
+]

@@ -1,10 +1,11 @@
 //! Compact, padded feedback and empty-state presentation for inspectors.
 
+use crate::atoms::TypographyExt as _;
 use gpui::{
     AnyElement, App, IntoElement, ParentElement as _, RenderOnce, SharedString, Styled as _,
     prelude::FluentBuilder as _,
 };
-use gpui_component::{ActiveTheme as _, StyledExt as _, v_flex};
+use gpui_component::{StyledExt as _, v_flex};
 
 use super::InspectorMetrics;
 
@@ -52,10 +53,14 @@ impl RenderOnce for InspectorFieldMessage {
         gpui::div()
             .w_full()
             .min_w(gpui::px(0.))
-            .text_xs()
+            .typography(crate::atoms::TypographyToken::BodyMedium)
             .text_color(match self.kind {
-                InspectorFieldMessageKind::Help => cx.theme().muted_foreground,
-                InspectorFieldMessageKind::Validation => cx.theme().red,
+                InspectorFieldMessageKind::Help => {
+                    crate::atoms::SemanticColor::TextTertiary.resolve(cx)
+                }
+                InspectorFieldMessageKind::Validation => {
+                    crate::atoms::SemanticColor::TextDanger.resolve(cx)
+                }
             })
             .child(self.message)
     }
@@ -106,10 +111,12 @@ impl InspectorFeedback {
 impl RenderOnce for InspectorFeedback {
     fn render(self, _: &mut gpui::Window, cx: &mut App) -> impl IntoElement {
         let accent = match self.kind {
-            InspectorFeedbackKind::Neutral => cx.theme().muted_foreground,
-            InspectorFeedbackKind::Info => cx.theme().blue,
-            InspectorFeedbackKind::Warning => cx.theme().warning,
-            InspectorFeedbackKind::Error => cx.theme().red,
+            InspectorFeedbackKind::Neutral => crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+            InspectorFeedbackKind::Info => crate::atoms::SemanticColor::TextBrand.resolve(cx),
+            InspectorFeedbackKind::Warning => {
+                crate::atoms::SemanticColor::BackgroundWarning.resolve(cx)
+            }
+            InspectorFeedbackKind::Error => crate::atoms::SemanticColor::TextDanger.resolve(cx),
         };
         v_flex()
             .w_full()
@@ -118,12 +125,12 @@ impl RenderOnce for InspectorFeedback {
             .p(self.metrics.compact_feedback_padding)
             .rounded(self.metrics.radius)
             .border_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().secondary)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
             .when_some(self.title, |message, title| {
                 message.child(
                     gpui::div()
-                        .text_xs()
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
                         .font_semibold()
                         .text_color(accent)
                         .child(title),
@@ -132,8 +139,8 @@ impl RenderOnce for InspectorFeedback {
             .child(
                 gpui::div()
                     .min_w(gpui::px(0.))
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(self.message),
             )
             .when_some(self.action, |message, action| message.child(action))
@@ -186,13 +193,18 @@ impl RenderOnce for InspectorEmptyState {
             .px(self.metrics.horizontal_padding)
             .py(self.metrics.compact_feedback_padding)
             .text_center()
-            .child(gpui::div().text_sm().font_semibold().child(self.title))
+            .child(
+                gpui::div()
+                    .typography(crate::atoms::TypographyToken::BodyLarge)
+                    .font_semibold()
+                    .child(self.title),
+            )
             .when_some(self.description, |state, description| {
                 state.child(
                     gpui::div()
                         .max_w(gpui::px(360.))
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(description),
                 )
             })

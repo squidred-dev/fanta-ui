@@ -1182,7 +1182,7 @@ impl DesignPaintController for DesignPanel {
         let tooltip = binding
             .as_ref()
             .map_or_else(|| "Paint styles".into(), |binding| binding.name.clone());
-        let trigger = Button::new(SharedString::from(format!(
+        let trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{}-{}-styles",
             self.id,
             collection.label().to_lowercase().replace(' ', "-")
@@ -1232,7 +1232,7 @@ impl DesignPaintController for DesignPanel {
                     div()
                         .px_2()
                         .py_1()
-                        .text_xs()
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
                         .font_semibold()
                         .child(format!("{} styles", collection.label())),
                 );
@@ -1243,9 +1243,15 @@ impl DesignPaintController for DesignPanel {
                         .w_full()
                         .px_2()
                         .gap_2()
-                        .child(div().flex_1().truncate().text_xs().child(binding.name))
                         .child(
-                            Button::new(SharedString::from(format!(
+                            div()
+                                .flex_1()
+                                .truncate()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .child(binding.name),
+                        )
+                        .child(
+                            crate::atoms::ui_button(SharedString::from(format!(
                                 "{panel_id}-detach-{}-paint-style",
                                 collection.label().to_lowercase()
                             )))
@@ -1264,7 +1270,7 @@ impl DesignPaintController for DesignPanel {
             }
             let panel = panel_for_content.clone();
             content = content.child(
-                Button::new(SharedString::from(format!(
+                crate::atoms::ui_button(SharedString::from(format!(
                     "{panel_id}-create-{}-paint-style",
                     collection.label().to_lowercase()
                 )))
@@ -1293,8 +1299,8 @@ impl DesignPaintController for DesignPanel {
                     div()
                         .px_2()
                         .py_3()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(if catalog_is_empty {
                             "No Paint styles supplied by the host"
                         } else {
@@ -1307,8 +1313,8 @@ impl DesignPaintController for DesignPanel {
                     div()
                         .px_2()
                         .pt_2()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("This page"),
                 );
                 let mut rows = if view_mode == StyleBrowserViewMode::Grid {
@@ -1323,7 +1329,7 @@ impl DesignPaintController for DesignPanel {
                         .as_ref()
                         .is_some_and(|binding| binding.selection == selection);
                     rows = rows.child(
-                        Button::new(SharedString::from(format!(
+                        crate::atoms::ui_button(SharedString::from(format!(
                             "{panel_id}-paint-style-page-{}",
                             selection.style_id
                         )))
@@ -1365,8 +1371,8 @@ impl DesignPaintController for DesignPanel {
                     div()
                         .px_2()
                         .pt_2()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(library_name),
                 );
                 let mut rows = if view_mode == StyleBrowserViewMode::Grid {
@@ -1386,7 +1392,7 @@ impl DesignPaintController for DesignPanel {
                         name.to_string()
                     };
                     rows = rows.child(
-                        Button::new(SharedString::from(format!(
+                        crate::atoms::ui_button(SharedString::from(format!(
                             "{panel_id}-paint-style-library-{}",
                             selection.style_id
                         )))
@@ -1438,8 +1444,8 @@ impl DesignPaintController for DesignPanel {
             .overflow_hidden()
             .rounded(px(2.))
             .border_1()
-            .border_color(cx.theme().border)
-            .text_xs();
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .typography(crate::atoms::TypographyToken::BodyMedium);
         match &paint.payload {
             DesignPaintPayload::Solid(solid) => {
                 swatch.bg(color_hsla(solid.color)).into_any_element()
@@ -1463,18 +1469,20 @@ impl DesignPaintController for DesignPanel {
             }
             DesignPaintPayload::Pattern(_) => swatch
                 .bg(pattern_slash(
-                    cx.theme().muted_foreground.opacity(0.35),
+                    crate::atoms::SemanticColor::TextTertiary
+                        .resolve(cx)
+                        .opacity(0.35),
                     0.35,
                     0.35,
                 ))
                 .child("P")
                 .into_any_element(),
             DesignPaintPayload::Image(_) => swatch
-                .bg(cx.theme().secondary)
+                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                 .child(Icon::new(IconName::GalleryVerticalEnd).xsmall())
                 .into_any_element(),
             DesignPaintPayload::Video(_) => swatch
-                .bg(cx.theme().secondary)
+                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                 .child(Icon::new(IconName::File).xsmall())
                 .into_any_element(),
             DesignPaintPayload::Shader(_) => swatch
@@ -1482,8 +1490,8 @@ impl DesignPaintController for DesignPanel {
                 .child(Icon::new(IconName::Asterisk).xsmall())
                 .into_any_element(),
             DesignPaintPayload::Unsupported(_) => swatch
-                .bg(cx.theme().secondary)
-                .text_color(cx.theme().muted_foreground)
+                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("?")
                 .into_any_element(),
         }
@@ -1526,7 +1534,7 @@ impl DesignPaintController for DesignPanel {
             self.media_drop_capabilities_for_target(&target)
         {
             let drop_target = target.clone();
-            let drop_highlight = cx.theme().selection;
+            let drop_highlight = crate::atoms::SemanticColor::BackgroundSelected.resolve(cx);
             let drop_id = SharedString::from(format!(
                 "{}-{}-media-drop-{index}",
                 self.id,
@@ -1583,7 +1591,7 @@ impl DesignPaintController for DesignPanel {
             self.id,
             collection.label().to_lowercase()
         ));
-        let trigger = Button::new(trigger_id)
+        let trigger = crate::atoms::ui_button(trigger_id)
             .xsmall()
             .w_full()
             .h_full()
@@ -1621,7 +1629,7 @@ impl DesignPaintController for DesignPanel {
                     .flex_1()
                     .truncate()
                     .text_left()
-                    .text_xs()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .child(label.clone()),
             );
         let paint_values = h_flex()
@@ -1630,7 +1638,7 @@ impl DesignPaintController for DesignPanel {
             .min_w(px(0.))
             .overflow_hidden()
             .rounded(px(4.))
-            .bg(cx.theme().secondary)
+            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
             .child(
                 div().flex_1().min_w(px(0.)).h_full().child(
                     Popover::new(popover_id)
@@ -1681,7 +1689,7 @@ impl DesignPaintController for DesignPanel {
                     .h_full()
                     .flex_none()
                     .border_l_1()
-                    .border_color(cx.theme().border)
+                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                     .child(self.render_value_cell_with_left_padding(
                         format!(
                             "{}-paint-opacity-{index}",
@@ -1697,8 +1705,10 @@ impl DesignPaintController for DesignPanel {
             );
         let drop_paint_id = paint.id.clone();
         let can_drop_paint_id = drop_paint_id.clone();
-        let drop_background = cx.theme().selection.opacity(0.18);
-        let drop_border = cx.theme().selection;
+        let drop_background = crate::atoms::SemanticColor::BackgroundSelected
+            .resolve(cx)
+            .opacity(0.18);
+        let drop_border = crate::atoms::SemanticColor::BackgroundSelected.resolve(cx);
         let drag = PaintDrag {
             collection,
             from_index: index,
@@ -1724,8 +1734,8 @@ impl DesignPaintController for DesignPanel {
                 div()
                     .w(px(12.))
                     .flex_none()
-                    .text_xs()
-                    .text_color(cx.theme().muted_foreground)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .when(can_reorder, |handle| handle.child("⠿")),
             )
             .child(paint_values)
@@ -1882,7 +1892,7 @@ impl DesignPaintController for DesignPanel {
                     matches!(details.color, DesignTextDecorationColor::Solid(_))
                 });
         let inspectable = self.auxiliary_color_paint(&target).is_some();
-        let trigger = Button::new(SharedString::from(format!(
+        let trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{}-{id_suffix}-color-trigger",
             self.id
         )))
@@ -1917,7 +1927,7 @@ impl DesignPaintController for DesignPanel {
                 .flex_none()
                 .rounded(px(3.))
                 .border_1()
-                .border_color(cx.theme().border)
+                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                 .bg(color_hsla(color)),
         )
         .child(
@@ -2434,7 +2444,7 @@ impl DesignPaintController for DesignPanel {
         let tooltip = binding
             .as_ref()
             .map_or_else(|| "Paint styles".into(), |binding| binding.name.clone());
-        let trigger = Button::new(SharedString::from(format!(
+        let trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{panel_id}-selection-color-{selection_color_id}-paint-style"
         )))
         .tooltip(tooltip)
@@ -2498,7 +2508,7 @@ impl DesignPaintController for DesignPanel {
                 .p_2()
                 .child(
                     div()
-                        .text_sm()
+                        .typography(crate::atoms::TypographyToken::BodyLarge)
                         .font_semibold()
                         .child("Selection Paint styles"),
                 );
@@ -2509,9 +2519,15 @@ impl DesignPaintController for DesignPanel {
                     h_flex()
                         .w_full()
                         .gap_2()
-                        .child(div().flex_1().truncate().text_xs().child(binding.name))
                         .child(
-                            Button::new(SharedString::from(format!(
+                            div()
+                                .flex_1()
+                                .truncate()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .child(binding.name),
+                        )
+                        .child(
+                            crate::atoms::ui_button(SharedString::from(format!(
                                 "{panel_id}-selection-color-{}-style-detach",
                                 color.id
                             )))
@@ -2534,7 +2550,7 @@ impl DesignPaintController for DesignPanel {
             let panel = panel_for_content.clone();
             let color_id = color.id.clone();
             content = content.child(
-                Button::new(SharedString::from(format!(
+                crate::atoms::ui_button(SharedString::from(format!(
                     "{panel_id}-selection-color-{}-style-create",
                     color.id
                 )))
@@ -2562,8 +2578,8 @@ impl DesignPaintController for DesignPanel {
                 content = content.child(
                     div()
                         .py_2()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(if catalog_is_empty {
                             "No Paint styles supplied by the host"
                         } else {
@@ -2575,8 +2591,8 @@ impl DesignPaintController for DesignPanel {
                 content = content.child(
                     div()
                         .pt_2()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("This page"),
                 );
                 let mut rows = if view_mode == StyleBrowserViewMode::Grid {
@@ -2592,7 +2608,7 @@ impl DesignPaintController for DesignPanel {
                         .as_ref()
                         .is_some_and(|binding| binding.selection == selection);
                     rows = rows.child(
-                        Button::new(SharedString::from(format!(
+                        crate::atoms::ui_button(SharedString::from(format!(
                             "{panel_id}-selection-color-{}-style-page-{}",
                             color.id, selection.style_id
                         )))
@@ -2634,8 +2650,8 @@ impl DesignPaintController for DesignPanel {
                 content = content.child(
                     div()
                         .pt_2()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(library_name),
                 );
                 let mut rows = if view_mode == StyleBrowserViewMode::Grid {
@@ -2656,7 +2672,7 @@ impl DesignPaintController for DesignPanel {
                         name.to_string()
                     };
                     rows = rows.child(
-                        Button::new(SharedString::from(format!(
+                        crate::atoms::ui_button(SharedString::from(format!(
                             "{panel_id}-selection-color-{}-style-library-{}",
                             color.id, selection.style_id
                         )))
@@ -2748,7 +2764,7 @@ impl DesignPaintController for DesignPanel {
             },
             |binding| binding.variable_name.clone(),
         );
-        let trigger = Button::new(SharedString::from(format!(
+        let trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{panel_id}-selection-color-{selection_color_id}-variable"
         )))
         .label("Select")
@@ -2812,15 +2828,15 @@ impl DesignPaintController for DesignPanel {
                 .p_2()
                 .child(
                     div()
-                        .text_sm()
+                        .typography(crate::atoms::TypographyToken::BodyLarge)
                         .font_semibold()
                         .child("Selection Color variables"),
                 );
             if style_bound {
                 content = content.child(
                     div()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("Detach the Paint style before changing this color leaf."),
                 );
             }
@@ -2835,11 +2851,11 @@ impl DesignPaintController for DesignPanel {
                             div()
                                 .flex_1()
                                 .truncate()
-                                .text_xs()
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
                                 .child(binding.variable_name),
                         )
                         .child(
-                            Button::new(SharedString::from(format!(
+                            crate::atoms::ui_button(SharedString::from(format!(
                                 "{panel_id}-selection-color-{}-variable-detach",
                                 color.id
                             )))
@@ -2859,7 +2875,7 @@ impl DesignPaintController for DesignPanel {
             let panel = panel_for_content.clone();
             let color_id = color.id.clone();
             content = content.child(
-                Button::new(SharedString::from(format!(
+                crate::atoms::ui_button(SharedString::from(format!(
                     "{panel_id}-selection-color-{}-variable-create",
                     color.id
                 )))
@@ -2879,8 +2895,8 @@ impl DesignPaintController for DesignPanel {
                 content = content.child(
                     div()
                         .py_2()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("No Color variables supplied by the host"),
                 );
             }
@@ -2888,8 +2904,8 @@ impl DesignPaintController for DesignPanel {
                 content = content.child(
                     div()
                         .pt_2()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(source.label().clone()),
                 );
                 for variable in variables {
@@ -2909,7 +2925,7 @@ impl DesignPaintController for DesignPanel {
                         format!("{} · {}", variable.collection_name, source.label()).into()
                     });
                     content = content.child(
-                        Button::new(SharedString::from(format!(
+                        crate::atoms::ui_button(SharedString::from(format!(
                             "{panel_id}-selection-color-{}-variable-{}",
                             color.id, variable.id
                         )))
@@ -2976,7 +2992,7 @@ impl DesignPaintController for DesignPanel {
         let picker = self.paint_picker.clone();
         let picker_content = picker.clone();
         let picker_focus = picker.focus_handle(cx);
-        let trigger = Button::new(SharedString::from(format!(
+        let trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{}-selection-paint-{index}-trigger",
             self.id
         )))
@@ -3048,7 +3064,7 @@ impl DesignPaintController for DesignPanel {
     ) -> AnyElement {
         let enabled = self.selection_color_can_select_occurrences(color);
         let color_id = color.id.clone();
-        Button::new(SharedString::from(format!(
+        crate::atoms::ui_button(SharedString::from(format!(
             "{}-selection-color-{}-select-occurrences",
             self.id, color.id
         )))
@@ -3871,7 +3887,7 @@ impl DesignPaintController for DesignPanel {
         } else {
             None
         };
-        let trigger = Button::new(SharedString::from(format!(
+        let trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{}-page-background-trigger",
             self.id
         )))

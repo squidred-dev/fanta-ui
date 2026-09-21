@@ -18,15 +18,51 @@ use gpui::{App, KeyBinding, actions};
 mod activatable;
 mod bounds;
 mod button;
+mod checkbox;
+mod color_system;
+mod dropdown;
+mod input;
 mod lucide;
+mod radio_button;
+mod segmented_control;
+mod semantic_button;
+mod slider;
+mod tabs;
 pub mod tokens;
+mod tooltip;
 mod truncate;
+mod typography;
+pub use slider::{
+    SliderBackground, SliderGradientStop, SliderHandle, SliderHandleVariant, SliderState,
+};
 
 pub use activatable::{ActivateEvent, ButtonControlExt, ControlExt};
 pub use bounds::track_bounds;
 pub use button::icon_button;
+pub use checkbox::{Checkbox, CheckboxState, CheckboxType};
+pub use color_system::{SemanticColor, SemanticColorGroup};
+pub use dropdown::{Dropdown, DropdownSize, DropdownState};
+pub use input::{
+    ColorChit, ColorChitKind, ColorChitShape, ColorChitSize, ColorInput, ColorInputKind,
+    ComboInput, ComboInputDropdown, ComboInputState, FantaTextInput, InputChip, InputChipState,
+    InputSize, InputVisualState, NumericInput, NumericInputMulti, TextInputLabel, TextInputVariant,
+    VariableCell, VariableChip, VariableChipState,
+};
 pub use lucide::{LucideIcon, render_lucide_icon};
+pub use radio_button::{RadioButton, RadioButtonSelection, RadioButtonState, RadioButtonVariant};
+pub use segmented_control::{
+    SegmentIcon, SegmentIconOption, SegmentLabel, SegmentState, SegmentedControl,
+    SegmentedControlSelection, SegmentedControlState, SegmentedControlVariant,
+};
+pub use semantic_button::{
+    SemanticButton, SemanticButtonIconAlignment, SemanticButtonSize, SemanticButtonState,
+    SemanticButtonVariant, SemanticIconButton, SemanticIconButtonKind, SemanticSplitButtonState,
+    semantic_button, semantic_icon_button, ui_button,
+};
+pub use tabs::{Tab, TabSelection, TabState, Tabs};
+pub use tooltip::{Tooltip, TooltipDirection, TooltipLink, TooltipLinkAction, TooltipLinkVariant};
 pub use truncate::truncating_label;
+pub use typography::{TypographyExt, TypographyStyle, TypographyToken};
 
 actions!(fanta_controls, [ActivateControl]);
 

@@ -1,4 +1,5 @@
 use super::*;
+use crate::atoms::TypographyExt as _;
 
 impl PagesPanel {
     fn collapsed_title(&self) -> SharedString {
@@ -28,9 +29,15 @@ impl PagesPanel {
             .cursor_pointer()
             .occlude()
             .when(self.header_hovered, |header| {
-                header.bg(cx.theme().sidebar_accent.opacity(0.55))
+                header.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                    .resolve(cx)
+                    .opacity(0.55))
             })
-            .focus(|style| style.bg(cx.theme().sidebar_accent.opacity(0.75)))
+            .focus(|style| {
+                style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                    .resolve(cx)
+                    .opacity(0.75))
+            })
             .on_hover(cx.listener(|this, hovered, _, cx| {
                 if this.header_hovered != *hovered {
                     this.header_hovered = *hovered;
@@ -59,7 +66,7 @@ impl PagesPanel {
                     })
                     .child(
                         truncating_label(title)
-                            .text_sm()
+                            .typography(crate::atoms::TypographyToken::BodyLarge)
                             .font_semibold()
                             .debug_selector(|| "pages-header-title".to_owned()),
                     ),
@@ -72,14 +79,18 @@ impl PagesPanel {
                     .debug_selector(|| "pages-search-trigger".to_owned())
                     .key_context(CONTROL_KEY_CONTEXT)
                     .track_focus(&self.find_focus_handle.clone().tab_index(0).tab_stop(true))
-                    .focus(|style| style.bg(cx.theme().sidebar_accent).rounded(px(5.)))
+                    .focus(|style| {
+                        style
+                            .bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
+                            .rounded(px(5.))
+                    })
                     .occlude()
                     .on_activate(cx.listener(|this, _, window, cx| {
                         cx.stop_propagation();
                         this.open_search(window, cx);
                     }))
                     .child(
-                        Button::new(SharedString::from(format!("{}-search", self.id)))
+                        crate::atoms::ui_button(SharedString::from(format!("{}-search", self.id)))
                             .ghost()
                             .xsmall()
                             .compact()
@@ -107,14 +118,18 @@ impl PagesPanel {
                             .tab_index(0)
                             .tab_stop(true),
                     )
-                    .focus(|style| style.bg(cx.theme().sidebar_accent).rounded(px(5.)))
+                    .focus(|style| {
+                        style
+                            .bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
+                            .rounded(px(5.))
+                    })
                     .occlude()
                     .on_activate(cx.listener(|this, _, window, cx| {
                         cx.stop_propagation();
                         this.begin_new_page(window, cx);
                     }))
                     .child(
-                        Button::new(SharedString::from(format!("{}-add", self.id)))
+                        crate::atoms::ui_button(SharedString::from(format!("{}-add", self.id)))
                             .ghost()
                             .xsmall()
                             .compact()

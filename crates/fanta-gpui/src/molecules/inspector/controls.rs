@@ -1,5 +1,6 @@
 //! Action, choice, and collection control recipes for inspectors.
 
+use crate::atoms::TypographyExt as _;
 use gpui::{
     App, Div, ElementId, InteractiveElement as _, Stateful, StatefulInteractiveElement as _,
     Styled as _,
@@ -37,20 +38,22 @@ pub fn inspector_action_button(
         .rounded(metrics.radius)
         .border_1()
         .border_color(cx.theme().transparent)
-        .text_xs();
+        .typography(crate::atoms::TypographyToken::BodyMedium);
     if access.is_interactive() {
         control = control
             .key_context(CONTROL_KEY_CONTEXT)
             .tab_index(0)
             .cursor_pointer()
-            .hover(|style| style.bg(cx.theme().accent))
-            .active(|style| style.bg(cx.theme().secondary_active));
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+            .active(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)));
     }
     if access.is_editable() {
-        control = control.focus(|style| style.border_color(cx.theme().selection));
+        control = control.focus(|style| {
+            style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+        });
     } else {
         control = control
-            .text_color(cx.theme().muted_foreground)
+            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
             .opacity(0.62);
     }
     control
@@ -63,7 +66,7 @@ pub fn inspector_segmented_control(metrics: InspectorMetrics, cx: &App) -> Div {
         .h(metrics.row_height)
         .rounded(metrics.radius)
         .border_1()
-        .border_color(cx.theme().border)
+        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
         .overflow_hidden()
 }
 
@@ -84,22 +87,22 @@ pub fn inspector_segment(
         .items_center()
         .justify_center()
         .px(metrics.row_gap)
-        .text_xs();
+        .typography(crate::atoms::TypographyToken::BodyMedium);
     if selected {
         segment = segment
-            .bg(cx.theme().accent)
-            .text_color(cx.theme().selection);
+            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+            .text_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx));
     }
     if access.is_interactive() {
         segment = segment
             .key_context(CONTROL_KEY_CONTEXT)
             .tab_index(0)
             .cursor_pointer()
-            .hover(|style| style.bg(cx.theme().accent))
-            .focus(|style| style.bg(cx.theme().accent));
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+            .focus(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)));
     } else {
         segment = segment
-            .text_color(cx.theme().muted_foreground)
+            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
             .opacity(0.62);
     }
     segment
@@ -127,19 +130,27 @@ pub fn inspector_collection_row(
         .rounded(metrics.radius)
         .border_1()
         .border_color(cx.theme().transparent)
-        .text_xs();
+        .typography(crate::atoms::TypographyToken::BodyMedium);
     if selected {
-        row = row.bg(cx.theme().sidebar_accent);
+        row = row.bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx));
     }
     if access.is_interactive() {
         row = row
             .key_context(CONTROL_KEY_CONTEXT)
             .tab_index(0)
             .cursor_pointer()
-            .hover(|style| style.bg(cx.theme().sidebar_accent.opacity(0.55)))
-            .focus(|style| style.bg(cx.theme().sidebar_accent));
+            .hover(|style| {
+                style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                    .resolve(cx)
+                    .opacity(0.55))
+            })
+            .focus(|style| {
+                style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
+            });
     } else {
-        row = row.text_color(cx.theme().muted_foreground).opacity(0.62);
+        row = row
+            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+            .opacity(0.62);
     }
     row
 }

@@ -1,5 +1,6 @@
 //! Host-controlled animation timeline with Figma Motion empty-state chrome.
 
+use crate::atoms::TypographyExt as _;
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, Context, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, ParentElement as _, Pixels, Render, SharedString,
@@ -11,8 +12,7 @@ use gpui_component::{
 };
 
 use crate::atoms::{
-    CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon, tokens,
-    track_bounds,
+    CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon, track_bounds,
 };
 
 /// Width of the gutter before the ruler/track content, in pixels.
@@ -182,7 +182,7 @@ impl Timeline {
             .gap(px(8.))
             .border_r_1()
             .border_b_1()
-            .border_color(cx.theme().border)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .child(
                 icon_button(
                     SharedString::from(format!("{}-play", self.id)),
@@ -202,7 +202,7 @@ impl Timeline {
                     } else {
                         LucideIcon::Play
                     },
-                    cx.theme().foreground,
+                    crate::atoms::SemanticColor::Text.resolve(cx),
                     12.,
                 )),
             )
@@ -221,7 +221,7 @@ impl Timeline {
                 }))
                 .child(render_lucide_icon(
                     LucideIcon::Diamond,
-                    cx.theme().foreground,
+                    crate::atoms::SemanticColor::Text.resolve(cx),
                     12.,
                 )),
             )
@@ -229,9 +229,9 @@ impl Timeline {
                 h_flex()
                     .h(px(24.))
                     .rounded(px(4.))
-                    .bg(cx.theme().secondary)
-                    .text_size(px(tokens::TypeScale::MICRO))
-                    .text_color(cx.theme().muted_foreground)
+                    .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                    .typography(crate::atoms::TypographyToken::BodySmall)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(
                         div()
                             .px(px(7.))
@@ -243,7 +243,7 @@ impl Timeline {
                             .px(px(7.))
                             .items_center()
                             .border_l_1()
-                            .border_color(cx.theme().border)
+                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                             .child(format!("{:04}", self.view_data.duration_ms)),
                     )
                     .child(
@@ -252,7 +252,7 @@ impl Timeline {
                             .px(px(6.))
                             .items_center()
                             .border_l_1()
-                            .border_color(cx.theme().border)
+                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                             .child("ms"),
                     ),
             )
@@ -265,7 +265,7 @@ impl Timeline {
                 )
                 .debug_selector(|| "timeline-loop".to_owned())
                 .when(self.view_data.looping, |button| {
-                    button.bg(cx.theme().secondary)
+                    button.bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                 })
                 .on_activate(cx.listener(|this, _, _, cx| {
                     cx.emit(TimelineAction::LoopChangeRequested {
@@ -274,7 +274,7 @@ impl Timeline {
                 }))
                 .child(render_lucide_icon(
                     LucideIcon::Repeat2,
-                    cx.theme().foreground,
+                    crate::atoms::SemanticColor::Text.resolve(cx),
                     12.,
                 )),
             )
@@ -291,7 +291,7 @@ impl Timeline {
             .flex_1()
             .overflow_hidden()
             .border_b_1()
-            .border_color(cx.theme().border)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .cursor_pointer()
             .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
                 let Some(bounds) = this.ruler_bounds else {
@@ -334,13 +334,13 @@ impl Timeline {
                             .ml(px(segment_width - 1.))
                             .w(px(1.))
                             .h(px(8.))
-                            .bg(cx.theme().border),
+                            .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
                     )
                     .child(
                         div()
                             .mt(px(13.))
-                            .text_size(px(tokens::TypeScale::MICRO))
-                            .text_color(cx.theme().muted_foreground)
+                            .typography(crate::atoms::TypographyToken::BodySmall)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(label.to_string()),
                     ),
             );
@@ -354,7 +354,7 @@ impl Timeline {
                     .top_0()
                     .bottom_0()
                     .w(px(1.))
-                    .bg(cx.theme().selection),
+                    .bg(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)),
             )
             .child(
                 div()
@@ -364,7 +364,7 @@ impl Timeline {
                     .w(px(17.))
                     .h(px(14.))
                     .rounded_b(px(4.))
-                    .bg(cx.theme().selection),
+                    .bg(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)),
             )
             .into_any_element()
     }
@@ -381,7 +381,7 @@ impl Timeline {
             .justify_center()
             .border_l_1()
             .border_b_1()
-            .border_color(cx.theme().border);
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx));
         // The trigger cycles the host zoom from pointer and keyboard in both
         // presentations; compact keeps the id, focus ring, and activation.
         let trigger = div()
@@ -394,7 +394,9 @@ impl Timeline {
             .cursor_pointer()
             .border_1()
             .border_color(cx.theme().transparent)
-            .focus(|style| style.border_color(cx.theme().selection))
+            .focus(|style| {
+                style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+            })
             .on_activate(cx.listener(|this, _, _, cx| {
                 let zoom = if this.view_data.zoom >= ZOOM_MAX {
                     ZOOM_MIN
@@ -433,7 +435,7 @@ impl Timeline {
                             .top(px(8.))
                             .h(px(4.))
                             .rounded(px(2.))
-                            .bg(cx.theme().secondary),
+                            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx)),
                     )
                     .child(
                         div()
@@ -443,7 +445,7 @@ impl Timeline {
                             .w(px(fill_width))
                             .h(px(4.))
                             .rounded(px(2.))
-                            .bg(cx.theme().selection),
+                            .bg(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)),
                     )
                     .child(
                         div()
@@ -452,7 +454,7 @@ impl Timeline {
                             .top(px(4.))
                             .size(px(12.))
                             .rounded(px(6.))
-                            .bg(cx.theme().foreground),
+                            .bg(crate::atoms::SemanticColor::Text.resolve(cx)),
                     ),
             )
             .child(Icon::new(IconName::PanelBottom).small())
@@ -473,8 +475,8 @@ impl Timeline {
             .gap(px(6.))
             .rounded(px(13.))
             .border_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().background)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .bg(crate::atoms::SemanticColor::Background.resolve(cx))
             .child(
                 icon_button(
                     SharedString::from(format!("{}-dismiss-empty", self.id)),
@@ -498,7 +500,7 @@ impl Timeline {
                     .relative()
                     .top(px(11.))
                     .font_semibold()
-                    .text_size(px(tokens::TypeScale::TITLE))
+                    .typography(crate::atoms::TypographyToken::HeadingMedium)
                     .child("No animations in timeline"),
             )
             .child(
@@ -507,9 +509,9 @@ impl Timeline {
                     .top(px(4.5))
                     .max_w(px(330.))
                     .text_center()
-                    .text_size(px(tokens::TypeScale::BODY))
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .line_height(px(16.))
-                    .text_color(cx.theme().muted_foreground)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(
                         "Select objects on the canvas to create an animation, or ask the Figma agent to create an idea from scratch.",
                     ),
@@ -528,17 +530,17 @@ impl Timeline {
                     .gap(px(5.))
                     .rounded(px(5.))
                     .border_1()
-                    .border_color(cx.theme().border)
+                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                     .cursor_pointer()
-                    .text_size(px(tokens::TypeScale::BODY))
-                    .hover(|style| style.bg(cx.theme().accent))
-                    .focus(|style| style.border_color(cx.theme().selection))
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+                    .focus(|style| style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)))
                     .on_activate(cx.listener(|_, _, _, cx| {
                         cx.emit(TimelineAction::AskAgentRequested);
                     }))
                     .child(render_lucide_icon(
                         LucideIcon::Sparkles,
-                        cx.theme().foreground,
+                        crate::atoms::SemanticColor::Text.resolve(cx),
                         12.,
                     ))
                     .child("Ask agent"),
@@ -566,9 +568,9 @@ impl Render for Timeline {
             .overflow_hidden()
             .rounded_b(px(13.))
             .border_1()
-            .border_color(cx.theme().border)
-            .bg(cx.theme().background)
-            .text_color(cx.theme().foreground)
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .bg(crate::atoms::SemanticColor::Background.resolve(cx))
+            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
             .child(
                 // Measures the strip so both rows share one computed rail
                 // width. The write is deferred past the draw so the changed
@@ -615,7 +617,7 @@ impl Render for Timeline {
                             .h_full()
                             .flex_none()
                             .border_r_1()
-                            .border_color(cx.theme().border),
+                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx)),
                     )
                     .child(
                         v_flex()
@@ -629,7 +631,7 @@ impl Render for Timeline {
                                     .top_0()
                                     .bottom_0()
                                     .w(px(1.))
-                                    .bg(cx.theme().selection),
+                                    .bg(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)),
                             )
                             .child(
                                 icon_button(
@@ -642,15 +644,15 @@ impl Render for Timeline {
                                 .absolute()
                                 .right(px(24.))
                                 .bottom(px(20.))
-                                .border_color(cx.theme().border)
-                                .bg(cx.theme().background)
-                                .focus(|style| style.border_color(cx.theme().selection))
+                                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                                .bg(crate::atoms::SemanticColor::Background.resolve(cx))
+                                .focus(|style| style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)))
                                 .on_activate(cx.listener(|_, _, _, cx| {
                                     cx.emit(TimelineAction::HelpRequested);
                                 }))
                                 .child(render_lucide_icon(
                                     LucideIcon::CircleQuestionMark,
-                                    cx.theme().foreground,
+                                    crate::atoms::SemanticColor::Text.resolve(cx),
                                     14.,
                                 )),
                             ),
