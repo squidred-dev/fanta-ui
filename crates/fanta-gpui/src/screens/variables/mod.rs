@@ -263,6 +263,8 @@ pub enum VariablesAction {
 
 /// Stateful presentation for the host-controlled variables manager.
 pub struct VariablesScreen {
+    context_data: VariablesContextData,
+    context_menu: Option<(context::ContextMenuTarget, SharedString)>,
     id: SharedString,
     focus_handle: FocusHandle,
     view_data: VariablesViewData,
@@ -364,6 +366,8 @@ impl VariablesScreen {
             ),
         ];
         Self {
+            context_data: VariablesContextData::default(),
+            context_menu: None,
             id: id.into(),
             focus_handle: cx.focus_handle(),
             view_data,
@@ -395,6 +399,7 @@ impl VariablesScreen {
 
     pub fn set_view_data(&mut self, view_data: VariablesViewData, cx: &mut Context<Self>) {
         if self.view_data.selected_collection_id != view_data.selected_collection_id {
+            self.context_menu = None;
             self.edit_target = None;
             self.settings_id = None;
             self.alias_target = None;
@@ -860,6 +865,7 @@ impl VariablesScreen {
                         alias_id: None,
                     });
                 } else {
+                    this.context_menu = None;
                     this.close_color_picker(window, cx);
                     this.alias_target = Some((v.clone(), m.clone()));
                     this.alias_trigger = format!("{surface}-assign-{v}-{m}").into();
@@ -1272,6 +1278,7 @@ impl VariablesScreen {
                         }
                     }))
                     .on_activate(cx.listener(move |this, _, window, cx| {
+                        this.context_menu = None;
                         this.close_color_picker(window, cx);
                         this.alias_target = None;
                         this.create_menu_open = false;
@@ -1395,6 +1402,7 @@ impl VariablesScreen {
                         this.overlay_bounds.insert("create-footer".into(), bounds);
                     }))
                     .on_activate(cx.listener(|this, _, window, cx| {
+                        this.context_menu = None;
                         this.close_color_picker(window, cx);
                         this.settings_id = None;
                         this.alias_target = None;
@@ -1444,6 +1452,7 @@ impl Render for VariablesScreen {
             .track_focus(&self.focus_handle)
             .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
                 if event.keystroke.key == "escape" {
+                    this.context_menu = None;
                     this.close_color_picker(window, cx);
                     this.edit_target = None;
                     this.create_menu_open = false;
@@ -1636,6 +1645,9 @@ impl Render for VariablesScreen {
                             ),
                     ),
             )
+            .when(!self.context_data.mode_scopes.is_empty(), |page| {
+                page.child(self.render_mode_scopes(cx))
+            })
             .child(
                 h_flex()
                     .flex_1()
@@ -1644,9 +1656,13 @@ impl Render for VariablesScreen {
                     .when(self.sidebar_visible, |body| {
                         body.child(self.render_sidebar(cx))
                     })
-                    .child(self.render_table(cx)),
+                    .child(self.render_table(cx))
+                    .when(self.context_data.bindings.is_some(), |body| {
+                        body.child(self.render_layer_bindings(cx))
+                    }),
             )
             .children(self.render_edit_overlays(window, cx))
+            .children(self.render_context_menu(window, cx))
             .when(self.filter_menu_open, |page| {
                 page.child(self.render_filter_menu(cx))
             })
@@ -1659,3 +1675,9 @@ mod interaction_tests;
 mod editing;
 
 mod color_picker;
+
+mod context;
+pub use context::{
+    VariablesBindingProperty, VariablesChoice, VariablesContextAction, VariablesContextData,
+    VariablesLayerBindings, VariablesModeScope,
+};

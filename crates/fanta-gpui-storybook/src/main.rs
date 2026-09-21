@@ -150,6 +150,12 @@ impl Storybook {
         );
 
         let mut subscriptions = vec![
+            cx.subscribe(
+                &variables_screen.screen,
+                |story, _, action: &fanta_gpui::variables::VariablesContextAction, cx| {
+                    story.variables_screen.handle_context_action(action, cx);
+                },
+            ),
             cx.subscribe_in(
                 &color_picker_screen.picker,
                 window,

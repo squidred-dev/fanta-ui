@@ -409,6 +409,15 @@ position, dismissed educational hints, focus, and open/closed empty-state
 guidance. They do not create variables, change prototype settings, add
 keyframes, seek, or run an agent.
 
+The Variables screen also owns the optional mode-scope bar and selected-layer
+binding panel. `VariablesContextData` supplies opaque scope, node, property,
+mode and variable identifiers with host-filtered choices. `VariablesContextAction`
+returns mode and binding selections; the host validates and applies them through
+its document operations. Both panels use the shared Dropdown atom and popup
+molecules. The binding panel owns only its left border; the screen header owns
+the horizontal separator. Creating a first variable requests the host to create
+a collection and default mode when none exists.
+
 `color_picker::ColorPicker` is a reusable organism with an RGBA-only public
 contract (`PickerColor`, `ColorPickerAction`, and `ColorPickerPhase`). It owns
 the retained editor extracted from Design; the inspector’s richer paint adapter

@@ -61,6 +61,7 @@ pub struct Dropdown {
     state: DropdownState,
     disabled: bool,
     stroke: bool,
+    full_width: bool,
     leading_icon: Option<LucideIcon>,
     on_activate: Option<ActivateHandler>,
 }
@@ -74,9 +75,15 @@ impl Dropdown {
             state: DropdownState::Default,
             disabled: false,
             stroke: true,
+            full_width: false,
             leading_icon: None,
             on_activate: None,
         }
+    }
+
+    pub const fn full_width(mut self, full_width: bool) -> Self {
+        self.full_width = full_width;
+        self
     }
 
     pub const fn size(mut self, size: DropdownSize) -> Self {
@@ -137,6 +144,7 @@ impl RenderOnce for Dropdown {
             .key_context(CONTROL_KEY_CONTEXT)
             .tab_index(if disabled { -1 } else { 0 })
             .w(px(tokens::DropdownGeometry::WIDTH))
+            .when(self.full_width, |dropdown| dropdown.w_full())
             .h(px(self.size.height()))
             .items_center()
             .overflow_hidden()

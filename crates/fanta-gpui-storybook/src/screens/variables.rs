@@ -1,6 +1,10 @@
 //! The Variables story: mock host state, fixtures, reducer, and knobs.
 
 use crate::*;
+use fanta_gpui::variables::{
+    VariablesBindingProperty, VariablesChoice, VariablesContextAction, VariablesContextData,
+    VariablesLayerBindings, VariablesModeScope,
+};
 
 use super::knobs::{self, KnobOption};
 
@@ -8,15 +12,17 @@ use super::knobs::{self, KnobOption};
 pub(crate) enum VariablesNamedState {
     Default,
     Empty,
+    NoCollection,
 }
 
 impl VariablesNamedState {
-    pub(crate) const ALL: [Self; 2] = [Self::Default, Self::Empty];
+    pub(crate) const ALL: [Self; 3] = [Self::Default, Self::Empty, Self::NoCollection];
 
     pub(crate) const fn label(self) -> &'static str {
         match self {
             Self::Default => "Default",
             Self::Empty => "Empty",
+            Self::NoCollection => "No collection",
         }
     }
 }
@@ -100,6 +106,7 @@ pub(crate) struct VariablesStory {
     pub(crate) view_data: VariablesViewData,
     pub(crate) last_action: SharedString,
     pub(crate) named_state: VariablesNamedState,
+    context_data: VariablesContextData,
     collection_tables: HashMap<SharedString, VariablesCollectionTable>,
 }
 
@@ -109,13 +116,152 @@ impl VariablesStory {
         let screen =
             cx.new(|cx| VariablesScreen::new("storybook-variables", view_data.clone(), window, cx));
         let collection_tables = Self::collection_tables(&view_data);
+        let context_data = Self::context_fixture(&view_data);
+        screen.update(cx, |screen, cx| {
+            screen.set_context_data(context_data.clone(), cx)
+        });
         Self {
+            context_data,
             screen,
             view_data,
             last_action: "Ready — switch collections and groups, edit values, or add a mode".into(),
             named_state: VariablesNamedState::Default,
             collection_tables,
         }
+    }
+
+    fn context_fixture(data: &VariablesViewData) -> VariablesContextData {
+        let modes = if data.collections.is_empty() {
+            Vec::new()
+        } else {
+            [
+                ("project", "Project", "Collection default"),
+                ("page", "Page: Page 1", "Inherit parent"),
+            ]
+            .into_iter()
+            .map(|(id, label, inherited)| {
+                let mut choices = vec![VariablesChoice {
+                    id: None,
+                    label: inherited.into(),
+                }];
+                choices.extend(data.modes.iter().map(|mode| VariablesChoice {
+                    id: Some(mode.id.clone()),
+                    label: mode.name.clone(),
+                }));
+                VariablesModeScope {
+                    id: id.into(),
+                    label: label.into(),
+                    selected: None,
+                    choices,
+                }
+            })
+            .collect()
+        };
+        let properties = [
+            ("visible", "Visibility", VariableKind::Boolean),
+            ("opacity", "Opacity", VariableKind::Number),
+            ("fill", "Fill 1 color", VariableKind::Color),
+            ("radius", "Corner radius", VariableKind::Number),
+        ]
+        .into_iter()
+        .map(|(id, label, kind)| {
+            let choices = data
+                .variables
+                .iter()
+                .filter(|variable| variable.kind == kind)
+                .map(|variable| VariablesChoice {
+                    id: Some(variable.id.clone()),
+                    label: variable.name.clone(),
+                })
+                .collect();
+            VariablesBindingProperty {
+                id: id.into(),
+                label: label.into(),
+                selected: None,
+                choices,
+            }
+        })
+        .collect();
+        VariablesContextData {
+            mode_scopes: modes,
+            bindings: Some(VariablesLayerBindings {
+                node_id: "shape".into(),
+                name: "Shape".into(),
+                properties,
+            }),
+        }
+    }
+
+    fn refresh_context(&mut self) {
+        let mut data = Self::context_fixture(&self.view_data);
+        for scope in &mut data.mode_scopes {
+            scope.selected = self
+                .context_data
+                .mode_scopes
+                .iter()
+                .find(|old| old.id == scope.id)
+                .and_then(|old| old.selected.clone());
+        }
+        if let (Some(bindings), Some(old)) = (&mut data.bindings, &self.context_data.bindings) {
+            for property in &mut bindings.properties {
+                property.selected = old
+                    .properties
+                    .iter()
+                    .find(|old| old.id == property.id)
+                    .and_then(|old| old.selected.clone());
+                if property.selected.is_some() {
+                    property.choices.insert(
+                        0,
+                        VariablesChoice {
+                            id: None,
+                            label: "Unbind".into(),
+                        },
+                    );
+                }
+            }
+        }
+        self.context_data = data;
+    }
+
+    pub(crate) fn handle_context_action(
+        &mut self,
+        action: &VariablesContextAction,
+        cx: &mut Context<Storybook>,
+    ) {
+        match action {
+            VariablesContextAction::ModeSelected {
+                scope_id, mode_id, ..
+            } => {
+                if let Some(scope) = self
+                    .context_data
+                    .mode_scopes
+                    .iter_mut()
+                    .find(|scope| scope.id == *scope_id)
+                {
+                    scope.selected = mode_id.clone();
+                }
+            }
+            VariablesContextAction::BindingSelected {
+                property_id,
+                variable_id,
+                ..
+            } => {
+                if let Some(property) = self.context_data.bindings.as_mut().and_then(|bindings| {
+                    bindings
+                        .properties
+                        .iter_mut()
+                        .find(|property| property.id == *property_id)
+                }) {
+                    property.selected = variable_id.clone();
+                }
+            }
+        }
+        self.last_action = format!("Host applied {action:?}").into();
+        self.refresh_context();
+        self.screen.update(cx, |screen, cx| {
+            screen.set_context_data(self.context_data.clone(), cx)
+        });
+        cx.notify();
     }
 
     fn collection_tables(
@@ -156,6 +302,13 @@ impl VariablesStory {
         match state {
             VariablesNamedState::Default => seed_variables_view_data(),
             VariablesNamedState::Empty => empty_variables_view_data(),
+            VariablesNamedState::NoCollection => {
+                let mut data = empty_variables_view_data();
+                data.collections.clear();
+                data.selected_collection_id = "".into();
+                data.modes.clear();
+                data
+            }
         }
     }
 
@@ -170,6 +323,10 @@ impl VariablesStory {
         let view_data = self.view_data.clone();
         self.screen
             .update(cx, |screen, cx| screen.set_view_data(view_data, cx));
+        self.context_data = Self::context_fixture(&self.view_data);
+        self.screen.update(cx, |screen, cx| {
+            screen.set_context_data(self.context_data.clone(), cx)
+        });
         self.last_action = format!("Story applied the {} Variables state", state.label()).into();
         cx.notify();
     }
@@ -214,6 +371,11 @@ impl VariablesStory {
                 self.last_action = "Host opened Variables search options".into();
             }
             VariablesAction::CreateCollectionRequested => {
+                if self.view_data.modes.is_empty() {
+                    self.view_data
+                        .modes
+                        .push(VariablesMode::new("mode-1", "Mode 1"));
+                }
                 self.save_selected_collection();
                 let ordinal = self.view_data.collections.len() + 1;
                 let collection_id: SharedString = format!("collection-{ordinal}").into();
@@ -232,6 +394,14 @@ impl VariablesStory {
             }
             VariablesAction::CreateVariableRequested
             | VariablesAction::CreateTypedVariableRequested { .. } => {
+                if self.view_data.collections.is_empty() {
+                    self.handle_action(
+                        screen.clone(),
+                        &VariablesAction::CreateCollectionRequested,
+                        cx,
+                    );
+                }
+
                 let kind = match action {
                     VariablesAction::CreateTypedVariableRequested { kind } => *kind,
                     _ => VariableKind::Number,
@@ -392,8 +562,10 @@ impl VariablesStory {
             }
         }
         self.save_selected_collection();
+        self.refresh_context();
         screen.update(cx, |screen, cx| {
             screen.set_view_data(self.view_data.clone(), cx);
+            screen.set_context_data(self.context_data.clone(), cx);
         });
         cx.notify();
     }

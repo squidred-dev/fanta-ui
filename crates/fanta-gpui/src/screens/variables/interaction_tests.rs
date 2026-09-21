@@ -696,3 +696,86 @@ fn shared_color_picker_accepts_real_pointer_input(cx: &mut TestAppContext) {
     cx.run_until_parked();
     component.read_with(cx, |page, _| assert!(page.color_target.is_none()));
 }
+
+#[gpui::test]
+fn context_dropdowns_emit_host_owned_mode_and_binding_intents(cx: &mut TestAppContext) {
+    let (host, actions, cx) =
+        mount_component::<VariablesScreen, VariablesContextAction>(cx, |window, cx| {
+            let mut screen = VariablesScreen::new("context-variables", fixture(), window, cx);
+            screen.set_context_data(
+                VariablesContextData {
+                    mode_scopes: vec![VariablesModeScope {
+                        id: "project".into(),
+                        label: "Project".into(),
+                        selected: None,
+                        choices: vec![
+                            VariablesChoice {
+                                id: None,
+                                label: "Collection default".into(),
+                            },
+                            VariablesChoice {
+                                id: Some("light".into()),
+                                label: "Light".into(),
+                            },
+                        ],
+                    }],
+                    bindings: Some(VariablesLayerBindings {
+                        node_id: "shape".into(),
+                        name: "Shape".into(),
+                        properties: vec![VariablesBindingProperty {
+                            id: "fill".into(),
+                            label: "Fill 1 color".into(),
+                            selected: None,
+                            choices: vec![VariablesChoice {
+                                id: Some("color".into()),
+                                label: "Accent".into(),
+                            }],
+                        }],
+                    }),
+                },
+                cx,
+            );
+            screen
+        });
+    let point = cx
+        .debug_bounds("variables-mode-scope-project")
+        .unwrap()
+        .center();
+    cx.simulate_click(point, Modifiers::none());
+    cx.run_until_parked();
+    assert!(
+        cx.read(|app| host.read(app).component.read(app).context_menu.is_some()),
+        "dropdown should open"
+    );
+    let point = cx
+        .debug_bounds("variables-context-choice-1")
+        .unwrap()
+        .center();
+    cx.simulate_click(point, Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(
+        actions.borrow().last(),
+        Some(&VariablesContextAction::ModeSelected {
+            collection_id: "collection".into(),
+            scope_id: "project".into(),
+            mode_id: Some("light".into())
+        })
+    );
+    let point = cx.debug_bounds("variables-binding-fill").unwrap().center();
+    cx.simulate_click(point, Modifiers::none());
+    cx.run_until_parked();
+    let point = cx
+        .debug_bounds("variables-context-choice-0")
+        .unwrap()
+        .center();
+    cx.simulate_click(point, Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(
+        actions.borrow().last(),
+        Some(&VariablesContextAction::BindingSelected {
+            node_id: "shape".into(),
+            property_id: "fill".into(),
+            variable_id: Some("color".into())
+        })
+    );
+}
