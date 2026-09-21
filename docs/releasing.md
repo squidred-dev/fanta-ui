@@ -60,6 +60,13 @@ forbid unsafe code.
 
 ## Publish automatically with GitHub Actions
 
+CI runs on main pushes and pull requests; branch previews can be checked with
+the manual CI dispatch. New runs cancel older CI for the same branch or pull
+request. Tags run only the publication workflow. Because publication repeats
+the full validation, it cancels any unfinished CI for that exact release
+commit. Publication itself remains serialized and is never automatically
+cancelled by newer CI or release requests.
+
 The repository remote is `squidred-dev/fanta-ui`. Its
 [`Publish crates` workflow](../.github/workflows/release.yml) runs when a `v*`
 tag is pushed, or manually against an existing tag. The tag must match the

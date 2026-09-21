@@ -22,6 +22,9 @@ jobs:
   publish:
     runs-on: macos-latest
     timeout-minutes: 360
+    permissions:
+      contents: read
+      actions: write
     env:
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
@@ -39,6 +42,22 @@ jobs:
           components: rustfmt, clippy
       - name: Check release version
         run: python3 script/release.py --release-tag "$RELEASE_TAG"
+      - name: Cancel redundant CI for this release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          commit=$(git rev-parse HEAD)
+          gh run list --workflow ci.yml --commit "$commit" --limit 100 \
+            --json databaseId,status \
+            --jq '.[] | select(.status != "completed") | .databaseId' \
+            > "$RUNNER_TEMP/redundant-ci-runs"
+          while read -r run_id; do
+            if ! gh run cancel "$run_id"; then
+              # A run may finish between listing it and requesting cancellation.
+              test "$(gh run view "$run_id" --json status --jq .status)" = completed
+            fi
+          done < "$RUNNER_TEMP/redundant-ci-runs"
       - name: Check publication credentials
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
