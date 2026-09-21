@@ -1,16 +1,22 @@
 # Extraction validation — 2026-09-21
 
 The standalone extraction and local editor integration are implemented.
-**The crates.io release is not complete.** No crates were uploaded.
+**The crates.io release is not complete.** Five of the 33 crates have published:
+`fanta-gpui-async-process`, `fanta-gpui-derive-refineable`,
+`fanta-gpui-gpui-macros`, `fanta-gpui-gpui-shared-string`, and
+`fanta-gpui-gpui-util`. The release is waiting on crates.io's new-crate rate limit.
 
 The extraction and release workflow are committed and pushed. The `v0.1.0`
-tag points to `e1f9050` on `squidred-dev/fanta-ui`. GitHub Actions passed all
+tag points to `ba09b20` on `squidred-dev/fanta-ui`. GitHub Actions passed all
 workspace checks, native feature compilation, archive verification, and the
 isolated consumer checks and tests. The first upload was rejected because the
-publisher account has no verified email address. Verify it at
-<https://crates.io/settings/profile>, then rerun
-[the release workflow](https://github.com/squidred-dev/fanta-ui/actions/runs/35609074045).
-The Actions secret is configured; no new code or token is required by this error.
+publisher account had no verified email address. The publisher has since
+confirmed email verification, and
+[the release workflow](https://github.com/squidred-dev/fanta-ui/actions/runs/35613549055)
+has accepted the verified account and started uploading, with rate-limit retries
+and a six-hour timeout for creating all 33 names. The Actions secret is configured.
+Remaining registry publication and the final consumer check are pending until
+that run succeeds. Do not move the release tag now that archives have published.
 
 ## Inventory and provenance
 
@@ -62,8 +68,8 @@ sandbox runs failed on that cache; the authorized native builds passed.
 
 ## Remaining release work
 
-- Verify the crates.io publisher account email, then rerun the tagged release.
-  Authentication is configured through the repository's `CRATES_IO_TOKEN`
+- Finish the tagged release. Authentication is configured through the
+  repository's `CRATES_IO_TOKEN`
   Actions secret. The first release attempt also identified a generated
   `proptest/persistence-test.txt` file accidentally tracked during extraction;
   `e1f9050` removes and ignores that generated output.
