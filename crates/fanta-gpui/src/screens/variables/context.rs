@@ -134,13 +134,17 @@ impl VariablesScreen {
                             .text_color(SemanticColor::TextSecondary.resolve(cx))
                             .child(scope.label.clone()),
                     )
-                    .child(div().w(px(176.)).child(self.context_dropdown(
-                        format!("variables-mode-scope-{}", scope.id).into(),
-                        label,
-                        scope.choices.is_empty(),
-                        ContextMenuTarget::Mode(scope.id.clone()),
-                        cx,
-                    )))
+                    .child(
+                        div()
+                            .w(px(tokens::VariablesGeometry::MODE_DROPDOWN_WIDTH))
+                            .child(self.context_dropdown(
+                                format!("variables-mode-scope-{}", scope.id).into(),
+                                label,
+                                scope.choices.is_empty(),
+                                ContextMenuTarget::Mode(scope.id.clone()),
+                                cx,
+                            )),
+                    )
             }))
             .into_any_element()
     }
@@ -152,7 +156,7 @@ impl VariablesScreen {
         v_flex()
             .id("variables-layer-bindings")
             .debug_selector(|| "variables-layer-bindings".to_owned())
-            .w(px(248.))
+            .w(px(tokens::VariablesGeometry::BINDINGS_WIDTH))
             .h_full()
             .flex_none()
             .min_h_0()
@@ -284,7 +288,7 @@ impl VariablesScreen {
                 .top(bounds.bottom_left().y - self.page_origin.y)
                 .child(anchored_popup(
                     Anchor::TopLeft,
-                    point(px(0.), px(4.)),
+                    point(px(0.), px(tokens::Space::XS)),
                     3,
                     menu,
                 ))

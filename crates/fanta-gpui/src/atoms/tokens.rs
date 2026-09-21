@@ -196,3 +196,11 @@ impl SliderGeometry {
     pub const MIN_WIDTH: f32 = 100.;
     pub const STOP_SIZE: f32 = RowHeight::FIELD;
 }
+
+/// Mode and binding controls alongside the Variables table.
+pub struct VariablesGeometry;
+
+impl VariablesGeometry {
+    pub const MODE_DROPDOWN_WIDTH: f32 = 176.;
+    pub const BINDINGS_WIDTH: f32 = 248.;
+}
