@@ -26,6 +26,8 @@ use crate::{
     molecules::{anchored_popup, menu_item, popup_max_height, popup_surface, popup_width},
 };
 
+pub(crate) const VARIABLES_SCREEN_KEY_CONTEXT: &str = "FantaVariablesScreen";
+
 /// Reference design width of the collections/groups sidebar.
 const SIDEBAR_WIDTH: f32 = 282.;
 /// Floor the sidebar compresses to on narrow pages.
@@ -191,6 +193,7 @@ impl VariableRow {
 /// Immutable host snapshot rendered by [`VariablesScreen`].
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VariablesViewData {
+    /// Host-provided project name displayed in the screen header.
     pub document_name: SharedString,
     pub collections: Vec<VariablesCollection>,
     pub selected_collection_id: SharedString,
@@ -1449,6 +1452,7 @@ impl Render for VariablesScreen {
         let page = cx.entity();
         v_flex()
             .id(self.id.clone())
+            .key_context(VARIABLES_SCREEN_KEY_CONTEXT)
             .track_focus(&self.focus_handle)
             .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
                 if event.keystroke.key == "escape" {
@@ -1495,6 +1499,9 @@ impl Render for VariablesScreen {
                 .top_0()
                 .size_full(),
             )
+            .when(!self.context_data.mode_scopes.is_empty(), |page| {
+                page.child(self.render_mode_scopes(cx))
+            })
             .child(
                 h_flex()
                     .h(px(50.))
@@ -1586,6 +1593,8 @@ impl Render for VariablesScreen {
                                     .min_w(px(0.))
                                     .overflow_hidden()
                                     .rounded(px(6.))
+                                    .border_1()
+                                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                                     .bg(crate::atoms::SemanticColor::BackgroundSecondary
                                         .resolve(cx))
                                     .child(
@@ -1645,9 +1654,6 @@ impl Render for VariablesScreen {
                             ),
                     ),
             )
-            .when(!self.context_data.mode_scopes.is_empty(), |page| {
-                page.child(self.render_mode_scopes(cx))
-            })
             .child(
                 h_flex()
                     .flex_1()

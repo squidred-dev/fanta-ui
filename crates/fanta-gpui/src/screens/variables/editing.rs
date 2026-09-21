@@ -313,7 +313,13 @@ impl VariablesScreen {
                 );
             }
             if count == 0 {
-                picker = picker.child("No compatible variables");
+                picker = picker.child(
+                    div()
+                        .px_2()
+                        .py_1()
+                        .text_color(crate::atoms::SemanticColor::TextSecondary.resolve(cx))
+                        .child("No compatible variables"),
+                );
             }
             overlays.push(self.place_popup(
                 &self.alias_trigger,

@@ -503,6 +503,28 @@ fn search_options_control_emits_its_intent(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn search_deletion_survives_host_keymap_reload(cx: &mut TestAppContext) {
+    let (host, actions, cx) = mount(cx);
+    let search_input = cx.read(|app| host.read(app).component.read(app).search_input.clone());
+    cx.update(|window, app| {
+        app.clear_key_bindings();
+        search_input.read(app).focus_handle(app).focus(window, app);
+    });
+    cx.run_until_parked();
+    cx.simulate_keystrokes("r a backspace");
+    cx.run_until_parked();
+    assert_eq!(cx.read(|app| search_input.read(app).value()), "r");
+    cx.simulate_keystrokes("home delete");
+    cx.run_until_parked();
+    assert_eq!(cx.read(|app| search_input.read(app).value()), "");
+    assert_eq!(
+        actions.borrow().last(),
+        Some(&VariablesAction::SearchQueryChanged { query: "".into() })
+    );
+    assert!(cx.debug_bounds("variables-value-color-light").is_some());
+}
+
+#[gpui::test]
 fn search_typing_emits_query_changes_and_filters_rows(cx: &mut TestAppContext) {
     let (host, actions, cx) = mount(cx);
 

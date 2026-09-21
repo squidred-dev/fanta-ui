@@ -17,6 +17,7 @@ use crate::{
         CloseToolbarOverlay, NextToolbarCommand, PreviousToolbarCommand,
         TOOLBAR_TEXT_ENTRY_KEY_CONTEXT,
     },
+    variables::VARIABLES_SCREEN_KEY_CONTEXT,
 };
 
 const INPUT_KEY_CONTEXT: &str = "Input";
@@ -157,6 +158,7 @@ fn is_fanta_text_input(event: &KeystrokeEvent) -> bool {
             || context.contains(PAGES_PANEL_KEY_CONTEXT)
             || context.contains(DESIGN_PANEL_KEY_CONTEXT)
             || context.contains(LAYERS_PANEL_KEY_CONTEXT)
+            || context.contains(VARIABLES_SCREEN_KEY_CONTEXT)
     });
     has_input && has_fanta_surface
 }

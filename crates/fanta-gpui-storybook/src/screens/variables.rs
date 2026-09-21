@@ -29,7 +29,7 @@ impl VariablesNamedState {
 
 pub(crate) fn seed_variables_view_data() -> VariablesViewData {
     VariablesViewData {
-        document_name: "Untitled".into(),
+        document_name: "Fanta Design".into(),
         collections: vec![
             VariablesCollection::new("collection-1", "Collection 1", 1),
             VariablesCollection::new("collection-2", "Collection 2", 0),
@@ -56,7 +56,7 @@ pub(crate) fn seed_variables_view_data() -> VariablesViewData {
 
 pub(crate) fn empty_variables_view_data() -> VariablesViewData {
     VariablesViewData {
-        document_name: "Untitled".into(),
+        document_name: "Fanta Design".into(),
         collections: vec![VariablesCollection::new("collection-1", "Collection 1", 0)],
         selected_collection_id: "collection-1".into(),
         groups: vec![VariablesGroup::new("all", "All", 0).aggregate()],
