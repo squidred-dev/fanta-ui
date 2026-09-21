@@ -1,6 +1,6 @@
 [package]
 name = "fanta-gpui-collections"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 publish = true
 license = "Apache-2.0"
@@ -38,7 +38,7 @@ version = "2.1.0"
 [dependencies.gpui_util]
 path = "../gpui_util"
 package = "fanta-gpui-gpui-util"
-version = "=0.1.0"
+version = "=0.2.0"
 
 [lints.clippy.style]
 level = "allow"

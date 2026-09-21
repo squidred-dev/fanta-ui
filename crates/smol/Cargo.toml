@@ -86,7 +86,7 @@ path = "examples/windows-uds.rs"
 edition = "2018"
 rust-version = "1.63"
 name = "fanta-gpui-smol"
-version = "0.1.0"
+version = "0.2.0"
 authors = [ "Stjepan Glavina <stjepang@gmail.com>",]
 build = false
 exclude = [ "/.*",]
@@ -204,7 +204,7 @@ default-features = false
 version = "2"
 
 [target."cfg(not(target_os = \"espidf\"))".dependencies.async-process]
-version = "=0.1.0"
+version = "=0.2.0"
 package = "fanta-gpui-async-process"
 path = "../async_process"
 

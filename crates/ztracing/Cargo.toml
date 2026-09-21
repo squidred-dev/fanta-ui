@@ -1,6 +1,6 @@
 [package]
 name = "fanta-gpui-ztracing"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 publish = true
 license = "GPL-3.0-or-later"
@@ -19,7 +19,7 @@ name = "ztracing"
 [dependencies.zlog]
 path = "../zlog"
 package = "fanta-gpui-zlog"
-version = "=0.1.0"
+version = "=0.2.0"
 
 [dependencies.tracing]
 version = "0.1.40"
@@ -37,7 +37,7 @@ features = [ "enable", "ondemand",]
 [dependencies.ztracing_macro]
 path = "../ztracing_macro"
 package = "fanta-gpui-ztracing-macro"
-version = "=0.1.0"
+version = "=0.2.0"
 
 [lints.clippy]
 dbg_macro = "deny"

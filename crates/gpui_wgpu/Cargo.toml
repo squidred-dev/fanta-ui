@@ -4,7 +4,7 @@ harness = false
 
 [package]
 name = "fanta-gpui-gpui-wgpu"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 publish = true
 license = "Apache-2.0"
@@ -30,14 +30,14 @@ swash = "0.2.6"
 path = "../gpui"
 default-features = false
 package = "fanta-gpui-core"
-version = "=0.1.0"
+version = "=0.2.0"
 
 [dependencies.anyhow]
 version = "1.0.86"
 
 [dependencies.collections]
 path = "../collections"
-version = "=0.1.0"
+version = "=0.2.0"
 package = "fanta-gpui-collections"
 
 [dependencies.itertools]
@@ -63,7 +63,7 @@ version = "1.10"
 [dependencies.gpui_util]
 path = "../gpui_util"
 package = "fanta-gpui-gpui-util"
-version = "=0.1.0"
+version = "=0.2.0"
 
 [dependencies.wgpu]
 version = "29.0.4"

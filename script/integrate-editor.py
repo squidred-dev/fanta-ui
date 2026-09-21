@@ -17,6 +17,7 @@ args = parser.parse_args()
 if args.mode == 'git' and not args.revision:
     parser.error('--revision is required for git mode')
 root = Path(__file__).resolve().parents[1]
+release_version = tomlkit.parse((root / 'Cargo.toml').read_text())['workspace']['package']['version']
 rows = json.loads((root / 'docs/extraction/packages.json').read_text())
 rows.append({'original_name': 'fanta-gpui', 'package': 'fanta-gpui', 'source_path': 'crates/fanta-gpui'})
 manifest = args.editor.resolve() / 'Cargo.toml'
@@ -42,7 +43,7 @@ for row in rows:
             if key not in ['path', 'git', 'rev', 'branch', 'tag', 'version', 'package']:
                 entry[key] = value
     entry['package'] = row['package']
-    entry['version'] = '=0.1.0'
+    entry['version'] = '=' + release_version
     if args.mode == 'local':
         entry['path'] = str(root / row['source_path'])
     elif args.mode == 'git':
