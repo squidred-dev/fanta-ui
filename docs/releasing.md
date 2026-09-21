@@ -94,6 +94,12 @@ published version with different contents stops the release. Concurrent releases
 are serialized. For subsequent releases, update the coordinated package version,
 exact internal requirements, and consumer versions before tagging.
 
+The first release creates 33 crate names. The publisher waits ten minutes and
+retries explicit HTTP 429 responses; other publication errors stop immediately.
+The workflow allows six hours for the initial publication to accommodate
+[crates.io's new-crate rate limit](https://github.com/rust-lang/crates.io/blob/main/src/rate_limiter.rs).
+Later versions use the registry's separate existing-crate update limit.
+
 ## Publish locally
 
 1. Verify names and ownership with `python3 script/release.py --registry-check`.

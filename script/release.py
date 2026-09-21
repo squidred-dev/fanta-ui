@@ -88,6 +88,22 @@ def index_record(name, version):
         raise
 
 
+def publish(name):
+    command = ['cargo', 'publish', '-p', name, '--locked']
+    for attempt in range(4):
+        result = subprocess.run(command, cwd=ROOT, text=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        print(result.stdout, end='', flush=True)
+        if result.returncode == 0:
+            return
+        if '429 Too Many Requests' not in result.stdout or attempt == 3:
+            raise subprocess.CalledProcessError(result.returncode, command)
+        # New-crate tokens replenish every ten minutes. A 429 rejects the upload,
+        # so retry the same immutable version only after that interval has elapsed.
+        print(f'{name}: crates.io rate limit; retrying in 601 seconds.', flush=True)
+        time.sleep(601)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--release-tag', help='Require a v<workspace version> release tag')
@@ -127,7 +143,7 @@ def main():
                 raise RuntimeError(f"Published archive differs from local source: {p['name']}")
             continue
         cargo('publish', '-p', p['name'], '--locked', '--dry-run')
-        cargo('publish', '-p', p['name'], '--locked')
+        publish(p['name'])
         deadline = time.monotonic() + 180
         while not index_record(p['name'], p['version']):
             if time.monotonic() > deadline:

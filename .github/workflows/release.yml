@@ -21,7 +21,7 @@ concurrency:
 jobs:
   publish:
     runs-on: macos-latest
-    timeout-minutes: 120
+    timeout-minutes: 360
     env:
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
