@@ -3,6 +3,15 @@
 The standalone extraction and local editor integration are implemented.
 **The crates.io release is not complete.** No crates were uploaded.
 
+The extraction and release workflow are committed and pushed. The `v0.1.0`
+tag points to `e1f9050` on `squidred-dev/fanta-ui`. GitHub Actions passed all
+workspace checks, native feature compilation, archive verification, and the
+isolated consumer checks and tests. The first upload was rejected because the
+publisher account has no verified email address. Verify it at
+<https://crates.io/settings/profile>, then rerun
+[the release workflow](https://github.com/squidred-dev/fanta-ui/actions/runs/35609074045).
+The Actions secret is configured; no new code or token is required by this error.
+
 ## Inventory and provenance
 
 - 32 imported packages plus the existing `fanta-gpui` facade: 33 publishable
@@ -39,6 +48,8 @@ The standalone extraction and local editor integration are implemented.
 | Editor `cargo test -p fig_viewer --lib gpui_adapters` | 45 passed, 0 failed |
 | Rebuilt editor startup with temporary data directory | First frame logged at 14:52:42 Europe/Madrid; test instance stopped |
 | Editor resolved dependency graph | Exactly one `fanta-gpui-core`; no old extracted package identities |
+| Pinned Git extraction `f35ed675ceca8620d2cd57b35641894b561f3afd` | Editor check, full application build, and all 45 adapter tests passed |
+| GitHub release validation at `e1f9050` | Workspace validation and packaged consumer passed; upload blocked by account email verification |
 
 The independent consumer was copied outside the repository, used registry
 versions without path dependencies or patches, and resolved every Fanta package
@@ -51,13 +62,13 @@ sandbox runs failed on that cache; the authorized native builds passed.
 
 ## Remaining release work
 
-- Configure crates.io authentication locally. No token or configured Cargo
-  credential provider was present at validation time.
-- Commit and push the reviewed release source; validate the pinned Git editor
-  checkpoint before publishing. Existing user changes have not been committed
-  automatically.
+- Verify the crates.io publisher account email, then rerun the tagged release.
+  Authentication is configured through the repository's `CRATES_IO_TOKEN`
+  Actions secret. The first release attempt also identified a generated
+  `proptest/persistence-test.txt` file accidentally tracked during extraction;
+  `e1f9050` removes and ignores that generated output.
 - Publish in dependency order, verify the consumer against actual crates.io,
-  and switch `fanta-edit` from its explicit local development aliases to registry
+  and switch `fanta-edit` from its pinned Git aliases to registry
   versions. The temporary registry is a packaging test, not publication.
 - Only then remove the excluded source copies from `fanta-edit` and finish its
   vendoring/license-script cleanup. Copies were deliberately retained.
