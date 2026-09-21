@@ -6,3 +6,4 @@
 __pycache__/
 /examples/registry-smoke/target/
 /examples/registry-smoke/Cargo.lock
+/crates/proptest/persistence-test.txt

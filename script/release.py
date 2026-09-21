@@ -113,8 +113,9 @@ def main():
     if not args.publish:
         return
     # A release must correspond to a reviewable commit, including all imported files.
-    if subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).strip():
-        raise RuntimeError('Commit the release sources before publishing')
+    changes = subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).strip()
+    if changes:
+        raise RuntimeError('Commit the release sources before publishing:\n' + changes)
     for p in release:
         existing = index_record(p['name'], p['version'])
         if existing:
