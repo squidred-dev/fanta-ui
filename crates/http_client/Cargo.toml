@@ -1,6 +1,6 @@
 [package]
 name = "fanta-gpui-http-client"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 publish = true
 license = "Apache-2.0"
@@ -84,7 +84,7 @@ level = "allow"
 path = "../util"
 optional = true
 package = "fanta-gpui-util"
-version = "=0.2.0"
+version = "=0.3.0"
 
 [target."cfg(not(target_family = \"wasm\"))".dependencies.async-fs]
 version = "2.1"

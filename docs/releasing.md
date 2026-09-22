@@ -6,7 +6,7 @@ the first release gate; Linux, Windows, and web are preserved but unverified.
 
 ## Package identity
 
-All published packages use the coordinated version `0.2.0` and use exact internal dependencies.
+All published packages use the coordinated version `0.3.0` and use exact internal dependencies.
 `fanta-gpui` remains the component facade. GPUI is `fanta-gpui-core`, and the
 component fork is `fanta-gpui-components`. Other names prefix the complete old
 name with `fanta-gpui-`, replacing underscores with hyphens. Keeping the complete
@@ -17,10 +17,10 @@ Consumers preserve Rust imports through aliases:
 
 ```toml
 [dependencies]
-fanta-gpui = "=0.2.0"
-gpui = { package = "fanta-gpui-core", version = "=0.2.0" }
-gpui-component = { package = "fanta-gpui-components", version = "=0.2.0" }
-gpui_platform = { package = "fanta-gpui-gpui-platform", version = "=0.2.0" }
+fanta-gpui = "=0.3.0"
+gpui = { package = "fanta-gpui-core", version = "=0.3.0" }
+gpui-component = { package = "fanta-gpui-components", version = "=0.3.0" }
+gpui_platform = { package = "fanta-gpui-gpui-platform", version = "=0.3.0" }
 ```
 
 Every crate exchanging GPUI or supporting-library types must resolve to the
@@ -70,7 +70,7 @@ cancelled by newer CI or release requests.
 The repository remote is `squidred-dev/fanta-ui`. Its
 [`Publish crates` workflow](../.github/workflows/release.yml) runs when a `v*`
 tag is pushed, or manually against an existing tag. The tag must match the
-workspace version (`v0.2.0` for this release).
+workspace version (`v0.3.0` for this release).
 
 One-time setup: create a crates.io API token permitted to publish new packages
 and updates for this workspace, and save it as the repository Actions secret
@@ -84,8 +84,8 @@ gh secret set CRATES_IO_TOKEN --repo squidred-dev/fanta-ui
 Commit and push the reviewed extraction and workflow before creating the tag:
 
 ```sh
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
 Actions checks formatting, builds, tests, Clippy, native feature compilation,

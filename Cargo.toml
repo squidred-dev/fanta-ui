@@ -41,7 +41,7 @@ members = [
 default-members = ["crates/fanta-gpui"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.95"
 publish = false
@@ -49,11 +49,11 @@ license = "GPL-3.0"
 repository = "https://github.com/squidred-dev/fanta-ui"
 
 [workspace.dependencies]
-fanta-gpui = { path = "crates/fanta-gpui", version = "=0.2.0" }
-gpui = { package = "fanta-gpui-core", path = "crates/gpui", version = "=0.2.0" }
-gpui-component = { package = "fanta-gpui-components", path = "crates/gpui_component", version = "=0.2.0" }
-gpui-component-assets = { package = "fanta-gpui-component-assets", path = "crates/gpui_component_assets", version = "=0.2.0" }
-gpui_platform = { package = "fanta-gpui-gpui-platform", path = "crates/gpui_platform", version = "=0.2.0", default-features = false, features = ["font-kit", "wayland", "x11"] }
+fanta-gpui = { path = "crates/fanta-gpui", version = "=0.3.0" }
+gpui = { package = "fanta-gpui-core", path = "crates/gpui", version = "=0.3.0" }
+gpui-component = { package = "fanta-gpui-components", path = "crates/gpui_component", version = "=0.3.0" }
+gpui-component-assets = { package = "fanta-gpui-component-assets", path = "crates/gpui_component_assets", version = "=0.3.0" }
+gpui_platform = { package = "fanta-gpui-gpui-platform", path = "crates/gpui_platform", version = "=0.3.0", default-features = false, features = ["font-kit", "wayland", "x11"] }
 serde_json = "1"
 
 [workspace.lints.rust]

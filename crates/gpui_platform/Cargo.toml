@@ -1,6 +1,6 @@
 [package]
 name = "fanta-gpui-gpui-platform"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 publish = true
 license = "Apache-2.0"
@@ -37,7 +37,7 @@ nonminimal_bool = "allow"
 path = "../gpui"
 default-features = false
 package = "fanta-gpui-core"
-version = "=0.2.0"
+version = "=0.3.0"
 
 [lints.clippy.style]
 level = "allow"
@@ -52,29 +52,29 @@ console_error_panic_hook = "0.1.7"
 [target."cfg(target_family = \"wasm\")".dependencies.gpui_web]
 path = "../gpui_web"
 package = "fanta-gpui-gpui-web"
-version = "=0.2.0"
+version = "=0.3.0"
 
 [target."cfg(target_os = \"macos\")".dependencies.gpui_macos]
 path = "../gpui_macos"
 default-features = false
 package = "fanta-gpui-gpui-macos"
-version = "=0.2.0"
+version = "=0.3.0"
 
 [target."cfg(target_os = \"windows\")".dependencies.gpui_windows]
 path = "../gpui_windows"
 default-features = false
 package = "fanta-gpui-gpui-windows"
-version = "=0.2.0"
+version = "=0.3.0"
 
 [target."cfg(target_os = \"windows\")".dependencies.gpui]
 path = "../gpui"
 default-features = false
 features = [ "windows-manifest",]
 package = "fanta-gpui-core"
-version = "=0.2.0"
+version = "=0.3.0"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"freebsd\"))".dependencies.gpui_linux]
 path = "../gpui_linux"
 default-features = false
 package = "fanta-gpui-gpui-linux"
-version = "=0.2.0"
+version = "=0.3.0"
