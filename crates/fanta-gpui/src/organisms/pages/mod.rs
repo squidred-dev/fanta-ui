@@ -11,8 +11,8 @@ pub use commands::{
 };
 pub use model::{
     PagesPanelAction, PagesPanelElementCount, PagesPanelElementKind, PagesPanelItem,
-    PagesPanelResultDirection, PagesPanelSearchRequest, PagesPanelSearchResult,
-    PagesPanelSearchResults, PagesPanelSearchScope,
+    PagesPanelMoveDirection, PagesPanelResultDirection, PagesPanelSearchRequest,
+    PagesPanelSearchResult, PagesPanelSearchResults, PagesPanelSearchScope,
 };
 pub use panel::{PAGES_PANEL_MIN_HEIGHT, PAGES_PANEL_MIN_WIDTH, PagesPanel};
 

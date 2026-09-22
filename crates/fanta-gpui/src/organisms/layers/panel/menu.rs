@@ -1,7 +1,7 @@
 use gpui::{InteractiveElement as _, MouseDownEvent, deferred, size};
 
 use crate::atoms::tokens;
-use crate::molecules::{clamp_menu_origin, menu_item, menu_surface};
+use crate::molecules::{clamp_menu_origin, context_menu_item, menu_surface};
 
 use super::*;
 
@@ -28,7 +28,7 @@ impl LayersPanel {
         let (Some(panel_bounds), Some(menu)) = (self.panel_bounds, self.menu.as_ref()) else {
             return div().into_any_element();
         };
-        let sections = menu_sections_for(menu.node.kind);
+        let sections = menu_sections_for_node(&menu.node);
         let row_count = sections.iter().map(Vec::len).sum::<usize>();
         let separator_count = sections.len().saturating_sub(1);
         let estimated_height =
@@ -103,9 +103,10 @@ impl LayersPanel {
     ) -> AnyElement {
         let action = entry.action;
         let selector = format!("layers-menu-{}", action.selector_slug());
-        menu_item(
+        context_menu_item(
             SharedString::from(format!("{}-menu-{}", self.id, action.selector_slug())),
             px(MENU_ITEM_HEIGHT),
+            true,
             cx,
         )
         .debug_selector(move || selector)
@@ -116,7 +117,28 @@ impl LayersPanel {
             cx.stop_propagation();
             this.activate_menu_action(action, window, cx);
         }))
-        .child(div().flex_1().child(action.label()))
+        .child(div().flex_1().child(match (action, self.menu.as_ref()) {
+            (LayersPanelContextAction::ShowHide, Some(menu)) => {
+                if menu.node.visible {
+                    "Hide"
+                } else {
+                    "Show"
+                }
+            }
+            (LayersPanelContextAction::LockUnlock, Some(menu)) => {
+                if menu.node.locked {
+                    "Unlock"
+                } else {
+                    "Lock"
+                }
+            }
+            (LayersPanelContextAction::UseAsMask, Some(menu))
+                if menu.node.kind == LayersPanelNodeKind::Mask =>
+            {
+                "Remove mask"
+            }
+            _ => action.label(),
+        }))
         .when_some(action.shortcut(), |row, shortcut| {
             row.child(
                 div()
@@ -137,11 +159,9 @@ pub(super) fn menu_sections_for(kind: LayersPanelNodeKind) -> Vec<Vec<MenuEntry>
     let mut sections = vec![
         entries(&[
             Action::Copy,
+            Action::Duplicate,
             Action::PasteToReplace,
             Action::CopyPasteAs,
-            Action::SendToFigmaMake,
-            Action::FindSimilarDesigns,
-            Action::AddMotion,
         ]),
         entries(&[Action::MoveToPage, Action::BringToFront, Action::SendToBack]),
     ];
@@ -150,7 +170,6 @@ pub(super) fn menu_sections_for(kind: LayersPanelNodeKind) -> Vec<Vec<MenuEntry>
         LayersPanelNodeKind::Section => entries(&[
             Action::ConvertToFrame,
             Action::Rename,
-            Action::RenameLayers,
             Action::SetAsThumbnail,
         ]),
         LayersPanelNodeKind::Frame => entries(&[
@@ -159,7 +178,6 @@ pub(super) fn menu_sections_for(kind: LayersPanelNodeKind) -> Vec<Vec<MenuEntry>
             Action::FrameSelection,
             Action::RemoveFrame,
             Action::Rename,
-            Action::RenameLayers,
             Action::Flatten,
             Action::OutlineStroke,
             Action::UseAsMask,
@@ -172,7 +190,6 @@ pub(super) fn menu_sections_for(kind: LayersPanelNodeKind) -> Vec<Vec<MenuEntry>
             Action::FrameSelection,
             Action::Ungroup,
             Action::Rename,
-            Action::RenameLayers,
             Action::Flatten,
             Action::OutlineStroke,
             Action::UseAsMask,
@@ -182,7 +199,6 @@ pub(super) fn menu_sections_for(kind: LayersPanelNodeKind) -> Vec<Vec<MenuEntry>
             Action::GroupSelection,
             Action::FrameSelection,
             Action::Rename,
-            Action::RenameLayers,
             Action::Flatten,
             Action::OutlineStroke,
             Action::UseAsMask,
@@ -192,7 +208,6 @@ pub(super) fn menu_sections_for(kind: LayersPanelNodeKind) -> Vec<Vec<MenuEntry>
             Action::GroupSelection,
             Action::FrameSelection,
             Action::Rename,
-            Action::RenameLayers,
             Action::Flatten,
             Action::GoToMainComponent,
             Action::DetachInstance,
@@ -203,7 +218,6 @@ pub(super) fn menu_sections_for(kind: LayersPanelNodeKind) -> Vec<Vec<MenuEntry>
             Action::GroupSelection,
             Action::FrameSelection,
             Action::Rename,
-            Action::RenameLayers,
             Action::Flatten,
             Action::OutlineStroke,
             Action::UseAsMask,
@@ -214,7 +228,6 @@ pub(super) fn menu_sections_for(kind: LayersPanelNodeKind) -> Vec<Vec<MenuEntry>
             Action::GroupSelection,
             Action::FrameSelection,
             Action::Rename,
-            Action::RenameLayers,
             Action::Flatten,
             Action::UseAsMask,
         ]),
@@ -223,16 +236,19 @@ pub(super) fn menu_sections_for(kind: LayersPanelNodeKind) -> Vec<Vec<MenuEntry>
             Action::GroupSelection,
             Action::FrameSelection,
             Action::Rename,
-            Action::RenameLayers,
             Action::UseAsMask,
         ]),
-        LayersPanelNodeKind::Slice => entries(&[Action::Rename, Action::RenameLayers]),
+        LayersPanelNodeKind::Slice | LayersPanelNodeKind::Other => entries(&[
+            Action::GroupSelection,
+            Action::FrameSelection,
+            Action::Rename,
+        ]),
         LayersPanelNodeKind::Mask => entries(&[
+            Action::UseAsMask,
             Action::GroupSelection,
             Action::FrameSelection,
             Action::Ungroup,
             Action::Rename,
-            Action::RenameLayers,
             Action::Flatten,
         ]),
         LayersPanelNodeKind::Rectangle
@@ -244,12 +260,10 @@ pub(super) fn menu_sections_for(kind: LayersPanelNodeKind) -> Vec<Vec<MenuEntry>
         | LayersPanelNodeKind::Vector
         | LayersPanelNodeKind::BooleanOperation
         | LayersPanelNodeKind::Pen
-        | LayersPanelNodeKind::Pencil
-        | LayersPanelNodeKind::Other => entries(&[
+        | LayersPanelNodeKind::Pencil => entries(&[
             Action::GroupSelection,
             Action::FrameSelection,
             Action::Rename,
-            Action::RenameLayers,
             Action::Flatten,
             Action::OutlineStroke,
             Action::UseAsMask,
@@ -271,10 +285,21 @@ pub(super) fn menu_sections_for(kind: LayersPanelNodeKind) -> Vec<Vec<MenuEntry>
         sections.push(layout);
     }
 
-    sections.push(entries(&[Action::Plugins, Action::Widgets]));
     sections.push(entries(&[Action::ShowHide, Action::LockUnlock]));
     if kind.can_flip() {
         sections.push(entries(&[Action::FlipHorizontal, Action::FlipVertical]));
+    }
+    sections.push(entries(&[Action::Delete]));
+    sections
+}
+
+pub(super) fn menu_sections_for_node(node: &LayerNode) -> Vec<Vec<MenuEntry>> {
+    let mut sections = menu_sections_for(node.kind);
+    if let Some(allowed) = &node.context_actions {
+        for section in &mut sections {
+            section.retain(|entry| allowed.contains(&entry.action));
+        }
+        sections.retain(|section| !section.is_empty());
     }
     sections
 }

@@ -75,6 +75,7 @@ pub(super) struct LayerNode {
     pub(super) kind: LayersPanelNodeKind,
     pub(super) visible: bool,
     pub(super) locked: bool,
+    pub(super) context_actions: Option<Vec<LayersPanelContextAction>>,
     pub(super) depth: usize,
     pub(super) parent: Option<usize>,
     /// One past the last pre-order index of this node's subtree; the subtree
@@ -110,6 +111,7 @@ impl LayerArena {
             kind: item.kind,
             visible: item.visible,
             locked: item.locked,
+            context_actions: item.context_actions.clone(),
             depth,
             parent,
             subtree_end: index + 1,
@@ -216,6 +218,7 @@ struct LayerDrag {
 /// frame, so 30k-node pages render at the same cost as 30-node ones.
 pub struct LayersPanel {
     id: SharedString,
+    bordered: bool,
     focus_handle: FocusHandle,
     menu_focus_handle: FocusHandle,
     arena: LayerArena,
@@ -243,6 +246,14 @@ impl EventEmitter<LayersPanelAction> for LayersPanel {}
 
 impl LayersPanel {
     /// Creates a Layers panel and expands every populated root container.
+    /// Controls the outer border when embedded in a host-owned sidebar.
+    pub fn set_bordered(&mut self, bordered: bool, cx: &mut Context<Self>) {
+        if self.bordered != bordered {
+            self.bordered = bordered;
+            cx.notify();
+        }
+    }
+
     pub fn new(
         id: impl Into<SharedString>,
         nodes: Vec<LayersPanelItem>,
@@ -269,6 +280,7 @@ impl LayersPanel {
 
         Self {
             id: id.into(),
+            bordered: true,
             focus_handle: cx.focus_handle(),
             menu_focus_handle: cx.focus_handle(),
             arena,
@@ -305,12 +317,16 @@ impl LayersPanel {
         {
             self.editing = None;
         }
-        if self
-            .menu
-            .as_ref()
-            .is_some_and(|menu| !self.arena.contains(&menu.node.id))
-        {
-            self.menu = None;
+        if let Some(menu) = &mut self.menu {
+            if let Some(node) = self
+                .arena
+                .index_of(&menu.node.id)
+                .and_then(|index| self.arena.get(index))
+            {
+                menu.node = node.clone();
+            } else {
+                self.menu = None;
+            }
         }
         if self
             .hovered_node
@@ -517,7 +533,7 @@ impl Render for LayersPanel {
             })
             .bg(crate::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
             .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
-            .border_1()
+            .when(self.bordered, |panel| panel.border_1())
             .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .child(track_bounds(cx.entity(), |this, bounds| {
                 this.panel_bounds = Some(bounds);

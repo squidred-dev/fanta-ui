@@ -28,9 +28,9 @@ use super::{
     AddPage, ClosePagesSearch, ConfirmPagesTextEntry, FindInPages, FocusFirstPage, FocusLastPage,
     FocusNextPage, FocusPreviousPage, NextSearchResult, OpenPageContextMenu,
     PAGES_PANEL_KEY_CONTEXT, PAGES_TEXT_ENTRY_KEY_CONTEXT, PagesPanelAction, PagesPanelElementKind,
-    PagesPanelItem, PagesPanelResultDirection, PagesPanelSearchRequest, PagesPanelSearchResults,
-    PagesPanelSearchScope, PreviousSearchResult, ReplaceAllResults, ReplaceCurrentResult,
-    TogglePagesPanel, ToggleSearchSettings,
+    PagesPanelItem, PagesPanelMoveDirection, PagesPanelResultDirection, PagesPanelSearchRequest,
+    PagesPanelSearchResults, PagesPanelSearchScope, PreviousSearchResult, ReplaceAllResults,
+    ReplaceCurrentResult, TogglePagesPanel, ToggleSearchSettings,
 };
 use crate::atoms::{
     ActivateControl, ActivateEvent, CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon,
@@ -66,7 +66,7 @@ const REVEAL_DURATION: f64 = 0.18;
 const ELEMENT_ICON_SIZE: f32 = tokens::IconSize::SM;
 const PAGE_MENU_WIDTH: f32 = tokens::MenuWidth::STANDARD;
 /// Four 36px rows, two separators, and the surface padding/border.
-const PAGE_MENU_HEIGHT: f32 = 196.;
+const PAGE_MENU_HEIGHT: f32 = 357.;
 const FILTER_MENU_WIDTH: f32 = tokens::MenuWidth::STANDARD;
 const SCOPE_MENU_WIDTH: f32 = tokens::MenuWidth::NARROW;
 /// Two 36px rows plus the surface padding/border.
@@ -112,6 +112,7 @@ enum FocusTooltipKind {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum PageMenuAction {
+    Move(PagesPanelMoveDirection),
     CopyLink,
     Rename,
     Duplicate,
@@ -133,6 +134,7 @@ enum PageMenuAction {
 /// selection, search results, and all document mutations stay with the host.
 pub struct PagesPanel {
     id: SharedString,
+    bordered: bool,
     focus_handle: FocusHandle,
     filter_menu_focus_handle: FocusHandle,
     scope_menu_focus_handle: FocusHandle,
@@ -185,6 +187,14 @@ impl EventEmitter<PagesPanelAction> for PagesPanel {}
 
 impl PagesPanel {
     /// Creates an expanded Pages panel.
+    /// Controls the outer border when embedded in a host-owned sidebar.
+    pub fn set_bordered(&mut self, bordered: bool, cx: &mut Context<Self>) {
+        if self.bordered != bordered {
+            self.bordered = bordered;
+            cx.notify();
+        }
+    }
+
     pub fn new(
         id: impl Into<SharedString>,
         pages: Vec<PagesPanelItem>,
@@ -232,6 +242,7 @@ impl PagesPanel {
 
         Self {
             id: id.into(),
+            bordered: true,
             focus_handle: cx.focus_handle(),
             filter_menu_focus_handle: cx.focus_handle(),
             scope_menu_focus_handle: cx.focus_handle(),
@@ -403,7 +414,7 @@ impl Render for PagesPanel {
             .max_h_full()
             .bg(crate::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
             .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
-            .border_1()
+            .when(self.bordered, |panel| panel.border_1())
             .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .child(track_bounds(cx.entity(), |this, bounds| {
                 this.panel_bounds = Some(bounds);

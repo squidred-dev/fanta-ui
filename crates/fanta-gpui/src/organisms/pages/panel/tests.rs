@@ -1,3 +1,4 @@
+use crate::pages::PagesPanelMoveDirection;
 use std::{cell::RefCell, rc::Rc};
 
 use gpui::{
@@ -1570,4 +1571,52 @@ fn search_results_have_a_bounded_scrollable_viewport(cx: &mut TestAppContext) {
         resized_viewport
     );
     assert_eq!(scroll_handle.bounds(), resized_viewport);
+}
+
+#[gpui::test]
+fn page_moves_emit_directions_and_guard_boundaries(cx: &mut TestAppContext) {
+    let (host, cx) = setup(cx);
+    let actions = actions(&host, cx);
+    for (selector, direction) in [
+        ("pages-page-menu-move-up", PagesPanelMoveDirection::Up),
+        ("pages-page-menu-move-down", PagesPanelMoveDirection::Down),
+        ("pages-page-menu-move-top", PagesPanelMoveDirection::Top),
+        (
+            "pages-page-menu-move-bottom",
+            PagesPanelMoveDirection::Bottom,
+        ),
+    ] {
+        secondary_click(cx, "pages-row-page-2");
+        actions.borrow_mut().clear();
+        click(cx, selector);
+        assert_eq!(
+            actions.borrow().as_slice(),
+            &[PagesPanelAction::MoveRequested {
+                page_id: "page-2".into(),
+                direction
+            }]
+        );
+    }
+    secondary_click(cx, "pages-row-page-1");
+    actions.borrow_mut().clear();
+    click(cx, "pages-page-menu-move-up");
+    click(cx, "pages-page-menu-move-top");
+    assert!(actions.borrow().is_empty());
+}
+
+#[gpui::test]
+fn last_page_delete_and_read_only_actions_do_not_emit(cx: &mut TestAppContext) {
+    let (host, cx) = setup(cx);
+    let panel = panel(&host, cx);
+    let actions = actions(&host, cx);
+    cx.update(|_, cx| {
+        panel.update(cx, |panel, cx| {
+            panel.set_pages(vec![PagesPanelItem::new("only", "Only")], cx)
+        })
+    });
+    cx.run_until_parked();
+    secondary_click(cx, "pages-row-only");
+    actions.borrow_mut().clear();
+    click(cx, "pages-page-menu-delete");
+    assert!(actions.borrow().is_empty());
 }

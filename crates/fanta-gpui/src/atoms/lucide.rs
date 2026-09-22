@@ -103,7 +103,7 @@ fn build_lucide_svg(origin: Point<Pixels>, size: f32, svg: &str) -> Option<Path<
     builder.build().ok()
 }
 
-fn append_path_segment(
+pub(super) fn append_path_segment(
     builder: &mut PathBuilder,
     to_point: &impl Fn(f64, f64) -> Point<Pixels>,
     segment: SimplePathSegment,

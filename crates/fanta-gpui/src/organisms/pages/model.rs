@@ -7,6 +7,10 @@ pub struct PagesPanelItem {
     pub id: SharedString,
     /// User-facing page name.
     pub title: SharedString,
+    /// Whether this page has a resolvable link supplied by the host.
+    pub can_copy_link: bool,
+    /// Whether the host permits document mutations for this page.
+    pub editable: bool,
 }
 
 impl PagesPanelItem {
@@ -15,6 +19,8 @@ impl PagesPanelItem {
         Self {
             id: id.into(),
             title: title.into(),
+            can_copy_link: true,
+            editable: true,
         }
     }
 }
@@ -166,6 +172,10 @@ pub enum PagesPanelAction {
         page_id: SharedString,
         title: SharedString,
     },
+    MoveRequested {
+        page_id: SharedString,
+        direction: PagesPanelMoveDirection,
+    },
     DuplicateRequested {
         page_id: SharedString,
     },
@@ -193,4 +203,29 @@ pub enum PagesPanelAction {
         request: PagesPanelSearchRequest,
         replacement: SharedString,
     },
+}
+
+/// Placement of a page within the host's ordered page list.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PagesPanelMoveDirection {
+    Up,
+    Down,
+    Top,
+    Bottom,
+}
+
+impl PagesPanelMoveDirection {
+    /// Returns a destination only when the move changes a valid page's position.
+    pub fn destination(self, index: usize, count: usize) -> Option<usize> {
+        if index >= count {
+            return None;
+        }
+        let target = match self {
+            Self::Up => index.saturating_sub(1),
+            Self::Down => (index + 1).min(count - 1),
+            Self::Top => 0,
+            Self::Bottom => count - 1,
+        };
+        (target != index).then_some(target)
+    }
 }

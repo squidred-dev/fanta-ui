@@ -421,16 +421,44 @@ impl PagesPanel {
         }
     }
 
+    pub(super) fn page_menu_action_enabled(&self, action: PageMenuAction) -> bool {
+        let Some(menu) = &self.page_menu else {
+            return false;
+        };
+        let Some(index) = self.pages.iter().position(|page| page.id == menu.page_id) else {
+            return false;
+        };
+        let page = &self.pages[index];
+        match action {
+            PageMenuAction::CopyLink => page.can_copy_link,
+            PageMenuAction::Move(direction) => {
+                page.editable && direction.destination(index, self.pages.len()).is_some()
+            }
+            PageMenuAction::Delete => page.editable && self.pages.len() > 1,
+            _ => page.editable,
+        }
+    }
+
     pub(super) fn activate_page_menu_item(
         &mut self,
         action: PageMenuAction,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if !self.page_menu_action_enabled(action) {
+            return;
+        }
         let Some(menu) = self.page_menu.take() else {
             return;
         };
         match action {
+            PageMenuAction::Move(direction) => {
+                cx.emit(PagesPanelAction::MoveRequested {
+                    page_id: menu.page_id,
+                    direction,
+                });
+                self.focus_panel_after_action(window, cx);
+            }
             PageMenuAction::CopyLink => {
                 cx.emit(PagesPanelAction::CopyLinkRequested {
                     page_id: menu.page_id,

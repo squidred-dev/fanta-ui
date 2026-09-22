@@ -849,7 +849,39 @@ pub fn menu_surface(
 /// [`ControlExt::on_activate`] handler and children.
 ///
 /// [`ControlExt::on_activate`]: crate::atoms::ControlExt::on_activate
+pub fn context_menu_item(
+    id: impl Into<ElementId>,
+    height: Pixels,
+    enabled: bool,
+    cx: &App,
+) -> Stateful<Div> {
+    menu_item_base(id, height)
+        .when(enabled, |row| {
+            row.hover(|style| {
+                style
+                    .bg(SemanticColor::BackgroundBrand.resolve(cx))
+                    .text_color(SemanticColor::TextOnBrand.resolve(cx))
+            })
+            .focus(|style| {
+                style
+                    .bg(SemanticColor::BackgroundBrand.resolve(cx))
+                    .text_color(SemanticColor::TextOnBrand.resolve(cx))
+            })
+        })
+        .when(!enabled, |row| {
+            row.tab_index(-1)
+                .cursor_default()
+                .text_color(SemanticColor::TextDisabled.resolve(cx))
+        })
+}
+
 pub fn menu_item(id: impl Into<ElementId>, height: Pixels, cx: &App) -> Stateful<Div> {
+    menu_item_base(id, height)
+        .hover(|style| style.bg(SemanticColor::BackgroundHover.resolve(cx)))
+        .focus(|style| style.bg(SemanticColor::BackgroundHover.resolve(cx)))
+}
+
+fn menu_item_base(id: impl Into<ElementId>, height: Pixels) -> Stateful<Div> {
     h_flex()
         .id(id)
         .key_context(CONTROL_KEY_CONTEXT)
@@ -862,8 +894,6 @@ pub fn menu_item(id: impl Into<ElementId>, height: Pixels, cx: &App) -> Stateful
         .rounded(px(4.))
         .typography(TypographyToken::BodyMedium)
         .cursor_pointer()
-        .hover(|style| style.bg(SemanticColor::BackgroundHover.resolve(cx)))
-        .focus(|style| style.bg(SemanticColor::BackgroundHover.resolve(cx)))
 }
 
 #[cfg(test)]

@@ -281,6 +281,16 @@ impl PagesScreen {
                 });
                 self.last_action = format!("Renamed {page_id} to {title}").into();
             }
+            PagesPanelAction::MoveRequested { page_id, direction } => {
+                if let Some(index) = self.pages.iter().position(|page| page.id == *page_id)
+                    && let Some(target) = direction.destination(index, self.pages.len())
+                {
+                    let page = self.pages.remove(index);
+                    self.pages.insert(target, page);
+                    panel.update(cx, |panel, cx| panel.set_pages(self.pages.clone(), cx));
+                    self.last_action = format!("Moved {page_id} {direction:?}").into();
+                }
+            }
             PagesPanelAction::DuplicateRequested { page_id } => {
                 if let Some((index, source)) = self
                     .pages

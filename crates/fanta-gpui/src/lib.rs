@@ -114,10 +114,10 @@ pub mod prelude {
         AddPage, ClosePagesSearch, ConfirmPagesTextEntry, FindInPages, FocusFirstPage,
         FocusLastPage, FocusNextPage, FocusPreviousPage, NextSearchResult, OpenPageContextMenu,
         PAGES_PANEL_MIN_HEIGHT, PAGES_PANEL_MIN_WIDTH, PagesPanel, PagesPanelAction,
-        PagesPanelElementCount, PagesPanelElementKind, PagesPanelItem, PagesPanelResultDirection,
-        PagesPanelSearchRequest, PagesPanelSearchResult, PagesPanelSearchResults,
-        PagesPanelSearchScope, PreviousSearchResult, ReplaceAllResults, ReplaceCurrentResult,
-        TogglePagesPanel, ToggleSearchSettings,
+        PagesPanelElementCount, PagesPanelElementKind, PagesPanelItem, PagesPanelMoveDirection,
+        PagesPanelResultDirection, PagesPanelSearchRequest, PagesPanelSearchResult,
+        PagesPanelSearchResults, PagesPanelSearchScope, PreviousSearchResult, ReplaceAllResults,
+        ReplaceCurrentResult, TogglePagesPanel, ToggleSearchSettings,
     };
     pub use crate::prototype::{
         PROTOTYPE_PANEL_MIN_HEIGHT, PROTOTYPE_PANEL_MIN_WIDTH, PrototypeHint, PrototypePanel,

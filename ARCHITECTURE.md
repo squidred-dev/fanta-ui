@@ -436,11 +436,14 @@ body type token and inline editors use the compact field height.
 
 `FileInspectorSidebar` places the existing `PagesPanel` above the existing
 `LayersPanel` in one left-sidebar surface. Pages keeps its compact, intrinsic
-section height and Layers receives the remaining height. The composition owns
-no document or child-panel state, does not add a second event stream, and does
-not intercept either child's typed intents; hosts continue subscribing to the
-original Pages and Layers entities. The child borders overlap at their shared
-edge so the composition renders one seam rather than a double rule.
+section height and Layers receives the remaining height. Hosts supply the project
+name. The composition owns transient collapse state and emits
+`FileInspectorAction::CollapsedChanged`; hosts may also set that state explicitly.
+Collapsed presentation keeps a themed floating card with the Fanta mark, project
+name and reopen control. It does not intercept either child's document intents;
+hosts continue subscribing to the original Pages and Layers entities. Dedicated
+child panel entities render borderless, and the layout draws internal separators
+only. The containing host owns the sidebar's outer edge.
 
 `PseudoEditor` is a presentation-only integration shell. A host constructs and
 subscribes to each child component, then passes those entities through
@@ -628,3 +631,14 @@ unification. `docs/releasing.md` defines the release and integration gates.
 This extraction deliberately leaves `fanta_ui` and `fig_viewer` presentation in
 Fanta Edit. Their existing adapters continue to provide controlled view data and
 apply typed intents. Further screen extraction must preserve the engine seam.
+
+### Context-menu availability
+
+Layers accept an optional per-node `context_actions` allowlist. The component
+intersects it with kind-specific entries, removes empty sections and emits
+only typed intents. Services specific to another design application are not
+menu entries. The host remains responsible for revalidating document state
+when receiving an event. Pages expose typed directional move intents and
+host-controlled edit/link availability; boundary moves and last-page deletion
+are disabled before emission. See `docs/CONTEXT-MENU-AUDIT.md` for the native
+Figma comparison and mapping of engine-independent presentations.

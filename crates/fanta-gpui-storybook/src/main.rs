@@ -131,8 +131,7 @@ impl Storybook {
         let timeline_screen = TimelineScreen::new(cx);
         let pages_screen = PagesScreen::new(window, cx);
         let layers_screen = LayersScreen::new(window, cx);
-        let file_inspector_screen =
-            FileInspectorScreen::new(pages_screen.panel.clone(), layers_screen.panel.clone(), cx);
+        let file_inspector_screen = FileInspectorScreen::new(window, cx);
         let design_screen = DesignScreen::new(window, cx);
         let toolbar_screen = ToolbarScreen::new(window, cx);
 
@@ -150,6 +149,24 @@ impl Storybook {
         );
 
         let mut subscriptions = vec![
+            cx.subscribe(
+                &file_inspector_screen.pages.panel,
+                |story, panel, action: &PagesPanelAction, cx| {
+                    story
+                        .file_inspector_screen
+                        .pages
+                        .handle_action(panel, action, cx);
+                },
+            ),
+            cx.subscribe(
+                &file_inspector_screen.layers.panel,
+                |story, panel, action: &LayersPanelAction, cx| {
+                    story
+                        .file_inspector_screen
+                        .layers
+                        .handle_action(panel, action, cx);
+                },
+            ),
             cx.subscribe(
                 &variables_screen.screen,
                 |story, _, action: &fanta_gpui::variables::VariablesContextAction, cx| {

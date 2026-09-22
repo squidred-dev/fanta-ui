@@ -253,7 +253,11 @@ fn every_supported_node_kind_has_safe_common_context_actions() {
         assert!(actions.contains(&LayersPanelContextAction::Rename));
         assert!(actions.contains(&LayersPanelContextAction::ShowHide));
         assert!(actions.contains(&LayersPanelContextAction::LockUnlock));
-        assert!(actions.contains(&LayersPanelContextAction::Plugins));
+        assert!(!actions.contains(&LayersPanelContextAction::Plugins));
+        assert!(!actions.contains(&LayersPanelContextAction::SendToFigmaMake));
+        assert!(!actions.contains(&LayersPanelContextAction::FindSimilarDesigns));
+        assert!(actions.contains(&LayersPanelContextAction::Duplicate));
+        assert!(actions.contains(&LayersPanelContextAction::Delete));
     }
 }
 
@@ -1126,5 +1130,40 @@ fn drop_position_never_nests_inside_an_instance() {
     assert_ne!(
         layer_drop_position(LayersPanelNodeKind::Rectangle, bounds, center),
         LayersPanelDropPosition::Inside
+    );
+}
+
+#[gpui::test]
+fn host_allowlist_hides_unimplemented_actions_and_delivers_supported_intents(
+    cx: &mut TestAppContext,
+) {
+    let (host, actions, cx) = setup(cx);
+    let panel = panel(&host, cx);
+    cx.update(|_, cx| {
+        panel.update(cx, |panel, cx| {
+            panel.set_nodes(
+                vec![
+                    LayersPanelItem::new("limited", "Limited", LayersPanelNodeKind::Rectangle)
+                        .context_actions(vec![
+                            LayersPanelContextAction::Copy,
+                            LayersPanelContextAction::Duplicate,
+                        ]),
+                ],
+                cx,
+            )
+        })
+    });
+    cx.run_until_parked();
+    secondary_click(cx, "layers-row-limited");
+    assert!(cx.debug_bounds("layers-menu-flatten").is_none());
+    assert!(cx.debug_bounds("layers-menu-send-to-figma-make").is_none());
+    actions.borrow_mut().clear();
+    click(cx, "layers-menu-duplicate", Modifiers::none());
+    assert_eq!(
+        actions.borrow().as_slice(),
+        &[LayersPanelAction::ContextActionRequested {
+            node_id: "limited".into(),
+            action: LayersPanelContextAction::Duplicate,
+        }]
     );
 }

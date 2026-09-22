@@ -79,3 +79,6 @@ pub(crate) fn init(cx: &mut App) {
         KeyBinding::new("space", ActivateControl, Some(CONTROL_KEY_CONTEXT)),
     ]);
 }
+
+mod brand;
+pub use brand::render_fanta_logo;

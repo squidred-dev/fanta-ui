@@ -309,6 +309,14 @@ impl LayersPanel {
         let Some(menu) = self.menu.take() else {
             return;
         };
+        if !super::menu::menu_sections_for_node(&menu.node)
+            .iter()
+            .flatten()
+            .any(|entry| entry.action == action)
+        {
+            cx.notify();
+            return;
+        }
         match action {
             LayersPanelContextAction::Rename => {
                 self.begin_rename(menu.node.id, menu.node.title, window, cx);

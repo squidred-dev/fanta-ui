@@ -7,17 +7,28 @@ use super::harness;
 
 pub(crate) struct FileInspectorScreen {
     pub(crate) sidebar: Entity<FileInspectorSidebar>,
+    pub(crate) pages: PagesScreen,
+    pub(crate) layers: LayersScreen,
 }
 
 impl FileInspectorScreen {
-    pub(crate) fn new(
-        pages: Entity<PagesPanel>,
-        layers: Entity<LayersPanel>,
-        cx: &mut Context<Storybook>,
-    ) -> Self {
+    pub(crate) fn new(window: &mut Window, cx: &mut Context<Storybook>) -> Self {
+        let pages = PagesScreen::new(window, cx);
+        let layers = LayersScreen::new(window, cx);
+        let sidebar = cx.new(|cx| {
+            let mut sidebar = FileInspectorSidebar::new(
+                "storybook-file-inspector",
+                pages.panel.clone(),
+                layers.panel.clone(),
+                cx,
+            );
+            sidebar.set_project_name("Fanta Design", cx);
+            sidebar
+        });
         Self {
-            sidebar: cx
-                .new(|cx| FileInspectorSidebar::new("storybook-file-inspector", pages, layers, cx)),
+            sidebar,
+            pages,
+            layers,
         }
     }
 }
@@ -26,7 +37,8 @@ impl Storybook {
     pub(crate) fn file_inspector_last_action(&self) -> SharedString {
         format!(
             "Pages: {}  ·  Layers: {}",
-            self.pages_screen.last_action, self.layers_screen.last_action
+            self.file_inspector_screen.pages.last_action,
+            self.file_inspector_screen.layers.last_action
         )
         .into()
     }
@@ -37,8 +49,8 @@ impl Storybook {
             harness::ReferenceStoryCopy {
                 eyebrow: "FILE INSPECTOR",
                 title: "File inspector",
-                description: "Pages and Layers share one continuous left sidebar: Pages keeps its compact content height while Layers fills the remaining space.",
-                adapter_description: "The composition owns placement only. The Pages and Layers mock hosts still receive their original typed intents and echo updated read models into each child panel.",
+                description: "Collapse the project sidebar into a floating Fanta card, then reopen it without losing Pages or Layers state.",
+                adapter_description: "The composition owns placement, project title and collapse state. The Pages and Layers mock hosts still receive their original typed intents and echo updated read models into each child panel.",
             },
             self.file_inspector_last_action(),
             self.file_inspector_screen.sidebar.clone().into_any_element(),

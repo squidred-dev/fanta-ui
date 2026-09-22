@@ -81,11 +81,11 @@ impl LayersPanelNodeKind {
     }
 
     pub(crate) const fn can_flip(self) -> bool {
-        !matches!(self, Self::Section | Self::Slice)
+        !matches!(self, Self::Section | Self::Other)
     }
 
     pub(crate) const fn supports_auto_layout(self) -> bool {
-        !matches!(self, Self::Section | Self::Slice | Self::Line | Self::Arrow)
+        !matches!(self, Self::Section | Self::Other)
     }
 
     pub(crate) const fn can_create_component(self) -> bool {
@@ -113,6 +113,9 @@ pub struct LayersPanelItem {
     pub has_children: bool,
     pub visible: bool,
     pub locked: bool,
+    /// Optional host allowlist, intersected with the actions valid for this kind.
+    /// An empty list suppresses all context actions.
+    pub context_actions: Option<Vec<LayersPanelContextAction>>,
 }
 
 impl LayersPanelItem {
@@ -130,7 +133,14 @@ impl LayersPanelItem {
             has_children: false,
             visible: true,
             locked: false,
+            context_actions: None,
         }
+    }
+
+    /// Limits the menu to operations implemented by the host.
+    pub fn context_actions(mut self, actions: Vec<LayersPanelContextAction>) -> Self {
+        self.context_actions = Some(actions);
+        self
     }
 
     /// Supplies child nodes. A non-empty list also marks the node as having
@@ -189,6 +199,8 @@ pub enum LayersPanelDropPosition {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum LayersPanelContextAction {
     Copy,
+    Duplicate,
+    Delete,
     PasteToReplace,
     CopyPasteAs,
     SendToFigmaMake,
@@ -230,6 +242,8 @@ impl LayersPanelContextAction {
     pub const fn label(self) -> &'static str {
         match self {
             Self::Copy => "Copy",
+            Self::Duplicate => "Duplicate",
+            Self::Delete => "Delete",
             Self::PasteToReplace => "Paste to replace",
             Self::CopyPasteAs => "Copy/Paste as",
             Self::SendToFigmaMake => "Send to Figma Make",
@@ -256,7 +270,7 @@ impl LayersPanelContextAction {
             Self::AddAutoLayout => "Add auto layout",
             Self::MoreLayoutOptions => "More layout options",
             Self::CreateComponent => "Create component",
-            Self::GoToMainComponent => "Main component",
+            Self::GoToMainComponent => "Go to main component",
             Self::DetachInstance => "Detach instance",
             Self::ResetInstance => "Reset all overrides",
             Self::Plugins => "Plugins",
@@ -271,6 +285,8 @@ impl LayersPanelContextAction {
     pub(crate) const fn shortcut(self) -> Option<&'static str> {
         match self {
             Self::Copy => Some("⌘C"),
+            Self::Duplicate => Some("⌘D"),
+            Self::Delete => Some("⌫"),
             Self::PasteToReplace => Some("⇧⌘R"),
             Self::GroupSelection => Some("⌘G"),
             Self::FrameSelection => Some("⌥⌘G"),
@@ -304,6 +320,8 @@ impl LayersPanelContextAction {
     pub(crate) const fn selector_slug(self) -> &'static str {
         match self {
             Self::Copy => "copy",
+            Self::Duplicate => "duplicate",
+            Self::Delete => "delete",
             Self::PasteToReplace => "paste-to-replace",
             Self::CopyPasteAs => "copy-paste-as",
             Self::SendToFigmaMake => "send-to-figma-make",

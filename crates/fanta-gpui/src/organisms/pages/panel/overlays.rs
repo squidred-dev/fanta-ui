@@ -21,13 +21,15 @@ impl PagesPanel {
         first: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        menu_item(
+        let enabled = self.page_menu_action_enabled(action);
+        crate::molecules::context_menu_item(
             SharedString::from(format!("{}-{selector}", self.id)),
             px(36.),
+            enabled,
             cx,
         )
         .debug_selector(move || selector.to_owned())
-        .when(first, |item| {
+        .when(first && enabled, |item| {
             item.track_focus(
                 &self
                     .page_menu_focus_handle
@@ -92,13 +94,42 @@ impl PagesPanel {
                 "Rename page",
                 "pages-page-menu-rename",
                 PageMenuAction::Rename,
-                false,
+                !self.page_menu_action_enabled(PageMenuAction::CopyLink),
                 cx,
             ))
             .child(self.render_page_menu_item(
                 "Duplicate page",
                 "pages-page-menu-duplicate",
                 PageMenuAction::Duplicate,
+                false,
+                cx,
+            ))
+            .child(menu_separator(cx))
+            .child(self.render_page_menu_item(
+                "Move up",
+                "pages-page-menu-move-up",
+                PageMenuAction::Move(PagesPanelMoveDirection::Up),
+                false,
+                cx,
+            ))
+            .child(self.render_page_menu_item(
+                "Move down",
+                "pages-page-menu-move-down",
+                PageMenuAction::Move(PagesPanelMoveDirection::Down),
+                false,
+                cx,
+            ))
+            .child(self.render_page_menu_item(
+                "Move to top",
+                "pages-page-menu-move-top",
+                PageMenuAction::Move(PagesPanelMoveDirection::Top),
+                false,
+                cx,
+            ))
+            .child(self.render_page_menu_item(
+                "Move to bottom",
+                "pages-page-menu-move-bottom",
+                PageMenuAction::Move(PagesPanelMoveDirection::Bottom),
                 false,
                 cx,
             ))
