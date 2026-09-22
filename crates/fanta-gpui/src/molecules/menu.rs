@@ -835,7 +835,9 @@ pub fn menu_surface(
         .absolute()
         .left(origin.x)
         .top(origin.y)
-        .block_mouse_except_scroll()
+        // A popup owns wheel events as well as clicks, including at its scroll
+        // limits. Letting scroll through moves the obscured host panel too.
+        .occlude()
         .max_h(max_height)
         .overflow_y_scroll()
         .rounded(radius)

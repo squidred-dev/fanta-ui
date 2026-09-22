@@ -688,6 +688,48 @@ fn menu_visibility_and_lock_items_use_dedicated_intents(cx: &mut TestAppContext)
 }
 
 #[gpui::test]
+fn context_menu_scroll_does_not_reach_the_layer_list(cx: &mut TestAppContext) {
+    let (host, _actions, cx) = setup(cx);
+    let panel = panel(&host, cx);
+    cx.update(|_, app| {
+        panel.update(app, |panel, cx| {
+            panel.set_nodes(
+                (0..80)
+                    .map(|index| {
+                        LayersPanelItem::new(
+                            format!("node-{index}"),
+                            format!("Layer {index}"),
+                            LayersPanelNodeKind::Rectangle,
+                        )
+                    })
+                    .collect(),
+                cx,
+            );
+        });
+    });
+    cx.simulate_resize(size(px(400.), px(300.)));
+    cx.run_until_parked();
+    secondary_click(cx, "layers-row-node-0");
+    let position = bounds(cx, "layers-context-menu").center();
+    let menu_scroll = read_panel(&panel, cx, |panel| panel.menu_scroll_handle.clone());
+    let list_scroll = read_panel(&panel, cx, |panel| {
+        panel.list_scroll_handle.0.borrow().base_handle.clone()
+    });
+    assert!(list_scroll.max_offset().y > px(0.));
+    let initial_offset = list_scroll.offset();
+    for _ in 0..20 {
+        cx.simulate_event(gpui::ScrollWheelEvent {
+            position,
+            delta: gpui::ScrollDelta::Pixels(gpui::point(px(0.), px(-120.))),
+            ..Default::default()
+        });
+        cx.run_until_parked();
+    }
+    assert!(menu_scroll.offset().y < px(0.));
+    assert_eq!(list_scroll.offset(), initial_offset);
+}
+
+#[gpui::test]
 fn long_context_menu_repositions_to_stay_inside_the_panel_height(cx: &mut TestAppContext) {
     let (_host, _actions, cx) = setup(cx);
 
