@@ -257,14 +257,44 @@ fn empty_states_keep_content_inset_on_narrow_pages(cx: &mut TestAppContext) {
 
 #[gpui::test]
 fn type_filter_menu_filters_without_mutating_host_data(cx: &mut TestAppContext) {
-    let (_host, _actions, cx) = mount(cx);
+    let (host, _actions, cx) = mount(cx);
+    let component = cx.read(|app| host.read(app).component.clone());
     let trigger = cx.debug_bounds("variables-search-options").unwrap();
     cx.simulate_click(trigger.center(), Modifiers::none());
     cx.run_until_parked();
     let colors = cx.debug_bounds("variables-filter-kind-0").unwrap();
     cx.simulate_click(colors.center(), Modifiers::none());
     cx.run_until_parked();
+    assert_eq!(
+        cx.read(|app| component.read(app).visible_kinds),
+        [true, false, false, false]
+    );
+    assert!(cx.debug_bounds("variables-value-color-light").is_some());
+    assert!(cx.debug_bounds("variables-value-radius-light").is_none());
+
+    let numbers = cx.debug_bounds("variables-filter-kind-1").unwrap();
+    cx.simulate_click(numbers.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(
+        cx.read(|app| component.read(app).visible_kinds),
+        [true, true, false, false]
+    );
+    assert!(cx.debug_bounds("variables-value-radius-light").is_some());
+
+    let colors = cx.debug_bounds("variables-filter-kind-0").unwrap();
+    cx.simulate_click(colors.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(
+        cx.read(|app| component.read(app).visible_kinds),
+        [false, true, false, false]
+    );
     assert!(cx.debug_bounds("variables-value-color-light").is_none());
+
+    let numbers = cx.debug_bounds("variables-filter-kind-1").unwrap();
+    cx.simulate_click(numbers.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(cx.read(|app| component.read(app).visible_kinds), [true; 4]);
+    assert!(cx.debug_bounds("variables-value-color-light").is_some());
     assert!(cx.debug_bounds("variables-value-radius-light").is_some());
 }
 
@@ -792,5 +822,296 @@ fn context_dropdowns_emit_host_owned_mode_and_binding_intents(cx: &mut TestAppCo
             property_id: "fill".into(),
             variable_id: Some("color".into())
         })
+    );
+}
+
+#[gpui::test]
+fn large_collections_virtualize_rows_and_search_from_the_bottom(cx: &mut TestAppContext) {
+    let (host, _actions, cx) = mount(cx);
+    cx.simulate_resize(size(px(1440.), px(700.)));
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |page, cx| {
+        let mut data = fixture();
+        data.variables = (0..2_000)
+            .map(|index| {
+                VariableRow::new(
+                    format!("variable-{index}"),
+                    format!("🎨/color/{index}"),
+                    "all",
+                    VariableKind::Color,
+                    [VariableModeValue::new("light", "#FFFBEB").color("FFFBEB")],
+                )
+            })
+            .collect();
+        page.set_view_data(data, cx);
+    });
+    cx.run_until_parked();
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("variables-name-cell-variable-0").is_some());
+    assert!(
+        cx.debug_bounds("variables-name-cell-variable-1000")
+            .is_none(),
+        "offscreen rows must not be built"
+    );
+    let footer = cx
+        .debug_bounds("variables-create-variable")
+        .expect("fixed footer");
+    assert_eq!(footer.size.height, px(41.));
+    let header = cx
+        .debug_bounds("variables-name-header")
+        .expect("fixed header");
+    component.update(cx, |page, cx| {
+        page.table_scroll_handle
+            .set_offset(point(px(0.), px(-81_500.)));
+        cx.notify();
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("variables-name-cell-variable-0").is_none());
+    assert_eq!(cx.debug_bounds("variables-create-variable"), Some(footer));
+    assert_eq!(cx.debug_bounds("variables-name-header"), Some(header));
+    let input = cx.read(|app| component.read(app).search_input.clone());
+    cx.update(|window, app| input.read(app).focus_handle(app).focus(window, app));
+    cx.simulate_keystrokes("1 0 0 0");
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("variables-name-cell-variable-1000")
+            .is_some()
+    );
+    assert!(cx.debug_bounds("variables-name-cell-variable-0").is_none());
+    cx.simulate_keystrokes("backspace backspace backspace backspace");
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("variables-name-cell-variable-0").is_some());
+    assert_eq!(cx.debug_bounds("variables-create-variable"), Some(footer));
+}
+
+#[gpui::test]
+fn many_modes_only_build_visible_cells_and_reuse_search_indices(cx: &mut TestAppContext) {
+    let (host, _, cx) = mount(cx);
+    cx.simulate_resize(size(px(1100.), px(700.)));
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |page, cx| {
+        let mut data = fixture();
+        data.modes = (0..32)
+            .map(|index| VariablesMode::new(format!("mode-{index}"), format!("Mode {index}")))
+            .collect();
+        data.variables = (0..2_000)
+            .map(|index| {
+                VariableRow::new(
+                    format!("variable-{index}"),
+                    format!("Color {index}"),
+                    "all",
+                    VariableKind::Color,
+                    (0..32).map(|mode| {
+                        VariableModeValue::new(format!("mode-{mode}"), "#FFFBEB").color("FFFBEB")
+                    }),
+                )
+            })
+            .collect();
+        page.set_view_data(data, cx);
+    });
+    cx.run_until_parked();
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("variables-value-variable-0-mode-0")
+            .is_some()
+    );
+    assert!(
+        cx.debug_bounds("variables-value-variable-0-mode-31")
+            .is_none()
+    );
+    assert!(cx.debug_bounds("variables-mode-header-mode-31").is_none());
+    let indices = cx.read(|app| component.read(app).table_projection.visible_indices.clone());
+    // Exercise a wheel event, including the nested horizontal/vertical scroll handoff.
+    let position = cx
+        .debug_bounds("variables-value-variable-0-mode-0")
+        .unwrap()
+        .center();
+    cx.simulate_event(gpui::ScrollWheelEvent {
+        position,
+        delta: gpui::ScrollDelta::Pixels(point(px(-10_000.), px(0.))),
+        ..Default::default()
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("variables-mode-header-mode-31").is_some());
+    assert!(
+        cx.debug_bounds("variables-value-variable-0-mode-31")
+            .is_some()
+    );
+    assert!(
+        cx.debug_bounds("variables-value-variable-0-mode-0")
+            .is_none()
+    );
+    let position = cx
+        .debug_bounds("variables-value-variable-0-mode-31")
+        .unwrap()
+        .center();
+    cx.simulate_event(gpui::ScrollWheelEvent {
+        position,
+        delta: gpui::ScrollDelta::Pixels(point(px(0.), px(-80_000.))),
+        ..Default::default()
+    });
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("variables-value-variable-0-mode-31")
+            .is_none()
+    );
+    cx.read(|app| {
+        let page = component.read(app);
+        assert!(page.table_scroll_handle.offset().y < px(-79_000.));
+        assert!(
+            std::rc::Rc::ptr_eq(&indices, &page.table_projection.visible_indices),
+            "scrolling must not refilter the entire collection"
+        );
+    });
+}
+
+#[gpui::test]
+fn collections_and_groups_scroll_independently_without_moving_the_table(cx: &mut TestAppContext) {
+    let (host, actions, cx) = mount(cx);
+    cx.simulate_resize(size(px(1100.), px(600.)));
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |page, cx| {
+        let mut data = fixture();
+        data.collections.extend((0..80).map(|index| {
+            VariablesCollection::new(
+                format!("collection-{index}"),
+                format!("Collection {index}"),
+                0,
+            )
+        }));
+        data.groups.extend((0..200).map(|index| {
+            VariablesGroup::new(format!("group-{index}"), format!("Group {index}"), 0)
+        }));
+        page.set_view_data(data, cx);
+    });
+    cx.run_until_parked();
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("variables-collection-collection-79")
+            .is_none()
+    );
+    assert!(cx.debug_bounds("variables-group-group-199").is_none());
+    for selector in [
+        "variables-collections-viewport",
+        "variables-groups-viewport",
+    ] {
+        let viewport = cx.debug_bounds(selector).unwrap();
+        assert!(
+            viewport.size.height > px(100.),
+            "both lists retain usable space"
+        );
+        cx.simulate_event(gpui::ScrollWheelEvent {
+            position: viewport.center(),
+            delta: gpui::ScrollDelta::Pixels(point(px(0.), px(-20_000.))),
+            ..Default::default()
+        });
+        cx.run_until_parked();
+    }
+    assert!(
+        cx.debug_bounds("variables-collection-collection-79")
+            .is_some()
+    );
+    let group = cx
+        .debug_bounds("variables-group-group-199")
+        .expect("the last group is reachable");
+    cx.read(|app| {
+        let page = component.read(app);
+        assert_eq!(page.table_scroll_handle.offset(), Point::default());
+        assert!(
+            page.collection_scroll_handle
+                .0
+                .borrow()
+                .base_handle
+                .offset()
+                .y
+                < px(0.)
+        );
+        assert!(page.group_scroll_handle.0.borrow().base_handle.offset().y < px(0.));
+    });
+    cx.simulate_click(group.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(actions.borrow().contains(&VariablesAction::GroupSelected {
+        group_id: "group-199".into()
+    }));
+}
+
+#[gpui::test]
+#[ignore = "run explicitly to profile variable scroll frames"]
+fn profile_large_color_table_scroll(cx: &mut TestAppContext) {
+    use std::time::Instant;
+    let (host, _, cx) = mount(cx);
+    cx.simulate_resize(size(px(1100.), px(760.)));
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |page, cx| {
+        let mut data = fixture();
+        data.modes = (0..8)
+            .map(|index| VariablesMode::new(format!("mode-{index}"), format!("Mode {index}")))
+            .collect();
+        data.variables = (0..946)
+            .map(|index| {
+                VariableRow::new(
+                    format!("variable-{index}"),
+                    format!("🎨/color/{index}"),
+                    "all",
+                    VariableKind::Color,
+                    (0..8).map(|mode| {
+                        VariableModeValue::new(format!("mode-{mode}"), "#FFFBEB").color("FFFBEB")
+                    }),
+                )
+            })
+            .collect();
+        page.set_view_data(data, cx);
+    });
+    cx.run_until_parked();
+    cx.run_until_parked();
+    let position = cx
+        .debug_bounds("variables-value-variable-0-mode-0")
+        .unwrap()
+        .center();
+    let mut durations = Vec::with_capacity(200);
+    for index in 0..200 {
+        let started = Instant::now();
+        cx.simulate_event(gpui::ScrollWheelEvent {
+            position,
+            delta: gpui::ScrollDelta::Pixels(point(
+                px(0.),
+                px(if index % 2 == 0 { -60. } else { 60. }),
+            )),
+            ..Default::default()
+        });
+        cx.run_until_parked();
+        durations.push(started.elapsed());
+    }
+    durations.sort_unstable();
+    eprintln!(
+        "color scroll frame: p50={:?}, p95={:?}, max={:?}",
+        durations[100], durations[190], durations[199]
+    );
+    component.update(cx, |page, cx| {
+        let mut data = page.view_data.clone();
+        for variable in &mut data.variables {
+            variable.kind = VariableKind::String;
+        }
+        page.set_view_data(data, cx);
+    });
+    cx.run_until_parked();
+    let mut durations = Vec::with_capacity(200);
+    for index in 0..200 {
+        let started = Instant::now();
+        cx.simulate_event(gpui::ScrollWheelEvent {
+            position,
+            delta: gpui::ScrollDelta::Pixels(point(
+                px(0.),
+                px(if index % 2 == 0 { -60. } else { 60. }),
+            )),
+            ..Default::default()
+        });
+        cx.run_until_parked();
+        durations.push(started.elapsed());
+    }
+    durations.sort_unstable();
+    eprintln!(
+        "string scroll frame: p50={:?}, p95={:?}, max={:?}",
+        durations[100], durations[190], durations[199]
     );
 }

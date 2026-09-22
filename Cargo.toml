@@ -70,3 +70,9 @@ split-debuginfo = "unpacked"
 
 [profile.dev.package.fanta-gpui-core]
 opt-level = 3
+
+[profile.dev.package.fanta-gpui-components]
+opt-level = 3
+
+[profile.dev.package.fanta-gpui]
+opt-level = 3

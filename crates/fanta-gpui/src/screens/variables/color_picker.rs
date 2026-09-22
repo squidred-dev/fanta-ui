@@ -1,6 +1,5 @@
 //! Host adapter for the standalone color picker.
 use super::*;
-use gpui_component::button::ButtonVariants as _;
 
 impl VariablesScreen {
     fn variable_color(
@@ -91,57 +90,68 @@ impl VariablesScreen {
                 this.overlay_bounds.insert(key.clone(), bounds);
             }))
             .child(
-                crate::atoms::ui_button(SharedString::from(format!(
-                    "variable-color-{}-{}-{in_settings}",
-                    variable.id, mode.id
-                )))
-                .debug_selector({
-                    let v = variable.id.clone();
-                    let m = mode.id.clone();
-                    move || format!("variables-color-{v}-{m}-{in_settings}")
-                })
-                .xsmall()
-                .compact()
-                .ghost()
-                .w_full()
-                .h_full()
-                .px_0()
-                .justify_start()
-                .on_activate(cx.listener(move |this, _, window, cx| {
-                    if this.color_target.as_ref() == Some(&target) {
+                h_flex()
+                    .id(SharedString::from(format!(
+                        "variable-color-{}-{}-{in_settings}",
+                        variable.id, mode.id
+                    )))
+                    .debug_selector({
+                        let v = variable.id.clone();
+                        let m = mode.id.clone();
+                        move || format!("variables-color-{v}-{m}-{in_settings}")
+                    })
+                    .key_context(CONTROL_KEY_CONTEXT)
+                    .tab_index(0)
+                    .w_full()
+                    .h_full()
+                    .gap_2()
+                    .rounded(px(tokens::Radius::CONTROL))
+                    .border_1()
+                    .border_color(cx.theme().transparent)
+                    .cursor_pointer()
+                    .hover(|style| {
+                        style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    })
+                    .focus(|style| {
+                        style.border_color(
+                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                        )
+                    })
+                    .on_activate(cx.listener(move |this, _, window, cx| {
+                        if this.color_target.as_ref() == Some(&target) {
+                            this.close_color_picker(window, cx);
+                            return;
+                        }
                         this.close_color_picker(window, cx);
-                        return;
-                    }
-                    this.close_color_picker(window, cx);
-                    this.commit_edit(cx);
-                    this.create_menu_open = false;
-                    this.alias_target = None;
-                    if !in_settings {
-                        this.settings_id = None;
-                    }
-                    this.color_target = Some(target.clone());
-                    this.sync_color_picker(window, cx);
-                    this.color_picker
-                        .read(cx)
-                        .focus_handle(cx)
-                        .focus(window, cx);
-                    cx.notify();
-                }))
-                .child(
-                    div()
-                        .size(px(tokens::ControlSize::INLINE))
-                        .flex_none()
-                        .rounded(px(tokens::Radius::CONTROL))
-                        .border_1()
-                        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                        .bg(color),
-                )
-                .child(
-                    div()
-                        .truncate()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
-                        .child(hex),
-                ),
+                        this.commit_edit(cx);
+                        this.create_menu_open = false;
+                        this.alias_target = None;
+                        if !in_settings {
+                            this.settings_id = None;
+                        }
+                        this.color_target = Some(target.clone());
+                        this.sync_color_picker(window, cx);
+                        this.color_picker
+                            .read(cx)
+                            .focus_handle(cx)
+                            .focus(window, cx);
+                        cx.notify();
+                    }))
+                    .child(
+                        div()
+                            .size(px(tokens::ControlSize::INLINE))
+                            .flex_none()
+                            .rounded(px(tokens::Radius::CONTROL))
+                            .border_1()
+                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                            .bg(color),
+                    )
+                    .child(
+                        div()
+                            .truncate()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .child(hex),
+                    ),
             )
             .into_any_element()
     }

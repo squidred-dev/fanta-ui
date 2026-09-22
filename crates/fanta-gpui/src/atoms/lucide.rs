@@ -3,6 +3,8 @@
 //! The icon catalog and complete SVG geometry come from the pinned
 //! `lucide-static-svg` crate. Fanta does not maintain a parallel glyph set.
 
+use std::{cell::RefCell, collections::HashMap};
+
 use gpui::{
     AnyElement, Hsla, IntoElement as _, Path, PathBuilder, PathStyle, Pixels, Point, StrokeOptions,
     Styled as _, canvas, point, px,
@@ -14,6 +16,34 @@ pub use lucide_static_svg::Icon as LucideIcon;
 
 const LUCIDE_GRID: f32 = 24.;
 const LUCIDE_STROKE_WIDTH: f32 = 2.;
+type IconPathCache = HashMap<(usize, u32), Option<Path<Pixels>>>;
+
+thread_local! {
+    // Keep tessellated paths at the origin. Parsing SVG XML and tessellating
+    // every visible icon on every scroll frame dominates small repeated rows.
+    static ICON_PATHS: RefCell<IconPathCache> = RefCell::new(HashMap::new());
+}
+
+fn translated_icon_path(
+    icon: LucideIcon,
+    size: f32,
+    origin: Point<Pixels>,
+) -> Option<Path<Pixels>> {
+    let svg = icon.svg_str();
+    let key = (svg.as_ptr() as usize, size.to_bits());
+    ICON_PATHS.with(|paths| {
+        let mut paths = paths.borrow_mut();
+        let mut path = paths
+            .entry(key)
+            .or_insert_with(|| build_lucide_svg(Point::default(), size, svg))
+            .clone()?;
+        path.bounds.origin += origin;
+        for vertex in &mut path.vertices {
+            vertex.xy_position += origin;
+        }
+        Some(path)
+    })
+}
 
 /// Renders one icon from the pinned upstream Lucide catalog.
 pub fn render_lucide_icon(icon: LucideIcon, color: Hsla, size: f32) -> AnyElement {
@@ -21,7 +51,7 @@ pub fn render_lucide_icon(icon: LucideIcon, color: Hsla, size: f32) -> AnyElemen
     canvas(
         |_, _, _| {},
         move |bounds, _, window, _| {
-            if let Some(path) = build_lucide_svg(bounds.origin, size, icon.svg_str()) {
+            if let Some(path) = translated_icon_path(icon, size, bounds.origin) {
                 window.paint_path(path, color);
             }
         },
@@ -193,5 +223,28 @@ mod tests {
     #[test]
     fn catalog_version_is_intentionally_pinned() {
         assert_eq!(lucide_static_svg::LUCIDE_VERSION, "1.45.0");
+    }
+}
+
+#[cfg(test)]
+mod cache_tests {
+    use super::*;
+
+    #[test]
+    fn cached_icon_geometry_matches_a_path_built_at_its_screen_position() {
+        let origin = point(px(37.), px(91.));
+        let icon = LucideIcon::Palette;
+        let cached = translated_icon_path(icon, 12., origin).expect("cached palette path");
+        let built = build_lucide_svg(origin, 12., icon.svg_str()).expect("built palette path");
+        let close = |a: Pixels, b: Pixels| assert!((f32::from(a) - f32::from(b)).abs() < 0.001);
+        close(cached.bounds.origin.x, built.bounds.origin.x);
+        close(cached.bounds.origin.y, built.bounds.origin.y);
+        close(cached.bounds.size.width, built.bounds.size.width);
+        close(cached.bounds.size.height, built.bounds.size.height);
+        assert_eq!(cached.vertices.len(), built.vertices.len());
+        for (actual, expected) in cached.vertices.iter().zip(built.vertices.iter()) {
+            close(actual.xy_position.x, expected.xy_position.x);
+            close(actual.xy_position.y, expected.xy_position.y);
+        }
     }
 }

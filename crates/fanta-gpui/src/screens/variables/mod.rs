@@ -5,8 +5,8 @@ use gpui::{
     Anchor, AnyElement, App, AppContext as _, Bounds, Context, Entity, EventEmitter, FocusHandle,
     Focusable, InteractiveElement as _, IntoElement, MouseButton, MouseDownEvent,
     ParentElement as _, Pixels, Point, Render, ScrollHandle, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Subscription, Window, canvas, div, point,
-    prelude::FluentBuilder as _, px, rgba,
+    StatefulInteractiveElement as _, Styled as _, Subscription, UniformListScrollHandle, Window,
+    canvas, div, point, prelude::FluentBuilder as _, px, rgba, uniform_list,
 };
 use gpui_component::{
     ActiveTheme as _, Icon, IconName, Sizable as _, StyledExt as _, h_flex,
@@ -290,6 +290,10 @@ pub struct VariablesScreen {
     visible_kinds: [bool; 4],
     table_scroll_handle: ScrollHandle,
     table_horizontal_scroll_handle: ScrollHandle,
+    table_list_scroll_handles: [UniformListScrollHandle; 3],
+    collection_scroll_handle: UniformListScrollHandle,
+    group_scroll_handle: UniformListScrollHandle,
+    table_projection: table_projection::TableProjection,
     sidebar_visible: bool,
     /// Measured width of the whole page; the header row and the body derive
     /// shared sidebar and name-column widths from it so their vertical
@@ -341,8 +345,9 @@ impl VariablesScreen {
                 }
             }),
             cx.subscribe(&alias_search, |_, _, _: &InputEvent, cx| cx.notify()),
-            cx.subscribe(&search_input, |_, input, event: &InputEvent, cx| {
+            cx.subscribe(&search_input, |this, input, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
+                    this.table_scroll_handle.set_offset(Point::default());
                     cx.emit(VariablesAction::SearchQueryChanged {
                         query: input.read(cx).value(),
                     });
@@ -367,11 +372,18 @@ impl VariablesScreen {
                 },
             ),
         ];
+        let table_scroll_handle = ScrollHandle::new();
+        let table_list_scroll_handles = std::array::from_fn(|_| {
+            let handle = UniformListScrollHandle::new();
+            handle.0.borrow_mut().base_handle = table_scroll_handle.clone();
+            handle
+        });
         Self {
             context_data: VariablesContextData::default(),
             context_menu: None,
             id: id.into(),
             focus_handle: cx.focus_handle(),
+            table_projection: table_projection::TableProjection::new(&view_data),
             view_data,
             search_input,
             collection_name_input,
@@ -391,7 +403,10 @@ impl VariablesScreen {
             create_trigger: "create-footer".into(),
             alias_trigger: "".into(),
             visible_kinds: [true; 4],
-            table_scroll_handle: ScrollHandle::new(),
+            table_scroll_handle,
+            table_list_scroll_handles,
+            collection_scroll_handle: UniformListScrollHandle::new(),
+            group_scroll_handle: UniformListScrollHandle::new(),
             table_horizontal_scroll_handle: ScrollHandle::new(),
             sidebar_visible: true,
             page_width: None,
@@ -408,6 +423,12 @@ impl VariablesScreen {
             self.create_menu_open = false;
             self.color_target = None;
         }
+        if self.view_data.selected_collection_id != view_data.selected_collection_id
+            || self.view_data.selected_group_id != view_data.selected_group_id
+        {
+            self.table_scroll_handle.set_offset(Point::default());
+        }
+        self.table_projection = table_projection::TableProjection::new(&view_data);
         self.view_data = view_data;
         cx.notify();
     }
@@ -439,6 +460,11 @@ impl VariablesScreen {
                     } else {
                         0.
                     }
+                    - if self.context_data.bindings.is_some() {
+                        tokens::VariablesGeometry::BINDINGS_WIDTH
+                    } else {
+                        0.
+                    }
             },
         )
     }
@@ -447,6 +473,20 @@ impl VariablesScreen {
         let count = self.view_data.modes.len().max(1) as f32;
         ((self.table_viewport_width() - self.name_column_width() - ACTIONS_COLUMN_WIDTH) / count)
             .max(VALUE_COLUMN_MIN_WIDTH)
+    }
+
+    /// Virtualize both axes: hidden modes must not create controls or layout nodes.
+    fn visible_mode_range(&self) -> std::ops::Range<usize> {
+        let width = self.mode_column_width();
+        let viewport =
+            (self.table_viewport_width() - self.name_column_width() - ACTIONS_COLUMN_WIDTH).max(0.);
+        let count = self.view_data.modes.len();
+        // Wheel deltas are clamped by GPUI during layout, after headers render.
+        let offset = (-f32::from(self.table_horizontal_scroll_handle.offset().x))
+            .clamp(0., (width * count as f32 - viewport).max(0.));
+        let start = (offset / width).floor() as usize;
+        let end = ((offset + viewport) / width).ceil() as usize;
+        start.saturating_sub(1).min(count)..end.saturating_add(1).min(count)
     }
 
     fn toggle_sidebar(&mut self, cx: &mut Context<Self>) {
@@ -632,6 +672,8 @@ impl VariablesScreen {
             .child(
                 div()
                     .flex_1()
+                    .min_w_0()
+                    .truncate()
                     .when(selected, |name| name.font_semibold())
                     .child(group.name.clone()),
             )
@@ -648,16 +690,47 @@ impl VariablesScreen {
     }
 
     fn render_sidebar(&self, cx: &mut Context<Self>) -> AnyElement {
-        let mut collections = v_flex().w_full();
-        for collection in &self.view_data.collections {
-            collections = collections.child(self.render_collection(collection, cx));
-        }
-        let mut groups = v_flex().w_full().mt(px(7.));
-        for group in &self.view_data.groups {
-            groups = groups.child(self.render_group(group, cx));
-        }
+        let row_height = tokens::RowHeight::FIELD + 6.;
+        let collections = uniform_list(
+            SharedString::from(format!("{}-collections-list", self.id)),
+            self.view_data.collections.len(),
+            cx.processor(move |this, range: std::ops::Range<usize>, _, cx| {
+                range
+                    .filter_map(|index| this.view_data.collections.get(index))
+                    .map(|collection| {
+                        div()
+                            .h(px(row_height))
+                            .w_full()
+                            .child(this.render_collection(collection, cx))
+                            .into_any_element()
+                    })
+                    .collect::<Vec<_>>()
+            }),
+        )
+        .size_full()
+        .track_scroll(&self.collection_scroll_handle);
+        let groups = uniform_list(
+            SharedString::from(format!("{}-groups-list", self.id)),
+            self.view_data.groups.len(),
+            cx.processor(move |this, range: std::ops::Range<usize>, _, cx| {
+                range
+                    .filter_map(|index| this.view_data.groups.get(index))
+                    .map(|group| {
+                        div()
+                            .h(px(row_height))
+                            .w_full()
+                            .child(this.render_group(group, cx))
+                            .into_any_element()
+                    })
+                    .collect::<Vec<_>>()
+            }),
+        )
+        .size_full()
+        .track_scroll(&self.group_scroll_handle);
         v_flex()
             .debug_selector(|| "variables-sidebar".to_owned())
+            .min_h_0()
+            .overflow_hidden()
             .w(px(self.sidebar_width()))
             .h_full()
             .flex_none()
@@ -665,12 +738,19 @@ impl VariablesScreen {
             .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .child(
                 v_flex()
+                    .h(px(
+                        self.view_data.collections.len() as f32 * row_height + 52.
+                    ))
+                    .max_h(gpui::relative(0.45))
+                    .min_h_0()
+                    .flex_none()
                     .px(px(tokens::Space::SM))
                     .py(px(10.))
                     .gap_1()
                     .child(
                         h_flex()
                             .h(px(28.))
+                            .flex_none()
                             .px_1()
                             .font_semibold()
                             .typography(crate::atoms::TypographyToken::BodyMedium)
@@ -690,7 +770,18 @@ impl VariablesScreen {
                                 .child(Icon::new(IconName::Plus).xsmall()),
                             ),
                     )
-                    .child(collections),
+                    .child(
+                        div()
+                            .id("variables-collections-viewport")
+                            .debug_selector(|| "variables-collections-viewport".to_owned())
+                            .relative()
+                            .flex_1()
+                            .min_h_0()
+                            .overflow_hidden()
+                            .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
+                            .child(collections)
+                            .child(Scrollbar::vertical(&self.collection_scroll_handle)),
+                    ),
             )
             .child(
                 v_flex()
@@ -706,9 +797,21 @@ impl VariablesScreen {
                             .px_1()
                             .font_semibold()
                             .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .flex_none()
                             .child("Groups"),
                     )
-                    .child(groups),
+                    .child(
+                        div()
+                            .id("variables-groups-viewport")
+                            .debug_selector(|| "variables-groups-viewport".to_owned())
+                            .relative()
+                            .flex_1()
+                            .min_h_0()
+                            .overflow_hidden()
+                            .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
+                            .child(groups)
+                            .child(Scrollbar::vertical(&self.group_scroll_handle)),
+                    ),
             )
             .into_any_element()
     }
@@ -757,6 +860,7 @@ impl VariablesScreen {
                 move || format!("variables-value-{v}-{m}")
             })
             .w(px(mode_width))
+            .flex_none()
             .h(px(if in_settings {
                 tokens::RowHeight::FIELD
             } else {
@@ -769,12 +873,7 @@ impl VariablesScreen {
             .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .when(draw_right_border, |cell| cell.border_r_1());
         if let Some(alias) = alias {
-            let name = self
-                .view_data
-                .variables
-                .iter()
-                .find(|v| v.id == *alias)
-                .map_or(alias.clone(), |v| v.name.clone());
+            let name = self.table_projection.alias_name(alias);
             cell = cell.child(div().flex_1().truncate().child(name));
         } else if variable.kind == VariableKind::Color {
             cell = cell.child(self.render_color_trigger(variable, mode, in_settings, cx));
@@ -945,7 +1044,15 @@ impl VariablesScreen {
                 )
                 .debug_selector(move || format!("variables-filter-kind-{index}"))
                 .on_activate(cx.listener(move |this, _, _, cx| {
-                    this.visible_kinds[index] = !this.visible_kinds[index];
+                    if this.visible_kinds.iter().all(|selected| *selected) {
+                        this.visible_kinds = [false; 4];
+                        this.visible_kinds[index] = true;
+                    } else {
+                        this.visible_kinds[index] = !this.visible_kinds[index];
+                        if !this.visible_kinds.iter().any(|selected| *selected) {
+                            this.visible_kinds = [true; 4];
+                        }
+                    }
                     cx.notify();
                 }))
                 .child(
@@ -1061,113 +1168,21 @@ impl VariablesScreen {
         state.into_any_element()
     }
 
-    fn render_table(&self, cx: &mut Context<Self>) -> AnyElement {
-        let name_width = self.name_column_width();
+    fn render_virtual_rows(
+        &self,
+        indices: &[usize],
+        range: std::ops::Range<usize>,
+        column: usize,
+        cx: &mut Context<Self>,
+    ) -> Vec<AnyElement> {
         let mode_width = self.mode_column_width();
         let modes_width = mode_width * self.view_data.modes.len() as f32;
-        let name_header = h_flex()
-            .debug_selector(|| "variables-name-header".to_owned())
-            .w_full()
-            .h(px(41.))
-            .flex_none()
-            .px(px(tokens::ControlSize::INLINE))
-            .border_r_1()
-            .border_b_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-            .font_semibold()
-            .typography(crate::atoms::TypographyToken::BodyMedium)
-            .child("Name");
-        let mut names = v_flex().w(px(name_width)).flex_none();
-        let mut modes = v_flex().w(px(modes_width)).flex_none();
-        let mut mode_headers = h_flex().w(px(modes_width)).h(px(41.)).flex_none();
-        for (index, mode) in self.view_data.modes.iter().enumerate() {
-            mode_headers = mode_headers.child(
-                h_flex()
-                    .debug_selector({
-                        let mode_id = mode.id.clone();
-                        move || format!("variables-mode-header-{mode_id}")
-                    })
-                    .w(px(mode_width))
-                    .h_full()
-                    .flex_none()
-                    .px(px(tokens::ControlSize::INLINE))
-                    .border_b_1()
-                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                    .when(index + 1 < self.view_data.modes.len(), |header| {
-                        header.border_r_1()
-                    })
-                    .font_semibold()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
-                    .id(SharedString::from(format!("mode-edit-{}", mode.id)))
-                    .cursor_pointer()
-                    .key_context(CONTROL_KEY_CONTEXT)
-                    .tab_index(0)
-                    .on_activate(cx.listener({
-                        let id = mode.id.clone();
-                        let name = mode.name.clone();
-                        move |this, _, window, cx| {
-                            this.begin_edit(EditTarget::Mode(id.clone()), name.clone(), window, cx)
-                        }
-                    }))
-                    .child(self.render_text(
-                        EditTarget::Mode(mode.id.clone()),
-                        mode.name.clone(),
-                        cx,
-                    )),
-            );
-        }
-        let action_header = h_flex()
-            .id(SharedString::from(format!("{}-add-mode", self.id)))
-            .debug_selector(|| "variables-add-mode".to_owned())
-            .key_context(CONTROL_KEY_CONTEXT)
-            .tab_index(0)
-            .w_full()
-            .h(px(41.))
-            .flex_none()
-            .items_center()
-            .justify_center()
-            .border_b_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-            .bg(crate::atoms::SemanticColor::Background.resolve(cx))
-            .cursor_pointer()
-            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
-            .focus(|style| {
-                style
-                    .border_1()
-                    .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
-            })
-            .on_activate(cx.listener(|_, _, _, cx| {
-                cx.emit(VariablesAction::AddModeRequested);
-            }))
-            .child(Icon::new(IconName::Plus).small());
-        let mut actions = v_flex().w(px(ACTIONS_COLUMN_WIDTH)).flex_none();
-
-        let query = self.search_input.read(cx).value().to_lowercase();
-        let selected_group_is_aggregate = self
-            .view_data
-            .groups
-            .iter()
-            .find(|group| group.id == self.view_data.selected_group_id)
-            .is_some_and(|group| group.is_aggregate);
-        let group_variables = self
-            .view_data
-            .variables
-            .iter()
-            .filter(|variable| {
-                selected_group_is_aggregate || variable.group_id == self.view_data.selected_group_id
-            })
-            .collect::<Vec<_>>();
-        let matching_variables = group_variables
-            .iter()
-            .copied()
-            .filter(|variable| {
-                self.visible_kinds[Self::kind_index(variable.kind)]
-                    && (query.is_empty() || variable.name.to_lowercase().contains(&query))
-            })
-            .collect::<Vec<_>>();
-        for variable in &matching_variables {
-            names = names.child(
-                h_flex()
+        let visible_modes = self.visible_mode_range();
+        range
+            .filter_map(|index| indices.get(index))
+            .filter_map(|index| self.view_data.variables.get(*index))
+            .map(|variable| match column {
+                0 => h_flex()
                     .debug_selector({
                         let variable_id = variable.id.clone();
                         move || format!("variables-name-cell-{variable_id}")
@@ -1209,73 +1224,200 @@ impl VariablesScreen {
                             .truncate()
                             .child(variable.name.clone())
                             .into_any_element()
-                    }),
-            );
-
-            let mut mode_cells = h_flex().w(px(modes_width)).h(px(41.)).flex_none();
-            for (index, mode) in self.view_data.modes.iter().enumerate() {
-                mode_cells = mode_cells.child(self.render_value(
-                    variable,
-                    mode,
-                    mode_width,
-                    index + 1 < self.view_data.modes.len(),
-                    false,
-                    cx,
-                ));
-            }
-            modes = modes.child(mode_cells);
-
-            let variable_id = variable.id.clone();
-            actions = actions.child(
-                h_flex()
-                    .id(SharedString::from(format!(
-                        "{}-variable-settings-{}",
-                        self.id, variable.id
-                    )))
-                    .debug_selector({
-                        let variable_id = variable.id.clone();
-                        move || format!("variables-variable-settings-{variable_id}")
                     })
-                    .key_context(CONTROL_KEY_CONTEXT)
-                    .tab_index(0)
-                    .w_full()
+                    .into_any_element(),
+                1 => h_flex()
+                    .w(px(modes_width))
                     .h(px(41.))
                     .flex_none()
+                    .child(
+                        div()
+                            .w(px(mode_width * visible_modes.start as f32))
+                            .flex_none(),
+                    )
+                    .children(visible_modes.clone().map(|index| {
+                        let mode = &self.view_data.modes[index];
+                        self.render_value(
+                            variable,
+                            mode,
+                            mode_width,
+                            index + 1 < self.view_data.modes.len(),
+                            false,
+                            cx,
+                        )
+                    }))
+                    .child(
+                        div()
+                            .w(px(mode_width
+                                * (self.view_data.modes.len() - visible_modes.end) as f32))
+                            .flex_none(),
+                    )
+                    .into_any_element(),
+                _ => {
+                    let variable_id = variable.id.clone();
+                    h_flex()
+                        .id(SharedString::from(format!(
+                            "{}-variable-settings-{}",
+                            self.id, variable.id
+                        )))
+                        .debug_selector({
+                            let variable_id = variable.id.clone();
+                            move || format!("variables-variable-settings-{variable_id}")
+                        })
+                        .key_context(CONTROL_KEY_CONTEXT)
+                        .tab_index(0)
+                        .w_full()
+                        .h(px(41.))
+                        .flex_none()
+                        .border_b_1()
+                        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                        .bg(crate::atoms::SemanticColor::Background.resolve(cx))
+                        .items_center()
+                        .justify_center()
+                        .cursor_pointer()
+                        .hover(|style| {
+                            style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        })
+                        .focus(|style| {
+                            style.border_1().border_color(
+                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                            )
+                        })
+                        .relative()
+                        .child(track_bounds(cx.entity(), {
+                            let key: SharedString = format!("settings-{variable_id}").into();
+                            move |this, bounds| {
+                                this.overlay_bounds.insert(key.clone(), bounds);
+                            }
+                        }))
+                        .on_activate(cx.listener(move |this, _, window, cx| {
+                            this.context_menu = None;
+                            this.close_color_picker(window, cx);
+                            this.alias_target = None;
+                            this.create_menu_open = false;
+                            this.settings_id = Some(variable_id.clone());
+                            cx.notify();
+                            cx.emit(VariablesAction::VariableSettingsRequested {
+                                variable_id: variable_id.clone(),
+                            });
+                        }))
+                        .child(Icon::new(IconName::Settings2).xsmall())
+                        .into_any_element()
+                }
+            })
+            .collect()
+    }
+
+    fn render_table(&self, cx: &mut Context<Self>) -> AnyElement {
+        let name_width = self.name_column_width();
+        let mode_width = self.mode_column_width();
+        let modes_width = mode_width * self.view_data.modes.len() as f32;
+        let name_header = h_flex()
+            .debug_selector(|| "variables-name-header".to_owned())
+            .w_full()
+            .h(px(41.))
+            .flex_none()
+            .px(px(tokens::ControlSize::INLINE))
+            .border_r_1()
+            .border_b_1()
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .font_semibold()
+            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .child("Name");
+        let mut mode_headers = h_flex().w(px(modes_width)).h(px(41.)).flex_none();
+        let visible_modes = self.visible_mode_range();
+        mode_headers = mode_headers.child(
+            div()
+                .w(px(mode_width * visible_modes.start as f32))
+                .flex_none(),
+        );
+        for index in visible_modes.clone() {
+            let mode = &self.view_data.modes[index];
+            mode_headers = mode_headers.child(
+                h_flex()
+                    .debug_selector({
+                        let mode_id = mode.id.clone();
+                        move || format!("variables-mode-header-{mode_id}")
+                    })
+                    .w(px(mode_width))
+                    .h_full()
+                    .flex_none()
+                    .px(px(tokens::ControlSize::INLINE))
                     .border_b_1()
                     .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                    .bg(crate::atoms::SemanticColor::Background.resolve(cx))
-                    .items_center()
-                    .justify_center()
+                    .when(index + 1 < self.view_data.modes.len(), |header| {
+                        header.border_r_1()
+                    })
+                    .font_semibold()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .id(SharedString::from(format!("mode-edit-{}", mode.id)))
                     .cursor_pointer()
-                    .hover(|style| {
-                        style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
-                    })
-                    .focus(|style| {
-                        style.border_1().border_color(
-                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
-                        )
-                    })
-                    .relative()
-                    .child(track_bounds(cx.entity(), {
-                        let key: SharedString = format!("settings-{variable_id}").into();
-                        move |this, bounds| {
-                            this.overlay_bounds.insert(key.clone(), bounds);
+                    .key_context(CONTROL_KEY_CONTEXT)
+                    .tab_index(0)
+                    .on_activate(cx.listener({
+                        let id = mode.id.clone();
+                        let name = mode.name.clone();
+                        move |this, _, window, cx| {
+                            this.begin_edit(EditTarget::Mode(id.clone()), name.clone(), window, cx)
                         }
                     }))
-                    .on_activate(cx.listener(move |this, _, window, cx| {
-                        this.context_menu = None;
-                        this.close_color_picker(window, cx);
-                        this.alias_target = None;
-                        this.create_menu_open = false;
-                        this.settings_id = Some(variable_id.clone());
-                        cx.notify();
-                        cx.emit(VariablesAction::VariableSettingsRequested {
-                            variable_id: variable_id.clone(),
-                        });
-                    }))
-                    .child(Icon::new(IconName::Settings2).xsmall()),
+                    .child(self.render_text(
+                        EditTarget::Mode(mode.id.clone()),
+                        mode.name.clone(),
+                        cx,
+                    )),
             );
         }
+        mode_headers = mode_headers.child(
+            div()
+                .w(px(
+                    mode_width * (self.view_data.modes.len() - visible_modes.end) as f32
+                ))
+                .flex_none(),
+        );
+        let action_header = h_flex()
+            .id(SharedString::from(format!("{}-add-mode", self.id)))
+            .debug_selector(|| "variables-add-mode".to_owned())
+            .key_context(CONTROL_KEY_CONTEXT)
+            .tab_index(0)
+            .w_full()
+            .h(px(41.))
+            .flex_none()
+            .items_center()
+            .justify_center()
+            .border_b_1()
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .bg(crate::atoms::SemanticColor::Background.resolve(cx))
+            .cursor_pointer()
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+            .focus(|style| {
+                style
+                    .border_1()
+                    .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+            })
+            .on_activate(cx.listener(|_, _, _, cx| {
+                cx.emit(VariablesAction::AddModeRequested);
+            }))
+            .child(Icon::new(IconName::Plus).small());
+
+        let indices = self.table_projection.visible_indices.clone();
+        let matching_count = indices.len();
+        let virtual_column = |column: usize, cx: &mut Context<Self>| {
+            let indices = indices.clone();
+            uniform_list(
+                SharedString::from(format!("{}-table-column-{column}", self.id)),
+                indices.len(),
+                cx.processor(move |this, range: std::ops::Range<usize>, _, cx| {
+                    this.render_virtual_rows(&indices, range, column, cx)
+                }),
+            )
+            .size_full()
+            .map(|mut list| {
+                list.style().restrict_scroll_to_axis = Some(true);
+                list
+            })
+            .track_scroll(&self.table_list_scroll_handles[column])
+        };
 
         v_flex()
             .relative()
@@ -1301,9 +1443,8 @@ impl VariablesScreen {
                                     )))
                                     .flex_1()
                                     .min_h(px(0.))
-                                    .overflow_y_scroll()
-                                    .track_scroll(&self.table_scroll_handle)
-                                    .child(names),
+                                    .overflow_hidden()
+                                    .child(virtual_column(0, cx)),
                             ),
                     )
                     .child(
@@ -1316,6 +1457,10 @@ impl VariablesScreen {
                             .min_w(px(0.))
                             .h_full()
                             .overflow_x_scroll()
+                            .map(|mut viewport| {
+                                viewport.style().restrict_scroll_to_axis = Some(true);
+                                viewport
+                            })
                             .track_scroll(&self.table_horizontal_scroll_handle)
                             .child(
                                 v_flex()
@@ -1331,9 +1476,8 @@ impl VariablesScreen {
                                             )))
                                             .flex_1()
                                             .min_h(px(0.))
-                                            .overflow_y_scroll()
-                                            .track_scroll(&self.table_scroll_handle)
-                                            .child(modes),
+                                            .overflow_hidden()
+                                            .child(virtual_column(1, cx)),
                                     ),
                             ),
                     )
@@ -1355,9 +1499,8 @@ impl VariablesScreen {
                                     )))
                                     .flex_1()
                                     .min_h(px(0.))
-                                    .overflow_y_scroll()
-                                    .track_scroll(&self.table_scroll_handle)
-                                    .child(actions),
+                                    .overflow_hidden()
+                                    .child(virtual_column(2, cx)),
                             ),
                     ),
             )
@@ -1368,6 +1511,7 @@ impl VariablesScreen {
                     .key_context(CONTROL_KEY_CONTEXT)
                     .tab_index(0)
                     .h(px(41.))
+                    .flex_none()
                     .w_full()
                     .px(px(tokens::ControlSize::INLINE))
                     .gap_3()
@@ -1411,11 +1555,11 @@ impl VariablesScreen {
                     .h(px(TABLE_SCROLLBAR_WIDTH))
                     .child(Scrollbar::horizontal(&self.table_horizontal_scroll_handle)),
             )
-            .when(group_variables.is_empty(), |table| {
+            .when(self.table_projection.group_count == 0, |table| {
                 table.child(self.render_empty_state(false, cx))
             })
             .when(
-                !group_variables.is_empty() && matching_variables.is_empty(),
+                self.table_projection.group_count != 0 && matching_count == 0,
                 |table| table.child(self.render_empty_state(true, cx)),
             )
             .into_any_element()
@@ -1431,6 +1575,11 @@ impl Focusable for VariablesScreen {
 impl Render for VariablesScreen {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.sync_color_picker(window, cx);
+        self.table_projection.filter(
+            &self.view_data,
+            &self.search_input.read(cx).value(),
+            self.visible_kinds,
+        );
         let page = cx.entity();
         v_flex()
             .id(self.id.clone())
@@ -1661,6 +1810,7 @@ impl Render for VariablesScreen {
 mod interaction_tests;
 
 mod editing;
+mod table_projection;
 
 mod color_picker;
 
