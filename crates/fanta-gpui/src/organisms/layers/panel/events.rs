@@ -336,11 +336,13 @@ impl LayersPanel {
                 self.focus_panel_after_action(window, cx);
             }
             action => {
+                // Restore focus before emitting: a host may open text editing or a
+                // picker in response, and its focus must survive this menu closing.
+                self.focus_handle.focus(window, cx);
                 cx.emit(LayersPanelAction::ContextActionRequested {
                     node_id: menu.node.id,
                     action,
                 });
-                self.focus_panel_after_action(window, cx);
             }
         }
         cx.notify();

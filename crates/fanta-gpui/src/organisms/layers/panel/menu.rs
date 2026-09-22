@@ -304,6 +304,16 @@ pub(super) fn menu_sections_for_node(node: &LayerNode) -> Vec<Vec<MenuEntry>> {
     sections
 }
 
+/// Actions offered by the shared menu for a node kind, before host state
+/// (locks, clipboard contents and document capabilities) is applied.
+pub fn context_actions_for_kind(kind: LayersPanelNodeKind) -> Vec<LayersPanelContextAction> {
+    menu_sections_for(kind)
+        .into_iter()
+        .flatten()
+        .map(|entry| entry.action)
+        .collect()
+}
+
 fn entries(actions: &[LayersPanelContextAction]) -> Vec<MenuEntry> {
     actions.iter().copied().map(MenuEntry::new).collect()
 }

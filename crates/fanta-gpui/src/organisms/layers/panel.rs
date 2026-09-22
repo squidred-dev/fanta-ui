@@ -32,6 +32,7 @@ use super::{
 mod events;
 mod icons;
 mod menu;
+pub use menu::context_actions_for_kind;
 #[cfg(test)]
 mod tests;
 mod tree;

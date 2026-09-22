@@ -1209,3 +1209,28 @@ fn host_allowlist_hides_unimplemented_actions_and_delivers_supported_intents(
         }]
     );
 }
+
+#[gpui::test]
+fn host_picker_focus_survives_a_context_action(cx: &mut TestAppContext) {
+    let (host, _, cx) = setup(cx);
+    let panel = panel(&host, cx);
+    let (focus, _subscription) = cx.update(|window, app| {
+        let focus = app.focus_handle();
+        let target = focus.clone();
+        let subscription = host.update(app, |_, cx| {
+            cx.subscribe_in(
+                &panel,
+                window,
+                move |_, _, action: &LayersPanelAction, window, cx| {
+                    if matches!(action, LayersPanelAction::ContextActionRequested { .. }) {
+                        target.focus(window, cx);
+                    }
+                },
+            )
+        });
+        (focus, subscription)
+    });
+    secondary_click(cx, "layers-row-instance");
+    click(cx, "layers-menu-detach-instance", Modifiers::none());
+    assert!(cx.update(|window, _| focus.is_focused(window)));
+}

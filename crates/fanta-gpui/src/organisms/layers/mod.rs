@@ -14,6 +14,7 @@ pub use model::{
 };
 pub use panel::{
     LAYERS_PANEL_MIN_HEIGHT, LAYERS_PANEL_MIN_WIDTH, LayersDropValidator, LayersPanel,
+    context_actions_for_kind,
 };
 
 pub(crate) use commands::{LAYERS_PANEL_KEY_CONTEXT, LAYERS_TEXT_ENTRY_KEY_CONTEXT};
