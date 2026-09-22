@@ -1437,7 +1437,7 @@ fn render_header(
         .child(
             div()
                 .flex_1()
-                .typography(crate::atoms::TypographyToken::BodyLarge)
+                .typography(crate::atoms::TypographyToken::BodyMedium)
                 .font_semibold()
                 .child(section.label()),
         )

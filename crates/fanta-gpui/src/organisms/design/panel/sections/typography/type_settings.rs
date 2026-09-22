@@ -278,6 +278,7 @@ pub(in super::super::super) fn render_number_field(
                     .bottom_0()
                     .child(
                         Input::new(&input)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .appearance(false)
                             .bordered(false)
                             .focus_bordered(false)

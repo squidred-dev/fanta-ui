@@ -4,7 +4,7 @@ use crate::screens::design::fixtures::*;
 use crate::screens::design::reducers::*;
 use crate::screens::design::*;
 use fanta_gpui::prelude::{DesignBlendMode, DesignStrokeType};
-use gpui::{Modifiers, ScrollDelta, ScrollWheelEvent, TestAppContext, VisualTestContext, point};
+use gpui::{Modifiers, TestAppContext, VisualTestContext, point};
 
 fn setup_design_story(cx: &mut TestAppContext) -> (Entity<Storybook>, &mut VisualTestContext) {
     cx.update(|cx| {
@@ -191,10 +191,8 @@ fn gallery_keeps_its_shell_when_a_story_opens_in_a_shared_window(cx: &mut TestAp
     });
     visual_cx.run_until_parked();
     assert!(
-        visual_cx
-            .debug_bounds("design-fixture-rail-scroll")
-            .is_some(),
-        "the Gallery Design story must retain its property/scenario mock harness"
+        visual_cx.debug_bounds("design-harness-panel").is_some(),
+        "the Gallery Design story must retain its inspector preview"
     );
 
     visual_cx.update(|_, app| {
@@ -265,6 +263,7 @@ fn every_reference_fixture_renders_through_the_registry(cx: &mut TestAppContext)
 
     let fixture_selectors: &[(StoryKind, &str)] = &[
         (StoryKind::ColorPicker, "storybook-color-picker-reference"),
+        (StoryKind::PaintPicker, "storybook-paint-picker-reference"),
         (StoryKind::Sliders, "storybook-sliders-reference"),
         (
             StoryKind::SliderBackgrounds,
@@ -299,13 +298,40 @@ fn every_reference_fixture_renders_through_the_registry(cx: &mut TestAppContext)
         (StoryKind::Structure, "storybook-reference-structure"),
         (StoryKind::Overlays, "storybook-reference-overlays"),
         (StoryKind::Toolbar, "storybook-reference-toolbar"),
+        (StoryKind::ZoomBar, "zoombar"),
         (StoryKind::Pages, "storybook-reference-pages"),
         (StoryKind::Layers, "storybook-reference-layers"),
         (
             StoryKind::FileInspector,
             "storybook-reference-file-inspector",
         ),
-        (StoryKind::Design, "design-fixture-rail-scroll"),
+        (StoryKind::Design, "design-harness-panel"),
+        (
+            StoryKind::PropertiesInspector,
+            "reference-properties-inspector",
+        ),
+        (StoryKind::MotionInspector, "reference-motion-inspector"),
+        (StoryKind::DrawInspector, "reference-draw-inspector"),
+        (StoryKind::CodeInspector, "reference-code-inspector"),
+        (StoryKind::CommentsInspector, "reference-comments-inspector"),
+        (
+            StoryKind::PrototypeInspector,
+            "reference-prototype-inspector",
+        ),
+        (StoryKind::PropertyAlignment, "reference-property-alignment"),
+        (StoryKind::PropertyLayout, "reference-property-layout"),
+        (
+            StoryKind::PropertyAppearance,
+            "reference-property-appearance",
+        ),
+        (StoryKind::PropertyFill, "reference-property-fill"),
+        (StoryKind::PropertyStroke, "reference-property-stroke"),
+        (StoryKind::PropertyEffects, "reference-property-effects"),
+        (StoryKind::PropertyExport, "reference-property-export"),
+        (
+            StoryKind::PropertyTypography,
+            "reference-property-typography",
+        ),
         (StoryKind::Variables, "storybook-reference-variables"),
         (StoryKind::Prototype, "storybook-reference-prototype"),
         (StoryKind::Timeline, "storybook-reference-timeline"),
@@ -339,7 +365,7 @@ fn every_reference_fixture_renders_through_the_registry(cx: &mut TestAppContext)
 }
 
 #[gpui::test]
-fn pseudo_editor_toolbar_contains_primary_zoom_and_agent_surfaces(cx: &mut TestAppContext) {
+fn pseudo_editor_toolbar_contains_tools_and_mode_selector_without_zoom(cx: &mut TestAppContext) {
     cx.update(|cx| {
         gpui_component::init(cx);
         fanta_gpui::init(cx);
@@ -387,20 +413,16 @@ fn pseudo_editor_toolbar_contains_primary_zoom_and_agent_surfaces(cx: &mut TestA
         let surface = visual_cx
             .debug_bounds("editor-toolbar-surface")
             .expect("the main toolbar should render");
-        let zoom = visual_cx
-            .debug_bounds("toolbar-zoom-control")
-            .expect("the zoom control should render");
-        let agent = visual_cx
-            .debug_bounds("toolbar-agent-launcher")
-            .expect("the Agent launcher should render");
+        assert!(visual_cx.debug_bounds("toolbar-zoom-control").is_none());
+        let mode_selector = visual_cx
+            .debug_bounds("toolbar-mode-selector")
+            .expect("the mode selector should render");
 
         assert!(root.is_contained_within(&canvas));
-        for (name, bounds) in [("zoom", zoom), ("Agent", agent)] {
-            assert!(
-                bounds.is_contained_within(&surface),
-                "{mode:?} {name} surface {bounds:?} must fit inside toolbar dock {surface:?}"
-            );
-        }
+        assert!(
+            mode_selector.is_contained_within(&surface),
+            "mode selector must fit inside the toolbar dock"
+        );
         assert_eq!(
             surface, root,
             "{mode:?} root should adopt the dock's intrinsic bounds"
@@ -409,40 +431,68 @@ fn pseudo_editor_toolbar_contains_primary_zoom_and_agent_surfaces(cx: &mut TestA
 }
 
 #[gpui::test]
-fn design_fixture_rail_scroll_reaches_the_node_variation_matrix(cx: &mut TestAppContext) {
-    let (storybook, cx) = setup_design_story(cx);
-    let rail = cx
-        .debug_bounds("design-fixture-rail-scroll")
-        .expect("fixture rail should render");
+fn design_fixture_controls_live_in_scrollable_knobs_outside_the_preview(cx: &mut TestAppContext) {
+    let (storybook, cx) = setup_gallery_storybook(cx);
+    cx.update(|window, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook.activate_gallery_story(StoryKind::Design, window, cx);
+            storybook.knobs_user_expanded = Some(true);
+            storybook
+                .gallery_story_scroll_handle
+                .set_offset(point(px(0.), px(-4000.)));
+            cx.notify();
+        });
+    });
+    cx.run_until_parked();
+    let surface = cx
+        .debug_bounds("storybook-gallery-story-surface")
+        .expect("the inspector preview should remain mounted");
+    let knobs = cx
+        .debug_bounds("design-story-knobs")
+        .expect("Design fixtures should use the shared knobs section");
+    assert!(knobs.top() >= surface.bottom());
+    assert!(cx.debug_bounds("design-fixture-rail-scroll").is_none());
+    assert!(cx.debug_bounds("design-harness-controls-toggle").is_none());
+
+    let controls = cx
+        .debug_bounds("design-knobs-controls-scroll")
+        .expect("fixture knobs should have a bounded scroll region");
     let scroll_handle = cx.read(|app| {
-        let storybook = storybook.read(app);
         storybook
+            .read(app)
             .design_screen
             .harness
             .fixture_scroll_handle
             .clone()
     });
-    assert_eq!(scroll_handle.bounds(), rail);
+    assert_eq!(scroll_handle.bounds(), controls);
     assert!(scroll_handle.max_offset().y > px(0.));
-
     let last_before_scroll = cx
         .debug_bounds("design-preset-last")
-        .expect("last node preset should be laid out");
-    assert!(last_before_scroll.top() >= rail.bottom());
+        .expect("last node preset should be laid out in knobs");
+    assert!(last_before_scroll.top() >= controls.bottom());
 
-    cx.simulate_event(ScrollWheelEvent {
-        position: rail.center(),
-        delta: ScrollDelta::Pixels(point(px(0.), px(-100_000.))),
-        ..Default::default()
+    // Bring the final node fixture into view through the same scroll handle
+    // that the knobs' scroll surface owns, then activate its actual control.
+    let target_y = scroll_handle.offset().y - (last_before_scroll.top() - controls.top());
+    cx.update(|_, app| {
+        storybook.update(app, |_, cx| {
+            scroll_handle.set_offset(point(px(0.), target_y));
+            cx.notify();
+        });
     });
     cx.run_until_parked();
-
-    assert!(scroll_handle.offset().y < px(0.));
-    let last_after_scroll = cx
+    let last = cx
         .debug_bounds("design-preset-last")
-        .expect("last node preset should remain rendered after scrolling");
-    assert!(last_after_scroll.top() < rail.bottom());
-    assert!(last_after_scroll.bottom() > rail.top());
+        .expect("the last node preset should remain rendered after scrolling");
+    assert!(last.top() < controls.bottom());
+    assert!(last.bottom() > controls.top());
+    cx.simulate_click(last.center(), Modifiers::none());
+    cx.run_until_parked();
+    cx.read(|app| {
+        let design = &storybook.read(app).design_screen;
+        assert_eq!(design.harness.selected_node, design.host.nodes.len() - 1);
+    });
 }
 
 #[test]
@@ -6115,7 +6165,7 @@ fn gallery_fluid_viewports_fill_the_measured_story_area(cx: &mut TestAppContext)
 }
 
 #[gpui::test]
-fn design_story_stacks_its_harness_at_the_minimum_viewport(cx: &mut TestAppContext) {
+fn design_story_keeps_only_the_inspector_at_the_minimum_viewport(cx: &mut TestAppContext) {
     let (storybook, cx) = setup_gallery_storybook(cx);
     cx.update(|window, app| {
         storybook.update(app, |storybook, cx| {
@@ -6124,8 +6174,8 @@ fn design_story_stacks_its_harness_at_the_minimum_viewport(cx: &mut TestAppConte
     });
     cx.run_until_parked();
     assert!(
-        cx.debug_bounds("design-fixture-rail-scroll").is_some(),
-        "a wide Design story keeps the fixture rail beside the inspector"
+        cx.debug_bounds("design-fixture-rail-scroll").is_none(),
+        "fixture controls must stay outside the wide preview"
     );
 
     cx.update(|_, app| {
@@ -6145,7 +6195,7 @@ fn design_story_stacks_its_harness_at_the_minimum_viewport(cx: &mut TestAppConte
     assert_eq!(surface.size.height, px(DESIGN_STORY_MIN_HEIGHT));
     assert!(
         cx.debug_bounds("design-fixture-rail-scroll").is_none(),
-        "the stacked harness must fold the fixture rail away"
+        "fixture controls must stay outside the narrow preview"
     );
     let panel = cx
         .debug_bounds("design-harness-panel")
@@ -6161,25 +6211,9 @@ fn design_story_stacks_its_harness_at_the_minimum_viewport(cx: &mut TestAppConte
         "the inspector must fit inside the story surface"
     );
 
-    // The folded story controls expand on demand and reveal the full
-    // scenario/node matrix in a scrollable section.
-    let toggle = cx
-        .debug_bounds("design-harness-controls-toggle")
-        .expect("the stacked harness offers its controls toggle");
     assert!(
-        cx.debug_bounds("design-harness-controls-scroll").is_none(),
-        "the story controls stay collapsed by default at the floor"
-    );
-    cx.simulate_click(toggle.center(), Modifiers::none());
-    cx.run_until_parked();
-    assert!(
-        cx.debug_bounds("design-harness-controls-scroll").is_some(),
-        "expanding must reveal the scrollable story controls"
-    );
-    assert!(
-        cx.debug_bounds("design-node-variation-matrix-heading")
-            .is_some(),
-        "the node matrix folds into the expanded controls"
+        cx.debug_bounds("design-harness-controls-toggle").is_none(),
+        "narrow viewports must not reintroduce fixture chrome inside the preview"
     );
 
     // The bespoke width resizer keeps working at the floor: dragging the
@@ -6187,13 +6221,17 @@ fn design_story_stacks_its_harness_at_the_minimum_viewport(cx: &mut TestAppConte
     // capped inside the surface.
     let handle = cx
         .debug_bounds("design-panel-resize-handle")
-        .expect("the width resizer survives the stacked layout");
+        .expect("the width resizer survives the narrow layout");
     cx.simulate_event(MouseDownEvent {
         position: handle.center(),
         button: MouseButton::Left,
         ..Default::default()
     });
     cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("design-panel-resize-shield").is_some(),
+        "the resize must capture pointer movement above the occluding inspector"
+    );
     cx.simulate_event(MouseMoveEvent {
         position: handle.center() + point(px(30.), px(0.)),
         pressed_button: Some(MouseButton::Left),
@@ -6205,6 +6243,7 @@ fn design_story_stacks_its_harness_at_the_minimum_viewport(cx: &mut TestAppConte
         ..Default::default()
     });
     cx.run_until_parked();
+    assert!(cx.debug_bounds("design-panel-resize-shield").is_none());
     cx.update(|_, app| {
         storybook.update(app, |storybook, _| {
             assert_eq!(
@@ -7164,4 +7203,249 @@ fn tooltip_story_trigger_responds_to_hover(cx: &mut TestAppContext) {
             Some(TooltipDirection::TopCenter)
         );
     });
+}
+
+#[gpui::test]
+fn properties_tab_mock_hosts_echo_edits_and_enforce_read_only(cx: &mut TestAppContext) {
+    use crate::screens::properties_tabs::PropertiesTabsNamedState;
+    use fanta_gpui::properties_tabs::*;
+    let (storybook, cx) = setup_gallery_storybook(cx);
+    cx.update(|_, app| {
+        storybook.update(app, |story, cx| {
+            let screen = &mut story.properties_tabs_screen;
+            screen.handle_motion_action(
+                &MotionInspectorAction::PresetApplyRequested {
+                    id: "spring".into(),
+                },
+                cx,
+            );
+            assert_eq!(screen.motion_data.duration_ms, 800);
+            assert_eq!(screen.motion.read(cx).view_data(), &screen.motion_data);
+            screen.handle_motion_action(
+                &MotionInspectorAction::KeyframeAddRequested {
+                    property_id: "opacity".into(),
+                },
+                cx,
+            );
+            assert!(
+                screen
+                    .motion_data
+                    .animated_properties
+                    .iter()
+                    .any(|property| property.id == "opacity"
+                        && property.label.contains("3 keyframes"))
+            );
+
+            let mut options = screen.draw_data.options.clone();
+            options.size = 0;
+            options.opacity = 200;
+            screen.handle_draw_action(&DrawInspectorAction::OptionsChangeRequested { options }, cx);
+            assert_eq!(screen.draw_data.options.size, 1);
+            assert_eq!(screen.draw_data.options.opacity, 100);
+            assert_eq!(screen.draw.read(cx).view_data(), &screen.draw_data);
+            screen.handle_draw_action(
+                &DrawInspectorAction::ColorChangeRequested {
+                    hex: "#aBc123".into(),
+                },
+                cx,
+            );
+            assert_eq!(screen.draw_data.color_hex, "ABC123");
+            screen.handle_draw_action(
+                &DrawInspectorAction::ColorChangeRequested {
+                    hex: "invalid".into(),
+                },
+                cx,
+            );
+            assert_eq!(screen.draw_data.color_hex, "ABC123");
+
+            let id = screen.prototype_data.connections[0].id.clone();
+            screen.handle_prototype_action(
+                &PrototypeInspectorAction::ConnectionEditRequested { id },
+                cx,
+            );
+            assert_eq!(screen.prototype_data.connections[0].action, "Open overlay");
+            assert_eq!(
+                screen.prototype.read(cx).view_data(),
+                &screen.prototype_data
+            );
+            screen.apply_named_state(PropertiesTabsNamedState::ReadOnly, cx);
+            let before = (
+                screen.motion_data.clone(),
+                screen.draw_data.clone(),
+                screen.prototype_data.clone(),
+                screen.comments_data.clone(),
+            );
+            screen.handle_motion_action(
+                &MotionInspectorAction::DurationChangeRequested { duration_ms: 50 },
+                cx,
+            );
+            screen.handle_draw_action(
+                &DrawInspectorAction::ColorChangeRequested {
+                    hex: "000000".into(),
+                },
+                cx,
+            );
+            screen.handle_prototype_action(&PrototypeInspectorAction::ConnectionAddRequested, cx);
+            screen.handle_comments_action(
+                &CommentsInspectorAction::CommentAddRequested {
+                    body: "Should be refused".into(),
+                },
+                cx,
+            );
+            assert_eq!(
+                (
+                    screen.motion_data.clone(),
+                    screen.draw_data.clone(),
+                    screen.prototype_data.clone(),
+                    screen.comments_data.clone()
+                ),
+                before
+            );
+        })
+    });
+}
+
+#[gpui::test]
+fn properties_comments_and_code_requests_update_their_mock_hosts(cx: &mut TestAppContext) {
+    use crate::screens::properties_tabs::PropertiesTabsNamedState;
+    use fanta_gpui::properties_tabs::*;
+    let (storybook, cx) = setup_gallery_storybook(cx);
+    cx.update(|_, app| {
+        storybook.update(app, |story, cx| {
+            let screen = &mut story.properties_tabs_screen;
+            screen.apply_named_state(PropertiesTabsNamedState::Empty, cx);
+            screen.handle_comments_action(
+                &CommentsInspectorAction::CommentAddRequested {
+                    body: "  Review the spacing  ".into(),
+                },
+                cx,
+            );
+            assert_eq!(screen.comments_data.threads.len(), 1);
+            let id = screen.comments_data.threads[0].id.clone();
+            assert_eq!(
+                screen.comments_data.threads[0].comments[0].body,
+                "Review the spacing"
+            );
+            screen.handle_comments_action(
+                &CommentsInspectorAction::ReplyRequested {
+                    thread_id: id.clone(),
+                    body: "Updated".into(),
+                },
+                cx,
+            );
+            assert_eq!(screen.comments_data.threads[0].comments.len(), 2);
+            assert_ne!(
+                screen.comments_data.threads[0].comments[0].id,
+                screen.comments_data.threads[0].comments[1].id
+            );
+            screen.handle_comments_action(
+                &CommentsInspectorAction::ResolveChangeRequested { id, resolved: true },
+                cx,
+            );
+            assert!(screen.comments_data.threads[0].resolved);
+            assert_eq!(screen.comments.read(cx).view_data(), &screen.comments_data);
+            screen.handle_comments_action(
+                &CommentsInspectorAction::CommentAddRequested { body: "   ".into() },
+                cx,
+            );
+            assert_eq!(screen.comments_data.threads.len(), 1);
+
+            screen.apply_named_state(PropertiesTabsNamedState::Populated, cx);
+            screen.handle_code_action(
+                &CodeInspectorAction::LanguageChangeRequested {
+                    language: "swiftui".into(),
+                },
+                cx,
+            );
+            assert!(screen.code_data.code.contains("VStack"));
+            let valid_code = screen.code_data.code.clone();
+            screen.handle_code_action(
+                &CodeInspectorAction::CopyRequested {
+                    code: valid_code.clone(),
+                },
+                cx,
+            );
+            assert_eq!(
+                cx.read_from_clipboard().and_then(|item| item.text()),
+                Some(valid_code.to_string())
+            );
+            screen.handle_code_action(
+                &CodeInspectorAction::CopyRequested {
+                    code: "Stale code".into(),
+                },
+                cx,
+            );
+            assert_eq!(
+                cx.read_from_clipboard().and_then(|item| item.text()),
+                Some(valid_code.to_string())
+            );
+            screen.handle_code_action(
+                &CodeInspectorAction::WrapLinesChangeRequested { enabled: true },
+                cx,
+            );
+            assert!(screen.code_data.wrap_lines);
+            assert_eq!(screen.code.read(cx).view_data(), &screen.code_data);
+        })
+    });
+}
+
+#[gpui::test]
+fn pseudo_editor_properties_sidebar_collapses_to_floating_zoom_and_frees_canvas(
+    cx: &mut TestAppContext,
+) {
+    let (storybook, cx) = setup_gallery_storybook(cx);
+    cx.update(|window, app| {
+        storybook.update(app, |story, cx| {
+            story.activate_gallery_story(StoryKind::PseudoEditor, window, cx);
+        })
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("properties-inspector").is_some());
+    assert!(cx.debug_bounds("pseudo-editor-right-design").is_none());
+    assert!(cx.debug_bounds("pseudo-editor-right-prototype").is_none());
+    let expanded_canvas = cx
+        .debug_bounds("pseudo-editor-canvas")
+        .expect("the canvas is visible");
+    let rail = cx
+        .debug_bounds("pseudo-editor-right-rail")
+        .expect("the expanded sidebar occupies a rail");
+    let toggle = cx
+        .debug_bounds("properties-inspector-toggle")
+        .expect("the sidebar has its own collapse control");
+    cx.simulate_click(toggle.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("pseudo-editor-right-rail").is_none());
+    let collapsed_canvas = cx
+        .debug_bounds("pseudo-editor-canvas")
+        .expect("the canvas remains mounted");
+    assert!(collapsed_canvas.size.width >= expanded_canvas.size.width + rail.size.width - px(1.));
+    let floating = cx
+        .debug_bounds("properties-inspector-floating-card")
+        .expect("zoom and reopen controls float over the canvas");
+    assert!(floating.is_contained_within(&collapsed_canvas));
+    let reopen = cx
+        .debug_bounds("properties-inspector-toggle")
+        .expect("the floating card keeps the toggle");
+    cx.simulate_click(reopen.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("pseudo-editor-right-rail").is_some());
+    assert!(
+        cx.debug_bounds("pseudo-editor-properties-floating")
+            .is_none()
+    );
+
+    // The optional setter preserves the legacy constructor contract for hosts
+    // that still own separate Design and Prototype surfaces.
+    cx.update(|_, app| {
+        storybook.update(app, |story, cx| {
+            story
+                .pseudo_screen
+                .editor
+                .update(cx, |editor, cx| editor.set_properties_inspector(None, cx));
+        })
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("properties-inspector").is_none());
+    assert!(cx.debug_bounds("pseudo-editor-right-design").is_some());
+    assert!(cx.debug_bounds("pseudo-editor-right-prototype").is_some());
 }

@@ -142,7 +142,7 @@ impl DesignPanelShellController for DesignPanel {
         .child(
             div()
                 .flex_1()
-                .typography(crate::atoms::TypographyToken::BodyLarge)
+                .typography(crate::atoms::TypographyToken::BodyMedium)
                 .font_semibold()
                 .when(section_empty, |title| {
                     title.text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
@@ -316,63 +316,12 @@ impl DesignPanelShellController for DesignPanel {
                 body = body.child(self.render_export(cx));
             }
         } else {
-            let shape_projection = sections::shape::ShapeProjection::from_node(
-                self.id.clone(),
-                self.can_edit(),
-                self.host.inspected_node(),
-            );
-            let shape_event_sink = sections::shape::ShapeEventSink::new(cx.entity());
             for projection in self.sections.resolve(
                 self.host.inspected_node(),
                 self.host.navigation.workspace_mode,
                 self.can_export(),
             ) {
-                let _family = projection.family;
-                let rendered = match projection.section {
-                    DesignPanelSection::Selection => self.render_selection_colors(cx),
-                    DesignPanelSection::Component | DesignPanelSection::Instance => {
-                        self.render_component(cx)
-                    }
-                    DesignPanelSection::Position => {
-                        let projection = position::projection(self);
-                        let events = sections::position::PositionEventSink::new(cx.entity());
-                        Some(sections::position::render(&projection, self, &events, cx))
-                    }
-                    DesignPanelSection::Layout => Some(self.render_layout(cx)),
-                    DesignPanelSection::Constraints => {
-                        let projection = position::projection(self);
-                        Some(sections::position::render_constraints(
-                            &projection,
-                            self,
-                            cx,
-                        ))
-                    }
-                    DesignPanelSection::Layer => Some(self.render_layer(cx)),
-                    DesignPanelSection::Section => sections::shape::render_section_properties(
-                        &shape_projection,
-                        self,
-                        shape_event_sink.clone(),
-                        cx,
-                    ),
-                    DesignPanelSection::Transform => sections::shape::render_transform_modifiers(
-                        &shape_projection,
-                        self,
-                        shape_event_sink.clone(),
-                        cx,
-                    ),
-                    DesignPanelSection::Geometry => {
-                        sections::shape::render_geometry(&shape_projection, self, cx)
-                    }
-                    DesignPanelSection::Mask => self.render_mask(cx),
-                    DesignPanelSection::Typography => self.render_typography(cx),
-                    DesignPanelSection::Media => self.render_media(cx),
-                    DesignPanelSection::Fill => self.render_fill(cx),
-                    DesignPanelSection::Stroke => self.render_stroke(cx),
-                    DesignPanelSection::Effects => Some(self.render_effects(cx)),
-                    DesignPanelSection::LayoutGrid => self.render_layout_grids(cx),
-                    DesignPanelSection::Export => Some(self.render_export(cx)),
-                };
-                if let Some(rendered) = rendered {
+                if let Some(rendered) = self.render_feature_section(projection.section, cx) {
                     body = body.child(rendered);
                 }
             }
@@ -388,34 +337,13 @@ impl DesignPanelShellController for DesignPanel {
             .track_focus(&self.focus_handle)
             .on_action(
                 cx.listener(|this, _: &CancelDesignInteraction, window, cx| {
-                    if this.edit.component_authoring.has_name_editor() {
-                        this.finish_component_authoring_name_edit(false, window, cx);
-                    } else if this.edit.component_authoring.has_property_reorder() {
-                        this.finish_component_property_reorder(false, cx);
-                    } else if this.edit.component_authoring.has_variant_option_reorder() {
-                        this.finish_component_variant_option_reorder(false, cx);
-                    } else if this.component_authoring.create_draft.is_some() {
-                        this.cancel_component_property_create(window, cx);
-                    } else if let Some(property) = this.edit.draw_slider_property {
-                        this.finish_draw_appearance_slider(property, false, cx);
-                    } else if this.edit.variable_font_axis.is_some() {
-                        this.finish_variable_font_axis_edit(false, window, cx);
-                    } else if this.edit.variable_font_axis_scrub.is_some() {
-                        this.edit.variable_font_axis_scrub = None;
-                        cx.notify();
-                    } else if this.edit.property.is_some() {
-                        this.finish_property_edit(false, window, cx);
-                    } else if this.edit.component_multiline.is_some() {
-                        this.finish_component_multiline_editor(false, window, cx);
-                    } else if !this.dismiss_topmost_overlay(window, cx) {
-                        cx.propagate();
-                    }
+                    this.cancel_composed_interaction(window, cx);
                 }),
             )
             .on_key_down(cx.listener(Self::handle_property_key_down))
             .bg(crate::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
             .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
-            .typography(crate::atoms::TypographyToken::BodyLarge)
+            .typography(crate::atoms::TypographyToken::BodyMedium)
             .child(self.render_header(cx))
             .child(
                 div()

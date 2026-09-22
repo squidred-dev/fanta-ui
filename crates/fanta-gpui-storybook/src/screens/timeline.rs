@@ -1,115 +1,159 @@
-//! The Timeline story: mock host state, reducer, and knobs.
-
-use crate::*;
-
+//! Mock document adapter for the controlled Motion timeline.
+mod fixtures;
+mod reducer;
 use super::knobs::{self, KnobOption};
+use crate::*;
+use fanta_gpui::timeline::*;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum TimelineNamedState {
     Default,
+    Empty,
+    ManyLayers,
+    ReadOnly,
 }
-
 impl TimelineNamedState {
-    pub(crate) const ALL: [Self; 1] = [Self::Default];
-
+    pub(crate) const ALL: [Self; 4] =
+        [Self::Default, Self::Empty, Self::ManyLayers, Self::ReadOnly];
     pub(crate) const fn label(self) -> &'static str {
         match self {
-            Self::Default => "Default",
+            Self::Default => "Animated",
+            Self::Empty => "Empty",
+            Self::ManyLayers => "Many layers",
+            Self::ReadOnly => "Read only",
         }
     }
 }
-
 pub(crate) struct TimelineScreen {
     pub(crate) timeline: Entity<Timeline>,
     pub(crate) view_data: TimelineViewData,
     pub(crate) last_action: SharedString,
     pub(crate) named_state: TimelineNamedState,
+    playback_task: Option<gpui::Task<()>>,
+    direction: i64,
+    next_id: u64,
 }
-
 impl TimelineScreen {
     pub(crate) fn new(cx: &mut Context<Storybook>) -> Self {
-        let view_data = TimelineViewData::default();
+        let view_data = fixtures::fixture(TimelineNamedState::Default);
         let timeline = cx.new(|cx| Timeline::new("storybook-timeline", view_data.clone(), cx));
         Self {
             timeline,
             view_data,
-            last_action: "Ready — play, loop, seek, zoom, add a keyframe, or ask the agent".into(),
+            last_action: "Select keyframes · drag to retime · edit easing between keys".into(),
             named_state: TimelineNamedState::Default,
+            playback_task: None,
+            direction: 1,
+            next_id: 0,
         }
     }
-
-    fn fixture(state: TimelineNamedState) -> TimelineViewData {
-        match state {
-            TimelineNamedState::Default => TimelineViewData::default(),
-        }
-    }
-
     pub(crate) fn apply_named_state(
         &mut self,
         state: TimelineNamedState,
         cx: &mut Context<Storybook>,
     ) {
+        self.playback_task = None;
         self.named_state = state;
-        self.view_data = Self::fixture(state);
-        let view_data = self.view_data.clone();
-        self.timeline
-            .update(cx, |timeline, cx| timeline.set_view_data(view_data, cx));
-        self.last_action = format!("Story applied the {} Timeline state", state.label()).into();
+        self.view_data = fixtures::fixture(state);
+        self.echo(cx);
+        self.last_action = format!("Loaded {} timeline", state.label()).into();
         cx.notify();
     }
-
-    pub(crate) fn handle_action(
+    fn echo(&self, cx: &mut Context<Storybook>) {
+        self.timeline
+            .update(cx, |t, cx| t.set_view_data(self.view_data.clone(), cx));
+    }
+    fn add_key(
         &mut self,
-        timeline: Entity<Timeline>,
-        action: &TimelineAction,
-        cx: &mut Context<Storybook>,
+        track_id: Option<&SharedString>,
+        property_id: Option<&SharedString>,
+        time: u32,
     ) {
-        match action {
-            TimelineAction::PlayStateChangeRequested { playing } => {
-                self.view_data.playing = *playing;
-                self.last_action = if *playing {
-                    "Host started timeline playback".into()
-                } else {
-                    "Host paused timeline playback".into()
-                };
+        for track in &mut self.view_data.tracks {
+            if track.locked || !track_id.map_or(track.selected, |id| *id == track.id) {
+                continue;
             }
-            TimelineAction::LoopChangeRequested { looping } => {
-                self.view_data.looping = *looping;
-                self.last_action = format!("Host set timeline looping to {looping}").into();
+            if track.properties.is_empty() {
+                track.properties.push(TimelineProperty {
+                    id: format!("{}-opacity", track.id).into(),
+                    name: "Opacity".into(),
+                    value: "100%".into(),
+                    keyframes: vec![],
+                });
             }
-            TimelineAction::AddKeyframeRequested { time_ms } => {
-                self.last_action = format!("Host inserted a keyframe at {time_ms} ms").into();
-            }
-            TimelineAction::SeekRequested { time_ms } => {
-                self.view_data.current_time_ms = (*time_ms).min(self.view_data.duration_ms);
-                self.last_action = format!(
-                    "Host moved the playhead to {} ms",
-                    self.view_data.current_time_ms
-                )
-                .into();
-            }
-            TimelineAction::ZoomChangeRequested { zoom } => {
-                self.view_data.zoom = zoom.clamp(0.1, 2.);
-                self.last_action =
-                    format!("Host changed timeline zoom to {:.0}%", zoom * 100.).into();
-            }
-            TimelineAction::AskAgentRequested => {
-                self.last_action = "Host opened the animation agent".into();
-            }
-            TimelineAction::EmptyStateDismissed => {
-                self.last_action = "Dismissed the empty timeline guidance".into();
-            }
-            TimelineAction::HelpRequested => {
-                self.last_action = "Host opened timeline help".into();
+            for p in &mut track.properties {
+                if property_id.is_some_and(|id| *id != p.id) {
+                    continue;
+                }
+                if p.keyframes.iter().any(|k| k.time_ms == time) {
+                    continue;
+                }
+                self.next_id += 1;
+                p.keyframes.push(TimelineKeyframe {
+                    id: format!("new-key-{}", self.next_id).into(),
+                    time_ms: time,
+                    value: p.value.clone(),
+                    easing: TimelineEasing::default(),
+                });
             }
         }
-        timeline.update(cx, |timeline, cx| {
-            timeline.set_view_data(self.view_data.clone(), cx);
-        });
-        cx.notify();
+    }
+    fn start_playback(&mut self, cx: &mut Context<Storybook>) {
+        if self.playback_task.is_some() || !self.view_data.playing {
+            return;
+        }
+        self.playback_task = Some(cx.spawn(async move |story, cx| {
+            let mut previous = std::time::Instant::now();
+            loop {
+                cx.background_executor()
+                    .timer(std::time::Duration::from_millis(16))
+                    .await;
+                let now = std::time::Instant::now();
+                let elapsed = now.duration_since(previous).as_millis().min(100) as i64;
+                previous = now;
+                let keep = story
+                    .update(cx, |story, cx| {
+                        let screen = &mut story.timeline_screen;
+                        if !screen.view_data.playing {
+                            return false;
+                        }
+                        let duration = screen.view_data.duration_ms as i64;
+                        let mut time =
+                            screen.view_data.current_time_ms as i64 + elapsed * screen.direction;
+                        match screen.view_data.playback_mode() {
+                            TimelinePlayback::Once => {
+                                if time >= duration {
+                                    time = duration;
+                                    screen.view_data.playing = false;
+                                    screen.playback_task = None;
+                                }
+                            }
+                            TimelinePlayback::Loop => {
+                                time = time.rem_euclid(duration);
+                            }
+                            TimelinePlayback::PingPong => {
+                                if time >= duration {
+                                    time = duration;
+                                    screen.direction = -1;
+                                } else if time <= 0 {
+                                    time = 0;
+                                    screen.direction = 1;
+                                }
+                            }
+                        }
+                        screen.view_data.current_time_ms = time.clamp(0, duration) as u32;
+                        screen.echo(cx);
+                        cx.notify();
+                        screen.view_data.playing
+                    })
+                    .unwrap_or(false);
+                if !keep {
+                    break;
+                }
+            }
+        }));
     }
 }
-
 impl Storybook {
     pub(crate) fn render_timeline_reference(&self, cx: &mut Context<Self>) -> AnyElement {
         self.render_reference_component_fixture(
@@ -119,13 +163,12 @@ impl Storybook {
             cx,
         )
     }
-
     pub(crate) fn render_timeline_knobs(&self, cx: &mut Context<Self>) -> AnyElement {
         knobs::knobs_panel(
             "timeline-story-knobs",
             vec![knobs::enum_knob_row(
                 "timeline-knob-state",
-                "NAMED STATE",
+                "SCENE",
                 TimelineNamedState::ALL.map(|state| KnobOption::new(state, state.label())),
                 self.timeline_screen.named_state,
                 |this, state, _, cx| this.timeline_screen.apply_named_state(state, cx),

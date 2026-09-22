@@ -1,7 +1,9 @@
 //! Headless, host-controlled editor toolbar with Figma-like tool flyouts,
-//! mode switching, Actions search, and contextual Agent prompting.
+//! mode switching, Actions search, and contextual drawing controls.
 
 mod commands;
+mod draw_model;
+pub use draw_model::{DrawSelectionOperation, DrawToolbarAction, DrawToolbarOptions};
 mod component;
 mod icons;
 mod model;
@@ -9,19 +11,18 @@ mod model;
 pub use commands::{
     CloseToolbarOverlay, ConfirmToolbarTextEntry, DecrementToolbarControl, EnterDevMode,
     FirstToolbarCommand, IncrementToolbarControl, LastToolbarCommand, NextToolbarCommand,
-    OpenToolbarActions, OpenToolbarAgent, PreviousToolbarCommand, SelectAnnotationTool,
-    SelectArrowTool, SelectCommentTool, SelectEllipseTool, SelectFrameTool, SelectHandTool,
-    SelectImageVideoTool, SelectLineTool, SelectMeasureTool, SelectMoveTool, SelectPenTool,
-    SelectPencilTool, SelectRectangleTool, SelectResourcesTool, SelectScaleTool, SelectSectionTool,
-    SelectSliceTool, SelectTextTool, ZoomCanvasTo100, ZoomCanvasToFit, ZoomCanvasToSelection,
+    OpenToolbarActions, PreviousToolbarCommand, SelectAnnotationTool, SelectArrowTool,
+    SelectBrushTool, SelectCommentTool, SelectEllipseTool, SelectEraserTool, SelectFrameTool,
+    SelectHandTool, SelectImageVideoTool, SelectLineTool, SelectMarqueeTool, SelectMeasureTool,
+    SelectMoveTool, SelectPenTool, SelectPencilTool, SelectRectangleTool, SelectSectionTool,
+    SelectSliceTool, SelectTextTool, SelectWandTool, ZoomCanvasTo100, ZoomCanvasToFit,
+    ZoomCanvasToSelection,
 };
-pub use component::{
-    EditorToolbar, TOOLBAR_ZOOM_CLUSTER_MIN_WIDTH, TOOLBAR_ZOOM_STEPPERS_MIN_WIDTH,
-};
+pub use component::EditorToolbar;
 pub use model::{
-    AgentToolbarOptions, DevToolbarOptions, MotionToolbarOptions, ToolbarAction,
-    ToolbarChromeControl, ToolbarCommand, ToolbarControlValue, ToolbarItem, ToolbarMode,
-    ToolbarSecondaryControl, ToolbarTool, ToolbarToolGroup,
+    DevToolbarOptions, MotionToolbarOptions, ToolbarAction, ToolbarChromeControl, ToolbarCommand,
+    ToolbarControlValue, ToolbarItem, ToolbarMode, ToolbarSecondaryControl, ToolbarTool,
+    ToolbarToolGroup,
 };
 
 pub(crate) fn init(cx: &mut gpui::App) {

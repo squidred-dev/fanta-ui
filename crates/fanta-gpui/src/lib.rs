@@ -26,8 +26,11 @@ pub(crate) mod test_support;
 mod text_input_fallback;
 
 pub use atoms::ActivateControl;
-pub use layouts::{file_inspector, pseudo_editor};
-pub use organisms::{color_picker, design, layers, pages, prototype, timeline, toolbar};
+pub use layouts::{file_inspector, properties_inspector, pseudo_editor};
+pub use organisms::properties_tabs;
+pub use organisms::{
+    color_picker, design, layers, pages, paint_picker, prototype, timeline, toolbar, zoom_bar,
+};
 pub use screens::variables;
 
 /// Registers Fanta GPUI commands and their default key bindings.
@@ -68,6 +71,11 @@ pub mod prelude {
         MenuSimpleRow, MenuToggleRow, MenuToolbarRow, MenuTrail, Slider, SliderAction, SliderPhase,
         SliderVariant,
     };
+    pub use crate::properties_inspector::{
+        PROPERTIES_INSPECTOR_MIN_WIDTH, PropertiesInspector, PropertiesInspectorAction,
+        PropertiesInspectorChildren, PropertiesInspectorTab,
+    };
+    pub use crate::zoom_bar::{ZoomBar, ZoomBarAction};
     // Shared control atoms (ARCHITECTURE.md §16).
     pub use crate::atoms::{
         ActivateEvent, ButtonControlExt, CONTROL_KEY_CONTEXT, ControlExt, LucideIcon, icon_button,
@@ -85,6 +93,7 @@ pub mod prelude {
         LayersPanelItem, LayersPanelNodeKind, LayersPanelSelectionMode, OpenLayerContextMenu,
         ToggleLayerLock, ToggleLayerVisibility,
     };
+    pub use crate::paint_picker::{PaintPicker, PaintPickerAction, PaintPickerTarget};
     // Shared chrome molecules (ARCHITECTURE.md §16).
     pub use crate::molecules::{
         EdgeFades, InspectorCheckboxField, InspectorColorField, InspectorColorSwatch,
@@ -128,19 +137,24 @@ pub mod prelude {
         PseudoEditor, PseudoEditorAction, PseudoEditorChildren, PseudoEditorLeftSurface,
         PseudoEditorRightSurface,
     };
-    pub use crate::timeline::{TIMELINE_MIN_WIDTH, Timeline, TimelineAction, TimelineViewData};
+    pub use crate::timeline::{
+        TIMELINE_MIN_WIDTH, Timeline, TimelineAction, TimelineClip, TimelineComment,
+        TimelineEasing, TimelineEasingTarget, TimelineKeyframe, TimelineKeyframeTime,
+        TimelinePlayback, TimelinePreset, TimelineProperty, TimelineTimeUnit, TimelineTrack,
+        TimelineViewData,
+    };
     pub use crate::toolbar::{
-        AgentToolbarOptions, CloseToolbarOverlay, ConfirmToolbarTextEntry, DecrementToolbarControl,
-        DevToolbarOptions, EditorToolbar, EnterDevMode, FirstToolbarCommand,
-        IncrementToolbarControl, LastToolbarCommand, MotionToolbarOptions, NextToolbarCommand,
-        OpenToolbarActions, OpenToolbarAgent, PreviousToolbarCommand, SelectAnnotationTool,
-        SelectArrowTool, SelectCommentTool, SelectEllipseTool, SelectFrameTool, SelectHandTool,
-        SelectImageVideoTool, SelectLineTool, SelectMeasureTool, SelectMoveTool, SelectPenTool,
-        SelectPencilTool, SelectRectangleTool, SelectResourcesTool, SelectScaleTool,
-        SelectSectionTool, SelectSliceTool, SelectTextTool, TOOLBAR_ZOOM_CLUSTER_MIN_WIDTH,
-        TOOLBAR_ZOOM_STEPPERS_MIN_WIDTH, ToolbarAction, ToolbarChromeControl, ToolbarCommand,
-        ToolbarControlValue, ToolbarItem, ToolbarMode, ToolbarSecondaryControl, ToolbarTool,
-        ToolbarToolGroup, ZoomCanvasTo100, ZoomCanvasToFit, ZoomCanvasToSelection,
+        CloseToolbarOverlay, ConfirmToolbarTextEntry, DecrementToolbarControl, DevToolbarOptions,
+        DrawSelectionOperation, DrawToolbarAction, DrawToolbarOptions, EditorToolbar, EnterDevMode,
+        FirstToolbarCommand, IncrementToolbarControl, LastToolbarCommand, MotionToolbarOptions,
+        NextToolbarCommand, OpenToolbarActions, PreviousToolbarCommand, SelectAnnotationTool,
+        SelectArrowTool, SelectBrushTool, SelectCommentTool, SelectEllipseTool, SelectEraserTool,
+        SelectFrameTool, SelectHandTool, SelectImageVideoTool, SelectLineTool, SelectMarqueeTool,
+        SelectMeasureTool, SelectMoveTool, SelectPenTool, SelectPencilTool, SelectRectangleTool,
+        SelectSectionTool, SelectSliceTool, SelectTextTool, SelectWandTool, ToolbarAction,
+        ToolbarChromeControl, ToolbarCommand, ToolbarControlValue, ToolbarItem, ToolbarMode,
+        ToolbarSecondaryControl, ToolbarTool, ToolbarToolGroup, ZoomCanvasTo100, ZoomCanvasToFit,
+        ZoomCanvasToSelection,
     };
     pub use crate::variables::{
         VARIABLES_SCREEN_MIN_HEIGHT, VARIABLES_SCREEN_MIN_WIDTH, VariableKind, VariableModeValue,

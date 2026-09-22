@@ -106,6 +106,7 @@ impl WorkflowHost {
                     host.toolbar_tool = match mode {
                         ToolbarMode::Design => ToolbarTool::Move,
                         ToolbarMode::Motion => ToolbarTool::MotionSelect,
+                        ToolbarMode::Draw => ToolbarTool::Brush,
                         ToolbarMode::Dev => ToolbarTool::Inspect,
                     };
                     toolbar.update(cx, |toolbar, cx| {
@@ -187,6 +188,9 @@ fn composed_host_routes_intents_and_echoes_state_across_components(cx: &mut Test
         "the host's initial Design projection should render",
     );
 
+    let selector = cx.debug_bounds("toolbar-mode-selector").unwrap().center();
+    cx.simulate_click(selector, Modifiers::none());
+    cx.run_until_parked();
     let motion = cx
         .debug_bounds("toolbar-mode-motion")
         .expect("the composed toolbar should expose Motion")
@@ -245,6 +249,9 @@ fn composed_host_routes_intents_and_echoes_state_across_components(cx: &mut Test
         "the second request can be false only after the first host echo",
     );
 
+    let selector = cx.debug_bounds("toolbar-mode-selector").unwrap().center();
+    cx.simulate_click(selector, Modifiers::none());
+    cx.run_until_parked();
     let design = cx
         .debug_bounds("toolbar-mode-design")
         .expect("the composed toolbar should expose Design")

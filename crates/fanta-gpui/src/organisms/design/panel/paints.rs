@@ -1678,6 +1678,7 @@ impl DesignPaintController for DesignPanel {
                             }
                         })
                         .trigger(trigger)
+                        .appearance(false)
                         .content(move |_, _, _| picker_content.clone())
                         .w_full()
                         .h_full(),
@@ -1962,6 +1963,7 @@ impl DesignPaintController for DesignPanel {
             });
         })
         .trigger(trigger)
+        .appearance(false)
         .content(move |_, _, _| picker_content.clone())
         .into_any_element()
     }
@@ -2767,7 +2769,11 @@ impl DesignPaintController for DesignPanel {
         let trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{panel_id}-selection-color-{selection_color_id}-variable"
         )))
-        .label("Select")
+        .child(crate::atoms::render_lucide_icon(
+            crate::atoms::LucideIcon::Variable,
+            crate::atoms::SemanticColor::Icon.resolve(cx),
+            crate::atoms::tokens::IconSize::SM,
+        ))
         .tooltip(tooltip)
         .xsmall()
         .compact()
@@ -3053,6 +3059,7 @@ impl DesignPaintController for DesignPanel {
             });
         })
         .trigger(trigger)
+        .appearance(false)
         .content(move |_, _, _| picker_content.clone())
         .into_any_element()
     }
@@ -3956,6 +3963,7 @@ impl DesignPaintController for DesignPanel {
             });
         })
         .trigger(trigger)
+        .appearance(false)
         .content(move |_, _, _| picker_content.clone())
         .into_any_element()
     }

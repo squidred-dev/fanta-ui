@@ -2084,8 +2084,8 @@ fn geometry_constants_resolve_to_shared_tokens() {
     // feature owns. Entries leave this list as constants migrate; a new local
     // dimension belongs in `atoms::tokens` instead of here.
     const ALLOWED_LOCAL_GEOMETRY: &[(&str, &str)] = &[
-        ("organisms/color_picker/paint.rs", "PICKER_MAX_HEIGHT"),
-        ("organisms/color_picker/paint.rs", "COLOR_AREA_HEIGHT"),
+        ("organisms/paint_picker/mod.rs", "PICKER_MAX_HEIGHT"),
+        ("organisms/paint_picker/mod.rs", "COLOR_AREA_HEIGHT"),
         (
             "organisms/design/typography_style_picker.rs",
             "PICKER_MAX_HEIGHT",
@@ -2100,27 +2100,11 @@ fn geometry_constants_resolve_to_shared_tokens() {
             "organisms/toolbar/component/overlays.rs",
             "ACTIONS_RESULTS_MAX_HEIGHT",
         ),
-        (
-            "organisms/toolbar/component/overlays.rs",
-            "AGENT_COMPOSER_ANCHOR_INSET",
-        ),
-        (
-            "organisms/toolbar/component/overlays.rs",
-            "ZOOM_MENU_ANCHOR_INSET",
-        ),
         ("organisms/toolbar/component/rows.rs", "ROW_FADE_WIDTH"),
         ("organisms/pages/panel.rs", "PAGE_ROW_GAP"),
         ("organisms/pages/panel.rs", "MAX_PAGE_LIST_HEIGHT"),
         ("organisms/pages/panel.rs", "PAGE_MENU_HEIGHT"),
         ("organisms/pages/panel.rs", "SCOPE_MENU_HEIGHT"),
-        ("organisms/timeline/mod.rs", "RULER_GUTTER"),
-        ("organisms/timeline/mod.rs", "RAIL_WIDTH"),
-        ("organisms/timeline/mod.rs", "ZOOM_WIDTH"),
-        ("organisms/timeline/mod.rs", "ZOOM_COMPACT_WIDTH"),
-        ("organisms/timeline/mod.rs", "ZOOM_TRACK_CHROME"),
-        ("organisms/timeline/mod.rs", "ZOOM_TRACK_WIDTH"),
-        ("organisms/timeline/mod.rs", "EMPTY_CARD_WIDTH"),
-        ("organisms/timeline/mod.rs", "EMPTY_CARD_HEIGHT"),
         ("screens/variables/mod.rs", "SIDEBAR_WIDTH"),
         ("screens/variables/mod.rs", "HEADER_TOOLS_WIDTH"),
         ("screens/variables/mod.rs", "NAME_COLUMN_WIDTH"),
@@ -2235,11 +2219,11 @@ fn raw_pixel_literal_budget_ratchets_down() {
     // Every token migration must lower the directory it touches.
     const RAW_PIXEL_BUDGETS: &[(&str, usize)] = &[
         ("organisms/design", 475),
-        ("organisms/color_picker", 102),
-        ("organisms/toolbar", 106),
+        ("organisms/paint_picker", 102),
+        ("organisms/toolbar", 72),
         ("screens/variables", 49),
         ("organisms/pages", 40),
-        ("organisms/timeline", 63),
+        ("organisms/timeline", 7),
         ("organisms/layers", 15),
         ("organisms/prototype", 40),
         ("layouts", 30),

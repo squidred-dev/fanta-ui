@@ -1,18 +1,16 @@
-//! Persistent dock assembly: the mode-specific secondary strip, the primary
-//! tool strip, and the utility row with the mode tray, zoom cluster, Agent
-//! launcher, and the host chrome capsule.
+//! Compact main row and the optional contextual strip above it.
 
-use crate::atoms::TypographyExt as _;
+use crate::atoms::{TypographyExt as _, tokens};
 use gpui::{
     AnyElement, Context, InteractiveElement as _, IntoElement, MouseButton, MouseDownEvent,
-    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, canvas,
-    div, prelude::FluentBuilder as _, px,
+    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 use gpui_component::{
     ActiveTheme as _, Icon, IconName, Sizable as _, StyledExt as _, h_flex, tooltip::Tooltip,
 };
 
-use super::{CHROME_CONTROL_SIZE, EditorToolbar, TOOL_SIZE, ToolbarOverlay, ZoomClusterTier};
+use super::{CHROME_CONTROL_SIZE, EditorToolbar, TOOL_SIZE, ToolbarOverlay};
 use crate::atoms::{ActivateControl, CONTROL_KEY_CONTEXT, ControlExt as _, icon_button};
 use crate::molecules::{horizontal_fade_overlays, track_horizontal_edge_fades};
 use crate::toolbar::icons::{render_icon_asset, render_mode_icon, render_tool_icon};
@@ -43,7 +41,7 @@ impl EditorToolbar {
     fn render_tool_button(
         &self,
         tool: ToolbarTool,
-        window: &Window,
+        _window: &Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let actions_open =
@@ -117,10 +115,6 @@ impl EditorToolbar {
             .flex_none()
             .items_start()
             .child(button)
-            .when(
-                tool == ToolbarTool::Actions && self.overlay == Some(ToolbarOverlay::Actions),
-                |wrapper| wrapper.child(self.render_actions_palette(window, cx)),
-            )
             .into_any_element()
     }
 
@@ -243,54 +237,6 @@ impl EditorToolbar {
             .into_any_element()
     }
 
-    fn render_mode_button(&self, mode: ToolbarMode, cx: &mut Context<Self>) -> AnyElement {
-        let selected = self.mode == mode;
-        let accent = Self::mode_accent(mode, cx);
-        let tooltip = Self::control_tooltip(mode.label(), mode.shortcut());
-        h_flex()
-            .id(SharedString::from(format!(
-                "{}-mode-{}",
-                self.id,
-                mode.label().to_lowercase()
-            )))
-            .debug_selector({
-                let label = mode.label();
-                move || format!("toolbar-mode-{}", label.to_lowercase())
-            })
-            .key_context(CONTROL_KEY_CONTEXT)
-            .tab_index(0)
-            .size(px(28.))
-            .justify_center()
-            .rounded(px(8.))
-            .cursor_pointer()
-            .border_1()
-            .border_color(cx.theme().transparent)
-            .bg(if selected {
-                crate::atoms::SemanticColor::Background.resolve(cx)
-            } else {
-                cx.theme().transparent
-            })
-            .when(selected && cx.theme().shadow, |button| button.shadow_sm())
-            .hover(|style| style.bg(crate::atoms::SemanticColor::Background.resolve(cx)))
-            .focus(|style| {
-                style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
-            })
-            .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
-            .on_activate(cx.listener(move |this, _, _, cx| {
-                this.request_mode(mode, cx);
-            }))
-            .child(render_mode_icon(
-                mode,
-                if selected {
-                    accent
-                } else {
-                    crate::atoms::SemanticColor::TextTertiary.resolve(cx)
-                },
-                17.,
-            ))
-            .into_any_element()
-    }
-
     pub(super) fn render_main_toolbar(
         &self,
         window: &Window,
@@ -315,9 +261,20 @@ impl EditorToolbar {
         }
 
         h_flex()
+            .debug_selector(|| "toolbar-main-row".to_owned())
             .relative()
+            .h(px(tokens::RowHeight::SECTION_HEADER))
+            .gap_1()
             .max_w_full()
             .min_w(px(0.))
+            .child(self.render_mode_selector(window, cx))
+            .child(
+                div()
+                    .w(px(1.))
+                    .h(px(24.))
+                    .flex_none()
+                    .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
+            )
             .child(
                 // A flex wrapper so the scroll viewport keeps its flex-item
                 // sizing; a block wrapper collapses a scroll child to zero
@@ -371,122 +328,49 @@ impl EditorToolbar {
             // Keep Actions visible while mode-specific tools scroll, so a
             // keyboard invocation always has a real, nearby anchor.
             .child(self.render_tool_button(ToolbarTool::Actions, window, cx))
+            .when(!self.chrome_controls.is_empty(), |row| {
+                row.child(self.render_chrome_cluster(cx))
+            })
             .into_any_element()
     }
 
-    fn render_mode_tray(&self, cx: &mut Context<Self>) -> AnyElement {
-        let mut modes = h_flex()
-            .h(px(36.))
-            .flex_none()
-            .px_1()
-            .gap(px(2.))
-            .rounded(px(10.))
-            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx));
-        for mode in ToolbarMode::ALL {
-            modes = modes.child(self.render_mode_button(*mode, cx));
-        }
-        modes.into_any_element()
-    }
-
-    pub(super) fn render_utility_toolbar(
-        &self,
-        window: &Window,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let tier = self.zoom_cluster_tier();
-        let toolbar = cx.entity();
-        // A flex wrapper so the scroll viewport keeps its flex-item sizing; a
-        // block wrapper collapses a scroll child to zero width and culls the
-        // row's hitboxes.
-        h_flex()
-            .relative()
-            .max_w_full()
-            .min_w(px(0.))
-            .child(
-                // Measures the dock's inner width so the zoom cluster can
-                // collapse below the named breakpoints. The write is
-                // deferred past the draw so a changed width schedules a
-                // re-render (notifying mid-draw is a no-op).
-                canvas(
-                    move |bounds, _, app| {
-                        let width = f32::from(bounds.size.width);
-                        let known = toolbar.read(app).utility_width;
-                        if known.is_none_or(|known| (known - width).abs() > 0.5) {
-                            let toolbar = toolbar.clone();
-                            app.defer(move |app| {
-                                toolbar.update(app, |this, cx| {
-                                    this.utility_width = Some(width);
-                                    cx.notify();
-                                });
-                            });
-                        }
-                    },
-                    |_, _, _, _| {},
-                )
-                .absolute()
-                .left_0()
-                .top_0()
-                .size_full(),
-            )
-            .child(
-                // The viewport itself is a flex row: a block scroll container
-                // clamps its row to the viewport width, so the content never
-                // overflows and cannot scroll.
-                div()
-                    .id(SharedString::from(format!("{}-utility-viewport", self.id)))
-                    .debug_selector(|| "toolbar-utility-viewport".to_owned())
-                    .flex()
-                    .w_full()
-                    .min_w(px(0.))
-                    .overflow_x_scroll()
-                    .track_scroll(&self.utility_scroll_handle)
-                    .child(
-                        h_flex()
-                            .debug_selector(|| "toolbar-utility-row".to_owned())
-                            .min_w_full()
-                            .flex_none()
-                            .h(px(40.))
-                            .px_1()
-                            .gap_1()
-                            .border_t_1()
-                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                            .child(self.render_mode_tray(cx))
-                            .child(div().flex_1().min_w(px(0.)))
-                            .when(tier != ZoomClusterTier::Hidden, |row| {
-                                row.child(self.render_zoom_control(tier, window, cx)).child(
-                                    div()
-                                        .w(px(1.))
-                                        .h(px(22.))
-                                        .flex_none()
-                                        .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
-                                )
-                            })
-                            .child(self.render_agent_launcher(window, cx))
-                            .when(!self.chrome_controls.is_empty(), |row| {
-                                row.child(
-                                    div()
-                                        .w(px(1.))
-                                        .h(px(22.))
-                                        .flex_none()
-                                        .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
-                                )
-                                .child(self.render_chrome_cluster(cx))
-                            }),
-                    ),
-            )
-            .children(horizontal_fade_overlays(
-                self.utility_fades,
-                px(ROW_FADE_WIDTH),
-                crate::atoms::SemanticColor::BackgroundMenu.resolve(cx),
-                "toolbar-utility",
-            ))
-            .child(track_horizontal_edge_fades(
-                cx.entity(),
-                self.utility_scroll_handle.clone(),
-                |this| this.utility_fades,
-                |this, fades| this.utility_fades = fades,
-            ))
-            .into_any_element()
+    fn render_mode_selector(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
+        let open = self.overlay == Some(ToolbarOverlay::Mode);
+        let mode = self.mode;
+        let tooltip = format!("{} mode · Switch workspace", mode.label());
+        icon_button(
+            SharedString::from(format!("{}-mode-selector", self.id)),
+            px(TOOL_SIZE),
+            px(tokens::Radius::CONTROL),
+            cx,
+        )
+        .debug_selector(|| "toolbar-mode-selector".to_owned())
+        .relative()
+        .w(px(48.))
+        .flex_none()
+        .gap_1()
+        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+        .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
+        // Press activation pairs with outside-dismiss, as on the tool flyouts.
+        .on_mouse_down(
+            MouseButton::Left,
+            cx.listener(move |this, _, _, cx| this.toggle_mode_menu(open, cx)),
+        )
+        .on_action(cx.listener(move |this, _: &ActivateControl, window, cx| {
+            if !(open && this.commit_open_menu_entry(window, cx)) {
+                this.toggle_mode_menu(open, cx);
+            }
+        }))
+        .child(render_mode_icon(
+            mode,
+            crate::atoms::SemanticColor::Text.resolve(cx),
+            17.,
+        ))
+        .child(Icon::new(IconName::ChevronDown).xsmall())
+        .when(open, |trigger| {
+            trigger.child(self.render_mode_menu(window, cx))
+        })
+        .into_any_element()
     }
 
     fn render_secondary_button(
@@ -498,7 +382,8 @@ impl EditorToolbar {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let label = label.into();
-        let accent = Self::mode_accent(self.mode, cx);
+        let tooltip = label.clone();
+        let accent = crate::atoms::SemanticColor::TextOnBrand.resolve(cx);
         let pale_accent = Self::mode_accent_pale(self.mode, cx);
         h_flex()
             .id(SharedString::from(format!(
@@ -527,14 +412,38 @@ impl EditorToolbar {
             } else {
                 crate::atoms::SemanticColor::Text.resolve(cx)
             })
-            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+            .hover(|style| {
+                style.bg(if selected {
+                    pale_accent
+                } else {
+                    crate::atoms::SemanticColor::BackgroundHover.resolve(cx)
+                })
+            })
             .focus(|style| {
                 style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
             })
             .on_activate(cx.listener(move |this, _, _, cx| {
                 this.request_secondary(control, cx);
             }))
-            .child(label)
+            .child(crate::atoms::render_lucide_icon(
+                if control == ToolbarSecondaryControl::MotionPlayPause
+                    && self.motion_options.playing
+                {
+                    crate::atoms::LucideIcon::Pause
+                } else {
+                    crate::toolbar::icons::secondary_icon(control)
+                },
+                if selected {
+                    accent
+                } else {
+                    crate::atoms::SemanticColor::Text.resolve(cx)
+                },
+                tokens::IconSize::SM,
+            ))
+            .when(self.mode != ToolbarMode::Motion, |button| {
+                button.child(label)
+            })
+            .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
             .into_any_element()
     }
 
@@ -548,7 +457,8 @@ impl EditorToolbar {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let label = label.into();
-        let accent = Self::mode_accent(self.mode, cx);
+        let tooltip = label.clone();
+        let accent = crate::atoms::SemanticColor::TextOnBrand.resolve(cx);
         let pale_accent = Self::mode_accent_pale(self.mode, cx);
         h_flex()
             .id(SharedString::from(format!(
@@ -577,14 +487,38 @@ impl EditorToolbar {
             } else {
                 crate::atoms::SemanticColor::Text.resolve(cx)
             })
-            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+            .hover(|style| {
+                style.bg(if selected {
+                    pale_accent
+                } else {
+                    crate::atoms::SemanticColor::BackgroundHover.resolve(cx)
+                })
+            })
             .focus(|style| {
                 style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
             })
             .on_activate(cx.listener(move |this, _, _, cx| {
                 this.request_control_value(control, value.clone(), cx);
             }))
-            .child(label)
+            .child(crate::atoms::render_lucide_icon(
+                if control == ToolbarSecondaryControl::MotionPlayPause
+                    && self.motion_options.playing
+                {
+                    crate::atoms::LucideIcon::Pause
+                } else {
+                    crate::toolbar::icons::secondary_icon(control)
+                },
+                if selected {
+                    accent
+                } else {
+                    crate::atoms::SemanticColor::Text.resolve(cx)
+                },
+                tokens::IconSize::SM,
+            ))
+            .when(self.mode != ToolbarMode::Motion, |button| {
+                button.child(label)
+            })
+            .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
             .into_any_element()
     }
 
@@ -615,6 +549,8 @@ impl EditorToolbar {
                     .key_context(CONTROL_KEY_CONTEXT)
                     .tab_index(0)
                     .h(px(28.))
+                    .w(px(tokens::DropdownGeometry::WIDTH))
+                    .flex_none()
                     .px_2()
                     .gap_1()
                     .rounded(px(7.))
@@ -651,7 +587,8 @@ impl EditorToolbar {
                             this.toggle_option_editor(control, open, cx);
                         }),
                     )
-                    .child(label)
+                    .child(crate::atoms::truncating_label(label.clone()))
+                    .tooltip(move |window, cx| Tooltip::new(label.clone()).build(window, cx))
                     .child(
                         Icon::new(if open {
                             IconName::ChevronUp
@@ -706,11 +643,7 @@ impl EditorToolbar {
             )
             .child(self.render_value_button(
                 "dev-ready",
-                if self.dev_options.ready_for_development {
-                    "Ready for dev"
-                } else {
-                    "Mark ready for dev"
-                },
+                "Ready for dev",
                 ToolbarSecondaryControl::DevReadyForDevelopment,
                 ToolbarControlValue::Toggle(!self.dev_options.ready_for_development),
                 self.dev_options.ready_for_development,
@@ -752,14 +685,24 @@ impl EditorToolbar {
             ))
             .child(
                 div()
+                    .id(SharedString::from(format!("{}-motion-time", self.id)))
+                    .debug_selector(|| "toolbar-motion-time".to_owned())
                     .h(px(28.))
+                    .w(px(tokens::InputGeometry::COMBO_WIDTH))
+                    .flex_none()
                     .px_2()
                     .flex()
                     .items_center()
                     .rounded(px(7.))
                     .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                     .typography(crate::atoms::TypographyToken::BodyMedium)
-                    .child(format!("{current_seconds:.1}s / {duration_seconds:.1}s")),
+                    .child(crate::atoms::truncating_label(format!(
+                        "{current_seconds:.1}s / {duration_seconds:.1}s"
+                    )))
+                    .tooltip(move |window, cx| {
+                        Tooltip::new(format!("{current_seconds:.1}s / {duration_seconds:.1}s"))
+                            .build(window, cx)
+                    }),
             )
             .child(self.render_value_button(
                 "motion-autokey",
@@ -790,13 +733,6 @@ impl EditorToolbar {
                 true,
                 cx,
             ))
-            .child(self.render_secondary_button(
-                "motion-time-comment",
-                "Comment",
-                ToolbarSecondaryControl::MotionTimeComment,
-                false,
-                cx,
-            ))
             .into_any_element()
     }
 
@@ -808,15 +744,20 @@ impl EditorToolbar {
         let content = match self.mode {
             ToolbarMode::Design => return div().into_any_element(),
             ToolbarMode::Dev => self.render_dev_secondary(cx),
+            ToolbarMode::Draw => self.render_draw_secondary(window, cx),
             ToolbarMode::Motion => self.render_motion_secondary(window, cx),
         };
         // A flex wrapper so the scroll viewport keeps its flex-item sizing; a
         // block wrapper collapses a scroll child to zero width and culls the
         // row's hitboxes.
         h_flex()
+            .debug_selector(|| "toolbar-context-row".to_owned())
             .relative()
             .max_w_full()
             .min_w(px(0.))
+            .pb_1()
+            .border_b_1()
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .child(
                 // The viewport itself is a flex row: a block scroll container
                 // clamps its row to the viewport width, so the content never
@@ -846,117 +787,6 @@ impl EditorToolbar {
                 |this| this.secondary_fades,
                 |this, fades| this.secondary_fades = fades,
             ))
-            .into_any_element()
-    }
-
-    /// One − / + button of the zoom cluster, stepping the shared ladder.
-    fn render_zoom_stepper(&self, zoom_in: bool, cx: &mut Context<Self>) -> AnyElement {
-        let (suffix, icon) = if zoom_in {
-            ("in", IconName::Plus)
-        } else {
-            ("out", IconName::Minus)
-        };
-        icon_button(
-            SharedString::from(format!("{}-zoom-{suffix}", self.id)),
-            px(24.),
-            px(7.),
-            cx,
-        )
-        .debug_selector(move || format!("toolbar-zoom-{suffix}"))
-        .on_activate(cx.listener(move |this, _, _, cx| {
-            this.request_zoom(Self::zoom_ladder_step(this.zoom_percent, zoom_in), cx);
-        }))
-        .child(Icon::new(icon).xsmall())
-        .into_any_element()
-    }
-
-    fn render_zoom_control(
-        &self,
-        tier: ZoomClusterTier,
-        window: &Window,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let open = self.overlay == Some(ToolbarOverlay::Zoom);
-        h_flex()
-            .relative()
-            .h(px(36.))
-            .flex_none()
-            .px_1()
-            .gap(px(1.))
-            .rounded(px(10.))
-            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
-            .debug_selector(|| "toolbar-zoom-control".to_owned())
-            .when(tier == ZoomClusterTier::Full, |cluster| {
-                cluster.child(self.render_zoom_stepper(false, cx))
-            })
-            .child(
-                h_flex()
-                    .relative()
-                    .items_start()
-                    .w(px(58.))
-                    .h(px(28.))
-                    .flex_none()
-                    .child(
-                        h_flex()
-                            .id(SharedString::from(format!("{}-zoom-menu", self.id)))
-                            .debug_selector(|| "toolbar-zoom-menu-trigger".to_owned())
-                            .key_context(CONTROL_KEY_CONTEXT)
-                            .tab_index(0)
-                            .size_full()
-                            .px_1()
-                            .gap_1()
-                            .justify_center()
-                            .rounded(px(7.))
-                            .cursor_pointer()
-                            .border_1()
-                            .border_color(cx.theme().transparent)
-                            .hover(|style| {
-                                style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
-                            })
-                            .focus(|style| {
-                                style.border_color(
-                                    crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
-                                )
-                            })
-                            // Contract (§16): press-activation so the trigger
-                            // wins the race against the zoom menu's
-                            // capture-phase outside-dismiss; a click handler
-                            // would reopen the menu it just closed. Enter and
-                            // Space on an open menu commit its highlighted row.
-                            .on_action(cx.listener(move |this, _: &ActivateControl, window, cx| {
-                                if !(open && this.commit_open_menu_entry(window, cx)) {
-                                    this.toggle_zoom(open, cx);
-                                }
-                            }))
-                            .on_mouse_down(
-                                MouseButton::Left,
-                                cx.listener(move |this, _: &MouseDownEvent, _, cx| {
-                                    this.toggle_zoom(open, cx);
-                                }),
-                            )
-                            .child(
-                                div()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
-                                    .font_semibold()
-                                    .child(format!("{}%", self.zoom_percent)),
-                            )
-                            .child(
-                                Icon::new(if open {
-                                    IconName::ChevronUp
-                                } else {
-                                    IconName::ChevronDown
-                                })
-                                .xsmall(),
-                            ),
-                    )
-                    .when(open, |trigger| {
-                        trigger.child(self.render_zoom_menu(window, cx))
-                    }),
-            )
-            .when(tier == ZoomClusterTier::Full, |cluster| {
-                cluster.child(self.render_zoom_stepper(true, cx))
-            })
             .into_any_element()
     }
 
@@ -1033,51 +863,5 @@ impl EditorToolbar {
             cluster = cluster.child(self.render_chrome_control(control, cx));
         }
         cluster.into_any_element()
-    }
-
-    fn render_agent_launcher(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
-        let open = self.overlay == Some(ToolbarOverlay::Agent);
-        icon_button(
-            SharedString::from(format!("{}-agent-launcher", self.id)),
-            px(36.),
-            px(10.),
-            cx,
-        )
-        .debug_selector(|| "toolbar-agent-launcher".to_owned())
-        // Top alignment keeps the anchored composer's origin at the
-        // launcher's top edge, exactly like the other popup-hosting triggers.
-        .relative()
-        .flex_none()
-        .items_start()
-        .bg(if open {
-            crate::atoms::SemanticColor::BackgroundAssistive.resolve(cx)
-        } else {
-            crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx)
-        })
-        .text_color(crate::atoms::SemanticColor::TextAssistive.resolve(cx))
-        .tooltip(|window, cx| Tooltip::new("Agent · Command/Ctrl+Enter").build(window, cx))
-        // Contract (§16): press-activation so the launcher wins the race
-        // against the composer's capture-phase outside-dismiss; a click
-        // handler would reopen the composer it just closed.
-        .on_action(cx.listener(move |this, _: &ActivateControl, window, cx| {
-            this.toggle_agent(open, window, cx);
-        }))
-        .on_mouse_down(
-            MouseButton::Left,
-            cx.listener(move |this, _: &MouseDownEvent, window, cx| {
-                window.prevent_default();
-                this.toggle_agent(open, window, cx);
-            }),
-        )
-        .child(
-            h_flex()
-                .size_full()
-                .justify_center()
-                .child(Icon::new(IconName::Bot).xsmall()),
-        )
-        .when(open, |launcher| {
-            launcher.child(self.render_agent_composer(window, cx))
-        })
-        .into_any_element()
     }
 }

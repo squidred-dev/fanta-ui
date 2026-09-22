@@ -4,20 +4,12 @@
 
 use gpui::{App, Context, SharedString, Window};
 
-use super::{CommandScope, EditorToolbar, ToolbarOverlay, ZoomMenuEntry};
+use super::{EditorToolbar, ToolbarOverlay};
 use crate::toolbar::{
-    AgentToolbarOptions, DevToolbarOptions, MotionToolbarOptions, ToolbarAction,
-    ToolbarChromeControl, ToolbarCommand, ToolbarControlValue, ToolbarMode,
-    ToolbarSecondaryControl, ToolbarTool, ToolbarToolGroup,
+    DevToolbarOptions, MotionToolbarOptions, ToolbarAction, ToolbarChromeControl, ToolbarCommand,
+    ToolbarControlValue, ToolbarMode, ToolbarSecondaryControl, ToolbarTool, ToolbarToolGroup,
 };
 
-/// Figma's multiplicative zoom ladder: the doubling 25→50→100→200→400 spine
-/// extended to the 1–3,200 percent clamp. The +/- steppers and the zoom menu's
-/// in/out entries snap to the nearest ladder step in their direction.
-const ZOOM_LADDER: &[u16] = &[1, 2, 3, 6, 12, 25, 50, 100, 200, 400, 800, 1_600, 3_200];
-
-/// One ranked Actions result: the command plus the label byte ranges its
-/// match highlights.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) struct CommandMatch {
     pub(super) command: ToolbarCommand,
@@ -114,11 +106,6 @@ impl EditorToolbar {
         &self.motion_options
     }
 
-    /// Returns the last Agent context copy supplied by the host.
-    pub fn agent_options(&self) -> &AgentToolbarOptions {
-        &self.agent_options
-    }
-
     /// Returns the host chrome controls currently shown in the dock's
     /// trailing capsule.
     pub fn chrome_controls(&self) -> &[ToolbarChromeControl] {
@@ -154,12 +141,6 @@ impl EditorToolbar {
     /// Replaces the controlled Motion-mode values.
     pub fn set_motion_options(&mut self, options: MotionToolbarOptions, cx: &mut Context<Self>) {
         self.motion_options = options;
-        cx.notify();
-    }
-
-    /// Replaces Agent context copy and suggestions.
-    pub fn set_agent_options(&mut self, options: AgentToolbarOptions, cx: &mut Context<Self>) {
-        self.agent_options = options;
         cx.notify();
     }
 
@@ -201,33 +182,17 @@ impl EditorToolbar {
         cx.notify();
     }
 
-    fn set_overlay(&mut self, overlay: Option<ToolbarOverlay>, cx: &mut Context<Self>) {
-        let agent_was_visible = self.overlay == Some(ToolbarOverlay::Agent);
-        let agent_is_visible = overlay == Some(ToolbarOverlay::Agent);
+    pub(super) fn set_overlay(&mut self, overlay: Option<ToolbarOverlay>, cx: &mut Context<Self>) {
         self.overlay = overlay;
-        if agent_was_visible != agent_is_visible {
-            cx.emit(ToolbarAction::AgentVisibilityChanged {
-                visible: agent_is_visible,
-            });
-        }
+        cx.notify();
     }
 
     /// Opens the Actions command palette and transfers focus to its query.
     pub fn open_actions(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.set_overlay(Some(ToolbarOverlay::Actions), cx);
-        self.command_scope = CommandScope::All;
         self.command_cursor = 0;
         self.command_scroll_handle.scroll_to_item(0);
         self.command_input.update(cx, |input, cx| {
-            input.focus(window, cx);
-        });
-        cx.notify();
-    }
-
-    /// Opens the contextual Figma Agent-style composer.
-    pub fn open_agent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.set_overlay(Some(ToolbarOverlay::Agent), cx);
-        self.ai_input.update(cx, |input, cx| {
             input.focus(window, cx);
         });
         cx.notify();
@@ -286,13 +251,14 @@ impl EditorToolbar {
         cx.notify();
     }
 
-    pub(super) fn toggle_zoom(&mut self, was_open: bool, cx: &mut Context<Self>) {
-        let next = (!was_open).then_some(ToolbarOverlay::Zoom);
-        if !was_open {
-            self.reset_menu_cursor(0);
-        }
-        self.set_overlay(next, cx);
-        cx.notify();
+    pub(super) fn toggle_mode_menu(&mut self, was_open: bool, cx: &mut Context<Self>) {
+        self.reset_menu_cursor(
+            ToolbarMode::ALL
+                .iter()
+                .position(|mode| *mode == self.mode)
+                .unwrap_or(0),
+        );
+        self.set_overlay((!was_open).then_some(ToolbarOverlay::Mode), cx);
     }
 
     /// Opens or closes the anchored editor for one secondary chip. Choice
@@ -319,7 +285,7 @@ impl EditorToolbar {
         cx.notify();
     }
 
-    fn reset_menu_cursor(&mut self, cursor: usize) {
+    pub(super) fn reset_menu_cursor(&mut self, cursor: usize) {
         self.menu_cursor = cursor;
         self.menu_scroll_handle.scroll_to_item(cursor);
     }
@@ -332,38 +298,6 @@ impl EditorToolbar {
 
     pub(super) fn request_zoom_command(&mut self, command: ToolbarCommand, cx: &mut Context<Self>) {
         cx.emit(ToolbarAction::CommandInvoked { command });
-    }
-
-    /// Nearest ladder step in the requested direction; clamps at the ladder
-    /// ends so repeated stepping settles on 1 and 3,200 percent.
-    pub(super) fn zoom_ladder_step(current: u16, zoom_in: bool) -> u16 {
-        if zoom_in {
-            ZOOM_LADDER
-                .iter()
-                .copied()
-                .find(|step| *step > current)
-                .unwrap_or(3_200)
-        } else {
-            ZOOM_LADDER
-                .iter()
-                .rev()
-                .copied()
-                .find(|step| *step < current)
-                .unwrap_or(1)
-        }
-    }
-
-    pub(super) fn toggle_agent(
-        &mut self,
-        was_open: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if was_open {
-            self.close_overlay_from_trigger(window, cx);
-        } else {
-            self.open_agent(window, cx);
-        }
     }
 
     pub(super) fn request_mode(&mut self, mode: ToolbarMode, cx: &mut Context<Self>) {
@@ -404,34 +338,6 @@ impl EditorToolbar {
         self.request_tool(tool, cx);
         let focus_handle = self.focus_handle.clone();
         window.defer(cx, move |window, cx| focus_handle.focus(window, cx));
-    }
-
-    /// Commits one zoom-menu entry: the menu closes, toolbar focus returns,
-    /// and the entry's zoom command or typed percent intent is emitted.
-    pub(super) fn choose_zoom_entry(
-        &mut self,
-        entry: ZoomMenuEntry,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.set_overlay(None, cx);
-        let focus_handle = self.focus_handle.clone();
-        window.defer(cx, move |window, cx| focus_handle.focus(window, cx));
-        match entry {
-            ZoomMenuEntry::ZoomIn => {
-                self.request_zoom(Self::zoom_ladder_step(self.zoom_percent, true), cx)
-            }
-            ZoomMenuEntry::ZoomOut => {
-                self.request_zoom(Self::zoom_ladder_step(self.zoom_percent, false), cx)
-            }
-            ZoomMenuEntry::ZoomToFit => self.request_zoom_command(ToolbarCommand::ZoomToFit, cx),
-            ZoomMenuEntry::ZoomToSelection => {
-                self.request_zoom_command(ToolbarCommand::ZoomToSelection, cx)
-            }
-            ZoomMenuEntry::ZoomTo100 => self.request_zoom(100, cx),
-            ZoomMenuEntry::ZoomTo50 => self.request_zoom(50, cx),
-        }
-        cx.notify();
     }
 
     /// Commits one host-supplied candidate from a chip's choice editor.
@@ -481,12 +387,16 @@ impl EditorToolbar {
     fn open_menu_len(&self) -> Option<usize> {
         match self.overlay? {
             ToolbarOverlay::ToolGroup(group) => Some(group.tools().len()),
-            ToolbarOverlay::Zoom => Some(ZoomMenuEntry::ALL.len()),
             ToolbarOverlay::OptionEditor(control) => {
                 let len = self.choice_candidates(control).len();
                 (len > 0).then_some(len)
             }
-            ToolbarOverlay::Actions | ToolbarOverlay::Agent => None,
+            ToolbarOverlay::Mode => Some(ToolbarMode::ALL.len()),
+            ToolbarOverlay::DrawChoice(choice) => {
+                let len = self.draw_choices(choice).len();
+                (len > 0).then_some(len)
+            }
+            ToolbarOverlay::Actions | ToolbarOverlay::DrawNumber(_) => None,
         }
     }
 
@@ -506,8 +416,11 @@ impl EditorToolbar {
             Some(ToolbarOverlay::ToolGroup(group)) => {
                 self.choose_tool_from_menu(group.tools()[cursor], window, cx);
             }
-            Some(ToolbarOverlay::Zoom) => {
-                self.choose_zoom_entry(ZoomMenuEntry::ALL[cursor], window, cx);
+            Some(ToolbarOverlay::Mode) => {
+                self.request_mode(ToolbarMode::ALL[cursor], cx);
+            }
+            Some(ToolbarOverlay::DrawChoice(choice)) => {
+                self.choose_draw_choice(choice, cursor, cx);
             }
             Some(ToolbarOverlay::OptionEditor(control)) => {
                 let candidate = self.choice_candidates(control)[cursor].clone();
@@ -546,7 +459,7 @@ impl EditorToolbar {
             .commands
             .iter()
             .copied()
-            .filter(|command| self.command_scope.includes(*command))
+            .filter(|command| ToolbarCommand::ALL.contains(command))
             .filter_map(|command| {
                 if query.is_empty() {
                     return Some((
@@ -658,79 +571,17 @@ impl EditorToolbar {
         cx.notify();
     }
 
-    pub(super) fn set_command_scope(
-        &mut self,
-        scope: CommandScope,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.command_scope = scope;
-        self.command_cursor = 0;
-        self.command_scroll_handle.scroll_to_item(0);
-        let command_input = self.command_input.clone();
-        window.defer(cx, move |window, cx| {
-            command_input.update(cx, |input, cx| input.focus(window, cx));
-        });
-        cx.notify();
-    }
-
     pub(super) fn invoke_command(
         &mut self,
         command: ToolbarCommand,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.set_overlay(None, cx);
+        // Focus the toolbar before handing off; a host action may focus a new editor.
+        self.focus_handle.focus(window, cx);
         cx.emit(ToolbarAction::CommandInvoked { command });
-        match command {
-            ToolbarCommand::ReplaceContent
-            | ToolbarCommand::RewriteText
-            | ToolbarCommand::TranslateText
-            | ToolbarCommand::RenameLayers
-            | ToolbarCommand::MakePrototype => self.open_agent(window, cx),
-            _ => {
-                self.set_overlay(None, cx);
-                let focus_handle = self.focus_handle.clone();
-                window.defer(cx, move |window, cx| focus_handle.focus(window, cx));
-                cx.notify();
-            }
-        }
-    }
-
-    pub(super) fn submit_ai_prompt(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let value = self.ai_input.read(cx).value();
-        let prompt = value.trim();
-        if prompt.is_empty() {
-            return;
-        }
-        cx.emit(ToolbarAction::AiPromptSubmitted {
-            prompt: SharedString::from(prompt.to_owned()),
-        });
-        self.ai_input.update(cx, |input, cx| {
-            input.set_value("", window, cx);
-            input.focus(window, cx);
-        });
         cx.notify();
-    }
-
-    pub(super) fn set_ai_suggestion(
-        &mut self,
-        suggestion: SharedString,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.ai_input.update(cx, |input, cx| {
-            input.set_value(suggestion, window, cx);
-            input.focus(window, cx);
-        });
-        cx.notify();
-    }
-
-    pub(super) fn activate_agent_send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.ai_input.read(cx).value().trim().is_empty() {
-            cx.emit(ToolbarAction::AgentVoiceInputRequested);
-        } else {
-            self.submit_ai_prompt(window, cx);
-        }
     }
 
     pub(super) fn request_secondary(
@@ -773,46 +624,20 @@ impl EditorToolbar {
         }
     }
 
-    pub(super) fn mode_accent(mode: ToolbarMode, cx: &App) -> gpui::Hsla {
-        match mode {
-            ToolbarMode::Design => crate::atoms::SemanticColor::TextBrand.resolve(cx),
-            ToolbarMode::Motion => crate::atoms::SemanticColor::TextAssistive.resolve(cx),
-            ToolbarMode::Dev => crate::atoms::SemanticColor::TextSuccess.resolve(cx),
-        }
+    pub(super) fn mode_accent(_mode: ToolbarMode, cx: &App) -> gpui::Hsla {
+        crate::atoms::SemanticColor::BackgroundBrand.resolve(cx)
     }
-
-    pub(super) fn mode_accent_pale(mode: ToolbarMode, cx: &App) -> gpui::Hsla {
-        match mode {
-            ToolbarMode::Design => crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
-            ToolbarMode::Motion => crate::atoms::SemanticColor::BackgroundAssistive.resolve(cx),
-            ToolbarMode::Dev => crate::atoms::SemanticColor::BackgroundSuccess.resolve(cx),
-        }
+    pub(super) fn mode_accent_pale(_mode: ToolbarMode, cx: &App) -> gpui::Hsla {
+        crate::atoms::SemanticColor::BackgroundBrand.resolve(cx)
     }
-
-    pub(super) fn mode_accent_foreground(accent: gpui::Hsla, cx: &App) -> gpui::Hsla {
-        let foreground = crate::atoms::SemanticColor::Text.resolve(cx);
-        let background = crate::atoms::SemanticColor::Background.resolve(cx);
-        if (accent.l - foreground.l).abs() >= (accent.l - background.l).abs() {
-            foreground
-        } else {
-            background
-        }
+    pub(super) fn mode_accent_foreground(_accent: gpui::Hsla, cx: &App) -> gpui::Hsla {
+        crate::atoms::SemanticColor::TextOnBrand.resolve(cx)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn command_scopes_partition_resource_entries() {
-        assert!(CommandScope::All.includes(ToolbarCommand::Undo));
-        assert!(CommandScope::Assets.includes(ToolbarCommand::OpenResources));
-        assert!(CommandScope::Assets.includes(ToolbarCommand::OpenVariables));
-        assert!(!CommandScope::Assets.includes(ToolbarCommand::OpenPlugins));
-        assert!(CommandScope::PluginsAndWidgets.includes(ToolbarCommand::OpenPlugins));
-        assert!(CommandScope::PluginsAndWidgets.includes(ToolbarCommand::OpenWidgets));
-    }
 
     #[test]
     fn actions_matching_ranks_prefix_word_boundary_substring_then_scattered() {
@@ -842,17 +667,5 @@ mod tests {
             EditorToolbar::match_command(ToolbarCommand::Undo, "xyz"),
             None
         );
-    }
-
-    #[test]
-    fn zoom_ladder_steps_multiplicatively_and_clamps_at_the_ends() {
-        assert_eq!(EditorToolbar::zoom_ladder_step(100, true), 200);
-        assert_eq!(EditorToolbar::zoom_ladder_step(100, false), 50);
-        assert_eq!(EditorToolbar::zoom_ladder_step(110, true), 200);
-        assert_eq!(EditorToolbar::zoom_ladder_step(110, false), 100);
-        assert_eq!(EditorToolbar::zoom_ladder_step(3_200, true), 3_200);
-        assert_eq!(EditorToolbar::zoom_ladder_step(1, false), 1);
-        assert_eq!(EditorToolbar::zoom_ladder_step(26, true), 50);
-        assert_eq!(EditorToolbar::zoom_ladder_step(26, false), 25);
     }
 }

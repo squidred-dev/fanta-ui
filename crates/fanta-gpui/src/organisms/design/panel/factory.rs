@@ -791,6 +791,7 @@ impl DesignPanelFactory {
                     }
                 }
                 PaintPickerEvent::EyedropperRequested { .. } => {}
+                PaintPickerEvent::CloseRequested => {}
             },
         );
         let typography_style_picker = cx.new(|cx| {

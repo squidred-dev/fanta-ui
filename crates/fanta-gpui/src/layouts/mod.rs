@@ -3,3 +3,5 @@
 
 pub mod file_inspector;
 pub mod pseudo_editor;
+
+pub mod properties_inspector;

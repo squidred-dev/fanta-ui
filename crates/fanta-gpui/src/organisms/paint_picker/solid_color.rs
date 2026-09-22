@@ -1736,6 +1736,7 @@ impl PaintPicker {
                     .min_w_0()
                     .child(
                         Input::new(&self.color_channel_inputs[channel])
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .prefix(
                                 div()
                                     .typography(crate::atoms::TypographyToken::BodyMedium)
@@ -1774,6 +1775,7 @@ impl PaintPicker {
             .debug_selector(|| "color-picker-opacity".to_owned())
             .child(
                 Input::new(&self.opacity_input)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .suffix(
                         div()
                             .typography(crate::atoms::TypographyToken::BodyMedium)
@@ -1800,6 +1802,7 @@ impl PaintPicker {
                         .min_w_0()
                         .child(
                             Input::new(&self.hex_input)
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
                                 .xsmall()
                                 .h(px(26.))
                                 .flex_1()
@@ -1904,6 +1907,7 @@ impl PaintPicker {
             )
             .child(
                 Input::new(&self.opacity_input)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .suffix(
                         div()
                             .typography(crate::atoms::TypographyToken::BodyMedium)

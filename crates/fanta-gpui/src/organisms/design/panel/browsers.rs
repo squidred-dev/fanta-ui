@@ -378,6 +378,7 @@ impl DesignBrowserController for DesignPanel {
             .gap_1()
             .child(
                 Input::new(&search)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .small()
                     .prefix(Icon::new(IconName::Search).small()),
             )
@@ -491,7 +492,11 @@ impl DesignBrowserController for DesignPanel {
             "{}-property-variable-{property:?}",
             panel_id
         )))
-        .label("Select")
+        .child(crate::atoms::render_lucide_icon(
+            crate::atoms::LucideIcon::Variable,
+            crate::atoms::SemanticColor::Icon.resolve(cx),
+            crate::atoms::tokens::IconSize::SM,
+        ))
         .tooltip(trigger_tooltip)
         .xsmall()
         .compact()
@@ -558,6 +563,7 @@ impl DesignBrowserController for DesignPanel {
                     )
                     .child(
                         Input::new(&search_input)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .small()
                             .prefix(Icon::new(IconName::Search).small()),
                     );

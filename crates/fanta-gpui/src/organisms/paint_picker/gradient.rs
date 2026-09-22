@@ -881,6 +881,7 @@ impl PaintPicker {
                             )
                             .child(
                                 Input::new(&self.stop_position_input)
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
                                     .suffix(
                                         div()
                                             .typography(crate::atoms::TypographyToken::BodyMedium)

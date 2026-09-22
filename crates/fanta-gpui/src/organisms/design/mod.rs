@@ -5,14 +5,14 @@ mod context;
 mod field_value;
 pub(crate) mod format;
 mod model;
-pub(crate) use crate::organisms::color_picker::paint as paint_picker;
+pub(crate) use crate::organisms::paint_picker;
 mod panel;
 mod sections;
 mod typography_style_picker;
 
 pub use context::*;
 pub use model::*;
-pub use panel::DesignPanel;
+pub use panel::{DesignInspector, DesignPanel, DesignPropertyPanel, DesignPropertyPanelKind};
 pub use sections::{
     DesignPanelSectionBand, design_panel_section_band,
     design_panel_section_is_visible_in_workspace, resolve_design_panel_sections,

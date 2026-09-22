@@ -130,6 +130,7 @@ mod appearance;
 mod browsers;
 mod component_authoring_edit_controller;
 mod component_props;
+mod composition;
 mod drag_preview;
 mod edit_controller;
 mod effects;
@@ -162,6 +163,8 @@ use component_authoring_edit_controller::{
     ComponentAuthoringNameEditor, DesignComponentAuthoringEditController,
 };
 use component_props::DesignComponentController;
+use composition::DesignPanelCompositionController as _;
+pub use composition::{DesignInspector, DesignPropertyPanel, DesignPropertyPanelKind};
 use edit_controller::{
     ActivePaintEdit, DesignComponentMultilineEditEvent, DesignGridDimensionsEditEvent,
     DesignGridDimensionsEditTarget, DesignMediaCropEditTarget, DesignPropertyEditController,

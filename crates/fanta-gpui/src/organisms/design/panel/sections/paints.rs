@@ -600,7 +600,7 @@ pub(in super::super) fn render_stroke(
             .gap_1()
             .child(div().flex_1().min_w(px(0.)).child(chrome.paints_value_cell(
                 "stroke-weight",
-                "Weight",
+                "",
                 format_number(stroke.weights.active()),
                 DesignPanelProperty::StrokeWeight,
                 DesignPanelValue::Number(stroke.weights.active() + 1.),

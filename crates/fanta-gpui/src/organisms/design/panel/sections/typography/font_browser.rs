@@ -271,6 +271,7 @@ pub(in super::super::super) fn render(
                 )
                 .child(
                     Input::new(&search)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
                         .small()
                         .prefix(Icon::new(IconName::Search).small()),
                 );

@@ -1162,6 +1162,7 @@ impl DesignTypographyController for DesignPanel {
                 .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                 .child(
                     Input::new(&property_input)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
                         .appearance(false)
                         .bordered(false)
                         .focus_bordered(false)

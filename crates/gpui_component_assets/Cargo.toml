@@ -1,7 +1,7 @@
 [package]
 edition = "2024"
 name = "fanta-gpui-component-assets"
-version = "0.3.0"
+version = "0.4.0"
 build = false
 publish = true
 autolib = false
@@ -27,7 +27,7 @@ doctest = false
 version = "1"
 
 [dependencies.gpui]
-version = "=0.3.0"
+version = "=0.4.0"
 package = "fanta-gpui-core"
 path = "../gpui"
 

@@ -366,6 +366,8 @@ fn render_value_cell_projection(
         }
         cell = cell.child(
             Input::new(&projection.property_input)
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::BodyMedium)
                 .appearance(false)
                 .bordered(false)
                 .focus_bordered(false)
@@ -379,8 +381,11 @@ fn render_value_cell_projection(
         if !projection.prefix.is_empty() {
             readout = readout.child(
                 div()
-                    .w(px(12.))
+                    .when(projection.prefix.chars().count() <= 2, |prefix| {
+                        prefix.w(px(12.))
+                    })
                     .flex_none()
+                    .whitespace_nowrap()
                     .typography(crate::atoms::TypographyToken::BodyMedium)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(projection.prefix),

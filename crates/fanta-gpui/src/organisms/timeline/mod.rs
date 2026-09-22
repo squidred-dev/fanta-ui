@@ -1,679 +1,446 @@
-//! Host-controlled animation timeline with Figma Motion empty-state chrome.
-
-use crate::atoms::TypographyExt as _;
-use gpui::{
-    AnyElement, App, Bounds, ClickEvent, Context, EventEmitter, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, ParentElement as _, Pixels, Render, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Window, canvas, div, prelude::FluentBuilder as _,
-    px,
-};
-use gpui_component::{
-    ActiveTheme as _, Icon, IconName, Sizable as _, StyledExt as _, h_flex, v_flex,
-};
+//! Controlled motion editor: synchronized ruler, tracks, keyframes and transport.
+mod controls;
+mod interaction;
+mod model;
+mod overlays;
+mod tracks;
+pub use model::*;
 
 use crate::atoms::{
-    CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon, track_bounds,
+    ControlExt as _, LucideIcon, SemanticColor as Color, TypographyExt as _, TypographyToken,
+    icon_button, render_lucide_icon, tokens, track_bounds, truncating_label,
+};
+use crate::molecules::{Slider, SliderAction, SliderPhase};
+use gpui::{prelude::FluentBuilder as _, *};
+use gpui_component::{
+    h_flex,
+    input::{InputEvent, InputState},
+    tooltip::Tooltip,
+    v_flex,
 };
 
-/// Width of the gutter before the ruler/track content, in pixels.
-const RULER_GUTTER: f32 = 18.;
-
-/// Reference design width of the transport/track rail on the left.
-const RAIL_WIDTH: f32 = 296.;
-/// Floor the rail compresses to on narrow timelines.
-const RAIL_MIN_WIDTH: f32 = 220.;
-/// Reference design width of the zoom cluster on the right of the header row.
-const ZOOM_WIDTH: f32 = 160.;
-/// Floor the zoom cluster compresses to before collapsing to its icon-only
-/// trigger.
-const ZOOM_MIN_WIDTH: f32 = 96.;
-/// Width of the icon-only zoom cluster once the slider collapses.
-const ZOOM_COMPACT_WIDTH: f32 = 36.;
-/// Chrome around the zoom slider track (panel icon, gap, and side slack);
-/// the track gets the rest of the cluster.
-const ZOOM_TRACK_CHROME: f32 = 68.;
-/// Reference design width of the zoom slider track.
-const ZOOM_TRACK_WIDTH: f32 = 92.;
-/// Floor of the compressed zoom slider track.
-const ZOOM_TRACK_MIN_WIDTH: f32 = 40.;
-/// Ruler width preserved before the rail starts compressing.
-const RULER_MIN_WIDTH: f32 = 120.;
-/// Honest minimum outer width of the timeline: the floored rail, the
-/// minimum ruler, the icon-only zoom cluster, and the 1 px frame borders.
-/// Below it the ruler clips.
-pub const TIMELINE_MIN_WIDTH: f32 = RAIL_MIN_WIDTH + RULER_MIN_WIDTH + ZOOM_COMPACT_WIDTH + 2.;
-/// Reference design size of the empty-state card.
-const EMPTY_CARD_WIDTH: f32 = 418.;
-const EMPTY_CARD_HEIGHT: f32 = 144.;
-/// Legal zoom range shared by the ruler scale and the zoom slider thumb so
-/// the two mappings cannot drift.
-const ZOOM_MIN: f32 = 0.25;
-const ZOOM_MAX: f32 = 2.0;
+// One geometry source for headers, labels, lanes and their hit targets.
+const RAIL: f32 = tokens::InputGeometry::TEXT_WIDTH + tokens::Space::LG;
+const ROW: f32 = tokens::RowHeight::PAGE;
+const HEADER: f32 = tokens::RowHeight::SECTION_HEADER + tokens::Space::SM;
+const GUTTER: f32 = tokens::Space::LG;
+pub const TIMELINE_MIN_WIDTH: f32 = RAIL + tokens::InputGeometry::COMBO_WIDTH;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct TimelineViewData {
-    pub duration_ms: u32,
-    pub current_time_ms: u32,
-    pub playing: bool,
-    pub looping: bool,
-    pub zoom: f32,
+enum Overlay {
+    Playback,
+    Easing(TimelineEasingTarget),
+    Presets,
 }
-
-impl Default for TimelineViewData {
-    fn default() -> Self {
-        Self {
-            duration_ms: 2_000,
-            current_time_ms: 0,
-            playing: false,
-            looping: true,
-            zoom: 0.5,
-        }
-    }
+#[derive(Clone, Copy)]
+enum Trim {
+    Move,
+    Start,
+    End,
 }
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum TimelineAction {
-    PlayStateChangeRequested { playing: bool },
-    LoopChangeRequested { looping: bool },
-    AddKeyframeRequested { time_ms: u32 },
-    SeekRequested { time_ms: u32 },
-    ZoomChangeRequested { zoom: f32 },
-    AskAgentRequested,
-    EmptyStateDismissed,
-    HelpRequested,
+#[derive(Clone)]
+enum Drag {
+    Seek,
+    Keys {
+        origin: Point<Pixels>,
+        times: Vec<TimelineKeyframeTime>,
+        delta: i64,
+    },
+    Span {
+        origin: Point<Pixels>,
+        track_id: SharedString,
+        clip_id: Option<SharedString>,
+        start: u32,
+        end: u32,
+        trim: Trim,
+        delta: i64,
+    },
+    Duration {
+        time: u32,
+    },
+    Height {
+        origin: Pixels,
+        height: u16,
+        draft: u16,
+    },
+    Marquee {
+        origin: Point<Pixels>,
+        current: Point<Pixels>,
+        additive: bool,
+    },
 }
-
 pub struct Timeline {
     id: SharedString,
     focus_handle: FocusHandle,
     view_data: TimelineViewData,
     show_empty_state: bool,
-    ruler_bounds: Option<Bounds<Pixels>>,
-    /// Measured width of the whole strip; both rows derive the shared rail
-    /// width from it so their vertical border stays aligned while the rail
-    /// compresses on narrow timelines.
-    strip_width: Option<f32>,
+    collapsed: bool,
+    overlay: Option<Overlay>,
+    drag: Option<Drag>,
+    ruler_bounds: Bounds<Pixels>,
+    body_bounds: Bounds<Pixels>,
+    surface_bounds: Bounds<Pixels>,
+    key_bounds: Vec<(SharedString, Bounds<Pixels>)>,
+    scroll_x: f32,
+    rows_scroll: ScrollHandle,
+    zoom_slider: Entity<Slider>,
+    time_input: Option<Entity<InputState>>,
+    duration_input: Option<Entity<InputState>>,
+    easing_input: Option<Entity<InputState>>,
+    easing_error: Option<SharedString>,
+    rename_input: Option<Entity<InputState>>,
+    renaming_track: Option<SharedString>,
+    subscriptions: Vec<Subscription>,
 }
-
 impl EventEmitter<TimelineAction> for Timeline {}
-
+impl Focusable for Timeline {
+    fn focus_handle(&self, _: &App) -> FocusHandle {
+        self.focus_handle.clone()
+    }
+}
 impl Timeline {
     pub fn new(
         id: impl Into<SharedString>,
         view_data: TimelineViewData,
         cx: &mut Context<Self>,
     ) -> Self {
+        let view_data = view_data.normalized();
+        let zoom_slider =
+            cx.new(|cx| Slider::new("timeline-zoom", Self::zoom_to_slider(view_data.zoom), cx));
+        let subscription = cx.subscribe(&zoom_slider, |this, _, event: &SliderAction, cx| {
+            if event.phase != SliderPhase::Begin {
+                cx.emit(TimelineAction::ZoomChangeRequested {
+                    zoom: Self::slider_to_zoom(event.value),
+                });
+            }
+            this.overlay = None;
+        });
         Self {
             id: id.into(),
             focus_handle: cx.focus_handle(),
             view_data,
             show_empty_state: true,
-            ruler_bounds: None,
-            strip_width: None,
+            collapsed: false,
+            overlay: None,
+            drag: None,
+            ruler_bounds: Bounds::default(),
+            body_bounds: Bounds::default(),
+            surface_bounds: Bounds::default(),
+            key_bounds: vec![],
+            scroll_x: 0.,
+            rows_scroll: ScrollHandle::new(),
+            zoom_slider,
+            time_input: None,
+            duration_input: None,
+            easing_input: None,
+            easing_error: None,
+            rename_input: None,
+            renaming_track: None,
+            subscriptions: vec![subscription],
         }
     }
-
-    pub fn set_view_data(&mut self, view_data: TimelineViewData, cx: &mut Context<Self>) {
-        self.view_data = view_data;
+    pub fn view_data(&self) -> &TimelineViewData {
+        &self.view_data
+    }
+    pub fn set_view_data(&mut self, data: TimelineViewData, cx: &mut Context<Self>) {
+        self.view_data = data.normalized();
+        if self.renaming_track.as_ref().is_some_and(|id| {
+            self.view_data.read_only
+                || !self
+                    .view_data
+                    .tracks
+                    .iter()
+                    .any(|t| &t.id == id && !t.locked)
+        }) {
+            self.renaming_track = None;
+        }
+        self.scroll_x = self.scroll_x.min(self.max_scroll());
+        let zoom = Self::zoom_to_slider(self.view_data.zoom);
+        self.zoom_slider
+            .update(cx, |slider, cx| slider.set_value(zoom, cx));
+        if self.view_data.read_only {
+            if matches!(
+                self.drag,
+                Some(Drag::Keys { .. } | Drag::Span { .. } | Drag::Duration { .. })
+            ) {
+                self.drag = None;
+            }
+            if !matches!(self.overlay, Some(Overlay::Playback)) {
+                self.overlay = None;
+            }
+        }
         cx.notify();
     }
-
     pub fn restore_empty_state(&mut self, cx: &mut Context<Self>) {
         self.show_empty_state = true;
         cx.notify();
     }
-
-    /// Zoom-scaled width of one ruler segment; the ruler spans ten segments.
-    fn segment_width(&self) -> f32 {
-        280. * self.view_data.zoom.clamp(ZOOM_MIN, ZOOM_MAX)
+    fn zoom_to_slider(zoom: f32) -> f32 {
+        (zoom.log2() + 2.) / 6.
     }
-
-    /// Width of the zoom cluster: the design width while the strip is wide
-    /// enough, compressing toward [`ZOOM_MIN_WIDTH`] once the floored rail
-    /// and the minimum ruler would no longer fit beside it, and collapsing
-    /// to the icon-only [`ZOOM_COMPACT_WIDTH`] below that floor.
-    fn zoom_cluster_width(&self) -> f32 {
-        self.strip_width.map_or(ZOOM_WIDTH, |width| {
-            let available = width - RAIL_MIN_WIDTH - RULER_MIN_WIDTH;
-            if available < ZOOM_MIN_WIDTH {
-                ZOOM_COMPACT_WIDTH
-            } else {
-                available.clamp(ZOOM_MIN_WIDTH, ZOOM_WIDTH)
+    fn slider_to_zoom(value: f32) -> f32 {
+        2_f32.powf(value * 6. - 2.)
+    }
+    fn pixels_per_ms(&self) -> f32 {
+        (self.ruler_bounds.size.width.as_f32() - 2. * GUTTER).max(1.)
+            / self.view_data.duration_ms as f32
+            * self.view_data.zoom
+    }
+    fn time_x(&self, time: u32) -> f32 {
+        GUTTER + time as f32 * self.pixels_per_ms() - self.scroll_x
+    }
+    fn max_scroll(&self) -> f32 {
+        ((self.ruler_bounds.size.width.as_f32() - 2. * GUTTER).max(1.) * (self.view_data.zoom - 1.))
+            .max(0.)
+    }
+    fn time_at(&self, position: Point<Pixels>) -> u32 {
+        (((position.x - self.ruler_bounds.left()).as_f32() + self.scroll_x - GUTTER)
+            / self.pixels_per_ms())
+        .round()
+        .clamp(0., self.view_data.duration_ms as f32) as u32
+    }
+    fn step_ms(&self) -> u32 {
+        let target = 72. / self.pixels_per_ms();
+        let magnitude = 10_f32.powf(target.max(1.).log10().floor());
+        [1., 2., 5., 10.]
+            .into_iter()
+            .map(|v| (v * magnitude) as u32)
+            .find(|v| *v as f32 >= target)
+            .unwrap_or(1000)
+            .max(1)
+    }
+    fn ensure_inputs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.rename_input.is_none() {
+            let input = cx.new(|cx| InputState::new(window, cx).placeholder("Layer name"));
+            self.subscriptions.push(cx.subscribe_in(
+                &input,
+                window,
+                |this, _, event: &InputEvent, window, cx| {
+                    if matches!(event, InputEvent::PressEnter { .. } | InputEvent::Blur) {
+                        this.commit_rename(cx);
+                        if matches!(event, InputEvent::PressEnter { .. }) {
+                            this.focus_handle.focus(window, cx);
+                        }
+                    }
+                },
+            ));
+            self.rename_input = Some(input);
+        }
+        if self.time_input.is_none() {
+            let input = cx.new(|cx| InputState::new(window, cx));
+            self.subscriptions.push(cx.subscribe_in(
+                &input,
+                window,
+                |this, input, event: &InputEvent, window, cx| {
+                    if matches!(event, InputEvent::PressEnter { .. })
+                        && let Some(time) = this.view_data.time_unit.parse(&input.read(cx).value())
+                    {
+                        cx.emit(TimelineAction::SeekRequested {
+                            time_ms: time.min(this.view_data.duration_ms),
+                        });
+                        this.focus_handle.focus(window, cx);
+                    }
+                },
+            ));
+            self.time_input = Some(input);
+            let input = cx.new(|cx| InputState::new(window, cx));
+            self.subscriptions.push(cx.subscribe_in(
+                &input,
+                window,
+                |this, input, event: &InputEvent, window, cx| {
+                    if matches!(event, InputEvent::PressEnter { .. })
+                        && !this.view_data.read_only
+                        && let Some(time) = this.view_data.time_unit.parse(&input.read(cx).value())
+                    {
+                        cx.emit(TimelineAction::DurationChangeRequested {
+                            duration_ms: time.max(1),
+                        });
+                        this.focus_handle.focus(window, cx);
+                    }
+                },
+            ));
+            self.duration_input = Some(input);
+            self.easing_input =
+                Some(cx.new(|cx| InputState::new(window, cx).placeholder("0.25, 0.1, 0.25, 1")));
+        }
+        for (input, time) in [
+            (
+                self.time_input.as_ref().unwrap(),
+                self.view_data.current_time_ms,
+            ),
+            (
+                self.duration_input.as_ref().unwrap(),
+                self.view_data.duration_ms,
+            ),
+        ] {
+            let value = self.view_data.time_unit.format(time);
+            if !input.focus_handle(cx).is_focused(window)
+                && input.read(cx).value().as_ref() != value
+            {
+                input.update(cx, |input, cx| input.set_value(value, window, cx));
             }
-        })
+        }
     }
-
-    /// Shared width of the transport and track rails: the design width while
-    /// the strip is wide enough, compressing toward [`RAIL_MIN_WIDTH`] once
-    /// the ruler would fall below [`RULER_MIN_WIDTH`]. The zoom cluster
-    /// compresses and collapses first, so its freed width flows back here.
-    fn rail_width(&self) -> f32 {
-        self.strip_width.map_or(RAIL_WIDTH, |width| {
-            (width - self.zoom_cluster_width() - RULER_MIN_WIDTH).clamp(RAIL_MIN_WIDTH, RAIL_WIDTH)
-        })
+    fn begin_rename(&mut self, id: SharedString, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(track) = self
+            .view_data
+            .tracks
+            .iter()
+            .find(|t| t.id == id && !t.locked)
+        else {
+            return;
+        };
+        if self.view_data.read_only {
+            return;
+        }
+        let name = track.name.clone();
+        self.ensure_inputs(window, cx);
+        self.renaming_track = Some(id);
+        self.overlay = None;
+        self.drag = None;
+        let input = self.rename_input.as_ref().unwrap();
+        input.update(cx, |input, cx| input.set_value(name, window, cx));
+        input.focus_handle(cx).focus(window, cx);
+        window.on_next_frame(|window, cx| {
+            window.dispatch_action(Box::new(gpui_component::input::SelectAll), cx)
+        });
+        cx.notify();
     }
-
-    /// Playhead x-offset in the shared ruler/track coordinate system: content
-    /// starts after the gutter and spans ten zoom-scaled segments. The seek
-    /// click handler inverts exactly this mapping so clicking under a tick
-    /// seeks to that tick's time.
-    fn playhead_left(&self) -> f32 {
-        RULER_GUTTER
-            + if self.view_data.duration_ms == 0 {
-                0.
-            } else {
-                self.view_data
-                    .current_time_ms
-                    .min(self.view_data.duration_ms) as f32
-                    / self.view_data.duration_ms as f32
-                    * self.segment_width()
-                    * 10.
-            }
-    }
-
-    fn render_transport(&self, cx: &mut Context<Self>) -> AnyElement {
-        h_flex()
-            .debug_selector(|| "timeline-transport-rail".to_owned())
-            .w(px(self.rail_width()))
-            .h(px(50.))
-            .flex_none()
-            .overflow_hidden()
-            .px(px(8.))
-            .gap(px(8.))
-            .border_r_1()
-            .border_b_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-            .child(
-                icon_button(
-                    SharedString::from(format!("{}-play", self.id)),
-                    px(22.),
-                    px(4.),
-                    cx,
-                )
-                .debug_selector(|| "timeline-play".to_owned())
-                .on_activate(cx.listener(|this, _, _, cx| {
-                    cx.emit(TimelineAction::PlayStateChangeRequested {
-                        playing: !this.view_data.playing,
-                    });
-                }))
-                .child(render_lucide_icon(
-                    if self.view_data.playing {
-                        LucideIcon::Pause
-                    } else {
-                        LucideIcon::Play
-                    },
-                    crate::atoms::SemanticColor::Text.resolve(cx),
-                    12.,
-                )),
-            )
-            .child(
-                icon_button(
-                    SharedString::from(format!("{}-keyframe", self.id)),
-                    px(22.),
-                    px(4.),
-                    cx,
-                )
-                .debug_selector(|| "timeline-keyframe".to_owned())
-                .on_activate(cx.listener(|this, _, _, cx| {
-                    cx.emit(TimelineAction::AddKeyframeRequested {
-                        time_ms: this.view_data.current_time_ms,
-                    });
-                }))
-                .child(render_lucide_icon(
-                    LucideIcon::Diamond,
-                    crate::atoms::SemanticColor::Text.resolve(cx),
-                    12.,
-                )),
-            )
-            .child(
-                h_flex()
-                    .h(px(24.))
-                    .rounded(px(4.))
-                    .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-                    .typography(crate::atoms::TypographyToken::BodySmall)
-                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
-                    .child(
-                        div()
-                            .px(px(7.))
-                            .child(format!("{:04}", self.view_data.current_time_ms)),
-                    )
-                    .child(
-                        div()
-                            .h_full()
-                            .px(px(7.))
-                            .items_center()
-                            .border_l_1()
-                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                            .child(format!("{:04}", self.view_data.duration_ms)),
-                    )
-                    .child(
-                        div()
-                            .h_full()
-                            .px(px(6.))
-                            .items_center()
-                            .border_l_1()
-                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                            .child("ms"),
-                    ),
-            )
-            .child(
-                icon_button(
-                    SharedString::from(format!("{}-loop", self.id)),
-                    px(22.),
-                    px(4.),
-                    cx,
-                )
-                .debug_selector(|| "timeline-loop".to_owned())
-                .when(self.view_data.looping, |button| {
-                    button.bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-                })
-                .on_activate(cx.listener(|this, _, _, cx| {
-                    cx.emit(TimelineAction::LoopChangeRequested {
-                        looping: !this.view_data.looping,
-                    });
-                }))
-                .child(render_lucide_icon(
-                    LucideIcon::Repeat2,
-                    crate::atoms::SemanticColor::Text.resolve(cx),
-                    12.,
-                )),
-            )
-            .into_any_element()
-    }
-
-    fn render_ruler(&self, cx: &mut Context<Self>) -> AnyElement {
-        let segment_width = self.segment_width();
-        let mut ruler = h_flex()
-            .id(SharedString::from(format!("{}-ruler", self.id)))
-            .debug_selector(|| "timeline-ruler".to_owned())
-            .relative()
-            .h(px(50.))
-            .flex_1()
-            .overflow_hidden()
-            .border_b_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-            .cursor_pointer()
-            .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
-                let Some(bounds) = this.ruler_bounds else {
-                    return;
-                };
-                let Some(position) = event.mouse_position() else {
-                    cx.emit(TimelineAction::SeekRequested {
-                        time_ms: this.view_data.current_time_ms,
-                    });
-                    return;
-                };
-                // Invert playhead_left's mapping so a click under a tick seeks
-                // to that tick's labeled time regardless of width and zoom.
-                let content_width = (this.segment_width() * 10.).max(1.);
-                let offset = f32::from(position.x - bounds.left()) - RULER_GUTTER;
-                let ratio = (offset / content_width).clamp(0., 1.);
-                cx.emit(TimelineAction::SeekRequested {
-                    time_ms: (this.view_data.duration_ms as f32 * ratio).round() as u32,
-                });
-            }))
-            .child(track_bounds(cx.entity(), |this, bounds| {
-                this.ruler_bounds = Some(bounds);
-            }))
-            .child(div().w(px(RULER_GUTTER)).h_full().flex_none());
-        for index in 0..=10 {
-            let label = self
+    fn commit_rename(&mut self, cx: &mut Context<Self>) {
+        let Some(track_id) = self.renaming_track.take() else {
+            return;
+        };
+        let name: SharedString = self
+            .rename_input
+            .as_ref()
+            .unwrap()
+            .read(cx)
+            .value()
+            .trim()
+            .to_owned()
+            .into();
+        if !self.view_data.read_only
+            && !name.is_empty()
+            && self
                 .view_data
-                .duration_ms
-                .saturating_mul(index)
-                .checked_div(10)
-                .unwrap_or_default();
-            ruler = ruler.child(
-                v_flex()
-                    .w(px(segment_width))
-                    .h_full()
-                    .flex_none()
-                    .items_start()
-                    .child(
-                        div()
-                            .ml(px(segment_width - 1.))
-                            .w(px(1.))
-                            .h(px(8.))
-                            .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
-                    )
-                    .child(
-                        div()
-                            .mt(px(13.))
-                            .typography(crate::atoms::TypographyToken::BodySmall)
-                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
-                            .child(label.to_string()),
-                    ),
-            );
+                .tracks
+                .iter()
+                .any(|t| t.id == track_id && !t.locked && t.name != name)
+        {
+            cx.emit(TimelineAction::TrackRenameRequested { track_id, name });
         }
-        let playhead_left = self.playhead_left();
-        ruler
-            .child(
-                div()
-                    .absolute()
-                    .left(px(playhead_left))
-                    .top_0()
-                    .bottom_0()
-                    .w(px(1.))
-                    .bg(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .left(px(playhead_left - 8.))
-                    .top_0()
-                    .w(px(17.))
-                    .h(px(14.))
-                    .rounded_b(px(4.))
-                    .bg(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)),
-            )
-            .into_any_element()
+        cx.notify();
     }
-
-    fn render_zoom(&self, cx: &mut Context<Self>) -> AnyElement {
-        let cluster_width = self.zoom_cluster_width();
-        let compact = cluster_width < ZOOM_MIN_WIDTH;
-        let cluster = h_flex()
-            .debug_selector(|| "timeline-zoom-cluster".to_owned())
-            .w(px(cluster_width))
-            .h(px(50.))
-            .flex_none()
-            .gap(px(9.))
-            .justify_center()
-            .border_l_1()
-            .border_b_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx));
-        // The trigger cycles the host zoom from pointer and keyboard in both
-        // presentations; compact keeps the id, focus ring, and activation.
-        let trigger = div()
-            .id(SharedString::from(format!("{}-zoom", self.id)))
-            .debug_selector(|| "timeline-zoom".to_owned())
-            .key_context(CONTROL_KEY_CONTEXT)
-            .tab_index(0)
-            .relative()
-            .rounded(px(4.))
-            .cursor_pointer()
-            .border_1()
-            .border_color(cx.theme().transparent)
-            .focus(|style| {
-                style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
-            })
-            .on_activate(cx.listener(|this, _, _, cx| {
-                let zoom = if this.view_data.zoom >= ZOOM_MAX {
-                    ZOOM_MIN
-                } else {
-                    (this.view_data.zoom + 0.25).min(ZOOM_MAX)
-                };
-                cx.emit(TimelineAction::ZoomChangeRequested { zoom });
-            }));
-        if compact {
-            return cluster
-                .child(
-                    trigger
-                        .size(px(24.))
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .child(Icon::new(IconName::PanelBottom).small()),
-                )
-                .into_any_element();
-        }
-        let track_width =
-            (cluster_width - ZOOM_TRACK_CHROME).clamp(ZOOM_TRACK_MIN_WIDTH, ZOOM_TRACK_WIDTH);
-        let zoom = self.view_data.zoom.clamp(ZOOM_MIN, ZOOM_MAX);
-        let thumb_left = (zoom - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN) * (track_width - 30.);
-        let fill_width = thumb_left + 6.;
-        cluster
-            .child(
-                trigger
-                    .w(px(track_width))
-                    .h(px(18.))
-                    .child(
-                        div()
-                            .absolute()
-                            .left_0()
-                            .right_0()
-                            .top(px(8.))
-                            .h(px(4.))
-                            .rounded(px(2.))
-                            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx)),
-                    )
-                    .child(
-                        div()
-                            .absolute()
-                            .left_0()
-                            .top(px(8.))
-                            .w(px(fill_width))
-                            .h(px(4.))
-                            .rounded(px(2.))
-                            .bg(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)),
-                    )
-                    .child(
-                        div()
-                            .absolute()
-                            .left(px(thumb_left))
-                            .top(px(4.))
-                            .size(px(12.))
-                            .rounded(px(6.))
-                            .bg(crate::atoms::SemanticColor::Text.resolve(cx)),
-                    ),
-            )
-            .child(Icon::new(IconName::PanelBottom).small())
-            .into_any_element()
+    fn input_focused(&self, window: &Window, cx: &App) -> bool {
+        [
+            &self.time_input,
+            &self.duration_input,
+            &self.easing_input,
+            &self.rename_input,
+        ]
+        .into_iter()
+        .flatten()
+        .any(|input| input.focus_handle(cx).is_focused(window))
     }
-
-    fn render_empty_state(&self, cx: &mut Context<Self>) -> AnyElement {
-        v_flex()
-            .debug_selector(|| "timeline-empty-card".to_owned())
-            .relative()
-            .w(px(EMPTY_CARD_WIDTH))
-            // The card keeps its fixed design at normal sizes and caps to the
-            // available width on narrow timelines.
-            .max_w_full()
-            .h(px(EMPTY_CARD_HEIGHT))
-            .items_center()
-            .justify_center()
-            .gap(px(6.))
-            .rounded(px(13.))
-            .border_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-            .bg(crate::atoms::SemanticColor::Background.resolve(cx))
-            .child(
-                icon_button(
-                    SharedString::from(format!("{}-dismiss-empty", self.id)),
-                    px(22.),
-                    px(4.),
-                    cx,
-                )
-                .debug_selector(|| "timeline-dismiss-empty".to_owned())
-                .absolute()
-                .right(px(10.))
-                .top(px(16.5))
-                .on_activate(cx.listener(|this, _, _, cx| {
-                    this.show_empty_state = false;
-                    cx.emit(TimelineAction::EmptyStateDismissed);
-                    cx.notify();
-                }))
-                .child(Icon::new(IconName::Close).small()),
-            )
-            .child(
-                div()
-                    .relative()
-                    .top(px(11.))
-                    .font_semibold()
-                    .typography(crate::atoms::TypographyToken::HeadingMedium)
-                    .child("No animations in timeline"),
-            )
-            .child(
-                div()
-                    .relative()
-                    .top(px(4.5))
-                    .max_w(px(330.))
-                    .text_center()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
-                    .line_height(px(16.))
-                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
-                    .child(
-                        "Select objects on the canvas to create an animation, or ask the Figma agent to create an idea from scratch.",
-                    ),
-            )
-            .child(
-                h_flex()
-                    .id(SharedString::from(format!("{}-ask-agent", self.id)))
-                    .debug_selector(|| "timeline-ask-agent".to_owned())
-                    .key_context(CONTROL_KEY_CONTEXT)
-                    .tab_index(0)
-                    .mt(px(8.))
-                    .relative()
-                    .top(px(6.))
-                    .h(px(24.))
-                    .px(px(7.))
-                    .gap(px(5.))
-                    .rounded(px(5.))
-                    .border_1()
-                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                    .cursor_pointer()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
-                    .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
-                    .focus(|style| style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)))
-                    .on_activate(cx.listener(|_, _, _, cx| {
-                        cx.emit(TimelineAction::AskAgentRequested);
-                    }))
-                    .child(render_lucide_icon(
-                        LucideIcon::Sparkles,
-                        crate::atoms::SemanticColor::Text.resolve(cx),
-                        12.,
-                    ))
-                    .child("Ask agent"),
-            )
-            .into_any_element()
+    fn selected_tracks(&self) -> Vec<SharedString> {
+        self.view_data
+            .tracks
+            .iter()
+            .filter(|t| t.selected && !t.locked)
+            .map(|t| t.id.clone())
+            .collect()
     }
 }
-
-impl Focusable for Timeline {
-    fn focus_handle(&self, _: &App) -> FocusHandle {
-        self.focus_handle.clone()
-    }
-}
-
 impl Render for Timeline {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let playhead_left = self.playhead_left();
-        let timeline = cx.entity();
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.ensure_inputs(window, cx);
+        self.key_bounds.clear();
+        let height = if self.collapsed {
+            HEADER
+        } else if let Some(Drag::Height { draft, .. }) = self.drag {
+            draft as f32
+        } else {
+            self.view_data.height as f32
+        };
         v_flex()
             .id(self.id.clone())
+            .debug_selector(|| "timeline".to_owned())
             .track_focus(&self.focus_handle)
+            .key_context("FantaTimeline")
+            .tab_index(0)
             .relative()
-            .size_full()
+            .w_full()
+            .h(px(height))
+            .max_h_full()
             .min_h(px(0.))
+            .min_w(px(0.))
             .overflow_hidden()
-            .rounded_b(px(13.))
-            .border_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-            .bg(crate::atoms::SemanticColor::Background.resolve(cx))
-            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
+            .bg(Color::Background.resolve(cx))
+            .text_color(Color::Text.resolve(cx))
+            .typography(TypographyToken::BodyMedium)
+            .border_t_1()
+            .border_color(if self.view_data.auto_keyframe {
+                Color::BackgroundDanger.resolve(cx)
+            } else {
+                Color::Border.resolve(cx)
+            })
+            .occlude()
+            .on_scroll_wheel(cx.listener(|this, e, _, cx| this.wheel(e, cx)))
+            .on_pinch(cx.listener(|this, event: &PinchEvent, _, cx| {
+                cx.stop_propagation();
+                if this.overlay.is_none() && event.position.y >= this.ruler_bounds.top() {
+                    cx.emit(TimelineAction::ZoomChangeRequested {
+                        zoom: (this.view_data.zoom * (1. + event.delta)).clamp(0.25, 16.),
+                    });
+                }
+            }))
+            .on_key_down(cx.listener(|this, e, window, cx| this.key_down(e, window, cx)))
+            .on_mouse_move(
+                cx.listener(|this, e: &MouseMoveEvent, _, cx| this.drag_move(e.position, cx)),
+            )
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(|this, _, _, cx| this.finish_drag(cx)),
+            )
+            .on_mouse_up_out(
+                MouseButton::Left,
+                cx.listener(|this, _, _, cx| this.finish_drag(cx)),
+            )
+            .child(track_bounds(cx.entity(), |this, bounds| {
+                this.surface_bounds = bounds
+            }))
+            .child(self.render_controls(window, cx))
+            .when(!self.collapsed, |root| {
+                root.child(self.render_ruler(cx))
+                    .child(self.render_tracks(window, cx))
+            })
             .child(
-                // Measures the strip so both rows share one computed rail
-                // width. The write is deferred past the draw so the changed
-                // width schedules a re-render (notifying mid-draw is a no-op).
-                canvas(
-                    move |bounds, _, app| {
-                        let width = f32::from(bounds.size.width);
-                        let known = timeline.read(app).strip_width;
-                        if known.is_none_or(|known| (known - width).abs() > 0.5) {
-                            let timeline = timeline.clone();
-                            app.defer(move |app| {
-                                timeline.update(app, |this, cx| {
-                                    this.strip_width = Some(width);
-                                    cx.notify();
-                                });
+                div()
+                    .id("timeline-resize")
+                    .debug_selector(|| "timeline-resize".to_owned())
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .right_0()
+                    .h(px(tokens::Space::XS))
+                    .cursor_row_resize()
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, e: &MouseDownEvent, window, cx| {
+                            window.prevent_default();
+                            this.drag = Some(Drag::Height {
+                                origin: e.position.y,
+                                height: this.view_data.height,
+                                draft: this.view_data.height,
                             });
-                        }
-                    },
-                    |_, _, _, _| {},
-                )
-                .absolute()
-                .left_0()
-                .top_0()
-                .size_full(),
-            )
-            .child(
-                h_flex()
-                    .h(px(50.))
-                    .w_full()
-                    .flex_none()
-                    .child(self.render_transport(cx))
-                    .child(self.render_ruler(cx))
-                    .child(self.render_zoom(cx)),
-            )
-            .child(
-                h_flex()
-                    .flex_1()
-                    .min_h(px(0.))
-                    .items_start()
-                    .child(
-                        div()
-                            .debug_selector(|| "timeline-track-rail".to_owned())
-                            .w(px(self.rail_width()))
-                            .h_full()
-                            .flex_none()
-                            .border_r_1()
-                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx)),
-                    )
-                    .child(
-                        v_flex()
-                            .relative()
-                            .flex_1()
-                            .h_full()
-                            .child(
-                                div()
-                                    .absolute()
-                                    .left(px(playhead_left))
-                                    .top_0()
-                                    .bottom_0()
-                                    .w(px(1.))
-                                    .bg(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)),
-                            )
-                            .child(
-                                icon_button(
-                                    SharedString::from(format!("{}-help", self.id)),
-                                    px(32.),
-                                    px(16.),
-                                    cx,
-                                )
-                                .debug_selector(|| "timeline-help".to_owned())
-                                .absolute()
-                                .right(px(24.))
-                                .bottom(px(20.))
-                                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                                .bg(crate::atoms::SemanticColor::Background.resolve(cx))
-                                .focus(|style| style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)))
-                                .on_activate(cx.listener(|_, _, _, cx| {
-                                    cx.emit(TimelineAction::HelpRequested);
-                                }))
-                                .child(render_lucide_icon(
-                                    LucideIcon::CircleQuestionMark,
-                                    crate::atoms::SemanticColor::Text.resolve(cx),
-                                    14.,
-                                )),
-                            ),
+                            cx.stop_propagation();
+                        }),
                     ),
             )
-            .when(self.show_empty_state, |root| {
-                root.child(
-                    h_flex()
-                        .absolute()
-                        .left_0()
-                        .right_0()
-                        .top(px(50.))
-                        .bottom_0()
-                        .px(px(12.))
-                        .items_center()
-                        .justify_center()
-                        .child(self.render_empty_state(cx)),
-                )
+            .when(self.overlay.is_some(), |root| {
+                root.child(self.render_overlay(window, cx))
             })
     }
 }
-
 #[cfg(test)]
 mod interaction_tests;

@@ -1,24 +1,57 @@
-use gpui::{Modifiers, TestAppContext, point, px, size};
-
+use super::{
+    Timeline, TimelineAction, TimelineEasing, TimelineKeyframe, TimelineKeyframeTime,
+    TimelinePlayback, TimelineProperty, TimelineTrack, TimelineViewData,
+};
 use crate::test_support::{assert_pointer_and_keyboard_parity, mount_component};
+use gpui::{
+    Focusable as _, Modifiers, MouseButton, ScrollDelta, ScrollWheelEvent, TestAppContext, point,
+    px, size,
+};
 
-use super::*;
-
-fn mount(cx: &mut TestAppContext) -> crate::test_support::Mounted<'_, Timeline, TimelineAction> {
-    mount_component(cx, |_, cx| {
-        Timeline::new("test-timeline", TimelineViewData::default(), cx)
-    })
+fn data() -> TimelineViewData {
+    let mut track = TimelineTrack::new("shape", "Shape");
+    track.selected = true;
+    track.properties = vec![TimelineProperty {
+        id: "opacity".into(),
+        name: "Opacity".into(),
+        value: "100%".into(),
+        keyframes: vec![
+            TimelineKeyframe {
+                id: "a".into(),
+                time_ms: 400,
+                value: "0%".into(),
+                easing: TimelineEasing::EaseOut,
+            },
+            TimelineKeyframe {
+                id: "b".into(),
+                time_ms: 1200,
+                value: "100%".into(),
+                easing: TimelineEasing::EaseOut,
+            },
+        ],
+    }];
+    TimelineViewData {
+        tracks: vec![track],
+        snapping: false,
+        ..Default::default()
+    }
 }
-
 #[gpui::test]
-fn transport_controls_share_pointer_enter_and_space_activation(cx: &mut TestAppContext) {
-    let (_host, actions, cx) = mount(cx);
-
+fn transport_pointer_enter_and_space_emit_exactly_one_request(cx: &mut TestAppContext) {
+    let (_, actions, cx) = mount_component(cx, |_, cx| Timeline::new("test-timeline", data(), cx));
+    cx.simulate_resize(size(px(1400.), px(360.)));
+    cx.run_until_parked();
     assert_pointer_and_keyboard_parity(
         cx,
         "timeline-play",
         &actions,
         TimelineAction::PlayStateChangeRequested { playing: true },
+    );
+    assert_pointer_and_keyboard_parity(
+        cx,
+        "timeline-auto-keyframe",
+        &actions,
+        TimelineAction::AutoKeyframeChangeRequested { enabled: true },
     );
     assert_pointer_and_keyboard_parity(
         cx,
@@ -28,237 +61,382 @@ fn transport_controls_share_pointer_enter_and_space_activation(cx: &mut TestAppC
     );
     assert_pointer_and_keyboard_parity(
         cx,
-        "timeline-loop",
-        &actions,
-        TimelineAction::LoopChangeRequested { looping: false },
-    );
-    assert_pointer_and_keyboard_parity(
-        cx,
         "timeline-help",
         &actions,
         TimelineAction::HelpRequested,
     );
 }
-
 #[gpui::test]
-fn zoom_control_cycles_zoom_from_pointer_and_keyboard(cx: &mut TestAppContext) {
-    let (_host, actions, cx) = mount(cx);
-
-    assert_pointer_and_keyboard_parity(
-        cx,
-        "timeline-zoom",
-        &actions,
-        TimelineAction::ZoomChangeRequested { zoom: 0.75 },
+fn ruler_tracks_and_keys_share_coordinates_at_every_width_and_zoom(cx: &mut TestAppContext) {
+    let (host, _, cx) = mount_component(cx, |_, cx| Timeline::new("test-timeline", data(), cx));
+    let timeline = cx.read(|cx| host.read(cx).component.clone());
+    for width in [1400., 800., 400.] {
+        for zoom in [0.5, 1., 2.] {
+            cx.simulate_resize(size(px(width), px(360.)));
+            timeline.update(cx, |t, cx| {
+                let mut d = t.view_data().clone();
+                d.zoom = zoom;
+                t.set_view_data(d, cx);
+            });
+            cx.run_until_parked();
+            cx.run_until_parked();
+            let ruler = cx.debug_bounds("timeline-ruler").unwrap();
+            let lane = cx.debug_bounds("timeline-property-lane-opacity").unwrap();
+            assert_eq!(ruler.left(), lane.left());
+            assert_eq!(ruler.size.width, lane.size.width);
+            let key = cx.debug_bounds("timeline-key-a").unwrap();
+            let x = cx.read(|cx| timeline.read(cx).time_x(400));
+            assert!(
+                (key.center().x - ruler.left() - px(x)).abs() <= px(1.),
+                "{key:?} {ruler:?}"
+            );
+            assert_eq!(
+                key.center().y,
+                cx.debug_bounds("timeline-property-row-opacity")
+                    .unwrap()
+                    .center()
+                    .y
+            );
+        }
+    }
+}
+#[gpui::test]
+fn ruler_scrubbing_and_horizontal_pan_use_the_same_time_mapping(cx: &mut TestAppContext) {
+    let (host, actions, cx) =
+        mount_component(cx, |_, cx| Timeline::new("test-timeline", data(), cx));
+    let timeline = cx.read(|cx| host.read(cx).component.clone());
+    cx.simulate_resize(size(px(1000.), px(360.)));
+    timeline.update(cx, |t, cx| {
+        let mut d = t.view_data().clone();
+        d.zoom = 2.;
+        t.set_view_data(d, cx);
+    });
+    cx.run_until_parked();
+    let ruler = cx.debug_bounds("timeline-ruler").unwrap();
+    cx.simulate_event(ScrollWheelEvent {
+        position: ruler.center(),
+        delta: ScrollDelta::Pixels(point(px(-200.), px(0.))),
+        ..Default::default()
+    });
+    cx.run_until_parked();
+    let x = cx.read(|cx| timeline.read(cx).time_x(700));
+    cx.simulate_click(
+        point(ruler.left() + px(x), ruler.center().y),
+        Modifiers::none(),
+    );
+    cx.run_until_parked();
+    assert_eq!(
+        actions.borrow().last(),
+        Some(&TimelineAction::SeekRequested { time_ms: 700 })
+    );
+    assert_eq!(
+        cx.read(|cx| timeline.read(cx).view_data().current_time_ms),
+        0
     );
 }
-
 #[gpui::test]
-fn rails_and_empty_card_compress_together_on_narrow_timelines(cx: &mut TestAppContext) {
-    let (host, actions, cx) = mount(cx);
-
-    // Wide: both rails and the zoom cluster hold the reference design width.
-    cx.simulate_resize(size(px(1200.), px(333.)));
-    cx.run_until_parked();
-    let transport = cx
-        .debug_bounds("timeline-transport-rail")
-        .expect("transport rail should render");
-    let track = cx
-        .debug_bounds("timeline-track-rail")
-        .expect("track rail should render");
-    assert_eq!(f32::from(transport.size.width), RAIL_WIDTH);
-    assert_eq!(f32::from(track.size.width), RAIL_WIDTH);
-    assert_eq!(
-        cx.debug_bounds("timeline-zoom-cluster")
-            .expect("zoom cluster should render")
-            .size
-            .width,
-        px(ZOOM_WIDTH)
-    );
-    assert_eq!(
-        cx.debug_bounds("timeline-zoom")
-            .expect("zoom slider should render")
-            .size
-            .width,
-        px(ZOOM_TRACK_WIDTH)
-    );
-
-    // Mid: the rail floors first, then the zoom cluster and its slider
-    // track compress from the measured strip width.
-    cx.simulate_resize(size(px(460.), px(300.)));
-    cx.run_until_parked();
-    cx.run_until_parked();
-    let strip = cx.read(|app| {
-        host.read(app)
-            .component
-            .read(app)
-            .strip_width
-            .expect("the strip should be measured after a draw")
+fn keyframe_drag_preserves_spacing_and_waits_for_host_echo(cx: &mut TestAppContext) {
+    let (host, actions, cx) = mount_component(cx, |_, cx| {
+        let mut d = data();
+        d.selected_keyframes = vec!["a".into(), "b".into()];
+        Timeline::new("test-timeline", d, cx)
     });
-    assert_eq!(
-        cx.debug_bounds("timeline-transport-rail")
-            .expect("transport rail should render at 460")
-            .size
-            .width,
-        px(RAIL_MIN_WIDTH)
-    );
-    assert_eq!(
-        cx.debug_bounds("timeline-zoom-cluster")
-            .expect("compressed zoom cluster should render")
-            .size
-            .width,
-        px(strip - RAIL_MIN_WIDTH - RULER_MIN_WIDTH)
-    );
-    assert_eq!(
-        cx.debug_bounds("timeline-zoom")
-            .expect("compressed zoom slider should render")
-            .size
-            .width,
-        px(strip - RAIL_MIN_WIDTH - RULER_MIN_WIDTH - ZOOM_TRACK_CHROME)
-    );
-
-    // Narrow: the slider collapses to the icon-only trigger, its freed width
-    // flows back to the shared rail, and the empty-state card caps to the
-    // available width instead of overflowing.
-    cx.simulate_resize(size(px(400.), px(300.)));
+    let timeline = cx.read(|cx| host.read(cx).component.clone());
+    cx.simulate_resize(size(px(1000.), px(360.)));
     cx.run_until_parked();
+    let from = cx.debug_bounds("timeline-key-a").unwrap().center();
+    let to = point(px(999.), from.y);
+    cx.simulate_mouse_down(from, MouseButton::Left, Modifiers::none());
     cx.run_until_parked();
-    let strip = cx.read(|app| {
-        host.read(app)
-            .component
-            .read(app)
-            .strip_width
-            .expect("the strip should stay measured when narrow")
-    });
-    let transport = cx
-        .debug_bounds("timeline-transport-rail")
-        .expect("transport rail should render when narrow");
-    let track = cx
-        .debug_bounds("timeline-track-rail")
-        .expect("track rail should render when narrow");
-    assert_eq!(
-        f32::from(transport.size.width),
-        strip - ZOOM_COMPACT_WIDTH - RULER_MIN_WIDTH,
-        "the collapsed zoom cluster must hand its width back to the rail"
-    );
-    assert_eq!(
-        f32::from(transport.size.width),
-        f32::from(track.size.width),
-        "both rows must share one rail width so their border stays aligned"
-    );
-    let cluster = cx
-        .debug_bounds("timeline-zoom-cluster")
-        .expect("icon-only zoom cluster should render");
-    assert_eq!(f32::from(cluster.size.width), ZOOM_COMPACT_WIDTH);
-    let trigger = cx
-        .debug_bounds("timeline-zoom")
-        .expect("icon-only zoom trigger should render");
-    assert!(
-        trigger.is_contained_within(&cluster),
-        "the compact trigger must stay inside its cluster"
-    );
-
-    // The compact trigger keeps the zoom-cycle activation.
-    actions.borrow_mut().clear();
-    cx.simulate_click(trigger.center(), Modifiers::none());
+    cx.simulate_mouse_move(to, MouseButton::Left, Modifiers::none());
+    cx.run_until_parked();
+    cx.simulate_mouse_up(to, MouseButton::Left, Modifiers::none());
     cx.run_until_parked();
     assert_eq!(
-        actions.borrow().as_slice(),
-        &[TimelineAction::ZoomChangeRequested { zoom: 0.75 }]
-    );
-
-    let card = cx
-        .debug_bounds("timeline-empty-card")
-        .expect("empty-state card should render when narrow");
-    assert!(
-        f32::from(card.size.width) < EMPTY_CARD_WIDTH,
-        "the card must cap below its design width, got {:?}",
-        card.size.width
-    );
-    assert!(
-        f32::from(card.right()) <= 400.,
-        "the card must stay inside the timeline, got {:?}",
-        card.right()
-    );
-
-    // At the exported floor the rail and ruler both hold their minimums.
-    cx.simulate_resize(size(px(TIMELINE_MIN_WIDTH), px(300.)));
-    cx.run_until_parked();
-    cx.run_until_parked();
-    assert_eq!(
-        cx.debug_bounds("timeline-transport-rail")
-            .expect("transport rail should render at the floor")
-            .size
-            .width,
-        px(RAIL_MIN_WIDTH)
+        actions.borrow().last(),
+        Some(&TimelineAction::KeyframesMoveRequested {
+            keyframes: vec![
+                TimelineKeyframeTime {
+                    id: "a".into(),
+                    time_ms: 1200
+                },
+                TimelineKeyframeTime {
+                    id: "b".into(),
+                    time_ms: 2000
+                }
+            ]
+        })
     );
     assert_eq!(
-        cx.debug_bounds("timeline-ruler")
-            .expect("ruler should render at the floor")
-            .size
-            .width,
-        px(RULER_MIN_WIDTH)
+        cx.read(|cx| timeline.read(cx).view_data().tracks[0].properties[0].keyframes[0].time_ms),
+        400
     );
 }
-
 #[gpui::test]
-fn empty_state_controls_emit_agent_and_dismiss_intents(cx: &mut TestAppContext) {
-    let (_host, actions, cx) = mount(cx);
-
-    assert_pointer_and_keyboard_parity(
-        cx,
-        "timeline-ask-agent",
-        &actions,
-        TimelineAction::AskAgentRequested,
-    );
-
-    // Dismissal mutates component-local state, so assert the single pointer
-    // path directly instead of using the parity matrix.
-    let bounds = cx
-        .debug_bounds("timeline-dismiss-empty")
-        .expect("dismiss control should render");
-    cx.simulate_click(bounds.center(), Modifiers::none());
+fn escape_cancels_a_keyframe_drag(cx: &mut TestAppContext) {
+    let (_, actions, cx) = mount_component(cx, |_, cx| Timeline::new("test-timeline", data(), cx));
     cx.run_until_parked();
-    assert_eq!(
-        actions.borrow().as_slice(),
-        &[TimelineAction::EmptyStateDismissed]
-    );
+    let from = cx.debug_bounds("timeline-key-a").unwrap().center();
+    let to = point(from.x + px(100.), from.y);
+    cx.simulate_mouse_down(from, MouseButton::Left, Modifiers::none());
+    cx.simulate_mouse_move(to, MouseButton::Left, Modifiers::none());
+    cx.simulate_keystrokes("escape");
+    cx.simulate_mouse_up(to, MouseButton::Left, Modifiers::none());
+    cx.run_until_parked();
     assert!(
-        cx.debug_bounds("timeline-dismiss-empty").is_none(),
-        "empty state should hide after dismissal"
+        !actions
+            .borrow()
+            .iter()
+            .any(|a| matches!(a, TimelineAction::KeyframesMoveRequested { .. }))
     );
 }
-
 #[gpui::test]
-fn ruler_click_seeks_to_the_time_under_the_tick(cx: &mut TestAppContext) {
-    let (host, actions, cx) = mount(cx);
-
-    // Dismiss the empty-state overlay so it cannot intercept ruler clicks.
-    let dismiss = cx
-        .debug_bounds("timeline-dismiss-empty")
-        .expect("dismiss control should render");
-    cx.simulate_click(dismiss.center(), Modifiers::none());
+fn playback_menu_and_time_inputs_request_host_values(cx: &mut TestAppContext) {
+    let (_, actions, cx) = mount_component(cx, |_, cx| Timeline::new("test-timeline", data(), cx));
+    cx.simulate_resize(size(px(1400.), px(360.)));
     cx.run_until_parked();
-    actions.borrow_mut().clear();
-
-    let (segment_width, duration_ms) = cx.read(|app| {
-        let timeline = host.read(app).component.read(app);
-        (timeline.segment_width(), timeline.view_data.duration_ms)
-    });
-    let ruler = cx
-        .debug_bounds("timeline-ruler")
-        .expect("ruler should render");
-
-    // Click exactly under the 30% tick position in ruler content coordinates.
-    let target = point(
-        ruler.left() + px(RULER_GUTTER) + px(segment_width * 3.),
-        ruler.center().y,
-    );
+    let target = cx.debug_bounds("timeline-playback").unwrap().center();
     cx.simulate_click(target, Modifiers::none());
     cx.run_until_parked();
+    let target = cx.debug_bounds("timeline-menu-Ping-pong").unwrap().center();
+    cx.simulate_click(target, Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(
+        actions.borrow().last(),
+        Some(&TimelineAction::PlaybackChangeRequested {
+            playback: TimelinePlayback::PingPong
+        })
+    );
+    actions.borrow_mut().clear();
+    let target = cx.debug_bounds("timeline-current-time").unwrap().center();
+    cx.simulate_click(target, Modifiers::none());
+    cx.simulate_keystrokes("secondary-a");
+    cx.simulate_input("1.25");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    assert_eq!(
+        actions.borrow().last(),
+        Some(&TimelineAction::SeekRequested { time_ms: 1250 })
+    );
+}
+#[gpui::test]
+fn read_only_tracks_allow_selection_but_never_emit_edits(cx: &mut TestAppContext) {
+    let (host, actions, cx) = mount_component(cx, |_, cx| {
+        let mut d = data();
+        d.read_only = true;
+        d.selected_keyframes = vec!["a".into()];
+        Timeline::new("test-timeline", d, cx)
+    });
+    let timeline = cx.read(|cx| host.read(cx).component.clone());
+    cx.run_until_parked();
+    cx.update(|window, cx| timeline.focus_handle(cx).focus(window, cx));
+    cx.simulate_keystrokes("backspace secondary-d k");
+    cx.run_until_parked();
+    assert!(actions.borrow().is_empty());
+    let target = cx.debug_bounds("timeline-key-a").unwrap().center();
+    cx.simulate_click(target, Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(
+        actions.borrow().last(),
+        Some(&TimelineAction::KeyframeSelectionRequested {
+            keyframe_ids: vec!["a".into()]
+        })
+    );
+}
+#[test]
+fn host_time_units_and_zoom_are_normalized() {
+    use super::TimelineTimeUnit;
+    assert_eq!(TimelineTimeUnit::Seconds.parse("1.25"), Some(1250));
+    assert_eq!(TimelineTimeUnit::Milliseconds.parse("1250"), Some(1250));
+    assert_eq!(TimelineTimeUnit::Seconds.parse("NaN"), None);
+    assert_eq!(TimelineTimeUnit::Seconds.parse("-1"), None);
+    let d = TimelineViewData {
+        duration_ms: 0,
+        current_time_ms: 999,
+        zoom: f32::NAN,
+        ..Default::default()
+    }
+    .normalized();
+    assert_eq!(d.duration_ms, 1);
+    assert_eq!(d.current_time_ms, 1);
+    assert_eq!(d.zoom, 1.);
+}
 
-    let expected = (duration_ms as f32 * 0.3).round() as u32;
+#[gpui::test]
+fn clips_open_settings_and_locked_keys_cannot_open_easing(cx: &mut TestAppContext) {
+    let (host, actions, cx) = mount_component(cx, |_, cx| {
+        let mut d = data();
+        d.selected_keyframes = vec!["a".into()];
+        d.tracks[0].clips.push(super::TimelineClip {
+            id: "fade".into(),
+            name: "Fade in".into(),
+            start_ms: 200,
+            end_ms: 800,
+            easing: TimelineEasing::EaseOut,
+        });
+        Timeline::new("test-timeline", d, cx)
+    });
+    let timeline = cx.read(|cx| host.read(cx).component.clone());
+    cx.simulate_resize(size(px(1400.), px(800.)));
+    cx.run_until_parked();
+    let clip = cx.debug_bounds("timeline-span-shape-fade").unwrap();
+    cx.simulate_click(clip.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(matches!(
+        cx.read(|cx| timeline.read(cx).overlay.clone()),
+        Some(super::Overlay::Easing(
+            super::TimelineEasingTarget::Clip { .. }
+        ))
+    ));
+    cx.simulate_keystrokes("escape");
+    timeline.update(cx, |t, cx| {
+        let mut d = t.view_data().clone();
+        d.tracks[0].locked = true;
+        t.set_view_data(d, cx);
+    });
+    cx.run_until_parked();
+    actions.borrow_mut().clear();
+    let button = cx.debug_bounds("timeline-easing").unwrap();
+    cx.simulate_click(button.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(cx.read(|cx| timeline.read(cx).overlay.is_none()));
+    assert!(actions.borrow().is_empty());
+}
+
+#[gpui::test]
+fn header_scroll_and_open_menus_do_not_pan_tracks(cx: &mut TestAppContext) {
+    let (host, actions, cx) = mount_component(cx, |_, cx| {
+        let mut d = data();
+        d.zoom = 2.;
+        Timeline::new("test-timeline", d, cx)
+    });
+    let timeline = cx.read(|cx| host.read(cx).component.clone());
+    cx.simulate_resize(size(px(1400.), px(800.)));
+    cx.run_until_parked();
+    let header = cx.debug_bounds("timeline-controls").unwrap();
+    cx.simulate_event(ScrollWheelEvent {
+        position: header.center(),
+        delta: ScrollDelta::Pixels(point(px(-100.), px(0.))),
+        ..Default::default()
+    });
+    assert_eq!(cx.read(|cx| timeline.read(cx).scroll_x), 0.);
+    let trigger = cx.debug_bounds("timeline-playback").unwrap();
+    cx.simulate_click(trigger.center(), Modifiers::none());
+    cx.run_until_parked();
+    let popup = cx.debug_bounds("timeline-menu").unwrap();
+    cx.simulate_event(ScrollWheelEvent {
+        position: popup.center(),
+        delta: ScrollDelta::Pixels(point(px(-100.), px(-100.))),
+        ..Default::default()
+    });
+    assert_eq!(cx.read(|cx| timeline.read(cx).scroll_x), 0.);
+    cx.simulate_keystrokes("escape");
+    let ruler = cx.debug_bounds("timeline-ruler").unwrap();
+    cx.simulate_mouse_move(ruler.center(), None, Modifiers::none());
+    cx.run_until_parked();
+    cx.simulate_event(gpui::PinchEvent {
+        position: ruler.center(),
+        delta: 0.25,
+        modifiers: Modifiers::none(),
+        phase: gpui::TouchPhase::Moved,
+    });
+    assert_eq!(
+        actions.borrow().last(),
+        Some(&TimelineAction::ZoomChangeRequested { zoom: 2.5 })
+    );
+}
+
+#[gpui::test]
+fn easing_menu_emits_validated_requests_for_selected_keys(cx: &mut TestAppContext) {
+    let (host, actions, cx) = mount_component(cx, |_, cx| {
+        let mut d = data();
+        d.selected_keyframes = vec!["a".into()];
+        Timeline::new("test-timeline", d, cx)
+    });
+    let timeline = cx.read(|cx| host.read(cx).component.clone());
+    cx.simulate_resize(size(px(1400.), px(900.)));
+    cx.run_until_parked();
+    let trigger = cx.debug_bounds("timeline-easing").unwrap();
+    cx.simulate_click(trigger.center(), Modifiers::none());
+    cx.run_until_parked();
+    let input = cx.read(|cx| timeline.read(cx).easing_input.clone().unwrap());
+    cx.update(|window, cx| {
+        input.update(cx, |input, cx| input.set_value("2, 0, 0.5, 1", window, cx))
+    });
+    let apply = cx.debug_bounds("timeline-apply-bezier").unwrap();
+    cx.simulate_click(apply.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(actions.borrow().is_empty());
+    assert!(cx.read(|cx| timeline.read(cx).easing_error.is_some()));
+    cx.update(|window, cx| {
+        input.update(cx, |input, cx| {
+            input.set_value("0.2, -0.2, 0.8, 1.2", window, cx)
+        })
+    });
+    cx.simulate_click(apply.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(
+        actions.borrow().last(),
+        Some(&TimelineAction::EasingChangeRequested {
+            target: super::TimelineEasingTarget::Keyframes(vec!["a".into()]),
+            easing: TimelineEasing::CubicBezier([0.2, -0.2, 0.8, 1.2]),
+        })
+    );
+    assert_eq!(
+        cx.read(
+            |cx| timeline.read(cx).view_data().tracks[0].properties[0].keyframes[0]
+                .easing
+                .clone()
+        ),
+        TimelineEasing::EaseOut
+    );
+}
+
+#[gpui::test]
+fn layer_rename_is_controlled_and_cancelable(cx: &mut TestAppContext) {
+    let (host, actions, cx) =
+        mount_component(cx, |_, cx| Timeline::new("rename-timeline", data(), cx));
+    let timeline = cx.read(|cx| host.read(cx).component.clone());
+    cx.run_until_parked();
+    cx.update(|window, cx| timeline.focus_handle(cx).focus(window, cx));
+    cx.simulate_keystrokes("f2");
+    cx.run_until_parked();
+    cx.simulate_keystrokes("secondary-a");
+    cx.simulate_input("Renamed layer");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
     assert_eq!(
         actions.borrow().as_slice(),
-        &[TimelineAction::SeekRequested { time_ms: expected }]
+        &[TimelineAction::TrackRenameRequested {
+            track_id: "shape".into(),
+            name: "Renamed layer".into(),
+        }]
     );
+    assert_eq!(
+        timeline.read_with(cx, |t, _| t.view_data.tracks[0].name.clone()),
+        "Shape"
+    );
+    actions.borrow_mut().clear();
+    cx.simulate_keystrokes("f2");
+    cx.run_until_parked();
+    cx.simulate_input("Canceled");
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    assert!(actions.borrow().is_empty());
+    assert!(timeline.read_with(cx, |t, _| t.renaming_track.is_none()));
+    cx.simulate_keystrokes("f2");
+    cx.run_until_parked();
+    cx.simulate_keystrokes("secondary-a");
+    cx.simulate_input("   ");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    assert!(actions.borrow().is_empty());
+    timeline.update(cx, |t, cx| {
+        let mut view = t.view_data.clone();
+        view.read_only = true;
+        t.set_view_data(view, cx);
+    });
+    cx.simulate_keystrokes("f2");
+    cx.run_until_parked();
+    assert!(timeline.read_with(cx, |t, _| t.renaming_track.is_none()));
 }

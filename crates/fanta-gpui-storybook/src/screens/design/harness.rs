@@ -1,12 +1,8 @@
-//! The Design story's development-host chrome: the scenario selector, the
-//! node-and-variation preset matrix, the bespoke width resizer, knob rows,
-//! and the gallery/reference shells around the inspector.
+//! Design inspector preview and mock-host knobs.
 //!
-//! The gallery harness is responsive: at or above
-//! [`DESIGN_HARNESS_STACK_BREAKPOINT`] the fixture rail sits beside the
-//! mock canvas and the inspector; below it the chrome stacks, folding the
-//! rail into a collapsible controls section beneath the inspector, which
-//! stays the priority element down to [`DESIGN_STORY_MIN_WIDTH`].
+//! The preview contains only the inspector, its resize edge, and a neutral
+//! canvas for left-opening popovers. Inspection scenarios, node fixtures,
+//! width presets, and preferences use the Gallery's shared knobs section.
 
 use super::*;
 use crate::screens::knobs::{self, KnobOption};
@@ -16,48 +12,16 @@ impl Storybook {
     fn render_design_context_selector(&self, cx: &mut Context<Self>) -> AnyElement {
         let mut buttons = h_flex().w_full().gap_2().flex_wrap();
         for scenario in DesignInspectionScenario::ALL {
-            let active = self.design_screen.harness.inspection_scenario == scenario;
-            buttons = buttons.child(
-                fanta_gpui::atoms::ui_button(SharedString::from(format!(
-                    "design-inspection-scenario-{}",
-                    scenario.id()
-                )))
-                .label(scenario.label())
-                .custom(
-                    ButtonCustomVariant::new(cx)
-                        .color(fanta_gpui::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-                        .foreground(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
-                        .border(if active {
-                            fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx)
-                        } else {
-                            fanta_gpui::atoms::SemanticColor::Border.resolve(cx)
-                        })
-                        .hover(fanta_gpui::atoms::SemanticColor::BackgroundHover.resolve(cx))
-                        .active(
-                            fanta_gpui::atoms::SemanticColor::BackgroundSelected
-                                .resolve(cx)
-                                .opacity(0.22),
-                        ),
-                )
-                .xsmall()
-                .selected(active)
-                .h(px(30.))
-                .px_2()
-                .rounded(px(5.))
-                .border_1()
-                .when(active, |button| {
-                    button.hover(|style| {
-                        style.bg(fanta_gpui::atoms::SemanticColor::BackgroundHover.resolve(cx))
-                    })
-                })
-                .cursor_pointer()
-                .on_click(cx.listener(move |this, _, window, cx| {
+            buttons = buttons.child(knobs::knob_chip(
+                format!("design-inspection-scenario-{}", scenario.id()).into(),
+                scenario.label().into(),
+                self.design_screen.harness.inspection_scenario == scenario,
+                move |this, _, cx| {
                     this.design_screen
                         .activate_inspection_scenario(scenario, cx);
-                    this.design_screen.panel.focus_handle(cx).focus(window, cx);
-                    cx.notify();
-                })),
-            );
+                },
+                cx,
+            ));
         }
         v_flex()
             .w_full()
@@ -75,68 +39,14 @@ impl Storybook {
                 |content| {
                     content.child(
                         fanta_gpui::atoms::ui_button("design-text-range-revision")
-                            .custom(
-                                ButtonCustomVariant::new(cx)
-                                    .color(
-                                        fanta_gpui::atoms::SemanticColor::BackgroundSelected
-                                            .resolve(cx)
-                                            .opacity(0.14),
-                                    )
-                                    .foreground(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
-                                    .border(
-                                        fanta_gpui::atoms::SemanticColor::BackgroundSelected
-                                            .resolve(cx),
-                                    )
-                                    .hover(
-                                        fanta_gpui::atoms::SemanticColor::BackgroundSelected
-                                            .resolve(cx)
-                                            .opacity(0.24),
-                                    )
-                                    .active(
-                                        fanta_gpui::atoms::SemanticColor::BackgroundSelected
-                                            .resolve(cx)
-                                            .opacity(0.14),
-                                    ),
-                            )
+                            .label(format!(
+                                "Select next text range · revision {}",
+                                self.design_screen.harness.text_range_revision
+                            ))
                             .xsmall()
-                            .selected(true)
-                            .w_full()
-                            .h(px(30.))
-                            .px_2()
-                            .rounded(px(5.))
-                            .border_1()
-                            .cursor_pointer()
-                            .hover(|style| {
-                                style.bg(fanta_gpui::atoms::SemanticColor::BackgroundSelected
-                                    .resolve(cx)
-                                    .opacity(0.24))
-                            })
-                            .on_click(cx.listener(|this, _, window, cx| {
+                            .on_click(cx.listener(|this, _, _, cx| {
                                 this.design_screen.advance_text_range(cx);
-                                this.design_screen.panel.focus_handle(cx).focus(window, cx);
-                            }))
-                            .child(
-                                h_flex()
-                                    .w_full()
-                                    .justify_between()
-                                    .child(
-                                        div()
-                                            .typography(
-                                                fanta_gpui::atoms::TypographyToken::BodyMedium,
-                                            )
-                                            .child(format!(
-                                                "Selected text · revision {}",
-                                                self.design_screen.harness.text_range_revision
-                                            )),
-                                    )
-                                    .child(
-                                        div()
-                                            .typography(
-                                                fanta_gpui::atoms::TypographyToken::BodyMedium,
-                                            )
-                                            .child("Select next range"),
-                                    ),
-                            ),
+                            })),
                     )
                 },
             )
@@ -304,80 +214,31 @@ impl Storybook {
         let last_index = self.design_screen.host.nodes.len().saturating_sub(1);
         for (index, node) in self.design_screen.host.nodes.iter().cloned().enumerate() {
             let selected = self.design_screen.harness.selected_node == index;
-            let kind = node.kind;
             let label = node.name.clone();
             buttons = buttons.child(
-                fanta_gpui::atoms::ui_button(SharedString::from(format!("design-preset-{index}")))
-                    .debug_selector(move || format!("design-preset-{index}"))
-                    .when(index == last_index, |button| {
-                        button.debug_selector(|| "design-preset-last".to_owned())
-                    })
-                    .custom(
-                        ButtonCustomVariant::new(cx)
-                            .color(
-                                fanta_gpui::atoms::SemanticColor::BackgroundSecondary.resolve(cx),
-                            )
-                            .foreground(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
-                            .border(if selected {
-                                fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx)
-                            } else {
-                                fanta_gpui::atoms::SemanticColor::Border.resolve(cx)
-                            })
-                            .hover(fanta_gpui::atoms::SemanticColor::BackgroundHover.resolve(cx))
-                            .active(
-                                fanta_gpui::atoms::SemanticColor::BackgroundSelected
-                                    .resolve(cx)
-                                    .opacity(0.22),
-                            ),
-                    )
-                    .xsmall()
-                    .selected(selected)
-                    .h(px(30.))
-                    .px_2()
-                    .rounded(px(5.))
-                    .border_1()
-                    .when(selected, |button| {
-                        button.hover(|style| {
-                            style.bg(fanta_gpui::atoms::SemanticColor::BackgroundHover.resolve(cx))
-                        })
-                    })
-                    .cursor_pointer()
-                    .on_click(cx.listener(move |this, _, window, cx| {
+                knobs::knob_chip(
+                    format!("design-preset-{index}").into(),
+                    label,
+                    selected,
+                    move |this, _, cx| {
                         this.design_screen.harness.selected_node = index;
                         this.design_screen.harness.inspection_scenario =
                             default_design_inspection_scenario_for_node(&node);
                         this.design_screen
                             .apply_inspection_context(&this.design_screen.panel, cx);
-                        this.design_screen.panel.focus_handle(cx).focus(window, cx);
                         this.design_screen.harness.last_action = format!(
                             "Story selected {} preset in editable single context",
-                            kind.label()
+                            node.kind.label()
                         )
                         .into();
                         cx.notify();
-                    }))
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .w(px(16.))
-                                    .text_center()
-                                    .text_color(
-                                        fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
-                                    )
-                                    .child(render_lucide_icon(
-                                        kind.lucide_icon(),
-                                        fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
-                                        16.,
-                                    )),
-                            )
-                            .child(
-                                div()
-                                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
-                                    .child(label),
-                            ),
-                    ),
+                    },
+                    cx,
+                )
+                .debug_selector(move || format!("design-preset-{index}"))
+                .when(index == last_index, |button| {
+                    button.debug_selector(|| "design-preset-last".to_owned())
+                }),
             );
         }
         v_flex()
@@ -390,147 +251,37 @@ impl Storybook {
                     .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("NODE + VARIATION MATRIX"),
             )
-            .child(div().id("design-selector-scroll").pb_6().child(buttons))
+            .child(buttons)
             .into_any_element()
     }
 
-    fn render_design_last_intent(&self, cx: &mut Context<Self>) -> AnyElement {
-        v_flex()
-            .gap_1()
-            .child(
-                div()
-                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
-                    .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
-                    .child("LAST TYPED INTENT"),
-            )
-            .child(
-                div()
-                    .max_h(px(52.))
-                    .overflow_hidden()
-                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
-                    .child(self.design_screen.harness.last_action.clone()),
-            )
-            .into_any_element()
-    }
-
-    /// Every fixture control the story offers, in rail order. The wide
-    /// harness scrolls them in the fixture rail; the stacked harness folds
-    /// the same controls into its collapsible section.
-    fn design_fixture_controls(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
-        vec![
+    /// All fixture controls live outside the preview in the Gallery's shared
+    /// knobs section. The same rows can drive composed inspector stories.
+    pub(crate) fn render_design_knobs(&self, cx: &mut Context<Self>) -> AnyElement {
+        let controls = vec![
             self.render_design_context_selector(cx),
+            self.render_design_selector(cx),
             self.render_design_workspace_toggle(cx),
             self.render_design_width_selector(cx),
             self.render_design_additional_labels_toggle(cx),
             self.render_design_nudge_preferences(cx),
-            self.render_design_last_intent(cx),
-            self.render_design_selector(cx),
-        ]
-    }
-
-    fn render_design_fixture_rail(&self, bg: gpui::Hsla, cx: &mut Context<Self>) -> AnyElement {
-        v_flex()
-            .id("design-fixture-rail-scroll")
-            .debug_selector(|| "design-fixture-rail-scroll".to_owned())
-            .w(px(DESIGN_HARNESS_RAIL_WIDTH))
-            .h_full()
-            .min_h(px(0.))
-            .overflow_y_scroll()
-            .track_scroll(&self.design_screen.harness.fixture_scroll_handle)
-            .p_3()
-            .gap_3()
-            .border_r_1()
-            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
-            .bg(bg)
-            .children(self.design_fixture_controls(cx))
-            .into_any_element()
-    }
-
-    /// The flexible mock-canvas column between the rail and the inspector.
-    /// It compresses to any leftover width, clipping the selection card
-    /// instead of forcing the harness wider.
-    fn render_design_mock_canvas(
-        &self,
-        caption: Option<&'static str>,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let selected = &self.design_screen.host.nodes[self.design_screen.harness.selected_node];
-        let selected_name = selected.name.clone();
-        let selected_kind = selected.kind;
-        let selected_size = format!(
-            "{} × {}",
-            selected.width.round() as i64,
-            selected.height.round() as i64
-        );
-        v_flex()
-            .flex_1()
-            .h_full()
-            .min_w(px(0.))
-            .overflow_hidden()
-            .items_center()
-            .justify_center()
-            .gap_3()
-            .bg(fanta_gpui::atoms::SemanticColor::BackgroundTertiary
-                .resolve(cx)
-                .opacity(0.45))
-            .child(
-                div()
-                    .w(px(264.))
-                    .max_w_full()
-                    .h(px(176.))
-                    .overflow_hidden()
-                    .rounded(px(10.))
-                    .border_1()
-                    .border_color(fanta_gpui::atoms::SemanticColor::BackgroundSelected.resolve(cx))
-                    .bg(fanta_gpui::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-                    .shadow_lg()
-                    .child(
-                        v_flex()
-                            .size_full()
-                            .items_center()
-                            .justify_center()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .text_size(px(24.))
-                                    .text_color(
-                                        fanta_gpui::atoms::SemanticColor::BackgroundSelected
-                                            .resolve(cx),
-                                    )
-                                    .child(render_lucide_icon(
-                                        selected_kind.lucide_icon(),
-                                        fanta_gpui::atoms::SemanticColor::BackgroundSelected
-                                            .resolve(cx),
-                                        24.,
-                                    )),
-                            )
-                            .child(
-                                div()
-                                    .max_w(px(220.))
-                                    .truncate()
-                                    .typography(fanta_gpui::atoms::TypographyToken::BodyLarge)
-                                    .font_semibold()
-                                    .child(selected_name),
-                            )
-                            .child(
-                                div()
-                                    .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
-                                    .text_color(
-                                        fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx),
-                                    )
-                                    .child(selected_size),
-                            ),
-                    ),
-            )
-            .when_some(caption, |column, caption| {
-                column.child(
-                    div()
-                        .typography(fanta_gpui::atoms::TypographyToken::BodyMedium)
-                        .text_color(fanta_gpui::atoms::SemanticColor::TextTertiary.resolve(cx))
-                        .child(caption),
-                )
-            })
-            .into_any_element()
+        ];
+        knobs::knobs_panel(
+            "design-story-knobs",
+            vec![
+                v_flex()
+                    .id("design-knobs-controls-scroll")
+                    .debug_selector(|| "design-knobs-controls-scroll".to_owned())
+                    .w_full()
+                    .max_h(px(400.))
+                    .overflow_y_scroll()
+                    .track_scroll(&self.design_screen.harness.fixture_scroll_handle)
+                    .gap_3()
+                    .children(controls)
+                    .into_any_element(),
+            ],
+            cx,
+        )
     }
 
     /// The inspector column, rendered at the user's chosen width capped so
@@ -553,150 +304,62 @@ impl Storybook {
             .overflow_hidden()
             .border_l_1()
             .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
-            .child(self.design_screen.panel.clone())
+            .child(self.properties_inspector_screen.design.clone())
             .into_any_element()
     }
 
-    /// The stacked harness's folded story controls: a full-width toggle
-    /// bar plus, when expanded, the fixture controls in a height-capped
-    /// scroll region so the inspector keeps most of the story height.
-    fn render_design_stacked_controls(&self, cx: &mut Context<Self>) -> AnyElement {
-        let expanded = self.design_screen.harness.harness_controls_expanded;
-        v_flex()
-            .flex_none()
-            .w_full()
-            .border_t_1()
-            .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
-            .bg(fanta_gpui::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
-            .child(
-                fanta_gpui::atoms::ui_button("design-harness-controls-toggle")
-                    .debug_selector(|| "design-harness-controls-toggle".to_owned())
-                    .tooltip(
-                        "Scenario, node, and preference controls for the Design story fold \
-                         down here at narrow widths",
-                    )
-                    .xsmall()
-                    .compact()
-                    .w_full()
-                    .h(px(28.))
-                    .label(if expanded {
-                        "Hide story controls"
-                    } else {
-                        "Show story controls"
-                    })
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.design_screen.toggle_harness_controls(cx);
-                    })),
-            )
-            .when(expanded, |section| {
-                section.child(
-                    v_flex()
-                        .id("design-harness-controls-scroll")
-                        .debug_selector(|| "design-harness-controls-scroll".to_owned())
-                        .w_full()
-                        .max_h(px(DESIGN_HARNESS_CONTROLS_MAX_HEIGHT))
-                        .overflow_y_scroll()
-                        .p_3()
-                        .gap_3()
-                        .border_t_1()
-                        .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
-                        .children(self.design_fixture_controls(cx)),
-                )
-            })
-            .into_any_element()
-    }
-
-    /// The wide harness: fixture rail, mock canvas, resize handle, and the
-    /// inspector, side by side. Callers add the outer sizing.
-    fn render_design_wide_harness(
-        &self,
-        harness_width: f32,
-        rail_bg: gpui::Hsla,
-        caption: &'static str,
-        cx: &mut Context<Self>,
-    ) -> gpui::Div {
+    /// A neutral canvas and a right-docked inspector. Scenario and fixture
+    /// controls belong to `render_design_knobs`, never to this surface.
+    fn render_design_preview(&self, harness_width: f32, cx: &mut Context<Self>) -> gpui::Div {
         h_flex()
-            .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
-                if event.dragging() {
-                    this.design_screen
-                        .update_panel_resize(f32::from(event.position.x), cx);
-                }
-            }))
-            .on_mouse_up(
-                MouseButton::Left,
-                cx.listener(|this, _: &MouseUpEvent, _, cx| {
-                    this.design_screen.finish_panel_resize(cx);
-                }),
-            )
-            .on_mouse_up_out(
-                MouseButton::Left,
-                cx.listener(|this, _: &MouseUpEvent, _, cx| {
-                    this.design_screen.finish_panel_resize(cx);
-                }),
-            )
-            .child(self.render_design_fixture_rail(rail_bg, cx))
-            .child(self.render_design_mock_canvas(Some(caption), cx))
+            .relative()
+            .bg(fanta_gpui::atoms::SemanticColor::BackgroundTertiary.resolve(cx))
+            .child(div().flex_1().min_w(px(0.)).h_full())
             .child(self.render_design_resize_handle(cx))
             .child(self.render_design_panel_container(harness_width, cx))
-    }
-
-    /// The stacked harness for narrow story viewports: the inspector (and
-    /// its still-working width resizer) on top, the folded story controls
-    /// below. Callers add the outer sizing.
-    fn render_design_stacked_harness(
-        &self,
-        harness_width: f32,
-        cx: &mut Context<Self>,
-    ) -> gpui::Div {
-        v_flex()
-            .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
-                if event.dragging() {
-                    this.design_screen
-                        .update_panel_resize(f32::from(event.position.x), cx);
-                }
-            }))
-            .on_mouse_up(
-                MouseButton::Left,
-                cx.listener(|this, _: &MouseUpEvent, _, cx| {
-                    this.design_screen.finish_panel_resize(cx);
-                }),
+            // The composed inspector intentionally occludes canvas gestures.
+            // Capture an active resize above it so crossing into the inspector
+            // cannot interrupt the drag or activate an underlying field.
+            .when(
+                self.design_screen.harness.panel_resize_drag.is_some(),
+                |preview| {
+                    preview.child(
+                        div()
+                            .id("design-panel-resize-shield")
+                            .debug_selector(|| "design-panel-resize-shield".to_owned())
+                            .absolute()
+                            .inset_0()
+                            .occlude()
+                            .cursor_col_resize()
+                            .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
+                                if event.dragging() {
+                                    this.design_screen
+                                        .update_panel_resize(f32::from(event.position.x), cx);
+                                }
+                            }))
+                            .on_mouse_up(
+                                MouseButton::Left,
+                                cx.listener(|this, _: &MouseUpEvent, _, cx| {
+                                    this.design_screen.finish_panel_resize(cx);
+                                }),
+                            )
+                            .on_mouse_up_out(
+                                MouseButton::Left,
+                                cx.listener(|this, _: &MouseUpEvent, _, cx| {
+                                    this.design_screen.finish_panel_resize(cx);
+                                }),
+                            ),
+                    )
+                },
             )
-            .on_mouse_up_out(
-                MouseButton::Left,
-                cx.listener(|this, _: &MouseUpEvent, _, cx| {
-                    this.design_screen.finish_panel_resize(cx);
-                }),
-            )
-            .child(
-                h_flex()
-                    .flex_1()
-                    .w_full()
-                    .min_h(px(0.))
-                    .child(self.render_design_mock_canvas(None, cx))
-                    .child(self.render_design_resize_handle(cx))
-                    .child(self.render_design_panel_container(harness_width, cx)),
-            )
-            .child(self.render_design_stacked_controls(cx))
     }
 
     pub(crate) fn render_design_story_harness(&self, cx: &mut Context<Self>) -> AnyElement {
         let (harness_width, _) = self.story_viewport.surface_size();
-        if design_harness_stacked(harness_width) {
-            self.render_design_stacked_harness(harness_width, cx)
-                .size_full()
-                .min_h(px(0.))
-                .into_any_element()
-        } else {
-            self.render_design_wide_harness(
-                harness_width,
-                fanta_gpui::atoms::SemanticColor::BackgroundToolbar.resolve(cx),
-                "The mock canvas keeps left-opening inspectors visible",
-                cx,
-            )
+        self.render_design_preview(harness_width, cx)
             .size_full()
             .min_h(px(0.))
             .into_any_element()
-        }
     }
 
     pub(crate) fn render_design_reference(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -706,16 +369,9 @@ impl Storybook {
             .text_color(fanta_gpui::atoms::SemanticColor::Text.resolve(cx))
             .child(self.render_reference_nav(cx))
             .child(
-                self.render_design_wide_harness(
-                    f32::MAX,
-                    fanta_gpui::atoms::SemanticColor::BackgroundSecondary
-                        .resolve(cx)
-                        .opacity(0.32),
-                    "Neutral canvas keeps left-opening inspectors visible",
-                    cx,
-                )
-                .flex_1()
-                .min_h(px(0.)),
+                self.render_design_preview(f32::MAX, cx)
+                    .flex_1()
+                    .min_h(px(0.)),
             )
             .into_any_element()
     }

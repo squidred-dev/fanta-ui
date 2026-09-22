@@ -31,3 +31,6 @@ pub use scroll_fade::{EdgeFades, horizontal_fade_overlays, track_horizontal_edge
 
 mod slider;
 pub use slider::{Slider, SliderAction, SliderPhase, SliderVariant};
+
+mod zoom_controls;
+pub use zoom_controls::{ZoomControls, ZoomControlsAction};

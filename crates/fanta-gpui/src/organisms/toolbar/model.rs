@@ -1,23 +1,26 @@
+use super::{DrawToolbarAction, DrawToolbarOptions};
 use gpui::SharedString;
 use gpui_component::{IconName, IconNamed as _};
 
-/// The three editing surfaces exposed by the Figma-style mode tray.
+/// The four editing surfaces exposed by the compact mode selector.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ToolbarMode {
     #[default]
     Design,
     Motion,
+    Draw,
     Dev,
 }
 
 impl ToolbarMode {
-    /// Modes in tray order: Design, Motion, Dev.
-    pub const ALL: &'static [Self] = &[Self::Design, Self::Motion, Self::Dev];
+    /// Modes in dropdown order: Design, Motion, Draw, Dev.
+    pub const ALL: &'static [Self] = &[Self::Design, Self::Motion, Self::Draw, Self::Dev];
 
     pub const fn label(self) -> &'static str {
         match self {
             Self::Design => "Design",
             Self::Motion => "Motion",
+            Self::Draw => "Draw",
             Self::Dev => "Dev",
         }
     }
@@ -26,6 +29,7 @@ impl ToolbarMode {
         match self {
             Self::Design => "Create and edit interface designs",
             Self::Motion => "Animate layers on a keyframe timeline",
+            Self::Draw => "Paint, select, crop, and edit paths",
             Self::Dev => "Inspect, annotate, measure, and hand off",
         }
     }
@@ -41,6 +45,7 @@ impl ToolbarMode {
         match self {
             Self::Design => DESIGN_LAYOUT,
             Self::Motion => MOTION_LAYOUT,
+            Self::Draw => DRAW_LAYOUT,
             Self::Dev => DEV_LAYOUT,
         }
     }
@@ -56,6 +61,15 @@ pub enum ToolbarTool {
     Move,
     Hand,
     Scale,
+    Brush,
+    Eraser,
+    RectangleSelect,
+    EllipseSelect,
+    Lasso,
+    PolygonalLasso,
+    MagicWand,
+    Crop,
+
     Frame,
     Section,
     Slice,
@@ -95,7 +109,14 @@ impl ToolbarTool {
     pub const ALL: &'static [Self] = &[
         Self::Move,
         Self::Hand,
-        Self::Scale,
+        Self::Brush,
+        Self::Eraser,
+        Self::RectangleSelect,
+        Self::EllipseSelect,
+        Self::Lasso,
+        Self::PolygonalLasso,
+        Self::MagicWand,
+        Self::Crop,
         Self::Frame,
         Self::Section,
         Self::Slice,
@@ -115,7 +136,6 @@ impl ToolbarTool {
         Self::Comment,
         Self::Annotation,
         Self::Measure,
-        Self::Resources,
         Self::Actions,
         Self::Inspect,
         Self::ColorPicker,
@@ -136,6 +156,15 @@ impl ToolbarTool {
             Self::Move => "Move",
             Self::Hand => "Hand",
             Self::Scale => "Scale",
+            Self::Brush => "Brush",
+            Self::Eraser => "Eraser",
+            Self::RectangleSelect => "Rectangle selection",
+            Self::EllipseSelect => "Ellipse selection",
+            Self::Lasso => "Lasso",
+            Self::PolygonalLasso => "Polygonal lasso",
+            Self::MagicWand => "Magic wand",
+            Self::Crop => "Crop",
+
             Self::Frame => "Frame",
             Self::Section => "Section",
             Self::Slice => "Slice",
@@ -177,6 +206,15 @@ impl ToolbarTool {
             Self::Move => "Select and move objects",
             Self::Hand => "Pan around the canvas",
             Self::Scale => "Resize entire objects and layers",
+            Self::Brush => "Paint with a configurable brush",
+            Self::Eraser => "Erase with the current brush tip",
+            Self::RectangleSelect => "Select a rectangular area",
+            Self::EllipseSelect => "Select an elliptical area",
+            Self::Lasso => "Select a freehand area",
+            Self::PolygonalLasso => "Select an area with straight edges",
+            Self::MagicWand => "Select pixels of a similar color",
+            Self::Crop => "Crop and straighten the canvas",
+
             Self::Frame => "Create a frame container",
             Self::Section => "Organize designs into a section",
             Self::Slice => "Define an export region",
@@ -197,7 +235,7 @@ impl ToolbarTool {
             Self::Annotation => "Add a developer annotation",
             Self::Measure => "Add a persistent measurement",
             Self::Resources => "Search components, libraries, plugins, and widgets",
-            Self::Actions => "Search actions, AI tools, plugins, and widgets",
+            Self::Actions => "Search commands and tools",
             Self::Inspect => "Inspect layer properties",
             Self::ColorPicker => "Sample colors and variables from the canvas",
             Self::Code => "View generated or connected code",
@@ -217,7 +255,15 @@ impl ToolbarTool {
         match self {
             Self::Move => Some("V"),
             Self::Hand => Some("H"),
-            Self::Scale => Some("K"),
+            Self::Brush => Some("B"),
+            Self::Eraser => Some("E"),
+            Self::RectangleSelect => Some("M"),
+            Self::Lasso => Some("L"),
+            Self::MagicWand => Some("W"),
+            Self::EllipseSelect => Some("⇧ M"),
+            Self::PolygonalLasso => Some("⇧ L"),
+            Self::Crop => Some("C"),
+
             Self::Frame => Some("F"),
             Self::Section => Some("⇧ S"),
             Self::Slice => Some("S"),
@@ -238,11 +284,13 @@ impl ToolbarTool {
     }
 
     pub fn is_available_in(self, mode: ToolbarMode) -> bool {
-        mode.layout().iter().any(|item| match item {
-            ToolbarItem::Tool(tool) => *tool == self,
-            ToolbarItem::Group(group) => group.tools().contains(&self),
-            ToolbarItem::Separator => false,
-        })
+        (mode == ToolbarMode::Motion && ToolbarToolGroup::MotionTimeline.tools().contains(&self))
+            || (mode == ToolbarMode::Dev && ToolbarToolGroup::DevHandoff.tools().contains(&self))
+            || mode.layout().iter().any(|item| match item {
+                ToolbarItem::Tool(tool) => *tool == self,
+                ToolbarItem::Group(group) => group.tools().contains(&self),
+                ToolbarItem::Separator => false,
+            })
     }
 }
 
@@ -256,6 +304,9 @@ pub enum ToolbarToolGroup {
     Feedback,
     DevHandoff,
     MotionTimeline,
+    Brushes,
+    Selection,
+    Paths,
 }
 
 impl ToolbarToolGroup {
@@ -267,6 +318,9 @@ impl ToolbarToolGroup {
         Self::Feedback,
         Self::DevHandoff,
         Self::MotionTimeline,
+        Self::Brushes,
+        Self::Selection,
+        Self::Paths,
     ];
 
     pub const fn label(self) -> &'static str {
@@ -278,6 +332,9 @@ impl ToolbarToolGroup {
             Self::Feedback => "Comment tools",
             Self::DevHandoff => "Developer handoff tools",
             Self::MotionTimeline => "Motion tools",
+            Self::Brushes => "Brush tools",
+            Self::Selection => "Selection tools",
+            Self::Paths => "Path tools",
         }
     }
 
@@ -286,8 +343,20 @@ impl ToolbarToolGroup {
             Self::Move => &[
                 ToolbarTool::Move,
                 ToolbarTool::Hand,
-                ToolbarTool::Scale,
                 ToolbarTool::PathSelect,
+            ],
+            Self::Brushes => &[ToolbarTool::Brush, ToolbarTool::Pencil, ToolbarTool::Eraser],
+            Self::Selection => &[
+                ToolbarTool::RectangleSelect,
+                ToolbarTool::EllipseSelect,
+                ToolbarTool::Lasso,
+                ToolbarTool::PolygonalLasso,
+                ToolbarTool::MagicWand,
+            ],
+            Self::Paths => &[
+                ToolbarTool::PathSelect,
+                ToolbarTool::NodeEdit,
+                ToolbarTool::Pen,
             ],
             Self::Region => &[ToolbarTool::Frame, ToolbarTool::Section, ToolbarTool::Slice],
             Self::Shape => &[
@@ -357,7 +426,6 @@ const DESIGN_LAYOUT: &[ToolbarItem] = &[
     ToolbarItem::Group(ToolbarToolGroup::Shape),
     ToolbarItem::Group(ToolbarToolGroup::Creation),
     ToolbarItem::Tool(ToolbarTool::Text),
-    ToolbarItem::Tool(ToolbarTool::Resources),
     ToolbarItem::Group(ToolbarToolGroup::Feedback),
     ToolbarItem::Tool(ToolbarTool::Actions),
 ];
@@ -366,20 +434,30 @@ const DEV_LAYOUT: &[ToolbarItem] = &[
     ToolbarItem::Group(ToolbarToolGroup::Move),
     ToolbarItem::Separator,
     ToolbarItem::Tool(ToolbarTool::ColorPicker),
-    ToolbarItem::Tool(ToolbarTool::Measure),
-    ToolbarItem::Tool(ToolbarTool::Annotation),
+    ToolbarItem::Tool(ToolbarTool::Code),
+    ToolbarItem::Tool(ToolbarTool::Variables),
     ToolbarItem::Tool(ToolbarTool::Comment),
     ToolbarItem::Tool(ToolbarTool::Actions),
 ];
 
 const MOTION_LAYOUT: &[ToolbarItem] = &[
-    ToolbarItem::Group(ToolbarToolGroup::Move),
-    ToolbarItem::Group(ToolbarToolGroup::Region),
+    ToolbarItem::Tool(ToolbarTool::MotionSelect),
+    ToolbarItem::Tool(ToolbarTool::Hand),
     ToolbarItem::Group(ToolbarToolGroup::Shape),
     ToolbarItem::Group(ToolbarToolGroup::Creation),
     ToolbarItem::Tool(ToolbarTool::Text),
-    ToolbarItem::Group(ToolbarToolGroup::Feedback),
-    ToolbarItem::Group(ToolbarToolGroup::MotionTimeline),
+    ToolbarItem::Tool(ToolbarTool::MotionPath),
+    ToolbarItem::Tool(ToolbarTool::TimeComment),
+    ToolbarItem::Tool(ToolbarTool::Actions),
+];
+
+const DRAW_LAYOUT: &[ToolbarItem] = &[
+    ToolbarItem::Tool(ToolbarTool::Hand),
+    ToolbarItem::Group(ToolbarToolGroup::Brushes),
+    ToolbarItem::Group(ToolbarToolGroup::Selection),
+    ToolbarItem::Tool(ToolbarTool::Crop),
+    ToolbarItem::Group(ToolbarToolGroup::Paths),
+    ToolbarItem::Tool(ToolbarTool::ColorPicker),
     ToolbarItem::Tool(ToolbarTool::Actions),
 ];
 
@@ -464,51 +542,6 @@ impl Default for MotionToolbarOptions {
                 .into_iter()
                 .map(Into::into)
                 .collect(),
-        }
-    }
-}
-
-/// Host-provided context shown in the contextual Agent composer.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AgentToolbarOptions {
-    pub context_label: SharedString,
-    pub mention_hint: SharedString,
-    pub suggestions: Vec<SharedString>,
-}
-
-impl AgentToolbarOptions {
-    pub fn new(context_label: impl Into<SharedString>) -> Self {
-        Self {
-            context_label: context_label.into(),
-            ..Self::default()
-        }
-    }
-
-    pub fn suggestions<I, S>(mut self, suggestions: I) -> Self
-    where
-        I: IntoIterator<Item = S>,
-        S: Into<SharedString>,
-    {
-        self.suggestions = suggestions.into_iter().take(3).map(Into::into).collect();
-        self
-    }
-
-    pub fn mention_hint(mut self, mention_hint: impl Into<SharedString>) -> Self {
-        self.mention_hint = mention_hint.into();
-        self
-    }
-}
-
-impl Default for AgentToolbarOptions {
-    fn default() -> Self {
-        Self {
-            context_label: "Selection".into(),
-            mention_hint: "@ mention components, variables, or libraries".into(),
-            suggestions: vec![
-                "Explore 3 directions".into(),
-                "Polish this screen".into(),
-                "Animate the selection".into(),
-            ],
         }
     }
 }
@@ -641,6 +674,7 @@ pub enum ToolbarCommand {
     MakePrototype,
     OpenDesignMode,
     OpenMotionMode,
+    OpenDrawMode,
     OpenDevMode,
     ViewVersionHistory,
     CopyLink,
@@ -690,12 +724,10 @@ impl ToolbarCommand {
         Self::Import,
         Self::Export,
         Self::PlaceImageVideo,
-        Self::OpenResources,
-        Self::OpenPlugins,
-        Self::OpenWidgets,
         Self::OpenVariables,
         Self::OpenDesignMode,
         Self::OpenMotionMode,
+        Self::OpenDrawMode,
         Self::OpenDevMode,
         Self::ViewVersionHistory,
         Self::CopyLink,
@@ -751,6 +783,7 @@ impl ToolbarCommand {
             Self::MakePrototype => "Make a prototype",
             Self::OpenDesignMode => "Switch to Design",
             Self::OpenMotionMode => "Switch to Motion",
+            Self::OpenDrawMode => "Switch to Draw",
             Self::OpenDevMode => "Switch to Dev Mode",
             Self::ViewVersionHistory => "Show version history",
             Self::CopyLink => "Copy link",
@@ -785,7 +818,10 @@ impl ToolbarCommand {
             | Self::MinimizeUi
             | Self::ZoomToFit
             | Self::ZoomToSelection => "View",
-            Self::OpenDesignMode | Self::OpenMotionMode | Self::OpenDevMode => "Modes",
+            Self::OpenDesignMode
+            | Self::OpenMotionMode
+            | Self::OpenDrawMode
+            | Self::OpenDevMode => "Modes",
             Self::Import
             | Self::Export
             | Self::PlaceImageVideo
@@ -869,14 +905,12 @@ pub enum ToolbarAction {
     CommandInvoked {
         command: ToolbarCommand,
     },
-    AiPromptSubmitted {
-        prompt: SharedString,
+    DrawOptionsChangeRequested {
+        options: DrawToolbarOptions,
     },
-    AgentVisibilityChanged {
-        visible: bool,
+    DrawActionInvoked {
+        action: DrawToolbarAction,
     },
-    AgentAttachmentRequested,
-    AgentVoiceInputRequested,
     ZoomChangeRequested {
         percent: u16,
     },
@@ -948,17 +982,22 @@ mod tests {
         assert!(
             ToolbarMode::Motion
                 .layout()
-                .contains(&ToolbarItem::Group(ToolbarToolGroup::MotionTimeline))
+                .contains(&ToolbarItem::Tool(ToolbarTool::MotionPath))
         );
         assert!(ToolbarTool::MotionPath.is_available_in(ToolbarMode::Motion));
         assert!(!ToolbarTool::MotionPath.is_available_in(ToolbarMode::Design));
     }
 
     #[test]
-    fn mode_tray_is_design_motion_dev() {
+    fn mode_dropdown_contains_all_four_workspaces() {
         assert_eq!(
             ToolbarMode::ALL,
-            &[ToolbarMode::Design, ToolbarMode::Motion, ToolbarMode::Dev]
+            &[
+                ToolbarMode::Design,
+                ToolbarMode::Motion,
+                ToolbarMode::Draw,
+                ToolbarMode::Dev
+            ]
         );
         // Every catalogued tool is reachable from at least one mode layout
         // or a flyout group, so no tool exists solely for a retired mode.
@@ -992,8 +1031,9 @@ mod tests {
     }
 
     #[test]
-    fn design_mode_exposes_the_resources_tool() {
-        assert!(ToolbarTool::Resources.is_available_in(ToolbarMode::Design));
+    fn retired_tools_are_unavailable() {
+        assert!(!ToolbarTool::Resources.is_available_in(ToolbarMode::Design));
+        assert!(!ToolbarTool::Scale.is_available_in(ToolbarMode::Design));
         assert_eq!(ToolbarTool::Resources.shortcut(), Some("⇧ I"));
     }
 
@@ -1005,13 +1045,5 @@ mod tests {
                 .available_animation_styles
                 .contains(&motion.animation_style)
         );
-    }
-
-    #[test]
-    fn agent_suggestions_are_bounded_for_the_compact_composer() {
-        let options = AgentToolbarOptions::new("Card").suggestions(["One", "Two", "Three", "Four"]);
-        assert_eq!(options.context_label, "Card");
-        assert_eq!(options.suggestions.len(), 3);
-        assert_eq!(options.suggestions[2], "Three");
     }
 }

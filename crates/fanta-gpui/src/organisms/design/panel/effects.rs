@@ -1112,6 +1112,7 @@ impl DesignEffectsController for DesignPanel {
         if editing {
             cell = cell.child(
                 Input::new(&self.retained.inputs.property)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .appearance(false)
                     .bordered(false)
                     .focus_bordered(false)

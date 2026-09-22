@@ -30,37 +30,33 @@ const DESIGN_PANEL_DEFAULT_WIDTH: f32 = 472.;
 const DESIGN_PANEL_KEYBOARD_STEP: f32 = 8.;
 const DESIGN_PANEL_KEYBOARD_COARSE_STEP: f32 = 32.;
 
-/// Width of the fixture rail beside the inspector in the wide harness.
+/// Reserved canvas gutter at wide viewports. The historical constant name is
+/// retained for Storybook geometry compatibility; fixture controls live in knobs.
 pub(crate) const DESIGN_HARNESS_RAIL_WIDTH: f32 = 260.;
 /// Thickness of the bespoke inspector width-resize handle.
 pub(crate) const DESIGN_HARNESS_RESIZE_HANDLE_WIDTH: f32 = 10.;
 /// Smallest mock-canvas sliver the wide harness preserves beside the
 /// inspector before the panel width is capped.
 const DESIGN_HARNESS_CANVAS_MIN_WIDTH: f32 = 150.;
-/// Below this harness width the story chrome stacks: the fixture rail
-/// folds into a collapsible controls section under the inspector, which
-/// stays the priority element.
+/// Below this width the inspector can use all available horizontal space;
+/// wide viewports reserve a canvas gutter for left-opening popovers.
 pub(crate) const DESIGN_HARNESS_STACK_BREAKPOINT: f32 = 900.;
-/// Tallest the expanded stacked controls grow before scrolling, so the
-/// inspector keeps most of the height even while they are open.
-pub(crate) const DESIGN_HARNESS_CONTROLS_MAX_HEIGHT: f32 = 240.;
-/// The Design story's honest floor: the inspector at its own 320 px
-/// minimum plus the resize handle and stacked-chrome margins…
+/// The Design story's floor: the inspector at its own 320 px minimum plus
+/// the resize handle and viewport margins.
 pub(crate) const DESIGN_STORY_MIN_WIDTH: f32 =
     DESIGN_PANEL_MIN_WIDTH + DESIGN_HARNESS_RESIZE_HANDLE_WIDTH + 50.;
-/// …and enough height for a usable inspector column above the collapsed
-/// controls bar of the stacked harness.
+/// Enough height for a useful scrollable inspector column.
 pub(crate) const DESIGN_STORY_MIN_HEIGHT: f32 = 520.;
 
-/// Whether the story harness uses the stacked layout at this width.
+/// Whether the preview removes the wide canvas gutter at this width.
 pub(crate) fn design_harness_stacked(harness_width: f32) -> bool {
     harness_width < DESIGN_HARNESS_STACK_BREAKPOINT
 }
 
 /// The width the inspector renders at inside the harness: the user's
-/// chosen panel width, capped so the harness chrome that sits beside the
-/// panel (rail, canvas sliver, and resize handle when wide; just the
-/// handle when stacked) always fits. The cap never pushes the panel
+/// chosen panel width, capped so the canvas gutter and resize handle fit
+/// beside the panel. At narrow widths only the handle is reserved. The
+/// cap never pushes the panel
 /// below its own [`DESIGN_PANEL_MIN_WIDTH`]; the story floor keeps that
 /// minimum reachable inside the story surface.
 pub(crate) fn design_harness_panel_width(panel_width: f32, harness_width: f32) -> f32 {
@@ -398,7 +394,7 @@ pub(crate) struct DesignMockEditState {
     pub(crate) vector_edit_snapshots: HashMap<SharedString, Option<DesignVectorEditViewData>>,
 }
 
-/// Scenario controls, inspector preferences, and responsive harness state.
+/// Knob values, inspector preferences, and viewport resize state.
 /// None of these fields represents a document mutation.
 pub(crate) struct DesignHarnessState {
     pub(crate) selected_node: usize,
@@ -406,10 +402,6 @@ pub(crate) struct DesignHarnessState {
     pub(crate) text_range_revision: u64,
     pub(crate) panel_width: f32,
     pub(crate) panel_resize_drag: Option<DesignPanelResizeDrag>,
-    /// Whether the stacked harness (below
-    /// [`DESIGN_HARNESS_STACK_BREAKPOINT`]) shows its folded story
-    /// controls; collapsed by default so the inspector keeps the height.
-    pub(crate) harness_controls_expanded: bool,
     pub(crate) additional_labels: bool,
     pub(crate) nudge_settings: DesignNudgeSettings,
     pub(crate) variables_entry_point: DesignVariablesEntryPoint,
@@ -593,7 +585,6 @@ impl DesignScreen {
                 text_range_revision: 0,
                 panel_width: design_panel_width,
                 panel_resize_drag: None,
-                harness_controls_expanded: false,
                 additional_labels: design_additional_labels,
                 nudge_settings: design_nudge_settings,
                 variables_entry_point: DesignVariablesEntryPoint::default(),
@@ -1320,17 +1311,6 @@ impl DesignScreen {
             "Story {interaction} the inspector viewport to {:.0} px — no document intent",
             self.harness.panel_width
         )
-        .into();
-        cx.notify();
-    }
-
-    pub(crate) fn toggle_harness_controls(&mut self, cx: &mut Context<Storybook>) {
-        self.harness.harness_controls_expanded = !self.harness.harness_controls_expanded;
-        self.harness.last_action = if self.harness.harness_controls_expanded {
-            "Story expanded the stacked harness controls — no document intent"
-        } else {
-            "Story collapsed the stacked harness controls — no document intent"
-        }
         .into();
         cx.notify();
     }

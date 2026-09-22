@@ -38,10 +38,10 @@ use gpui_component::{
 use screens::{
     ButtonsScreen, CheckboxStory, DesignScreen, DropdownStory, FieldsScreen, FileInspectorScreen,
     IconsScreen, InputsStory, LabelsScreen, LayersScreen, ListRowsScreen, MenusScreen,
-    OverlaysScreen, PagesScreen, PopupsScreen, PrototypeScreen, PseudoEditorScreen,
-    RadioButtonStory, SegmentedControlStory, StructureScreen, TabsStory, TimelineScreen,
-    TokensScreen, ToolbarScreen, TooltipsStory, VariablesStory, WelcomeScreen,
-    viewport::StoryViewport,
+    OverlaysScreen, PagesScreen, PopupsScreen, PropertiesInspectorScreen, PropertiesTabsScreen,
+    PrototypeScreen, PseudoEditorScreen, RadioButtonStory, SegmentedControlStory, StructureScreen,
+    TabsStory, TimelineScreen, TokensScreen, ToolbarScreen, TooltipsStory, VariablesStory,
+    WelcomeScreen, ZoomBarScreen, viewport::StoryViewport,
 };
 use themes::{apply_zed_theme, initial_zed_theme_index, zed_themes};
 
@@ -86,6 +86,7 @@ struct Storybook {
     overlays_screen: OverlaysScreen,
     variables_screen: VariablesStory,
     sliders_screen: screens::sliders::SlidersStory,
+    paint_picker_screen: screens::paint_picker::PaintPickerStory,
     color_picker_screen: screens::color_picker::ColorPickerStory,
     prototype_screen: PrototypeScreen,
     timeline_screen: TimelineScreen,
@@ -94,7 +95,10 @@ struct Storybook {
     pages_screen: PagesScreen,
     layers_screen: LayersScreen,
     toolbar_screen: ToolbarScreen,
+    zoom_bar_screen: ZoomBarScreen,
     design_screen: DesignScreen,
+    properties_inspector_screen: PropertiesInspectorScreen,
+    properties_tabs_screen: PropertiesTabsScreen,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -126,6 +130,7 @@ impl Storybook {
         let overlays_screen = OverlaysScreen::new(cx);
         let variables_screen = VariablesStory::new(window, cx);
         let sliders_screen = screens::sliders::SlidersStory::new(cx);
+        let paint_picker_screen = screens::paint_picker::PaintPickerStory::new(window, cx);
         let color_picker_screen = screens::color_picker::ColorPickerStory::new(window, cx);
         let prototype_screen = PrototypeScreen::new(cx);
         let timeline_screen = TimelineScreen::new(cx);
@@ -133,7 +138,15 @@ impl Storybook {
         let layers_screen = LayersScreen::new(window, cx);
         let file_inspector_screen = FileInspectorScreen::new(window, cx);
         let design_screen = DesignScreen::new(window, cx);
+        let properties_tabs_screen = PropertiesTabsScreen::new(cx);
+        let properties_inspector_screen = PropertiesInspectorScreen::new(
+            design_screen.panel.clone(),
+            &properties_tabs_screen,
+            window,
+            cx,
+        );
         let toolbar_screen = ToolbarScreen::new(window, cx);
+        let zoom_bar_screen = ZoomBarScreen::new(cx);
 
         let pseudo_screen = PseudoEditorScreen::new(
             PseudoEditorChildren {
@@ -148,7 +161,30 @@ impl Storybook {
             cx,
         );
 
+        pseudo_screen.editor.update(cx, |editor, cx| {
+            editor
+                .set_properties_inspector(Some(properties_inspector_screen.inspector.clone()), cx);
+        });
+
         let mut subscriptions = vec![
+            cx.subscribe(
+                &properties_inspector_screen.typography_host.panel,
+                |story, panel, action: &DesignPanelAction, cx| {
+                    story
+                        .properties_inspector_screen
+                        .typography_host
+                        .handle_action(panel, action, cx)
+                },
+            ),
+            cx.subscribe_in(
+                &properties_inspector_screen.inspector,
+                window,
+                |story, _, action: &PropertiesInspectorAction, window, cx| {
+                    story
+                        .properties_inspector_screen
+                        .handle_action(action, window, cx)
+                },
+            ),
             cx.subscribe(
                 &file_inspector_screen.pages.panel,
                 |story, panel, action: &PagesPanelAction, cx| {
@@ -171,6 +207,13 @@ impl Storybook {
                 &variables_screen.screen,
                 |story, _, action: &fanta_gpui::variables::VariablesContextAction, cx| {
                     story.variables_screen.handle_context_action(action, cx);
+                },
+            ),
+            cx.subscribe_in(
+                &paint_picker_screen.picker,
+                window,
+                |story, _, action: &PaintPickerAction, window, cx| {
+                    story.paint_picker_screen.handle_action(action, window, cx);
                 },
             ),
             cx.subscribe_in(
@@ -242,6 +285,7 @@ impl Storybook {
                 },
             ),
         ];
+        subscriptions.extend(properties_tabs_screen.subscriptions(window, cx));
         let storybook = cx.weak_entity();
         subscriptions.push(cx.on_window_closed(move |cx, _window_id| {
             let open_window_ids = cx
@@ -313,6 +357,7 @@ impl Storybook {
             overlays_screen,
             variables_screen,
             sliders_screen,
+            paint_picker_screen,
             color_picker_screen,
             prototype_screen,
             timeline_screen,
@@ -321,7 +366,10 @@ impl Storybook {
             pages_screen,
             layers_screen,
             toolbar_screen,
+            zoom_bar_screen,
             design_screen,
+            properties_inspector_screen,
+            properties_tabs_screen,
             _subscriptions: subscriptions,
         };
         storybook.focus_story(storybook.active_story, window, cx);

@@ -7,6 +7,11 @@ pub mod color_picker;
 pub mod design;
 pub mod layers;
 pub mod pages;
+pub mod paint_picker;
 pub mod prototype;
 pub mod timeline;
 pub mod toolbar;
+
+pub mod zoom_bar;
+
+pub mod properties_tabs;

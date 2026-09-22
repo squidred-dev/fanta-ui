@@ -163,7 +163,7 @@ impl PaintPicker {
 
     /// Replaces the host-filtered Color-variable snapshot supplied by the
     /// surrounding Design-panel host.
-    pub(crate) fn set_paint_variable_view_data(
+    pub fn set_paint_variable_view_data(
         &mut self,
         view_data: DesignPaintVariableViewData,
         cx: &mut Context<Self>,
@@ -180,7 +180,7 @@ impl PaintPicker {
     /// The selected audience and conformance level remain transient picker
     /// state. Ratio, effective background, Auto resolution, and correction
     /// colors never originate in the reusable component.
-    pub(crate) fn set_contrast_view_data(
+    pub fn set_contrast_view_data(
         &mut self,
         view_data: Option<DesignColorContrastPaintViewData>,
         cx: &mut Context<Self>,
@@ -197,7 +197,7 @@ impl PaintPicker {
     }
 
     /// Replaces the host-filtered sample-only Color-style catalog.
-    pub(crate) fn set_color_style_sample_view_data(
+    pub fn set_color_style_sample_view_data(
         &mut self,
         view_data: DesignColorStyleSampleViewData,
         cx: &mut Context<Self>,
@@ -211,7 +211,7 @@ impl PaintPicker {
 
     /// Replaces host-controlled crop, video-preview, and media capability
     /// state without changing the paint document snapshot.
-    pub(crate) fn set_media_view_data(
+    pub fn set_media_view_data(
         &mut self,
         view_data: DesignMediaPaintViewData,
         cx: &mut Context<Self>,
@@ -224,7 +224,7 @@ impl PaintPicker {
 
     /// Replaces host-controlled fill-shader discovery/import data without
     /// mutating the current paint payload.
-    pub(crate) fn set_shader_view_data(
+    pub fn set_shader_view_data(
         &mut self,
         view_data: DesignShaderViewData,
         cx: &mut Context<Self>,
@@ -1107,7 +1107,8 @@ impl PaintPicker {
             .w_full()
             .gap_3()
             .p_4()
-            .child(Input::new(&self.resource_search_input).xsmall().h(px(28.)));
+            .child(Input::new(&self.resource_search_input).xsmall().h(px(28.)))
+            .typography(crate::atoms::TypographyToken::BodyMedium);
         if selected_binding.is_some() {
             content = content.child(self.render_color_variable_detach_button("library", cx));
         }

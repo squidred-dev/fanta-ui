@@ -4,7 +4,7 @@ use crate::atoms::TypographyExt as _;
 use gpui::{
     AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
-    Window, div, prelude::FluentBuilder as _, px,
+    Subscription, Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_component::{ActiveTheme as _, StyledExt as _, h_flex, v_flex};
 
@@ -12,8 +12,14 @@ use crate::atoms::{
     CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_lucide_icon,
 };
 use crate::{
-    design::DesignPanel, layers::LayersPanel, pages::PagesPanel, prototype::PrototypePanel,
-    timeline::Timeline, toolbar::EditorToolbar, variables::VariablesScreen,
+    design::DesignPanel,
+    layers::LayersPanel,
+    pages::PagesPanel,
+    properties_inspector::{PROPERTIES_INSPECTOR_MIN_WIDTH, PropertiesInspector},
+    prototype::PrototypePanel,
+    timeline::Timeline,
+    toolbar::EditorToolbar,
+    variables::VariablesScreen,
 };
 
 /// Reference design width of the left rail (§14).
@@ -94,6 +100,8 @@ pub struct PseudoEditor {
     left_surface: PseudoEditorLeftSurface,
     right_surface: PseudoEditorRightSurface,
     variables_visible: bool,
+    properties_inspector: Option<Entity<PropertiesInspector>>,
+    properties_inspector_observer: Option<Subscription>,
 }
 
 impl EventEmitter<PseudoEditorAction> for PseudoEditor {}
@@ -111,7 +119,24 @@ impl PseudoEditor {
             left_surface: PseudoEditorLeftSurface::default(),
             right_surface: PseudoEditorRightSurface::default(),
             variables_visible: false,
+            properties_inspector: None,
+            properties_inspector_observer: None,
         }
+    }
+
+    /// Replaces the legacy Design/Prototype rail with the composed properties
+    /// sidebar. Its children retain their own typed intent subscriptions.
+    /// Passing `None` restores the existing shell without changing its children.
+    pub fn set_properties_inspector(
+        &mut self,
+        inspector: Option<Entity<PropertiesInspector>>,
+        cx: &mut Context<Self>,
+    ) {
+        self.properties_inspector_observer = inspector
+            .as_ref()
+            .map(|inspector| cx.observe(inspector, |_, _, cx| cx.notify()));
+        self.properties_inspector = inspector;
+        cx.notify();
     }
 
     pub fn set_left_surface(&mut self, surface: PseudoEditorLeftSurface, cx: &mut Context<Self>) {
@@ -185,10 +210,14 @@ impl PseudoEditor {
     }
 
     fn render_right(&self, cx: &mut Context<Self>) -> AnyElement {
-        let panel = match self.right_surface {
-            PseudoEditorRightSurface::Design => self.children.design.clone().into_any_element(),
-            PseudoEditorRightSurface::Prototype => {
-                self.children.prototype.clone().into_any_element()
+        let panel = if let Some(inspector) = &self.properties_inspector {
+            inspector.clone().into_any_element()
+        } else {
+            match self.right_surface {
+                PseudoEditorRightSurface::Design => self.children.design.clone().into_any_element(),
+                PseudoEditorRightSurface::Prototype => {
+                    self.children.prototype.clone().into_any_element()
+                }
             }
         };
         div()
@@ -199,8 +228,10 @@ impl PseudoEditor {
             .flex_shrink(1.)
             .min_h(px(0.))
             .overflow_hidden()
-            .border_l_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .when(self.properties_inspector.is_none(), |rail| {
+                rail.border_l_1()
+                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            })
             .child(panel)
             .into_any_element()
     }
@@ -252,6 +283,24 @@ impl PseudoEditor {
                     .px_4()
                     .justify_center()
                     .child(self.children.toolbar.clone()),
+            )
+            .when_some(
+                self.properties_inspector
+                    .as_ref()
+                    .filter(|inspector| inspector.read(cx).is_collapsed()),
+                |canvas, inspector| {
+                    canvas.child(
+                        div()
+                            .debug_selector(|| "pseudo-editor-properties-floating".to_owned())
+                            .absolute()
+                            .top_0()
+                            .right_0()
+                            .w(px(PROPERTIES_INSPECTOR_MIN_WIDTH
+                                + 2. * crate::atoms::tokens::Space::SM))
+                            .max_w_full()
+                            .child(inspector.clone()),
+                    )
+                },
             )
             .into_any_element()
     }
@@ -319,34 +368,37 @@ impl Render for PseudoEditor {
                         cx,
                     ))
                     .child(div().flex_1())
-                    .child(self.small_tab(
-                        SharedString::from(format!("{}-right-design", self.id)),
-                        "pseudo-editor-right-design",
-                        "Design",
-                        self.right_surface == PseudoEditorRightSurface::Design,
-                        |this, cx| {
-                            this.right_surface = PseudoEditorRightSurface::Design;
-                            cx.emit(PseudoEditorAction::RightSurfaceChanged {
-                                surface: PseudoEditorRightSurface::Design,
-                            });
-                            cx.notify();
-                        },
-                        cx,
-                    ))
-                    .child(self.small_tab(
-                        SharedString::from(format!("{}-right-prototype", self.id)),
-                        "pseudo-editor-right-prototype",
-                        "Prototype",
-                        self.right_surface == PseudoEditorRightSurface::Prototype,
-                        |this, cx| {
-                            this.right_surface = PseudoEditorRightSurface::Prototype;
-                            cx.emit(PseudoEditorAction::RightSurfaceChanged {
-                                surface: PseudoEditorRightSurface::Prototype,
-                            });
-                            cx.notify();
-                        },
-                        cx,
-                    ))
+                    .when(self.properties_inspector.is_none(), |header| {
+                        header
+                            .child(self.small_tab(
+                                SharedString::from(format!("{}-right-design", self.id)),
+                                "pseudo-editor-right-design",
+                                "Design",
+                                self.right_surface == PseudoEditorRightSurface::Design,
+                                |this, cx| {
+                                    this.right_surface = PseudoEditorRightSurface::Design;
+                                    cx.emit(PseudoEditorAction::RightSurfaceChanged {
+                                        surface: PseudoEditorRightSurface::Design,
+                                    });
+                                    cx.notify();
+                                },
+                                cx,
+                            ))
+                            .child(self.small_tab(
+                                SharedString::from(format!("{}-right-prototype", self.id)),
+                                "pseudo-editor-right-prototype",
+                                "Prototype",
+                                self.right_surface == PseudoEditorRightSurface::Prototype,
+                                |this, cx| {
+                                    this.right_surface = PseudoEditorRightSurface::Prototype;
+                                    cx.emit(PseudoEditorAction::RightSurfaceChanged {
+                                        surface: PseudoEditorRightSurface::Prototype,
+                                    });
+                                    cx.notify();
+                                },
+                                cx,
+                            ))
+                    })
                     .child(
                         div()
                             .id(SharedString::from(format!("{}-variables", self.id)))
@@ -445,7 +497,13 @@ impl Render for PseudoEditor {
                     .items_start()
                     .child(self.render_left(cx))
                     .child(self.render_canvas(cx))
-                    .child(self.render_right(cx)),
+                    .when(
+                        !self
+                            .properties_inspector
+                            .as_ref()
+                            .is_some_and(|inspector| inspector.read(cx).is_collapsed()),
+                        |row| row.child(self.render_right(cx)),
+                    ),
             )
             .child(
                 // The timeline strip yields toward its floor before the

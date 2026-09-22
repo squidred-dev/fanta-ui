@@ -1006,7 +1006,11 @@ impl DesignComponentController for DesignPanel {
             property.id,
             target.field.api_name()
         )))
-        .label("Select")
+        .child(crate::atoms::render_lucide_icon(
+            crate::atoms::LucideIcon::Variable,
+            crate::atoms::SemanticColor::Icon.resolve(cx),
+            crate::atoms::tokens::IconSize::SM,
+        ))
         .tooltip(trigger_tooltip)
         .xsmall()
         .compact()
@@ -1082,6 +1086,7 @@ impl DesignComponentController for DesignPanel {
                     )
                     .child(
                         Input::new(&search_input)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .small()
                             .prefix(Icon::new(IconName::Search).small()),
                     );
@@ -1348,6 +1353,7 @@ impl DesignComponentController for DesignPanel {
                 )
                 .child(
                     Input::new(&search_input)
+                        .typography(crate::atoms::TypographyToken::BodyMedium)
                         .small()
                         .prefix(Icon::new(IconName::Search).small()),
                 );
@@ -3520,6 +3526,7 @@ impl DesignComponentController for DesignPanel {
             )
             .child(
                 Input::new(&self.component_authoring.name_input)
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
                     .appearance(false)
                     .bordered(true)
                     .xsmall()
@@ -3576,6 +3583,7 @@ impl DesignComponentController for DesignPanel {
                     )
                     .child(
                         Input::new(&self.component_authoring.default_input)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .appearance(false)
                             .bordered(true)
                             .xsmall()
@@ -3755,6 +3763,7 @@ impl DesignComponentController for DesignPanel {
                     )
                     .child(
                         Input::new(&self.component_authoring.default_input)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .appearance(false)
                             .bordered(true)
                             .xsmall()
@@ -3775,6 +3784,7 @@ impl DesignComponentController for DesignPanel {
                                     )
                                     .child(
                                         Input::new(&self.component_authoring.slot_minimum_input)
+                                            .typography(crate::atoms::TypographyToken::BodyMedium)
                                             .appearance(false)
                                             .bordered(true)
                                             .xsmall()
@@ -3792,6 +3802,7 @@ impl DesignComponentController for DesignPanel {
                                     )
                                     .child(
                                         Input::new(&self.component_authoring.slot_maximum_input)
+                                            .typography(crate::atoms::TypographyToken::BodyMedium)
                                             .appearance(false)
                                             .bordered(true)
                                             .xsmall()
@@ -4215,6 +4226,7 @@ impl DesignComponentController for DesignPanel {
                             .child(
                                 div().flex_1().min_w(px(0.)).child(
                                     Input::new(&self.component_authoring.default_input)
+                                        .typography(crate::atoms::TypographyToken::BodyMedium)
                                         .appearance(false)
                                         .bordered(true)
                                         .xsmall()
@@ -4428,6 +4440,7 @@ impl DesignComponentController for DesignPanel {
                     )
                     .child(
                         Input::new(&self.component_authoring.default_input)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .appearance(false)
                             .bordered(true)
                             .xsmall()
@@ -4448,6 +4461,7 @@ impl DesignComponentController for DesignPanel {
                                     )
                                     .child(
                                         Input::new(&self.component_authoring.slot_minimum_input)
+                                            .typography(crate::atoms::TypographyToken::BodyMedium)
                                             .appearance(false)
                                             .bordered(true)
                                             .xsmall()
@@ -4465,6 +4479,7 @@ impl DesignComponentController for DesignPanel {
                                     )
                                     .child(
                                         Input::new(&self.component_authoring.slot_maximum_input)
+                                            .typography(crate::atoms::TypographyToken::BodyMedium)
                                             .appearance(false)
                                             .bordered(true)
                                             .xsmall()
@@ -4715,6 +4730,7 @@ impl DesignComponentController for DesignPanel {
                 if editing {
                     row = row.child(
                         Input::new(&self.component_authoring.name_input)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .appearance(false)
                             .bordered(false)
                             .focus_bordered(true)
@@ -4843,6 +4859,7 @@ impl DesignComponentController for DesignPanel {
                 modal = modal.child(
                     h_flex().w_full().h(px(ROW_HEIGHT)).pl(px(18.)).child(
                         Input::new(&self.component_authoring.name_input)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .appearance(false)
                             .bordered(true)
                             .xsmall()
@@ -5097,6 +5114,7 @@ impl DesignComponentController for DesignPanel {
                 if editing {
                     row = row.child(
                         Input::new(&self.component_authoring.name_input)
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
                             .appearance(false)
                             .bordered(false)
                             .focus_bordered(true)
@@ -5737,6 +5755,7 @@ impl DesignComponentController for DesignPanel {
                             )
                             .child(
                                 Input::new(&self.retained.inputs.component_multiline)
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
                                     .appearance(false)
                                     .bordered(false)
                                     .focus_bordered(false)

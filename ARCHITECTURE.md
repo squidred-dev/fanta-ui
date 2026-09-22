@@ -339,63 +339,45 @@ extracted section modules from extending the façade with inherent impl blocks.
 
 ## §12 Editor toolbar integration contract
 
-`EditorToolbar` is a stateful, intrinsic editor-chrome dock. It renders its
-persistent controls as one contained, content-sized surface; it does not claim
-full-canvas bounds, choose viewport coordinates, or apply its own outer
-positioning. A host supplies the active mode, selected tool, zoom, the
-Dev/Motion option read models, and its chrome controls. The toolbar emits
-`ToolbarAction` intents and never creates layers, changes a selection, runs a
-command, advances a timeline, or invokes an AI service.
+`EditorToolbar` is an intrinsic, host-controlled dock. Design has one row:
+a mode dropdown, tool groups, Actions, and optional host chrome.
+`ZoomBar` is a separate controlled organism that hosts place independently;
+it emits zoom, fit-to-view and fit-to-selection requests.
+Motion, Draw and Dev add one contextual row above it. The host positions the
+dock; the component does not claim full-canvas bounds. Tool rows scroll at
+narrow widths while the mode and Actions buttons remain available.
 
-Host-controlled state:
+The host owns mode, selected tool, zoom, Dev/Motion options, Draw settings,
+brush-tip and crop-ratio catalogs, allowed commands, and optional chrome.
+`DrawToolbarOptions` supplies brush size/hardness/opacity/flow/smoothing,
+pressure, selection operation/feather/anti-alias/tolerance/contiguity, and crop
+preferences. `DrawOptionsChangeRequested` and `DrawActionInvoked` are typed
+requests only: the host must apply and echo them. Reusable components never
+paint, crop, mutate paths, advance timelines, or execute commands.
 
-- the active Design, Motion, or Dev mode;
-- the selected primary tool and accepted mode-specific control values;
-- canvas zoom, Dev readiness, and Motion transport state;
-- every candidate the Motion option editor may offer (the animation-style
-  catalog) — the toolbar presents these and never invents a value outside
-  them;
-- Agent context copy and suggestions, plus the allowed command subset/order;
-- the host chrome controls shown in the dock's trailing capsule
-  (`ToolbarChromeControl`: id, `IconName`, label, shortcut hint, and the
-  `active` flag), supplied via `set_chrome_controls` — fit-to-view and
-  sidebar toggles are host chrome, so the toolbar renders them but only ever
-  reports `ChromeControlInvoked { id }`; the host applies the effect and
-  echoes any new `active` state;
-- command execution, plugins, widgets, media placement, undo, present, share,
-  generated content, document mutations, and timeline data.
+The component owns only input drafts, open menus, cursor/focus continuity,
+and scroll offsets. Numeric drawing settings reuse the controlled Slider
+molecule and gpui-component Input. Escape cancels a draft; Enter or a slider
+commit requests a bounded setting. Mode/tool changes close contextual menus.
 
-Component-owned presentation state:
+Tool, mode and settings menus align to the dock edges with a four-pixel gap.
+The standalone ZoomBar owns its own menu placement. Menus clamp to the window.
+Actions centers above the dock with the same four-pixel gap and shrinks its
+results viewport to fit short windows. It has a focused search field and
+one command list; it has no asset/plugin/widget filters or Agent composer.
+Every command has a distinct semantic Lucide icon. Palette and flyout scroll
+handlers consume bubbling wheel events, including at scroll boundaries, so
+host canvas gestures cannot receive them. The dock likewise occludes pointer
+events while allowing its internal overflow rows to scroll.
 
-- the open split-tool, Actions, Agent, zoom, or chip option-editor overlay;
-- Actions query and highlighted result, plus the menu highlight cursor;
-- the unsent Agent prompt and focused suggestion/control;
-- focus return, hover, pressed, tooltip, and flyout continuity;
-- row scroll offsets and the overflow-fade visibility derived from them.
-
-Each transient surface is anchored to the exact disclosure, Actions, Agent, or
-zoom trigger that opened it. It may render in a deferred layer above the dock,
-but it must not position itself against an unrelated full-canvas root or canvas
-center. Component-owned popups snap inside the window with an 8 px edge margin.
-Persistent primary, secondary, mode, zoom, Agent, and chrome controls remain
-inside the dock; constrained hosts may let the dock's internal rows scroll.
-
-The dock occludes the pointer: hosts float it over the canvas, so every mouse
-event on the dock surface — clicks, presses, hovers, wheel — stops there and a
-tool press never also reaches the canvas beneath. The dock's own overflow rows
-sit above that surface and keep scrolling; transient popups block on their own
-surfaces. Tool and mode icons are Lucide: gpui-component `IconName` assets
-where a fitting one exists (resolved against the host asset source, §5) and
-stroke paths authored on Lucide's 24-unit grid with its round-capped 2-unit
-stroke otherwise, so assets and drawings read as one set.
-
-Pointer controls, Enter/Space activation, and the command actions registered by
-`fanta_gpui::init` converge on the same methods and typed intents. Hosts accept
-an intent by calling `set_mode`, `set_active_tool`, `set_zoom_percent`, or the
-appropriate options setter with fresh controlled data. The interactive
-storybook is the mock host and is the only layer that applies those requests.
-The host owns the dock's outer placement, canvas inset, and surrounding canvas
-clipping; the toolbar owns collision handling for its transient surfaces.
+Colors use the active theme's semantic tokens. Solid selected controls pair
+`BackgroundBrand` with `TextOnBrand`; subtle selection surfaces use normal
+foreground. Persistent controls fit within the dock, with at most two rows.
+ZoomBar has its own story and is not mounted in the toolbar preview; the host
+will place it in a sidebar. Sidebar toggles belong to the sidebars.
+Legacy Scale, Resources, plugins and widgets enum values remain
+source vocabulary for existing adapters, but are absent from toolbar catalogs,
+menus and bindings. See [docs/toolbar.md](docs/toolbar.md) for integration.
 
 ## §13 Variables screen, prototype, and timeline contracts
 
@@ -409,6 +391,15 @@ position, dismissed educational hints, focus, and open/closed empty-state
 guidance. They do not create variables, change prototype settings, add
 keyframes, seek, or run an agent.
 
+The Timeline host supplies layers, property keyframes, preset clips, comments,
+selection, duration, playback mode, time units, zoom, snapping and editability.
+The component renders a shared ruler/lane coordinate system and one vertical
+row viewport, so keyframe hit targets and layer labels remain aligned. Drag
+drafts, horizontal pan, marquee bounds, input drafts and menus are transient.
+Retime, trim, easing, visibility, selection, comment and resize changes emit
+typed requests. Only the Storybook mock host advances playback and applies
+edits to its sample data. See [docs/timeline.md](docs/timeline.md).
+
 The Variables screen also owns the optional mode-scope bar and selected-layer
 binding panel. `VariablesContextData` supplies opaque scope, node, property,
 mode and variable identifiers with host-filtered choices. `VariablesContextAction`
@@ -419,9 +410,9 @@ the horizontal separator. Creating a first variable requests the host to create
 a collection and default mode when none exists.
 
 `color_picker::ColorPicker` is a reusable organism with an RGBA-only public
-contract (`PickerColor`, `ColorPickerAction`, and `ColorPickerPhase`). It owns
-the retained editor extracted from Design; the inspector’s richer paint adapter
-uses that same implementation. Hosts supply accepted colors, while spectrum,
+contract (`PickerColor`, `ColorPickerAction`, and `ColorPickerPhase`). It wraps the public `paint_picker::PaintPicker` organism in solid-color mode.
+Design’s paint adapter mounts that same organism without adding another
+popover background, border, shadow, or padding. Hosts supply accepted colors, while spectrum,
 hue, alpha and text previews remain transient until commit. Closing cancels
 unfinished edits. The standalone `color-picker` story echoes commits and offers
 opaque and translucent fixtures.
@@ -642,3 +633,38 @@ when receiving an event. Pages expose typed directional move intents and
 host-controlled edit/link availability; boundary moves and last-page deletion
 are disabled before emission. See `docs/CONTEXT-MENU-AUDIT.md` for the native
 Figma comparison and mapping of engine-independent presentations.
+
+## §19 Properties inspector composition
+
+`PropertiesInspector` replaces the assembled right-inspector presentation with
+six independently mountable tab organisms and an integrated `ZoomControls`
+header. `ZoomBar` supplies standalone floating chrome around the same molecule.
+Collapsed presentation is a zoom-only floating card. Child document intents stay
+on the child/controller entities; the layout emits only tab, collapse and zoom
+requests. Host sidebars own outer borders.
+
+`DesignInspector` composes individual `DesignPropertyPanel` entities for the
+current controlled inspection context. Their existing narrow projections and
+controllers retain editing behavior and share one `DesignPanel` compatibility
+edit session. The old shell is not mounted in the new composition. Other tab
+organisms have independent models and typed intents. Storybook owns their mock
+reducers and keeps inspection-context controls in Knobs. The contract and story
+inventory are in [docs/properties-inspector.md](docs/properties-inspector.md).
+
+## §20 Paint picker composition
+
+`paint_picker::PaintPicker` is independently mountable. It accepts an opaque
+layer/paint target and a `DesignPaint` snapshot through `set_target`, plus
+optional variable, style, media, shader, and contrast catalogs. Public
+`PaintPickerAction` intents carry the unchanged target, typed edits and edit
+phases, resource requests, and `CloseRequested`. Hosts apply and echo edits;
+the picker never modifies a document. On dismissal, hosts roll back any active
+transaction and call `prepare_for_dismissal` before unmounting.
+
+The component owns exactly one themed surface. Trigger hosts use
+`Popover::appearance(false)` when embedding it. The header and paint-type
+selector remain fixed above the scrolling editor; wheel and pinch events are
+contained. Color, gradient, media, resource, shader, and contrast editors live
+in separate modules. `ColorPicker` is its smaller RGBA-only adapter, not a
+second implementation. The `paint-picker` story supplies a standalone mock
+host, paint fixtures, read-only and open knobs.

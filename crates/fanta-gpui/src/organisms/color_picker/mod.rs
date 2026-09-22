@@ -2,7 +2,7 @@
 //!
 //! Hosts supply RGBA colors and receive typed edit phases. Draft previews live
 //! here until committed or canceled; accepted colors remain host-controlled.
-pub(crate) mod paint;
+use crate::organisms::paint_picker as paint;
 
 use crate::design::{
     CancelDesignInteraction, DESIGN_PANEL_KEY_CONTEXT, DesignColor, DesignPaint,

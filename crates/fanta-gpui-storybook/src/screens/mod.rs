@@ -25,7 +25,10 @@ pub(crate) mod list_rows;
 pub(crate) mod menus;
 pub(crate) mod overlays;
 pub(crate) mod pages;
+pub(crate) mod paint_picker;
 pub(crate) mod popups;
+pub(crate) mod properties_inspector;
+pub(crate) mod properties_tabs;
 pub(crate) mod prototype;
 pub(crate) mod pseudo_editor;
 pub(crate) mod radio_button;
@@ -38,6 +41,8 @@ pub(crate) mod tabs;
 pub(crate) mod timeline;
 pub(crate) mod tokens;
 pub(crate) mod toolbar;
+pub(crate) mod zoom_bar;
+pub(crate) use zoom_bar::ZoomBarScreen;
 pub(crate) mod tooltips;
 pub(crate) mod typography;
 pub(crate) mod variables;
@@ -59,6 +64,8 @@ pub(crate) use menus::MenusScreen;
 pub(crate) use overlays::OverlaysScreen;
 pub(crate) use pages::PagesScreen;
 pub(crate) use popups::PopupsScreen;
+pub(crate) use properties_inspector::PropertiesInspectorScreen;
+pub(crate) use properties_tabs::PropertiesTabsScreen;
 pub(crate) use prototype::PrototypeScreen;
 pub(crate) use pseudo_editor::PseudoEditorScreen;
 pub(crate) use radio_button::RadioButtonStory;
@@ -222,7 +229,7 @@ impl StoryKind {
     }
 }
 
-static REGISTRY: [StoryDescriptor; 34] = [
+static REGISTRY: [StoryDescriptor; 50] = [
     StoryDescriptor {
         kind: StoryKind::Typography,
         id: "typography",
@@ -421,6 +428,38 @@ static REGISTRY: [StoryDescriptor; 34] = [
                 .focus(window, cx)
         },
         last_action: |story| story.color_picker_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::PaintPicker,
+        id: "paint-picker",
+        aliases: &["paint", "fill-picker"],
+        title: "Paint picker",
+        nav_label: "Paint",
+        description: "Full paint editor: solid colors, gradients, images, video, patterns, shaders, and library resources.",
+        section: StorySection::Organisms,
+        reference_window_size: (720., 720.),
+        gallery_surface_size: (600., 620.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 560.),
+            ViewportPreset::new("Default", 600., 620.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Arrow keys", "Adjust focused spectrum, hue or alpha"),
+            KeyboardHint::new("Enter / Escape", "Commit / cancel color text edits"),
+        ],
+        render_story: |story, cx| story.render_paint_picker_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_paint_picker_reference(cx),
+        render_knobs: Some(|story, cx| story.render_paint_picker_knobs(cx)),
+        focus: |story, window, cx| {
+            story
+                .paint_picker_screen
+                .picker
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.paint_picker_screen.last_action.clone(),
     },
     StoryDescriptor {
         kind: StoryKind::Welcome,
@@ -1003,10 +1042,16 @@ static REGISTRY: [StoryDescriptor; 34] = [
             KeyboardHint::new("↑ / ↓ on numeric fields", "Nudge by the Small / Big step"),
             KeyboardHint::new("Esc", "Dismiss open pickers and menus"),
         ],
-        render_story: |story, _| story.design_screen.panel.clone().into_any_element(),
+        render_story: |story, _| {
+            story
+                .properties_inspector_screen
+                .design
+                .clone()
+                .into_any_element()
+        },
         render_gallery: Some(|story, cx| story.render_design_story_harness(cx)),
         render_reference: |story, cx| story.render_design_reference(cx),
-        render_knobs: None,
+        render_knobs: Some(|story, cx| story.render_design_knobs(cx)),
         focus: |story, window, cx| {
             story.design_screen.panel.focus_handle(cx).focus(window, cx);
         },
@@ -1113,20 +1158,27 @@ static REGISTRY: [StoryDescriptor; 34] = [
         aliases: &["motion-timeline"],
         title: "Timeline",
         nav_label: "Timeline",
-        description: "Motion controls, a time ruler, seeking, zoom, keyframes, and an empty-state agent prompt.",
+        description: "Layer tracks, keyframes, animation clips, easing, playback, and synchronized timing controls.",
         section: StorySection::Organisms,
-        reference_window_size: (1728., 333.),
-        gallery_surface_size: (1200., 333.),
+        reference_window_size: (1728., 460.),
+        gallery_surface_size: (1200., 440.),
         gallery_fluid_width: true,
         viewport_presets: &[
-            // The floor: floored rails, the minimum ruler, and the icon-only
-            // zoom cluster, with room for the empty-state card below.
+            // The header scrolls at narrow widths; labels keep a shared rail.
             ViewportPreset::new("Minimum", TIMELINE_MIN_WIDTH, 220.),
             ViewportPreset::new("Compact", 900., 260.),
-            ViewportPreset::new("Default", 1200., 333.),
-            ViewportPreset::new("Full", 1728., 333.),
+            ViewportPreset::new("Default", 1200., 440.),
+            ViewportPreset::new("Full", 1728., 460.),
         ],
-        keyboard_hints: &[],
+        keyboard_hints: &[
+            KeyboardHint::new("Space", "Play / pause"),
+            KeyboardHint::new("Arrows / Shift+Arrows", "Nudge keys or seek by 1 / 10 ms"),
+            KeyboardHint::new(
+                "Cmd/Ctrl+A · D · Delete",
+                "Select all · duplicate · delete keys",
+            ),
+            KeyboardHint::new("Escape", "Cancel a drag or close a menu"),
+        ],
         render_story: |story, _| story.timeline_screen.timeline.clone().into_any_element(),
         render_gallery: None,
         render_reference: |story, cx| story.render_timeline_reference(cx),
@@ -1146,7 +1198,7 @@ static REGISTRY: [StoryDescriptor; 34] = [
         aliases: &["editor-toolbar"],
         title: "Editor toolbar",
         nav_label: "Toolbar",
-        description: "A mode-aware Figma-style toolbar with tool groups, actions, zoom, and agent overlays.",
+        description: "A compact editor toolbar with Design, Motion, Draw and Dev modes, contextual settings, and Actions.",
         section: StorySection::Organisms,
         reference_window_size: (1240., 820.),
         gallery_surface_size: (1180., 720.),
@@ -1164,7 +1216,7 @@ static REGISTRY: [StoryDescriptor; 34] = [
             KeyboardHint::new("↑ / ↓", "Move through Actions commands"),
             KeyboardHint::new("← / →", "Adjust the focused toolbar control"),
             KeyboardHint::new("V H F R O P T …", "Select tools directly"),
-            KeyboardHint::new("Esc", "Close the Actions or Agent overlay"),
+            KeyboardHint::new("Esc", "Close a toolbar overlay"),
         ],
         render_story: |story, cx| story.render_toolbar_story(cx),
         render_gallery: None,
@@ -1178,6 +1230,32 @@ static REGISTRY: [StoryDescriptor; 34] = [
                 .focus(window, cx);
         },
         last_action: |story| story.toolbar_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::ZoomBar,
+        id: "zoombar",
+        aliases: &["zoom-bar"],
+        title: "ZoomBar",
+        nav_label: "ZoomBar",
+        description: "Independent canvas zoom, fit to view, and fit to selection controls.",
+        section: StorySection::Organisms,
+        reference_window_size: (800., 600.),
+        gallery_surface_size: (600., 400.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 300., 320.),
+            ViewportPreset::new("Default", 600., 400.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("↑ / ↓", "Choose a zoom action"),
+            KeyboardHint::new("Esc", "Close zoom menu"),
+        ],
+        render_story: |story, cx| story.render_zoom_bar_story(cx),
+        render_gallery: None,
+        render_reference: |story, cx| story.render_zoom_bar_story(cx),
+        render_knobs: None,
+        focus: |story, window, cx| story.zoom_bar_screen.bar.focus_handle(cx).focus(window, cx),
+        last_action: |story| story.zoom_bar_screen.last_action.clone(),
     },
     StoryDescriptor {
         kind: StoryKind::Variables,
@@ -1212,6 +1290,702 @@ static REGISTRY: [StoryDescriptor; 34] = [
                 .focus(window, cx);
         },
         last_action: |story| story.variables_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::PropertiesInspector,
+        id: "properties-inspector",
+        aliases: &[],
+        title: "Properties inspector",
+        nav_label: "Properties inspector",
+        description: "Composable, host-controlled properties inspector with themed controls and typed intents.",
+        section: StorySection::Layouts,
+        reference_window_size: (400., 760.),
+        gallery_surface_size: (400., 760.),
+        gallery_fluid_width: false,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 760.),
+            ViewportPreset::new("Default", 400., 760.),
+            ViewportPreset::new("Wide", 472., 820.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Tab / Shift-Tab", "Navigate controls"),
+            KeyboardHint::new("Enter / Space", "Activate a control"),
+            KeyboardHint::new("Esc", "Dismiss the active editor or menu"),
+        ],
+        render_story: |story, _| {
+            story
+                .properties_inspector_screen
+                .inspector
+                .clone()
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.render_reference_component_fixture(
+                "reference-properties-inspector",
+                story
+                    .properties_inspector_screen
+                    .inspector
+                    .clone()
+                    .into_any_element(),
+                story.properties_inspector_screen.last_action.clone(),
+                cx,
+            )
+        },
+        render_knobs: Some(|story, cx| story.render_properties_inspector_knobs(cx)),
+        focus: |story, window, cx| {
+            story
+                .properties_inspector_screen
+                .inspector
+                .clone()
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.properties_inspector_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::MotionInspector,
+        id: "motion-inspector",
+        aliases: &[],
+        title: "Motion properties",
+        nav_label: "Motion properties",
+        description: "Composable, host-controlled motion properties with themed controls and typed intents.",
+        section: StorySection::Organisms,
+        reference_window_size: (400., 760.),
+        gallery_surface_size: (360., 640.),
+        gallery_fluid_width: false,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 640.),
+            ViewportPreset::new("Default", 360., 640.),
+            ViewportPreset::new("Wide", 472., 820.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Tab / Shift-Tab", "Navigate controls"),
+            KeyboardHint::new("Enter / Space", "Activate a control"),
+            KeyboardHint::new("Esc", "Dismiss the active editor or menu"),
+        ],
+        render_story: |story, _| {
+            story
+                .properties_tabs_screen
+                .motion
+                .clone()
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.render_reference_component_fixture(
+                "reference-motion-inspector",
+                story
+                    .properties_tabs_screen
+                    .motion
+                    .clone()
+                    .into_any_element(),
+                story.properties_tabs_screen.last_action.clone(),
+                cx,
+            )
+        },
+        render_knobs: Some(|story, cx| story.render_properties_tabs_knobs(cx)),
+        focus: |story, window, cx| {
+            story
+                .properties_tabs_screen
+                .motion
+                .clone()
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.properties_tabs_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::DrawInspector,
+        id: "draw-inspector",
+        aliases: &[],
+        title: "Draw properties",
+        nav_label: "Draw properties",
+        description: "Composable, host-controlled draw properties with themed controls and typed intents.",
+        section: StorySection::Organisms,
+        reference_window_size: (400., 760.),
+        gallery_surface_size: (360., 640.),
+        gallery_fluid_width: false,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 640.),
+            ViewportPreset::new("Default", 360., 640.),
+            ViewportPreset::new("Wide", 472., 820.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Tab / Shift-Tab", "Navigate controls"),
+            KeyboardHint::new("Enter / Space", "Activate a control"),
+            KeyboardHint::new("Esc", "Dismiss the active editor or menu"),
+        ],
+        render_story: |story, _| story.properties_tabs_screen.draw.clone().into_any_element(),
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.render_reference_component_fixture(
+                "reference-draw-inspector",
+                story.properties_tabs_screen.draw.clone().into_any_element(),
+                story.properties_tabs_screen.last_action.clone(),
+                cx,
+            )
+        },
+        render_knobs: Some(|story, cx| story.render_properties_tabs_knobs(cx)),
+        focus: |story, window, cx| {
+            story
+                .properties_tabs_screen
+                .draw
+                .clone()
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.properties_tabs_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::CodeInspector,
+        id: "code-inspector",
+        aliases: &[],
+        title: "Code properties",
+        nav_label: "Code properties",
+        description: "Composable, host-controlled code properties with themed controls and typed intents.",
+        section: StorySection::Organisms,
+        reference_window_size: (400., 760.),
+        gallery_surface_size: (360., 640.),
+        gallery_fluid_width: false,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 640.),
+            ViewportPreset::new("Default", 360., 640.),
+            ViewportPreset::new("Wide", 472., 820.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Tab / Shift-Tab", "Navigate controls"),
+            KeyboardHint::new("Enter / Space", "Activate a control"),
+            KeyboardHint::new("Esc", "Dismiss the active editor or menu"),
+        ],
+        render_story: |story, _| story.properties_tabs_screen.code.clone().into_any_element(),
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.render_reference_component_fixture(
+                "reference-code-inspector",
+                story.properties_tabs_screen.code.clone().into_any_element(),
+                story.properties_tabs_screen.last_action.clone(),
+                cx,
+            )
+        },
+        render_knobs: Some(|story, cx| story.render_properties_tabs_knobs(cx)),
+        focus: |story, window, cx| {
+            story
+                .properties_tabs_screen
+                .code
+                .clone()
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.properties_tabs_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::CommentsInspector,
+        id: "comments-inspector",
+        aliases: &[],
+        title: "Comments properties",
+        nav_label: "Comments properties",
+        description: "Composable, host-controlled comments properties with themed controls and typed intents.",
+        section: StorySection::Organisms,
+        reference_window_size: (400., 760.),
+        gallery_surface_size: (360., 640.),
+        gallery_fluid_width: false,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 640.),
+            ViewportPreset::new("Default", 360., 640.),
+            ViewportPreset::new("Wide", 472., 820.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Tab / Shift-Tab", "Navigate controls"),
+            KeyboardHint::new("Enter / Space", "Activate a control"),
+            KeyboardHint::new("Esc", "Dismiss the active editor or menu"),
+        ],
+        render_story: |story, _| {
+            story
+                .properties_tabs_screen
+                .comments
+                .clone()
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.render_reference_component_fixture(
+                "reference-comments-inspector",
+                story
+                    .properties_tabs_screen
+                    .comments
+                    .clone()
+                    .into_any_element(),
+                story.properties_tabs_screen.last_action.clone(),
+                cx,
+            )
+        },
+        render_knobs: Some(|story, cx| story.render_properties_tabs_knobs(cx)),
+        focus: |story, window, cx| {
+            story
+                .properties_tabs_screen
+                .comments
+                .clone()
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.properties_tabs_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::PrototypeInspector,
+        id: "prototype-inspector",
+        aliases: &[],
+        title: "Prototype properties",
+        nav_label: "Prototype properties",
+        description: "Composable, host-controlled prototype properties with themed controls and typed intents.",
+        section: StorySection::Organisms,
+        reference_window_size: (400., 760.),
+        gallery_surface_size: (360., 640.),
+        gallery_fluid_width: false,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 640.),
+            ViewportPreset::new("Default", 360., 640.),
+            ViewportPreset::new("Wide", 472., 820.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Tab / Shift-Tab", "Navigate controls"),
+            KeyboardHint::new("Enter / Space", "Activate a control"),
+            KeyboardHint::new("Esc", "Dismiss the active editor or menu"),
+        ],
+        render_story: |story, _| {
+            story
+                .properties_tabs_screen
+                .prototype
+                .clone()
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.render_reference_component_fixture(
+                "reference-prototype-inspector",
+                story
+                    .properties_tabs_screen
+                    .prototype
+                    .clone()
+                    .into_any_element(),
+                story.properties_tabs_screen.last_action.clone(),
+                cx,
+            )
+        },
+        render_knobs: Some(|story, cx| story.render_properties_tabs_knobs(cx)),
+        focus: |story, window, cx| {
+            story
+                .properties_tabs_screen
+                .prototype
+                .clone()
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.properties_tabs_screen.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::PropertyAlignment,
+        id: "property-alignment",
+        aliases: &[],
+        title: "Alignment panel",
+        nav_label: "Alignment panel",
+        description: "Composable, host-controlled alignment panel with themed controls and typed intents.",
+        section: StorySection::Organisms,
+        reference_window_size: (400., 760.),
+        gallery_surface_size: (360., 520.),
+        gallery_fluid_width: false,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 520.),
+            ViewportPreset::new("Default", 360., 520.),
+            ViewportPreset::new("Wide", 472., 820.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Tab / Shift-Tab", "Navigate controls"),
+            KeyboardHint::new("Enter / Space", "Activate a control"),
+            KeyboardHint::new("Esc", "Dismiss the active editor or menu"),
+        ],
+        render_story: |story, _| {
+            story
+                .properties_inspector_screen
+                .panel(fanta_gpui::design::DesignPropertyPanelKind::Alignment)
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.render_reference_component_fixture(
+                "reference-property-alignment",
+                story
+                    .properties_inspector_screen
+                    .panel(fanta_gpui::design::DesignPropertyPanelKind::Alignment)
+                    .into_any_element(),
+                story.design_screen.harness.last_action.clone(),
+                cx,
+            )
+        },
+        render_knobs: Some(|story, cx| story.render_design_knobs(cx)),
+        focus: |story, window, cx| {
+            story
+                .properties_inspector_screen
+                .panel(fanta_gpui::design::DesignPropertyPanelKind::Alignment)
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.design_screen.harness.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::PropertyLayout,
+        id: "property-layout",
+        aliases: &[],
+        title: "Layout panel",
+        nav_label: "Layout panel",
+        description: "Composable, host-controlled layout panel with themed controls and typed intents.",
+        section: StorySection::Organisms,
+        reference_window_size: (400., 760.),
+        gallery_surface_size: (360., 520.),
+        gallery_fluid_width: false,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 520.),
+            ViewportPreset::new("Default", 360., 520.),
+            ViewportPreset::new("Wide", 472., 820.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Tab / Shift-Tab", "Navigate controls"),
+            KeyboardHint::new("Enter / Space", "Activate a control"),
+            KeyboardHint::new("Esc", "Dismiss the active editor or menu"),
+        ],
+        render_story: |story, _| {
+            story
+                .properties_inspector_screen
+                .panel(fanta_gpui::design::DesignPropertyPanelKind::Layout)
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.render_reference_component_fixture(
+                "reference-property-layout",
+                story
+                    .properties_inspector_screen
+                    .panel(fanta_gpui::design::DesignPropertyPanelKind::Layout)
+                    .into_any_element(),
+                story.design_screen.harness.last_action.clone(),
+                cx,
+            )
+        },
+        render_knobs: Some(|story, cx| story.render_design_knobs(cx)),
+        focus: |story, window, cx| {
+            story
+                .properties_inspector_screen
+                .panel(fanta_gpui::design::DesignPropertyPanelKind::Layout)
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.design_screen.harness.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::PropertyAppearance,
+        id: "property-appearance",
+        aliases: &[],
+        title: "Appearance panel",
+        nav_label: "Appearance panel",
+        description: "Composable, host-controlled appearance panel with themed controls and typed intents.",
+        section: StorySection::Organisms,
+        reference_window_size: (400., 760.),
+        gallery_surface_size: (360., 520.),
+        gallery_fluid_width: false,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 520.),
+            ViewportPreset::new("Default", 360., 520.),
+            ViewportPreset::new("Wide", 472., 820.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Tab / Shift-Tab", "Navigate controls"),
+            KeyboardHint::new("Enter / Space", "Activate a control"),
+            KeyboardHint::new("Esc", "Dismiss the active editor or menu"),
+        ],
+        render_story: |story, _| {
+            story
+                .properties_inspector_screen
+                .panel(fanta_gpui::design::DesignPropertyPanelKind::Appearance)
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.render_reference_component_fixture(
+                "reference-property-appearance",
+                story
+                    .properties_inspector_screen
+                    .panel(fanta_gpui::design::DesignPropertyPanelKind::Appearance)
+                    .into_any_element(),
+                story.design_screen.harness.last_action.clone(),
+                cx,
+            )
+        },
+        render_knobs: Some(|story, cx| story.render_design_knobs(cx)),
+        focus: |story, window, cx| {
+            story
+                .properties_inspector_screen
+                .panel(fanta_gpui::design::DesignPropertyPanelKind::Appearance)
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.design_screen.harness.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::PropertyFill,
+        id: "property-fill",
+        aliases: &[],
+        title: "Fill panel",
+        nav_label: "Fill panel",
+        description: "Composable, host-controlled fill panel with themed controls and typed intents.",
+        section: StorySection::Organisms,
+        reference_window_size: (400., 760.),
+        gallery_surface_size: (360., 520.),
+        gallery_fluid_width: false,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 520.),
+            ViewportPreset::new("Default", 360., 520.),
+            ViewportPreset::new("Wide", 472., 820.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Tab / Shift-Tab", "Navigate controls"),
+            KeyboardHint::new("Enter / Space", "Activate a control"),
+            KeyboardHint::new("Esc", "Dismiss the active editor or menu"),
+        ],
+        render_story: |story, _| {
+            story
+                .properties_inspector_screen
+                .panel(fanta_gpui::design::DesignPropertyPanelKind::Fill)
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.render_reference_component_fixture(
+                "reference-property-fill",
+                story
+                    .properties_inspector_screen
+                    .panel(fanta_gpui::design::DesignPropertyPanelKind::Fill)
+                    .into_any_element(),
+                story.design_screen.harness.last_action.clone(),
+                cx,
+            )
+        },
+        render_knobs: Some(|story, cx| story.render_design_knobs(cx)),
+        focus: |story, window, cx| {
+            story
+                .properties_inspector_screen
+                .panel(fanta_gpui::design::DesignPropertyPanelKind::Fill)
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.design_screen.harness.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::PropertyStroke,
+        id: "property-stroke",
+        aliases: &[],
+        title: "Stroke panel",
+        nav_label: "Stroke panel",
+        description: "Composable, host-controlled stroke panel with themed controls and typed intents.",
+        section: StorySection::Organisms,
+        reference_window_size: (400., 760.),
+        gallery_surface_size: (360., 520.),
+        gallery_fluid_width: false,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 520.),
+            ViewportPreset::new("Default", 360., 520.),
+            ViewportPreset::new("Wide", 472., 820.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Tab / Shift-Tab", "Navigate controls"),
+            KeyboardHint::new("Enter / Space", "Activate a control"),
+            KeyboardHint::new("Esc", "Dismiss the active editor or menu"),
+        ],
+        render_story: |story, _| {
+            story
+                .properties_inspector_screen
+                .panel(fanta_gpui::design::DesignPropertyPanelKind::Stroke)
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.render_reference_component_fixture(
+                "reference-property-stroke",
+                story
+                    .properties_inspector_screen
+                    .panel(fanta_gpui::design::DesignPropertyPanelKind::Stroke)
+                    .into_any_element(),
+                story.design_screen.harness.last_action.clone(),
+                cx,
+            )
+        },
+        render_knobs: Some(|story, cx| story.render_design_knobs(cx)),
+        focus: |story, window, cx| {
+            story
+                .properties_inspector_screen
+                .panel(fanta_gpui::design::DesignPropertyPanelKind::Stroke)
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.design_screen.harness.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::PropertyEffects,
+        id: "property-effects",
+        aliases: &[],
+        title: "Effects panel",
+        nav_label: "Effects panel",
+        description: "Composable, host-controlled effects panel with themed controls and typed intents.",
+        section: StorySection::Organisms,
+        reference_window_size: (400., 760.),
+        gallery_surface_size: (360., 520.),
+        gallery_fluid_width: false,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 520.),
+            ViewportPreset::new("Default", 360., 520.),
+            ViewportPreset::new("Wide", 472., 820.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Tab / Shift-Tab", "Navigate controls"),
+            KeyboardHint::new("Enter / Space", "Activate a control"),
+            KeyboardHint::new("Esc", "Dismiss the active editor or menu"),
+        ],
+        render_story: |story, _| {
+            story
+                .properties_inspector_screen
+                .panel(fanta_gpui::design::DesignPropertyPanelKind::Effects)
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.render_reference_component_fixture(
+                "reference-property-effects",
+                story
+                    .properties_inspector_screen
+                    .panel(fanta_gpui::design::DesignPropertyPanelKind::Effects)
+                    .into_any_element(),
+                story.design_screen.harness.last_action.clone(),
+                cx,
+            )
+        },
+        render_knobs: Some(|story, cx| story.render_design_knobs(cx)),
+        focus: |story, window, cx| {
+            story
+                .properties_inspector_screen
+                .panel(fanta_gpui::design::DesignPropertyPanelKind::Effects)
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.design_screen.harness.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::PropertyExport,
+        id: "property-export",
+        aliases: &[],
+        title: "Export panel",
+        nav_label: "Export panel",
+        description: "Composable, host-controlled export panel with themed controls and typed intents.",
+        section: StorySection::Organisms,
+        reference_window_size: (400., 760.),
+        gallery_surface_size: (360., 520.),
+        gallery_fluid_width: false,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 520.),
+            ViewportPreset::new("Default", 360., 520.),
+            ViewportPreset::new("Wide", 472., 820.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Tab / Shift-Tab", "Navigate controls"),
+            KeyboardHint::new("Enter / Space", "Activate a control"),
+            KeyboardHint::new("Esc", "Dismiss the active editor or menu"),
+        ],
+        render_story: |story, _| {
+            story
+                .properties_inspector_screen
+                .panel(fanta_gpui::design::DesignPropertyPanelKind::Export)
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.render_reference_component_fixture(
+                "reference-property-export",
+                story
+                    .properties_inspector_screen
+                    .panel(fanta_gpui::design::DesignPropertyPanelKind::Export)
+                    .into_any_element(),
+                story.design_screen.harness.last_action.clone(),
+                cx,
+            )
+        },
+        render_knobs: Some(|story, cx| story.render_design_knobs(cx)),
+        focus: |story, window, cx| {
+            story
+                .properties_inspector_screen
+                .panel(fanta_gpui::design::DesignPropertyPanelKind::Export)
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.design_screen.harness.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::PropertyTypography,
+        id: "property-typography",
+        aliases: &[],
+        title: "Typography panel",
+        nav_label: "Typography panel",
+        description: "Composable, host-controlled typography panel with themed controls and typed intents.",
+        section: StorySection::Organisms,
+        reference_window_size: (400., 760.),
+        gallery_surface_size: (360., 520.),
+        gallery_fluid_width: false,
+        viewport_presets: &[
+            ViewportPreset::new("Compact", 320., 520.),
+            ViewportPreset::new("Default", 360., 520.),
+            ViewportPreset::new("Wide", 472., 820.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Tab / Shift-Tab", "Navigate controls"),
+            KeyboardHint::new("Enter / Space", "Activate a control"),
+            KeyboardHint::new("Esc", "Dismiss the active editor or menu"),
+        ],
+        render_story: |story, _| {
+            story
+                .properties_inspector_screen
+                .panel(fanta_gpui::design::DesignPropertyPanelKind::Typography)
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.render_reference_component_fixture(
+                "reference-property-typography",
+                story
+                    .properties_inspector_screen
+                    .panel(fanta_gpui::design::DesignPropertyPanelKind::Typography)
+                    .into_any_element(),
+                story
+                    .properties_inspector_screen
+                    .typography_host
+                    .harness
+                    .last_action
+                    .clone(),
+                cx,
+            )
+        },
+        render_knobs: None,
+        focus: |story, window, cx| {
+            story
+                .properties_inspector_screen
+                .panel(fanta_gpui::design::DesignPropertyPanelKind::Typography)
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| {
+            story
+                .properties_inspector_screen
+                .typography_host
+                .harness
+                .last_action
+                .clone()
+        },
     },
     StoryDescriptor {
         kind: StoryKind::FileInspector,
@@ -1323,7 +2097,7 @@ mod tests {
                 );
             }
         }
-        assert_eq!(registry().len(), 34);
+        assert_eq!(registry().len(), 50);
         assert_eq!(
             story_from_name("color-picker"),
             Some(StoryKind::ColorPicker)

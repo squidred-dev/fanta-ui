@@ -997,6 +997,23 @@ fn render_editable_selection_row(
         .into_any_element()
 }
 
+/// Selection summary for composed inspectors. Sidebar navigation belongs to
+/// the host layout; this surface contains only the inspected target and its
+/// capability-validated commands.
+pub(in super::super) fn render_selection_summary(
+    projection: &HeaderProjection,
+    event_sink: HeaderEventSink,
+    cx: &mut Context<DesignPanel>,
+) -> AnyElement {
+    v_flex()
+        .w_full()
+        .flex_none()
+        .border_b_1()
+        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
+        .child(render_editable_selection_row(projection, &event_sink, cx))
+        .into_any_element()
+}
+
 pub(in super::super) fn render_draw_header(
     projection: &HeaderProjection,
     event_sink: &HeaderEventSink,

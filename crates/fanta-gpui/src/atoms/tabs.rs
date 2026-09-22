@@ -52,6 +52,7 @@ pub struct Tab {
     label: SharedString,
     selected: bool,
     single_tab: bool,
+    compact: bool,
     state: TabState,
     badge: Option<SharedString>,
     on_activate: Option<ActivateHandler>,
@@ -64,6 +65,7 @@ impl Tab {
             label: label.into(),
             selected: false,
             single_tab: false,
+            compact: false,
             state: TabState::Default,
             badge: None,
             on_activate: None,
@@ -72,6 +74,12 @@ impl Tab {
 
     pub const fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
+        self
+    }
+
+    /// Compact navigation for dense inspector headers.
+    pub const fn compact(mut self, compact: bool) -> Self {
+        self.compact = compact;
         self
     }
 
@@ -122,6 +130,7 @@ impl RenderOnce for Tab {
             .justify_center()
             .gap_1()
             .px_2()
+            .when(self.compact, |tab| tab.min_w_0().px_1().flex_none())
             .rounded(px(tokens::ButtonGeometry::RADIUS))
             .border_1()
             .border_color(if focused {
@@ -145,6 +154,9 @@ impl RenderOnce for Tab {
                     .min_w(px(tokens::Space::NONE))
                     .truncate()
                     .typography(TypographyToken::BodyMedium)
+                    .when(self.compact, |tab| {
+                        tab.typography(TypographyToken::BodySmallStrong)
+                    })
                     .when(selected, |label| label.font_semibold())
                     .text_color(if selected {
                         SemanticColor::Text.resolve(cx)
@@ -181,6 +193,8 @@ pub struct Tabs {
     id: SharedString,
     labels: Vec<SharedString>,
     selected_index: usize,
+    natural_width: bool,
+    compact: bool,
     badges: Vec<Option<SharedString>>,
     on_change: Option<ChangeHandler>,
 }
@@ -192,6 +206,8 @@ impl Tabs {
             id: id.into(),
             labels,
             selected_index: 0,
+            natural_width: false,
+            compact: false,
             badges,
             on_change: None,
         }
@@ -199,6 +215,17 @@ impl Tabs {
 
     pub const fn selected_index(mut self, selected_index: usize) -> Self {
         self.selected_index = selected_index;
+        self
+    }
+
+    pub const fn compact(mut self, compact: bool) -> Self {
+        self.compact = compact;
+        self
+    }
+
+    /// Size to the tab labels, for use inside a scrolling sidebar header.
+    pub const fn natural_width(mut self, natural_width: bool) -> Self {
+        self.natural_width = natural_width;
         self
     }
 
@@ -230,7 +257,8 @@ impl RenderOnce for Tabs {
             .map(|(index, label)| {
                 let mut tab = Tab::new(SharedString::from(format!("{base_id}-tab-{index}")), label)
                     .selected(!single_tab && index == selected_index)
-                    .single_tab(single_tab);
+                    .single_tab(single_tab)
+                    .compact(self.compact);
                 if let Some(Some(badge)) = self.badges.get(index).cloned() {
                     tab = tab.badge(badge);
                 }
@@ -254,11 +282,14 @@ impl RenderOnce for Tabs {
         h_flex()
             .id(self.id)
             .debug_selector(move || selector.clone())
-            .w(px(if single_tab {
-                tokens::TabsGeometry::SINGLE_TAB_WIDTH
-            } else {
-                tokens::TabsGeometry::TABS_WIDTH
-            }))
+            .when(!self.natural_width, |group| {
+                group.w(px(if single_tab {
+                    tokens::TabsGeometry::SINGLE_TAB_WIDTH
+                } else {
+                    tokens::TabsGeometry::TABS_WIDTH
+                }))
+            })
+            .when(self.natural_width, |group| group.flex_none())
             .h(px(tokens::RowHeight::LIST))
             .items_center()
             .gap_1()
