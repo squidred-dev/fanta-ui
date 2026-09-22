@@ -1,7 +1,7 @@
 [package]
 edition = "2024"
 name = "fanta-gpui-components"
-version = "0.4.0"
+version = "0.4.1"
 build = false
 publish = true
 autolib = false
@@ -42,7 +42,7 @@ version = "0.4.38"
 version = "2.1.0"
 
 [dependencies.gpui]
-version = "=0.4.0"
+version = "=0.4.1"
 package = "fanta-gpui-core"
 path = "../gpui"
 
@@ -52,7 +52,7 @@ version = "0.5.1"
 [dependencies.gpui_macros]
 path = "../gpui_macros"
 package = "fanta-gpui-gpui-macros"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [dependencies.html5ever]
 version = "0.27"
@@ -113,7 +113,7 @@ version = "0.1"
 version = "1"
 
 [dependencies.smol]
-version = "=0.4.0"
+version = "=0.4.1"
 package = "fanta-gpui-smol"
 path = "../smol"
 
@@ -254,7 +254,7 @@ optional = true
 package = "lb-wry"
 
 [dev-dependencies.gpui]
-version = "=0.4.0"
+version = "=0.4.1"
 features = [ "test-support",]
 package = "fanta-gpui-core"
 path = "../gpui"

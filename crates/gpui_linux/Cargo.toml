@@ -1,6 +1,6 @@
 [package]
 name = "fanta-gpui-gpui-linux"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 publish = true
 license = "Apache-2.0"
@@ -55,7 +55,7 @@ version = "1.0.86"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"freebsd\"))".dependencies.collections]
 path = "../collections"
-version = "=0.4.0"
+version = "=0.4.1"
 package = "fanta-gpui-collections"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"freebsd\"))".dependencies.image]
@@ -68,24 +68,24 @@ version = "0.3.32"
 path = "../gpui"
 default-features = false
 package = "fanta-gpui-core"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"freebsd\"))".dependencies.gpui_util]
 path = "../gpui_util"
 package = "fanta-gpui-gpui-util"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"freebsd\"))".dependencies.gpui_wgpu]
 path = "../gpui_wgpu"
 optional = true
 features = [ "font-kit",]
 package = "fanta-gpui-gpui-wgpu"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"freebsd\"))".dependencies.http_client]
 path = "../http_client"
 package = "fanta-gpui-http-client"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"freebsd\"))".dependencies.itertools]
 version = "0.14.0"
@@ -111,7 +111,7 @@ version = "1.6"
 features = [ "const_new", "union",]
 
 [target."cfg(any(target_os = \"linux\", target_os = \"freebsd\"))".dependencies.smol]
-version = "=0.4.0"
+version = "=0.4.1"
 package = "fanta-gpui-smol"
 path = "../smol"
 

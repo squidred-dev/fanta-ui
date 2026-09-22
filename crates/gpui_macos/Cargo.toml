@@ -1,6 +1,6 @@
 [package]
 name = "fanta-gpui-gpui-macos"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 publish = true
 license = "Apache-2.0"
@@ -35,7 +35,7 @@ nonminimal_bool = "allow"
 path = "../gpui"
 default-features = false
 package = "fanta-gpui-core"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [lints.clippy.style]
 level = "allow"
@@ -69,7 +69,7 @@ version = "=0.26.0"
 
 [target."cfg(target_os = \"macos\")".dependencies.collections]
 path = "../collections"
-version = "=0.4.0"
+version = "=0.4.1"
 package = "fanta-gpui-collections"
 
 [target."cfg(target_os = \"macos\")".dependencies.core-foundation]
@@ -100,7 +100,7 @@ version = "0.3.32"
 [target."cfg(target_os = \"macos\")".dependencies.gpui_util]
 path = "../gpui_util"
 package = "fanta-gpui-gpui-util"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [target."cfg(target_os = \"macos\")".dependencies.image]
 version = "0.25.1"
@@ -121,7 +121,7 @@ version = "0.5"
 [target."cfg(target_os = \"macos\")".dependencies.media]
 path = "../media"
 package = "fanta-gpui-media"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [target."cfg(target_os = \"macos\")".dependencies.metal]
 version = "0.33"
@@ -169,11 +169,11 @@ default-features = false
 path = "../gpui"
 default-features = false
 package = "fanta-gpui-core"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [target."cfg(target_os = \"macos\")".dev-dependencies.gpui]
 path = "../gpui"
 default-features = false
 features = [ "test-support",]
 package = "fanta-gpui-core"
-version = "=0.4.0"
+version = "=0.4.1"

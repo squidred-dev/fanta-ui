@@ -1,6 +1,6 @@
 [package]
 name = "fanta-gpui-core"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 authors = [ "Nathan Sobo <nathan@zed.dev>",]
 description = "Zed's GPU-accelerated UI framework"
@@ -61,7 +61,7 @@ optional = true
 
 [dependencies.collections]
 path = "../collections"
-version = "=0.4.0"
+version = "=0.4.1"
 package = "fanta-gpui-collections"
 
 [dependencies.criterion]
@@ -85,17 +85,17 @@ version = "7.7.1"
 [dependencies.gpui_macros]
 path = "../gpui_macros"
 package = "fanta-gpui-gpui-macros"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [dependencies.gpui_shared_string]
 path = "../gpui_shared_string"
 package = "fanta-gpui-gpui-shared-string"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [dependencies.http_client]
 path = "../http_client"
 package = "fanta-gpui-http-client"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [dependencies.image]
 version = "0.25.1"
@@ -119,7 +119,7 @@ features = [ "futures-traits",]
 
 [dependencies.proptest]
 optional = true
-version = "=0.4.0"
+version = "=0.4.1"
 features = [ "attr-macro",]
 package = "fanta-gpui-proptest"
 path = "../proptest"
@@ -140,12 +140,12 @@ version = "1.5"
 [dependencies.refineable]
 path = "../refineable"
 package = "fanta-gpui-refineable"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [dependencies.scheduler]
 path = "../scheduler"
 package = "fanta-gpui-scheduler"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [dependencies.resvg]
 version = "0.46.0"
@@ -159,7 +159,7 @@ default-features = false
 [dependencies.util_macros]
 path = "../util_macros"
 package = "fanta-gpui-util-macros"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [dependencies.schemars]
 version = "1.0"
@@ -193,7 +193,7 @@ features = [ "derive",]
 [dependencies.sum_tree]
 path = "../sum_tree"
 package = "fanta-gpui-sum-tree"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [dependencies.thiserror]
 version = "2.0.12"
@@ -201,7 +201,7 @@ version = "2.0.12"
 [dependencies.gpui_util]
 path = "../gpui_util"
 package = "fanta-gpui-gpui-util"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [dependencies.hdrhistogram]
 version = "7"
@@ -245,7 +245,7 @@ version = "0.3"
 
 [dev-dependencies.collections]
 path = "../collections"
-version = "=0.4.0"
+version = "=0.4.1"
 features = [ "test-support",]
 package = "fanta-gpui-collections"
 
@@ -255,7 +255,7 @@ version = "0.11"
 [dev-dependencies.gpui_util]
 path = "../gpui_util"
 package = "fanta-gpui-gpui-util"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [dev-dependencies.lyon]
 version = "1.0"
@@ -268,7 +268,7 @@ version = "0.9"
 path = "../scheduler"
 features = [ "test-support",]
 package = "fanta-gpui-scheduler"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [dev-dependencies.unicode-segmentation]
 version = "1.10"
@@ -320,7 +320,7 @@ features = [ "kv_unstable_serde", "serde",]
 [target."cfg(target_os = \"macos\")".dependencies.media]
 path = "../media"
 package = "fanta-gpui-media"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [target."cfg(target_os = \"macos\")".dependencies.objc]
 version = "0.2"
@@ -368,10 +368,10 @@ features = [ "Win32_Foundation", "Win32_System_Power",]
 path = "../http_client"
 features = [ "test-support",]
 package = "fanta-gpui-http-client"
-version = "=0.4.0"
+version = "=0.4.1"
 
 [target."cfg(not(target_family = \"wasm\"))".dev-dependencies.proptest]
-version = "=0.4.0"
+version = "=0.4.1"
 features = [ "attr-macro",]
 package = "fanta-gpui-proptest"
 path = "../proptest"
@@ -380,4 +380,4 @@ path = "../proptest"
 path = "../reqwest_client"
 features = [ "test-support",]
 package = "fanta-gpui-reqwest-client"
-version = "=0.4.0"
+version = "=0.4.1"
