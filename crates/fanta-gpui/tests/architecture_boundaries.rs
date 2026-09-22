@@ -2262,6 +2262,48 @@ fn raw_pixel_literal_budget_ratchets_down() {
     }
 }
 
+fn raw_theme_color_fields(line: &str) -> impl Iterator<Item = &str> {
+    line.split("cx.theme().").skip(1).filter_map(|access| {
+        let field = access
+            .split(|character: char| !character.is_ascii_alphanumeric() && character != '_')
+            .next()
+            .unwrap_or_default();
+        // Font families and presentation mechanics are not palette colors.
+        // Keep font sizes and geometry governed by the separate token checks.
+        (!matches!(
+            field,
+            "transparent" | "shadow" | "font_family" | "mono_font_family"
+        ))
+        .then_some(field)
+    })
+}
+
+#[test]
+fn semantic_color_guard_allows_theme_font_families() {
+    for field in ["font_family", "mono_font_family", "transparent", "shadow"] {
+        assert!(
+            raw_theme_color_fields(&format!("cx.theme().{field}.clone()"))
+                .next()
+                .is_none()
+        );
+    }
+}
+
+#[test]
+fn semantic_color_guard_still_rejects_palette_access_alongside_font_settings() {
+    assert_eq!(
+        raw_theme_color_fields(
+            ".font_family(cx.theme().mono_font_family.clone()).bg(cx.theme().background).text_color(cx.theme().foreground)"
+        )
+        .collect::<Vec<_>>(),
+        ["background", "foreground"]
+    );
+    assert_eq!(
+        raw_theme_color_fields("cx.theme().primary").collect::<Vec<_>>(),
+        ["primary"]
+    );
+}
+
 #[test]
 fn production_colors_resolve_through_the_semantic_color_system() {
     let source_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
@@ -2275,15 +2317,7 @@ fn production_colors_resolve_through_the_semantic_color_system() {
             .lines()
             .enumerate()
         {
-            let Some(theme_access) = line.split("cx.theme().").nth(1) else {
-                continue;
-            };
-            let field = theme_access
-                .split(|character: char| !character.is_ascii_alphanumeric() && character != '_')
-                .next()
-                .unwrap_or_default();
-            // These are presentation mechanics, not palette colors.
-            if !matches!(field, "transparent" | "shadow") {
+            for field in raw_theme_color_fields(line) {
                 raw_theme_colors.push((
                     path.strip_prefix(&source_root)
                         .expect("visited source must be inside src")
