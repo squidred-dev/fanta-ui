@@ -201,10 +201,24 @@ impl DesignOptionsController for DesignPanel {
             properties.push(DesignPanelProperty::EffectKind(index));
             match &effect.settings {
                 DesignEffectSettings::DropShadow(_) | DesignEffectSettings::InnerShadow(_) => {
-                    properties.push(DesignPanelProperty::EffectShadowBlendMode(index));
+                    if self
+                        .host
+                        .inspected_node()
+                        .effect_capabilities
+                        .shadow_blend_mode
+                    {
+                        properties.push(DesignPanelProperty::EffectShadowBlendMode(index));
+                    }
                 }
                 DesignEffectSettings::LayerBlur(_) | DesignEffectSettings::BackgroundBlur(_) => {
-                    properties.push(DesignPanelProperty::EffectBlurType(index));
+                    if self
+                        .host
+                        .inspected_node()
+                        .effect_capabilities
+                        .progressive_blur
+                    {
+                        properties.push(DesignPanelProperty::EffectBlurType(index));
+                    }
                 }
                 DesignEffectSettings::Noise(_) => {
                     properties.extend([

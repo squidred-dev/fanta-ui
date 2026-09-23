@@ -1970,17 +1970,25 @@ impl DesignEffectsController for DesignPanel {
             DesignEffectSettings::LayerBlur(settings)
             | DesignEffectSettings::BackgroundBlur(settings) => {
                 let blur_type = settings.blur_type();
-                let mut content = v_flex().w_full().gap_2().child(self.render_value_cell(
-                    format!("effect-blur-type-{index}"),
-                    "T",
-                    blur_type.label(),
-                    DesignPanelProperty::EffectBlurType(index),
-                    DesignPanelValue::EffectBlurType(match blur_type {
-                        DesignBlurType::Normal => DesignBlurType::Progressive,
-                        DesignBlurType::Progressive => DesignBlurType::Normal,
-                    }),
-                    cx,
-                ));
+                let mut content = v_flex().w_full().gap_2().when(
+                    self.host
+                        .inspected_node()
+                        .effect_capabilities
+                        .progressive_blur,
+                    |content| {
+                        content.child(self.render_value_cell(
+                            format!("effect-blur-type-{index}"),
+                            "T",
+                            blur_type.label(),
+                            DesignPanelProperty::EffectBlurType(index),
+                            DesignPanelValue::EffectBlurType(match blur_type {
+                                DesignBlurType::Normal => DesignBlurType::Progressive,
+                                DesignBlurType::Progressive => DesignBlurType::Normal,
+                            }),
+                            cx,
+                        ))
+                    },
+                );
                 match settings {
                     DesignBlurEffect::Normal { radius } => {
                         content = content.child(self.render_value_cell(

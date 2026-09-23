@@ -265,7 +265,23 @@ impl DesignPropertiesController for DesignPanel {
 
     fn node_capability_allows_property(&self, property: DesignPanelProperty) -> bool {
         if property.effect_index().is_some() {
-            return self.collection_is_supported(DesignPanelCollection::Effect);
+            let effect_capabilities = &self.host.inspected_node().effect_capabilities;
+            let supported = match property {
+                DesignPanelProperty::EffectShadowBlendMode(_) => {
+                    effect_capabilities.shadow_blend_mode
+                }
+                DesignPanelProperty::EffectBlurType(_)
+                | DesignPanelProperty::EffectProgressiveBlurStartRadius(_)
+                | DesignPanelProperty::EffectProgressiveBlurEndRadius(_)
+                | DesignPanelProperty::EffectProgressiveBlurStartOffsetX(_)
+                | DesignPanelProperty::EffectProgressiveBlurStartOffsetY(_)
+                | DesignPanelProperty::EffectProgressiveBlurEndOffsetX(_)
+                | DesignPanelProperty::EffectProgressiveBlurEndOffsetY(_) => {
+                    effect_capabilities.progressive_blur
+                }
+                _ => true,
+            };
+            return supported && self.collection_is_supported(DesignPanelCollection::Effect);
         }
         if property.layout_grid_index().is_some() {
             return self.collection_is_supported(DesignPanelCollection::LayoutGrid);

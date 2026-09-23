@@ -99,6 +99,10 @@ impl DesignEffectKindAvailability {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DesignEffectCapabilities {
     pub kind_availability: Vec<DesignEffectKindAvailability>,
+    /// Whether the host can persist progressive blur settings.
+    pub progressive_blur: bool,
+    /// Whether the host can persist an effect-specific shadow blend mode.
+    pub shadow_blend_mode: bool,
     /// Whether Drop/Inner shadow spread is legal for this exact node.
     pub shadow_spread: bool,
     /// Whether Figma's "Show behind transparent areas" control is applicable
@@ -122,6 +126,8 @@ impl DesignEffectCapabilities {
                     }
                 })
                 .collect(),
+            progressive_blur: true,
+            shadow_blend_mode: true,
             shadow_spread: matches!(
                 kind,
                 DesignPanelNodeKind::Rectangle | DesignPanelNodeKind::Ellipse
