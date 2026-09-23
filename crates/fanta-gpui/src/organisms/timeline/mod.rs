@@ -74,6 +74,7 @@ pub struct Timeline {
     focus_handle: FocusHandle,
     view_data: TimelineViewData,
     auto_keyframe_available: bool,
+    comments_available: bool,
     show_empty_state: bool,
     collapsed: bool,
     overlay: Option<Overlay>,
@@ -121,6 +122,7 @@ impl Timeline {
             focus_handle: cx.focus_handle(),
             view_data,
             auto_keyframe_available: true,
+            comments_available: true,
             show_empty_state: true,
             collapsed: false,
             overlay: None,
@@ -147,6 +149,12 @@ impl Timeline {
     pub fn set_auto_keyframe_available(&mut self, available: bool, cx: &mut Context<Self>) {
         if self.auto_keyframe_available != available {
             self.auto_keyframe_available = available;
+            cx.notify();
+        }
+    }
+    pub fn set_comments_available(&mut self, available: bool, cx: &mut Context<Self>) {
+        if self.comments_available != available {
+            self.comments_available = available;
             cx.notify();
         }
     }

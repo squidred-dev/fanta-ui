@@ -85,7 +85,7 @@ impl MotionInspector {
                 }
             }),
             preset: picker(&format!("{id}-preset"), cx, |this, event, cx| {
-                if !this.data.read_only {
+                if !this.data.read_only && !this.data.selection_name.is_empty() {
                     cx.emit(Action::PresetApplyRequested {
                         id: event.0.clone(),
                     });

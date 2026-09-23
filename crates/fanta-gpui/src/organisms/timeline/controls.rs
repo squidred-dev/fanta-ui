@@ -271,17 +271,19 @@ impl Timeline {
                     },
                 ),
             )
-            .child(self.command(
-                "comment",
-                "Comment at playhead",
-                LucideIcon::MessageSquarePlus,
-                false,
-                editing,
-                TimelineAction::CommentAddRequested {
-                    time_ms: d.current_time_ms,
-                },
-                cx,
-            ))
+            .when(self.comments_available, |controls| {
+                controls.child(self.command(
+                    "comment",
+                    "Comment at playhead",
+                    LucideIcon::MessageSquarePlus,
+                    false,
+                    editing,
+                    TimelineAction::CommentAddRequested {
+                        time_ms: d.current_time_ms,
+                    },
+                    cx,
+                ))
+            })
             .child(div().flex_1().min_w(px(tokens::Space::SM)))
             .child(
                 self.button(
