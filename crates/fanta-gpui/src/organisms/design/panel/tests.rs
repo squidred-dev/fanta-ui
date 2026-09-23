@@ -13317,7 +13317,10 @@ fn stable_effect_settings_target_survives_host_reorder_and_capabilities_gate_lea
     node.effects = vec![
         super::super::DesignEffect::new(DesignEffectKind::DropShadow).with_id("shadow-a"),
         super::super::DesignEffect::new(DesignEffectKind::InnerShadow).with_id("shadow-b"),
+        super::super::DesignEffect::new(DesignEffectKind::LayerBlur).with_id("blur"),
     ];
+    node.effect_capabilities.progressive_blur = false;
+    node.effect_capabilities.shadow_blend_mode = false;
     let (host, visual_cx) = setup(node.clone(), cx);
     let panel = panel(&host, visual_cx);
 
@@ -13327,6 +13330,8 @@ fn stable_effect_settings_target_survives_host_reorder_and_capabilities_gate_lea
             effect_id: "shadow-b".into(),
         });
         assert!(!panel.property_is_editable(DesignPanelProperty::EffectShadowSpread(0)));
+        assert!(!panel.property_is_editable(DesignPanelProperty::EffectShadowBlendMode(0)));
+        assert!(!panel.property_is_editable(DesignPanelProperty::EffectBlurType(2)));
         assert!(
             !panel.property_is_editable(DesignPanelProperty::EffectDropShadowShowBehindNode(0))
         );
@@ -13955,6 +13960,38 @@ fn appearance_blend_options_reserve_pass_through_for_containers(cx: &mut TestApp
         assert_eq!(container_options.len(), DesignBlendMode::ALL.len());
         assert!(container_options.iter().any(|option| {
             option.value == DesignPanelValue::BlendMode(DesignBlendMode::PassThrough)
+        }));
+    });
+}
+
+#[gpui::test]
+fn appearance_blend_options_follow_host_supported_modes(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup(
+        DesignPanelNode::new("rectangle", "Rectangle", DesignPanelNodeKind::Rectangle),
+        cx,
+    );
+    let panel = panel(&host, visual_cx);
+    panel.update(visual_cx, |panel, cx| {
+        let supported: Vec<_> = DesignBlendMode::ALL
+            .into_iter()
+            .filter(|mode| {
+                !matches!(
+                    mode,
+                    DesignBlendMode::LinearBurn | DesignBlendMode::LinearDodge
+                )
+            })
+            .collect();
+        panel.set_supported_blend_modes(&supported, cx);
+        let options = panel
+            .property_options(DesignPanelProperty::BlendMode)
+            .expect("rectangle blend options");
+        assert_eq!(options.len(), DesignBlendMode::NON_PASS_THROUGH.len() - 2);
+        assert!(!options.iter().any(|option| {
+            matches!(
+                option.value,
+                DesignPanelValue::BlendMode(DesignBlendMode::LinearBurn)
+                    | DesignPanelValue::BlendMode(DesignBlendMode::LinearDodge)
+            )
         }));
     });
 }

@@ -887,6 +887,7 @@ impl DesignPanelFactory {
             features,
             paint_picker,
             paint_visibility_supported: true,
+            supported_blend_modes: DesignBlendMode::ALL.to_vec(),
             typography_style_picker,
             overlays: DesignOverlayCoordinator::with_focus_handles(cx),
             sections: DesignSectionController::default(),

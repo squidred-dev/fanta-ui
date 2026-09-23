@@ -13,6 +13,7 @@ pub(in super::super) struct AppearanceProjection {
     capabilities: AppearanceCapabilities,
     values: AppearanceValues,
     presentation: AppearancePresentation,
+    supported_blend_modes: Vec<DesignBlendMode>,
 }
 
 /// Host-declared access and topology gates used by Appearance.
@@ -67,6 +68,7 @@ impl AppearanceProjection {
         capabilities: AppearanceCapabilities,
         values: AppearanceValues,
         presentation: AppearancePresentation,
+        supported_blend_modes: Vec<DesignBlendMode>,
     ) -> Self {
         Self {
             panel_id,
@@ -74,6 +76,7 @@ impl AppearanceProjection {
             capabilities,
             values,
             presentation,
+            supported_blend_modes,
         }
     }
 
@@ -1275,6 +1278,7 @@ fn render_blend_popover(
 ) -> AnyElement {
     let current = projection.values.blend_mode;
     let supports_pass_through = projection.capabilities.supports_pass_through_blend;
+    let supported_blend_modes = projection.supported_blend_modes.clone();
     let editable = projection.capabilities.blend_mode_editable;
     let blend_open = projection.presentation.blend_mode_open;
     let expected_target_for_keyboard = projection.target.clone();
@@ -1322,6 +1326,7 @@ fn render_blend_popover(
     .trigger(trigger)
     .content(move |_, window, cx| {
         let popover = cx.entity();
+        let supported_blend_modes = supported_blend_modes.clone();
         v_flex()
             .w(popup_width(window, 176.))
             .max_h(popup_height(window, 336.))
@@ -1331,7 +1336,8 @@ fn render_blend_popover(
                 DesignBlendMode::ALL
                     .into_iter()
                     .filter(move |mode| {
-                        supports_pass_through || *mode != DesignBlendMode::PassThrough
+                        supported_blend_modes.contains(mode)
+                            && (supports_pass_through || *mode != DesignBlendMode::PassThrough)
                     })
                     .map(|mode| {
                         let events = events_for_content.clone();

@@ -92,6 +92,7 @@ pub(super) fn projection(panel: &DesignPanel) -> sections::appearance::Appearanc
                 .numeric_scrub_seed(DesignPanelProperty::CornerRadius)
                 .is_some(),
         },
+        panel.supported_blend_modes.clone(),
     )
 }
 

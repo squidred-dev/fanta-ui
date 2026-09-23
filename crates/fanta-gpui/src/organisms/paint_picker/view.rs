@@ -277,6 +277,7 @@ impl PaintPicker {
         let picker_for_content = picker_for_open.clone();
         let picker_id = self.id.clone();
         let selected_mode = paint.blend_mode;
+        let supported_blend_modes = self.supported_blend_modes.clone();
         let blend_trigger =
             crate::atoms::ui_button(SharedString::from(format!("{}-paint-blend-mode", self.id)))
                 .tooltip(format!("Paint blend mode · {}", paint.blend_mode.label()))
@@ -329,7 +330,7 @@ impl PaintPicker {
                 .max_h(popup_height(window, 320.))
                 .overflow_y_scroll()
                 .gap_1()
-                .children(DesignBlendMode::NON_PASS_THROUGH.into_iter().map(|mode| {
+                .children(supported_blend_modes.clone().into_iter().map(|mode| {
                     let picker = picker_for_content.clone();
                     let picker_for_key = picker.clone();
                     let picker_for_hover = picker.clone();

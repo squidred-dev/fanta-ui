@@ -1327,6 +1327,7 @@ pub struct DesignPanel {
     features: DesignPanelFeatureState,
     paint_picker: Entity<PaintPicker>,
     paint_visibility_supported: bool,
+    supported_blend_modes: Vec<DesignBlendMode>,
     typography_style_picker: Entity<TypographyStylePicker>,
     overlays: DesignOverlayCoordinator,
     sections: DesignSectionController,
@@ -1399,6 +1400,24 @@ impl DesignPanel {
     pub fn set_paint_visibility_supported(&mut self, supported: bool, cx: &mut Context<Self>) {
         if self.paint_visibility_supported != supported {
             self.paint_visibility_supported = supported;
+            cx.notify();
+        }
+    }
+
+    pub fn set_supported_blend_modes(
+        &mut self,
+        supported: &[DesignBlendMode],
+        cx: &mut Context<Self>,
+    ) {
+        let supported: Vec<_> = DesignBlendMode::ALL
+            .into_iter()
+            .filter(|mode| supported.contains(mode))
+            .collect();
+        if self.supported_blend_modes != supported {
+            self.supported_blend_modes = supported.clone();
+            self.paint_picker.update(cx, |picker, cx| {
+                picker.set_supported_blend_modes(&supported, cx);
+            });
             cx.notify();
         }
     }

@@ -4089,8 +4089,9 @@ impl DesignPropertiesController for DesignPanel {
                 DesignBlendMode::ALL
                     .into_iter()
                     .filter(|mode| {
-                        self.host.inspected_node().supports_pass_through_blend()
-                            || *mode != DesignBlendMode::PassThrough
+                        self.supported_blend_modes.contains(mode)
+                            && (self.host.inspected_node().supports_pass_through_blend()
+                                || *mode != DesignBlendMode::PassThrough)
                     })
                     .map(|mode| PropertyOption {
                         label: mode.label().into(),
@@ -4102,6 +4103,7 @@ impl DesignPropertiesController for DesignPanel {
             | DesignPanelProperty::EffectNoiseBlendMode(_) => Some(
                 DesignBlendMode::NON_PASS_THROUGH
                     .into_iter()
+                    .filter(|mode| self.supported_blend_modes.contains(mode))
                     .map(|mode| PropertyOption {
                         label: mode.label().into(),
                         value: DesignPanelValue::BlendMode(mode),

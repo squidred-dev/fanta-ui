@@ -433,6 +433,7 @@ pub struct PaintPicker {
     media_view_data: DesignMediaPaintViewData,
     shader_view_data: DesignShaderViewData,
     supported_paint_types: Vec<DesignPaintType>,
+    supported_blend_modes: Vec<DesignBlendMode>,
     disabled: bool,
     active_tab: PaintPickerTab,
     shader_browser_requested: bool,
@@ -589,6 +590,7 @@ impl PaintPicker {
             media_view_data: DesignMediaPaintViewData::default(),
             shader_view_data: DesignShaderViewData::default(),
             supported_paint_types: DesignPaintType::ALL.to_vec(),
+            supported_blend_modes: DesignBlendMode::NON_PASS_THROUGH.to_vec(),
             disabled: false,
             active_tab: PaintPickerTab::Custom,
             shader_browser_requested: false,
@@ -728,6 +730,21 @@ impl PaintPicker {
             .collect();
         if self.supported_paint_types != supported {
             self.supported_paint_types = supported;
+            cx.notify();
+        }
+    }
+
+    pub fn set_supported_blend_modes(
+        &mut self,
+        supported: &[DesignBlendMode],
+        cx: &mut Context<Self>,
+    ) {
+        let supported: Vec<_> = DesignBlendMode::NON_PASS_THROUGH
+            .into_iter()
+            .filter(|mode| supported.contains(mode))
+            .collect();
+        if self.supported_blend_modes != supported {
+            self.supported_blend_modes = supported;
             cx.notify();
         }
     }
@@ -987,7 +1004,7 @@ impl PaintPicker {
             // without mounting the menu; the terminal End remains mandatory.
             self.cancel_blend_mode_preview(cx);
         }
-        if blend_mode == DesignBlendMode::PassThrough {
+        if !self.supported_blend_modes.contains(&blend_mode) {
             cx.notify();
             return;
         }
