@@ -17220,6 +17220,33 @@ fn fill_intents_follow_exact_text_range_revisions_while_stroke_stays_layer_wide(
 }
 
 #[gpui::test]
+fn host_can_hide_text_fill_stack_actions_without_hiding_color_edit(cx: &mut TestAppContext) {
+    let mut node = DesignPanelNode::new("text", "Text", DesignPanelNodeKind::Text);
+    node.fills = vec![DesignPaint::solid(DesignColor::WHITE).with_id("glyph-fill")];
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    let captured = actions(&host, visual_cx);
+    panel.update(visual_cx, |panel, cx| {
+        panel.set_paint_collection_item_actions_enabled(DesignPanelCollection::Fill, false, cx);
+        panel.emit_add(DesignPanelCollection::Fill, cx);
+        panel.emit_remove(DesignPanelCollection::Fill, 0, cx);
+    });
+    visual_cx.run_until_parked();
+
+    assert!(captured.borrow().is_empty());
+    assert!(visual_cx.debug_bounds("design-add-fill").is_none());
+    assert!(visual_cx.debug_bounds("design-remove-fill-0").is_none());
+    assert!(visual_cx.debug_bounds("design-fill-paint-0").is_some());
+
+    panel.update(visual_cx, |panel, cx| {
+        panel.set_paint_collection_item_actions_enabled(DesignPanelCollection::Fill, true, cx);
+    });
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("design-add-fill").is_some());
+    assert!(visual_cx.debug_bounds("design-remove-fill-0").is_some());
+}
+
+#[gpui::test]
 fn font_weight_variable_intent_preserves_the_exact_multiple_selection_target(
     cx: &mut TestAppContext,
 ) {

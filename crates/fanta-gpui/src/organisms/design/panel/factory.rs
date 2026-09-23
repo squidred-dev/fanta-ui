@@ -889,6 +889,7 @@ impl DesignPanelFactory {
             features,
             paint_picker,
             paint_visibility_supported: true,
+            paint_collection_item_actions_disabled: Vec::new(),
             eyedropper_enabled: true,
             color_variable_creation_enabled: true,
             supported_blend_modes: DesignBlendMode::ALL.to_vec(),

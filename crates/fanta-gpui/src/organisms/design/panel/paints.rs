@@ -898,6 +898,7 @@ impl DesignPaintController for DesignPanel {
     ) {
         if !self.can_edit()
             || !self.collection_is_supported(collection)
+            || !self.paint_collection_item_actions_enabled(collection)
             || self.paint_style_binding(collection).is_some()
             || from_index == to_index
         {
@@ -1585,6 +1586,7 @@ impl DesignPaintController for DesignPanel {
         let collection_style_bound = self.paint_style_binding(collection).is_some();
         let can_reorder = self.can_edit()
             && self.collection_is_supported(collection)
+            && self.paint_collection_item_actions_enabled(collection)
             && !collection_style_bound
             && !paint.read_only
             && self
@@ -1600,12 +1602,14 @@ impl DesignPaintController for DesignPanel {
             self.id,
             collection.label().to_lowercase()
         ));
+        let trigger_debug_id = trigger_id.to_string();
         let popover_id = SharedString::from(format!(
             "{}-{}-paint-popover-{index}",
             self.id,
             collection.label().to_lowercase()
         ));
         let trigger = crate::atoms::ui_button(trigger_id)
+            .debug_selector(move || trigger_debug_id.clone())
             .xsmall()
             .w_full()
             .h_full()

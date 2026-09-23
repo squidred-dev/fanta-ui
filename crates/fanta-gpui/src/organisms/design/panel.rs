@@ -1327,6 +1327,7 @@ pub struct DesignPanel {
     features: DesignPanelFeatureState,
     paint_picker: Entity<PaintPicker>,
     paint_visibility_supported: bool,
+    paint_collection_item_actions_disabled: Vec<DesignPanelCollection>,
     eyedropper_enabled: bool,
     color_variable_creation_enabled: bool,
     supported_blend_modes: Vec<DesignBlendMode>,
@@ -1404,6 +1405,33 @@ impl DesignPanel {
             self.paint_visibility_supported = supported;
             cx.notify();
         }
+    }
+
+    /// Restricts collection row Add, Remove, and Reorder for hosts whose
+    /// backing model supports paint edits but not paint stack mutations.
+    pub fn set_paint_collection_item_actions_enabled(
+        &mut self,
+        collection: DesignPanelCollection,
+        enabled: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let currently_enabled = self.paint_collection_item_actions_enabled(collection);
+        if currently_enabled == enabled {
+            return;
+        }
+        if enabled {
+            self.paint_collection_item_actions_disabled
+                .retain(|disabled| *disabled != collection);
+        } else {
+            self.paint_collection_item_actions_disabled.push(collection);
+        }
+        cx.notify();
+    }
+
+    fn paint_collection_item_actions_enabled(&self, collection: DesignPanelCollection) -> bool {
+        !self
+            .paint_collection_item_actions_disabled
+            .contains(&collection)
     }
 
     pub fn set_eyedropper_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
@@ -1982,6 +2010,12 @@ impl DesignPanel {
         cx: &mut Context<Self>,
     ) {
         self.apply_shader_view_data(view_data, cx);
+    }
+
+    pub fn set_shader_variable_binding_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        self.paint_picker.update(cx, |picker, cx| {
+            picker.set_shader_variable_binding_enabled(enabled, cx);
+        });
     }
 
     pub fn set_typography_style_view_data(

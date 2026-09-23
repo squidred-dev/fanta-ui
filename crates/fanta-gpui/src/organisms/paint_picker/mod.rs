@@ -439,6 +439,7 @@ pub struct PaintPicker {
     color_variable_creation_enabled: bool,
     eyedropper_enabled: bool,
     shader_view_data: DesignShaderViewData,
+    shader_variable_binding_enabled: bool,
     supported_paint_types: Vec<DesignPaintType>,
     supported_blend_modes: Vec<DesignBlendMode>,
     disabled: bool,
@@ -482,6 +483,12 @@ pub struct PaintPicker {
     color_channel_inputs: [Entity<InputState>; 3],
     opacity_input: Entity<InputState>,
     stop_position_input: Entity<InputState>,
+    shader_number_input: Entity<InputState>,
+    shader_color_input: Entity<InputState>,
+    shader_active_number_property: Option<SharedString>,
+    shader_active_color_property: Option<SharedString>,
+    shader_number_invalid: bool,
+    shader_color_invalid: bool,
     hex_invalid: bool,
     color_channel_invalid: [bool; 3],
     opacity_invalid: bool,
@@ -498,6 +505,8 @@ pub struct PaintPicker {
     color_channel_edit_sessions: [Option<DesignPaintEdit>; 3],
     opacity_edit_session: Option<DesignPaintEdit>,
     stop_position_edit_session: Option<DesignPaintEdit>,
+    shader_number_edit_session: Option<DesignPaintEdit>,
+    shader_color_edit_session: Option<DesignPaintEdit>,
     ignore_next_hex_change: bool,
     ignore_next_color_channel_changes: [bool; 3],
     ignore_next_opacity_change: bool,
@@ -529,6 +538,8 @@ impl PaintPicker {
         ];
         let opacity_input = cx.new(|cx| InputState::new(window, cx).placeholder("100"));
         let stop_position_input = cx.new(|cx| InputState::new(window, cx).placeholder("0"));
+        let shader_number_input = cx.new(|cx| InputState::new(window, cx).placeholder("0"));
+        let shader_color_input = cx.new(|cx| InputState::new(window, cx).placeholder("RRGGBB"));
 
         let hex_subscription = cx.subscribe_in(
             &hex_input,
@@ -549,6 +560,20 @@ impl PaintPicker {
             window,
             |this, _, event: &InputEvent, window, cx| {
                 this.handle_stop_position_input(event, window, cx);
+            },
+        );
+        let shader_number_subscription = cx.subscribe_in(
+            &shader_number_input,
+            window,
+            |this, _, event: &InputEvent, window, cx| {
+                this.handle_shader_number_input(event, window, cx);
+            },
+        );
+        let shader_color_subscription = cx.subscribe_in(
+            &shader_color_input,
+            window,
+            |this, _, event: &InputEvent, window, cx| {
+                this.handle_shader_color_input(event, window, cx);
             },
         );
         let resource_search_subscription =
@@ -574,6 +599,8 @@ impl PaintPicker {
             hex_subscription,
             opacity_subscription,
             stop_position_subscription,
+            shader_number_subscription,
+            shader_color_subscription,
         ];
         for (channel, input) in color_channel_inputs.iter().enumerate() {
             subscriptions.push(cx.subscribe_in(
@@ -599,6 +626,7 @@ impl PaintPicker {
             color_variable_creation_enabled: true,
             eyedropper_enabled: true,
             shader_view_data: DesignShaderViewData::default(),
+            shader_variable_binding_enabled: true,
             supported_paint_types: DesignPaintType::ALL.to_vec(),
             supported_blend_modes: DesignBlendMode::NON_PASS_THROUGH.to_vec(),
             disabled: false,
@@ -639,6 +667,12 @@ impl PaintPicker {
             color_channel_inputs,
             opacity_input,
             stop_position_input,
+            shader_number_input,
+            shader_color_input,
+            shader_active_number_property: None,
+            shader_active_color_property: None,
+            shader_number_invalid: false,
+            shader_color_invalid: false,
             hex_invalid: false,
             color_channel_invalid: [false; 3],
             opacity_invalid: false,
@@ -650,6 +684,8 @@ impl PaintPicker {
             color_channel_edit_sessions: [None, None, None],
             opacity_edit_session: None,
             stop_position_edit_session: None,
+            shader_number_edit_session: None,
+            shader_color_edit_session: None,
             ignore_next_hex_change: false,
             ignore_next_color_channel_changes: [false; 3],
             ignore_next_opacity_change: false,
@@ -777,6 +813,16 @@ impl PaintPicker {
         };
         let target_changed = self.target.as_ref() != Some(&target);
         let paint = normalize_paint(paint);
+        let shader_changed = match (
+            self.paint.as_ref().map(|paint| &paint.payload),
+            &paint.payload,
+        ) {
+            (Some(DesignPaintPayload::Shader(previous)), DesignPaintPayload::Shader(next)) => {
+                previous.shader_id != next.shader_id
+            }
+            (Some(DesignPaintPayload::Shader(_)), _) | (_, DesignPaintPayload::Shader(_)) => true,
+            _ => false,
+        };
         let preview_invalidated = self.blend_mode_menu_preview.as_ref().is_some_and(|active| {
             !active.target.exactly_eq(&target) || active.original != paint.blend_mode
         });
@@ -811,6 +857,14 @@ impl PaintPicker {
             self.continuous_edit = None;
             self.reset_text_input_edit_sessions();
         } else {
+            if shader_changed {
+                self.reset_shader_input_edit_sessions();
+                if matches!(&paint.payload, DesignPaintPayload::Shader(_)) {
+                    self.active_tab = PaintPickerTab::Custom;
+                    self.shader_browser_requested = false;
+                    self.scroll_handle.set_offset(Point::default());
+                }
+            }
             if !matches!(&paint.payload, DesignPaintPayload::Pattern(_)) {
                 self.forget_nested_overlay(PaintPickerOverlay::PatternSource);
             }
@@ -847,6 +901,7 @@ impl PaintPicker {
             preserve_opacity_draft,
             !target_changed,
         );
+        self.sync_shader_inputs(window, cx);
         cx.notify();
     }
 
@@ -1103,6 +1158,7 @@ impl PaintPicker {
         self.color_channel_edit_sessions = [None, None, None];
         self.opacity_edit_session = None;
         self.stop_position_edit_session = None;
+        self.reset_shader_input_edit_sessions();
         self.ignore_next_hex_change = false;
         self.ignore_next_color_channel_changes = [false; 3];
         self.ignore_next_opacity_change = false;
@@ -1117,6 +1173,8 @@ impl PaintPicker {
         }
         sessions.extend(self.opacity_edit_session.take());
         sessions.extend(self.stop_position_edit_session.take());
+        sessions.extend(self.shader_number_edit_session.take());
+        sessions.extend(self.shader_color_edit_session.take());
         for session in sessions {
             self.finish_text_input_edit(session, None, cx);
         }

@@ -95,7 +95,9 @@ impl DesignPanelShellController for DesignPanel {
             _ => false,
         };
         let can_add = add.is_some_and(|collection| {
-            if !self.collection_is_supported(collection) {
+            if !self.collection_is_supported(collection)
+                || !self.paint_collection_item_actions_enabled(collection)
+            {
                 false
             } else if collection == DesignPanelCollection::Export {
                 self.can_export()

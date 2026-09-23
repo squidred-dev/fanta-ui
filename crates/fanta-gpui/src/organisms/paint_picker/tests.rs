@@ -2094,6 +2094,182 @@ fn picker_locks_only_global_read_only_and_opaque_paints() {
     assert!(paint_color_locked(&partially_bound, 1));
 }
 
+fn editable_shader_fixture() -> (DesignShaderDefinition, DesignPaint) {
+    let definition = DesignShaderDefinition::new(
+        "grain",
+        "Grain",
+        true,
+        [
+            DesignShaderPropertyDefinition::new(
+                "scale",
+                "Scale",
+                crate::design::DesignShaderPropertyKind::Number,
+            )
+            .with_default(DesignShaderPropertyValue::Number(0.5)),
+            DesignShaderPropertyDefinition::new(
+                "tint",
+                "Tint",
+                crate::design::DesignShaderPropertyKind::Color,
+            )
+            .with_default(DesignShaderPropertyValue::Color(DesignColor::rgb(
+                255, 0, 0,
+            ))),
+        ],
+    );
+    let paint = DesignPaint::from_payload(DesignPaintPayload::Shader(
+        DesignShaderPaint::from_definition(&definition).expect("imported shader has metadata"),
+    ))
+    .with_id("shader-fill");
+    (definition, paint)
+}
+
+#[gpui::test]
+fn shader_number_field_commits_the_typed_value(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    let (definition, paint) = editable_shader_fixture();
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target("node", DesignPanelCollection::Fill, 0, paint, window, cx);
+            picker.set_shader_view_data(DesignShaderViewData::new([definition], []), cx);
+        });
+    });
+    visual_cx.run_until_parked();
+
+    let button = visual_cx
+        .debug_bounds("paint-picker-test-shader-property-scale-number")
+        .expect("number button should be visible");
+    visual_cx.simulate_click(button.center(), gpui::Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("shader-number-input").is_some());
+    let number_input = visual_cx.read(|app| picker.read(app).shader_number_input.clone());
+    visual_cx.update(|window, app| {
+        number_input.update(app, |input, cx| input.set_value("0.83", window, cx));
+    });
+    visual_cx.run_until_parked();
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.handle_shader_number_input(
+                &InputEvent::PressEnter { secondary: false },
+                window,
+                cx,
+            );
+        });
+    });
+    visual_cx.run_until_parked();
+
+    let events = events.borrow();
+    assert_eq!(
+        edit_phases(&events),
+        [
+            DesignPanelEditPhase::Begin,
+            DesignPanelEditPhase::Preview,
+            DesignPanelEditPhase::Commit,
+        ]
+    );
+    assert!(matches!(events.last(), Some(PaintPickerEvent::Edit {
+        edit,
+        phase: DesignPanelEditPhase::Commit,
+        ..
+    }) if matches!(edit.value, DesignPaintValue::ShaderProperty(
+        DesignShaderPropertyValue::Number(value)
+    ) if (value - 0.83).abs() < f32::EPSILON)));
+}
+
+#[gpui::test]
+fn shader_color_editor_is_inline_and_binding_can_be_hidden(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    let (definition, paint) = editable_shader_fixture();
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target("node", DesignPanelCollection::Fill, 0, paint, window, cx);
+            picker.set_shader_view_data(DesignShaderViewData::new([definition], []), cx);
+            picker.set_shader_variable_binding_enabled(false, cx);
+            picker.request_shader_property_bind("tint".into(), cx);
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(events.borrow().is_empty());
+    assert!(
+        visual_cx
+            .debug_bounds("paint-picker-test-shader-property-tint-bind")
+            .is_none()
+    );
+
+    let button = visual_cx
+        .debug_bounds("paint-picker-test-shader-property-tint-color")
+        .expect("color button should be visible");
+    visual_cx.simulate_click(button.center(), gpui::Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("shader-color-input").is_some());
+    let color_input = visual_cx.read(|app| picker.read(app).shader_color_input.clone());
+    visual_cx.update(|window, app| {
+        color_input.update(app, |input, cx| input.set_value("3366AA80", window, cx));
+    });
+    visual_cx.run_until_parked();
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.handle_shader_color_input(
+                &InputEvent::PressEnter { secondary: false },
+                window,
+                cx,
+            );
+        });
+    });
+    visual_cx.run_until_parked();
+
+    let events = events.borrow();
+    assert_eq!(
+        edit_phases(&events),
+        [
+            DesignPanelEditPhase::Begin,
+            DesignPanelEditPhase::Preview,
+            DesignPanelEditPhase::Commit,
+        ]
+    );
+    assert!(matches!(events.last(), Some(PaintPickerEvent::Edit {
+        edit,
+        phase: DesignPanelEditPhase::Commit,
+        ..
+    }) if edit.value == DesignPaintValue::ShaderProperty(
+        DesignShaderPropertyValue::Color(DesignColor::rgba(0x33, 0x66, 0xaa, 0x80))
+    )));
+}
+
+#[gpui::test]
+fn applying_shader_returns_picker_to_its_properties(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let (definition, shader_paint) = editable_shader_fixture();
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target(
+                "node",
+                DesignPanelCollection::Fill,
+                0,
+                DesignPaint::solid(DesignColor::BLACK).with_id("shader-fill"),
+                window,
+                cx,
+            );
+            picker.set_shader_view_data(DesignShaderViewData::new([definition], []), cx);
+            picker.select_paint_type(DesignPaintType::Shader, cx);
+            assert_eq!(picker.active_tab, PaintPickerTab::Libraries);
+            picker.set_target(
+                "node",
+                DesignPanelCollection::Fill,
+                0,
+                shader_paint,
+                window,
+                cx,
+            );
+            assert_eq!(picker.active_tab, PaintPickerTab::Custom);
+        });
+    });
+}
+
 #[test]
 fn color_style_selection_targets_only_the_active_color_leaf() {
     assert_eq!(

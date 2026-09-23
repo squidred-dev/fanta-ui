@@ -267,6 +267,14 @@ impl PaintPicker {
         }
     }
 
+    /// Hides shader-property variable binding when the host has no binding workflow.
+    pub fn set_shader_variable_binding_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.shader_variable_binding_enabled != enabled {
+            self.shader_variable_binding_enabled = enabled;
+            cx.notify();
+        }
+    }
+
     pub(crate) fn request_color_variable_apply(
         &self,
         variable_id: SharedString,

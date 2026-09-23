@@ -3,6 +3,320 @@
 use super::*;
 
 impl PaintPicker {
+    pub(super) fn reset_shader_input_edit_sessions(&mut self) {
+        self.shader_active_number_property = None;
+        self.shader_active_color_property = None;
+        self.shader_number_edit_session = None;
+        self.shader_color_edit_session = None;
+        self.shader_number_invalid = false;
+        self.shader_color_invalid = false;
+    }
+
+    fn shader_property_value(&self, definition_id: &str) -> Option<DesignShaderPropertyValue> {
+        let DesignPaintPayload::Shader(shader) = &self.paint.as_ref()?.payload else {
+            return None;
+        };
+        let definition = self.current_shader_definition()?.property(definition_id)?;
+        shader
+            .property(definition_id)
+            .or(definition.default_value.as_ref())
+            .cloned()
+    }
+
+    fn shader_property_edit(
+        &self,
+        definition_id: &SharedString,
+        value: DesignShaderPropertyValue,
+    ) -> Option<DesignPaintEdit> {
+        let definition = self.current_shader_definition()?.property(definition_id)?;
+        if !value.is_compatible_with(definition.kind) {
+            return None;
+        }
+        Some(DesignPaintEdit {
+            property: DesignPaintProperty::ShaderProperty {
+                definition_id: definition_id.clone(),
+            },
+            value: DesignPaintValue::ShaderProperty(value),
+        })
+    }
+
+    pub(super) fn sync_shader_inputs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let number = self
+            .shader_active_number_property
+            .as_ref()
+            .and_then(|id| self.shader_property_value(id))
+            .and_then(|value| match value {
+                DesignShaderPropertyValue::Number(value) => Some(format_decimal(value)),
+                _ => None,
+            });
+        let color = self
+            .shader_active_color_property
+            .as_ref()
+            .and_then(|id| self.shader_property_value(id))
+            .and_then(|value| match value {
+                DesignShaderPropertyValue::Color(value) => Some(rgba_hex(value)),
+                _ => None,
+            });
+        self.suppress_input_events = true;
+        if let Some(number) = number
+            && !self.shader_number_input.focus_handle(cx).is_focused(window)
+        {
+            self.shader_number_input.update(cx, |input, cx| {
+                input.set_value(number, window, cx);
+            });
+        }
+        if let Some(color) = color
+            && !self.shader_color_input.focus_handle(cx).is_focused(window)
+        {
+            self.shader_color_input.update(cx, |input, cx| {
+                input.set_value(color, window, cx);
+            });
+        }
+        self.suppress_input_events = false;
+    }
+
+    fn open_shader_number_editor(
+        &mut self,
+        definition_id: SharedString,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.editing_disabled() {
+            return;
+        }
+        let Some(DesignShaderPropertyValue::Number(value)) =
+            self.shader_property_value(&definition_id)
+        else {
+            return;
+        };
+        self.cancel_text_input_edit_sessions(cx);
+        self.shader_active_number_property = Some(definition_id);
+        self.shader_active_color_property = None;
+        self.shader_number_invalid = false;
+        self.suppress_input_events = true;
+        self.shader_number_input.update(cx, |input, cx| {
+            input.set_value(format_decimal(value), window, cx);
+        });
+        self.suppress_input_events = false;
+        self.shader_number_input.focus_handle(cx).focus(window, cx);
+        cx.notify();
+    }
+
+    fn open_shader_color_editor(
+        &mut self,
+        definition_id: SharedString,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.editing_disabled() {
+            return;
+        }
+        let Some(DesignShaderPropertyValue::Color(color)) =
+            self.shader_property_value(&definition_id)
+        else {
+            return;
+        };
+        self.cancel_text_input_edit_sessions(cx);
+        self.shader_active_color_property = Some(definition_id);
+        self.shader_active_number_property = None;
+        self.shader_color_invalid = false;
+        self.suppress_input_events = true;
+        self.shader_color_input.update(cx, |input, cx| {
+            input.set_value(rgba_hex(color), window, cx);
+        });
+        self.suppress_input_events = false;
+        self.shader_color_input.focus_handle(cx).focus(window, cx);
+        cx.notify();
+    }
+
+    fn restore_shader_input(
+        &mut self,
+        number: bool,
+        session: Option<&DesignPaintEdit>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let property = if number {
+            self.shader_active_number_property.as_ref()
+        } else {
+            self.shader_active_color_property.as_ref()
+        };
+        let session_value = session.and_then(|edit| match &edit.value {
+            DesignPaintValue::ShaderProperty(value) => Some(value.clone()),
+            _ => None,
+        });
+        let Some(value) =
+            session_value.or_else(|| property.and_then(|id| self.shader_property_value(id)))
+        else {
+            return;
+        };
+        let text = match value {
+            DesignShaderPropertyValue::Number(value) if number => format_decimal(value),
+            DesignShaderPropertyValue::Color(value) if !number => rgba_hex(value),
+            _ => return,
+        };
+        self.suppress_input_events = true;
+        if number {
+            self.shader_number_input.update(cx, |input, cx| {
+                input.set_value(text, window, cx);
+            });
+            self.shader_number_invalid = false;
+        } else {
+            self.shader_color_input.update(cx, |input, cx| {
+                input.set_value(text, window, cx);
+            });
+            self.shader_color_invalid = false;
+        }
+        self.suppress_input_events = false;
+        cx.notify();
+    }
+
+    fn parsed_shader_color(&self, text: &str, definition_id: &SharedString) -> Option<DesignColor> {
+        let parsed = parse_hex_color_input(text)?;
+        let mut color = parsed.color;
+        if !parsed.explicit_alpha {
+            let DesignShaderPropertyValue::Color(previous) =
+                self.shader_property_value(definition_id)?
+            else {
+                return None;
+            };
+            color.alpha = previous.alpha;
+        }
+        Some(color)
+    }
+
+    pub(super) fn handle_shader_number_input(
+        &mut self,
+        event: &InputEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if matches!(event, InputEvent::Focus) {
+            self.dismissal_event_guard = false;
+        }
+        if self.dismissal_event_guard || self.suppress_input_events || self.editing_disabled() {
+            return;
+        }
+        let Some(definition_id) = self.shader_active_number_property.clone() else {
+            return;
+        };
+        let value = self.shader_number_input.read(cx).value();
+        let parsed = value
+            .trim()
+            .parse::<f32>()
+            .ok()
+            .filter(|number| number.is_finite());
+        let candidate = parsed.and_then(|number| {
+            self.shader_property_edit(&definition_id, DesignShaderPropertyValue::Number(number))
+        });
+        match event {
+            InputEvent::Change => {
+                if !self.shader_number_input.focus_handle(cx).is_focused(window) {
+                    return;
+                }
+                if self.shader_number_edit_session.is_none()
+                    && let Some(original) = self
+                        .shader_property_value(&definition_id)
+                        .and_then(|value| self.shader_property_edit(&definition_id, value))
+                {
+                    self.shader_number_edit_session = self.begin_text_input_edit(original, cx);
+                }
+                self.shader_number_invalid = candidate.is_none();
+                if let Some(candidate) = candidate {
+                    self.emit_edit(candidate, DesignPanelEditPhase::Preview, cx);
+                } else {
+                    cx.notify();
+                }
+            }
+            InputEvent::PressEnter { .. } | InputEvent::Blur => {
+                if matches!(event, InputEvent::PressEnter { .. }) {
+                    window.prevent_default();
+                }
+                let session = self.shader_number_edit_session.take();
+                if self.shader_number_invalid || candidate.is_none() {
+                    self.restore_shader_input(true, session.as_ref(), window, cx);
+                }
+                if let Some(session) = session {
+                    self.finish_text_input_edit(session, candidate, cx);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    pub(super) fn handle_shader_color_input(
+        &mut self,
+        event: &InputEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if matches!(event, InputEvent::Focus) {
+            self.dismissal_event_guard = false;
+        }
+        if self.dismissal_event_guard || self.suppress_input_events || self.editing_disabled() {
+            return;
+        }
+        let Some(definition_id) = self.shader_active_color_property.clone() else {
+            return;
+        };
+        let value = self.shader_color_input.read(cx).value();
+        let candidate = self
+            .parsed_shader_color(value.as_ref(), &definition_id)
+            .and_then(|color| {
+                self.shader_property_edit(&definition_id, DesignShaderPropertyValue::Color(color))
+            });
+        match event {
+            InputEvent::Change => {
+                if !self.shader_color_input.focus_handle(cx).is_focused(window) {
+                    return;
+                }
+                if self.shader_color_edit_session.is_none()
+                    && let Some(original) = self
+                        .shader_property_value(&definition_id)
+                        .and_then(|value| self.shader_property_edit(&definition_id, value))
+                {
+                    self.shader_color_edit_session = self.begin_text_input_edit(original, cx);
+                }
+                self.shader_color_invalid = candidate.is_none();
+                if let Some(candidate) = candidate {
+                    self.emit_edit(candidate, DesignPanelEditPhase::Preview, cx);
+                } else {
+                    cx.notify();
+                }
+            }
+            InputEvent::PressEnter { .. } | InputEvent::Blur => {
+                if matches!(event, InputEvent::PressEnter { .. }) {
+                    window.prevent_default();
+                }
+                let session = self.shader_color_edit_session.take();
+                if self.shader_color_invalid || candidate.is_none() {
+                    self.restore_shader_input(false, session.as_ref(), window, cx);
+                }
+                if let Some(session) = session {
+                    self.finish_text_input_edit(session, candidate, cx);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn choose_shader_color(
+        &mut self,
+        definition_id: SharedString,
+        color: DesignColor,
+        cx: &mut Context<Self>,
+    ) {
+        if self.editing_disabled() {
+            return;
+        }
+        self.cancel_text_input_edit_sessions(cx);
+        if let Some(edit) =
+            self.shader_property_edit(&definition_id, DesignShaderPropertyValue::Color(color))
+        {
+            self.emit_edit(edit, DesignPanelEditPhase::Commit, cx);
+        }
+    }
+
     pub(super) fn render_shader_row(
         &self,
         shader: &DesignShaderDefinition,
@@ -208,7 +522,8 @@ impl PaintPicker {
         definition_id: SharedString,
         cx: &mut Context<Self>,
     ) {
-        if self.editing_disabled()
+        if !self.shader_variable_binding_enabled
+            || self.editing_disabled()
             || self
                 .current_shader_definition()
                 .is_none_or(|shader| shader.property(&definition_id).is_none())
@@ -326,34 +641,73 @@ impl PaintPicker {
             Some(DesignShaderPropertyValue::Number(current))
                 if variable_id.is_none() && current.is_finite() =>
             {
-                let next = *current + 0.25;
-                crate::atoms::ui_button(SharedString::from(format!(
-                    "{}-shader-property-{}-number",
+                if self.shader_active_number_property.as_ref() == Some(&definition.id) {
+                    div()
+                        .debug_selector(|| "shader-number-input".to_owned())
+                        .child(
+                            Input::new(&self.shader_number_input)
+                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .xsmall()
+                                .h(px(26.))
+                                .w(px(74.))
+                                .disabled(disabled)
+                                .when(self.shader_number_invalid, |input| {
+                                    input.border_color(
+                                        crate::atoms::SemanticColor::TextDanger.resolve(cx),
+                                    )
+                                }),
+                        )
+                        .into_any_element()
+                } else {
+                    let button_id = SharedString::from(format!(
+                        "{}-shader-property-{}-number",
+                        self.id, definition.id
+                    ));
+                    let debug_id = button_id.to_string();
+                    crate::atoms::ui_button(button_id)
+                        .debug_selector(move || debug_id.clone())
+                        .label(format_decimal(*current))
+                        .xsmall()
+                        .compact()
+                        .outline()
+                        .disabled(disabled)
+                        .on_activate({
+                            let definition_id = definition_id.clone();
+                            cx.listener(move |this, _, window, cx| {
+                                this.open_shader_number_editor(definition_id.clone(), window, cx);
+                            })
+                        })
+                        .into_any_element()
+                }
+            }
+            Some(DesignShaderPropertyValue::Color(current)) if variable_id.is_none() => {
+                let button_id = SharedString::from(format!(
+                    "{}-shader-property-{}-color",
                     self.id, definition.id
-                )))
-                .label(format_decimal(*current))
-                .xsmall()
-                .compact()
-                .outline()
-                .disabled(disabled)
-                .on_activate({
-                    let definition_id = definition_id.clone();
-                    cx.listener(move |this, _, _, cx| {
-                        let _ = this.emit_edit(
-                            DesignPaintEdit {
-                                property: DesignPaintProperty::ShaderProperty {
-                                    definition_id: definition_id.clone(),
-                                },
-                                value: DesignPaintValue::ShaderProperty(
-                                    DesignShaderPropertyValue::Number(next),
-                                ),
-                            },
-                            DesignPanelEditPhase::Commit,
-                            cx,
-                        );
+                ));
+                let debug_id = button_id.to_string();
+                crate::atoms::ui_button(button_id)
+                    .debug_selector(move || debug_id.clone())
+                    .label(format!("#{}", current.hex()))
+                    .child(
+                        div()
+                            .size(px(16.))
+                            .rounded(px(3.))
+                            .border_1()
+                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                            .bg(color_to_hsla(*current)),
+                    )
+                    .xsmall()
+                    .compact()
+                    .outline()
+                    .disabled(disabled)
+                    .on_activate({
+                        let definition_id = definition_id.clone();
+                        cx.listener(move |this, _, window, cx| {
+                            this.open_shader_color_editor(definition_id.clone(), window, cx);
+                        })
                     })
-                })
-                .into_any_element()
+                    .into_any_element()
             }
             _ => crate::atoms::ui_button(SharedString::from(format!(
                 "{}-shader-property-{}-edit",
@@ -374,44 +728,53 @@ impl PaintPicker {
         };
 
         let variable_control = if let Some(variable_id) = variable_id {
-            crate::atoms::ui_button(SharedString::from(format!(
-                "{}-shader-property-{}-detach",
-                self.id, definition.id
-            )))
-            .label("Detach")
-            .tooltip(format!("Detach variable {variable_id}"))
-            .xsmall()
-            .compact()
-            .ghost()
-            .disabled(disabled)
-            .on_activate({
-                let definition_id = definition_id.clone();
-                cx.listener(move |this, _, _, cx| {
-                    this.request_shader_property_detach(
-                        definition_id.clone(),
-                        variable_id.clone(),
-                        cx,
-                    );
+            Some(
+                crate::atoms::ui_button(SharedString::from(format!(
+                    "{}-shader-property-{}-detach",
+                    self.id, definition.id
+                )))
+                .label("Detach")
+                .tooltip(format!("Detach variable {variable_id}"))
+                .xsmall()
+                .compact()
+                .ghost()
+                .disabled(disabled)
+                .on_activate({
+                    let definition_id = definition_id.clone();
+                    cx.listener(move |this, _, _, cx| {
+                        this.request_shader_property_detach(
+                            definition_id.clone(),
+                            variable_id.clone(),
+                            cx,
+                        );
+                    })
                 })
-            })
-            .into_any_element()
-        } else {
-            crate::atoms::ui_button(SharedString::from(format!(
+                .into_any_element(),
+            )
+        } else if self.shader_variable_binding_enabled {
+            let button_id = SharedString::from(format!(
                 "{}-shader-property-{}-bind",
                 self.id, definition.id
-            )))
-            .label("Bind")
-            .xsmall()
-            .compact()
-            .ghost()
-            .disabled(disabled)
-            .on_activate({
-                let definition_id = definition_id.clone();
-                cx.listener(move |this, _, _, cx| {
-                    this.request_shader_property_bind(definition_id.clone(), cx);
-                })
-            })
-            .into_any_element()
+            ));
+            let debug_id = button_id.to_string();
+            Some(
+                crate::atoms::ui_button(button_id)
+                    .debug_selector(move || debug_id.clone())
+                    .label("Bind")
+                    .xsmall()
+                    .compact()
+                    .ghost()
+                    .disabled(disabled)
+                    .on_activate({
+                        let definition_id = definition_id.clone();
+                        cx.listener(move |this, _, _, cx| {
+                            this.request_shader_property_bind(definition_id.clone(), cx);
+                        })
+                    })
+                    .into_any_element(),
+            )
+        } else {
+            None
         };
 
         v_flex()
@@ -448,7 +811,11 @@ impl PaintPicker {
                             ),
                     )
                     .child(value_control)
-                    .child(variable_control),
+                    .children(variable_control),
+            )
+            .when(
+                self.shader_active_color_property.as_ref() == Some(&definition.id),
+                |row| row.child(self.render_shader_color_editor(definition, value, cx)),
             )
             .when_some(definition.description.clone(), |row, description| {
                 row.child(
@@ -458,6 +825,103 @@ impl PaintPicker {
                         .child(description),
                 )
             })
+            .into_any_element()
+    }
+
+    fn render_shader_color_editor(
+        &self,
+        definition: &DesignShaderPropertyDefinition,
+        value: Option<&DesignShaderPropertyValue>,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let current = match value {
+            Some(DesignShaderPropertyValue::Color(current)) => *current,
+            _ => DesignColor::BLACK,
+        };
+        let palette = [
+            DesignColor::WHITE,
+            DesignColor::rgb(204, 204, 204),
+            DesignColor::rgb(102, 102, 102),
+            DesignColor::BLACK,
+            DesignColor::rgb(230, 54, 54),
+            DesignColor::rgb(239, 141, 38),
+            DesignColor::rgb(245, 213, 47),
+            DesignColor::rgb(69, 184, 94),
+            DesignColor::rgb(53, 166, 220),
+            DesignColor::rgb(65, 96, 223),
+            DesignColor::rgb(139, 80, 208),
+            DesignColor::rgb(222, 83, 157),
+        ];
+        let mut swatches = h_flex().w_full().gap_1().flex_wrap();
+        for (index, palette_color) in palette.into_iter().enumerate() {
+            let color = DesignColor::rgba(
+                palette_color.red,
+                palette_color.green,
+                palette_color.blue,
+                current.alpha,
+            );
+            let definition_id = definition.id.clone();
+            swatches = swatches.child(
+                crate::atoms::ui_button(SharedString::from(format!(
+                    "{}-shader-property-{}-swatch-{index}",
+                    self.id, definition.id
+                )))
+                .tooltip(format!("Set #{}", color.hex()))
+                .xsmall()
+                .compact()
+                .ghost()
+                .selected(color == current)
+                .disabled(self.editing_disabled())
+                .child(
+                    div()
+                        .size(px(20.))
+                        .rounded(px(3.))
+                        .border_1()
+                        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                        .bg(color_to_hsla(color)),
+                )
+                .on_activate(cx.listener(move |this, _, _, cx| {
+                    this.choose_shader_color(definition_id.clone(), color, cx);
+                })),
+            );
+        }
+        v_flex()
+            .w_full()
+            .gap_2()
+            .p_2()
+            .rounded(px(6.))
+            .border_1()
+            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .child(
+                h_flex()
+                    .w_full()
+                    .gap_2()
+                    .child(
+                        div()
+                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .child("Hex"),
+                    )
+                    .child(
+                        div()
+                            .debug_selector(|| "shader-color-input".to_owned())
+                            .flex_1()
+                            .min_w(px(0.))
+                            .child(
+                                Input::new(&self.shader_color_input)
+                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .xsmall()
+                                    .h(px(26.))
+                                    .flex_1()
+                                    .disabled(self.editing_disabled())
+                                    .when(self.shader_color_invalid, |input| {
+                                        input.border_color(
+                                            crate::atoms::SemanticColor::TextDanger.resolve(cx),
+                                        )
+                                    }),
+                            ),
+                    ),
+            )
+            .child(swatches)
             .into_any_element()
     }
 

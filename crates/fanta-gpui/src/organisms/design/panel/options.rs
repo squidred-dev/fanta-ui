@@ -624,6 +624,7 @@ impl DesignOptionsController for DesignPanel {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let can_remove = self.collection_is_supported(collection)
+            && self.paint_collection_item_actions_enabled(collection)
             && (!matches!(
                 collection,
                 DesignPanelCollection::Fill | DesignPanelCollection::Stroke
@@ -645,12 +646,11 @@ impl DesignOptionsController for DesignPanel {
         if !can_remove {
             return div().size(px(24.)).flex_none().into_any_element();
         }
+        let control_id = format!("{}-{}", self.id, id_suffix.into());
+        let debug_id = control_id.clone();
         div()
-            .id(SharedString::from(format!(
-                "{}-{}",
-                self.id,
-                id_suffix.into()
-            )))
+            .id(SharedString::from(control_id))
+            .debug_selector(move || debug_id.clone())
             .key_context(CONTROL_KEY_CONTEXT)
             .tab_index(0)
             .size(px(24.))

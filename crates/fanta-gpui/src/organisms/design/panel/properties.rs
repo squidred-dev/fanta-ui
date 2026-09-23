@@ -1872,7 +1872,9 @@ impl DesignPropertiesController for DesignPanel {
     }
 
     fn emit_add(&mut self, collection: DesignPanelCollection, cx: &mut Context<Self>) {
-        if !self.collection_is_supported(collection) {
+        if !self.collection_is_supported(collection)
+            || !self.paint_collection_item_actions_enabled(collection)
+        {
             return;
         }
         if collection == DesignPanelCollection::Export {
@@ -1936,7 +1938,9 @@ impl DesignPropertiesController for DesignPanel {
         index: usize,
         cx: &mut Context<Self>,
     ) {
-        if !self.collection_is_supported(collection) {
+        if !self.collection_is_supported(collection)
+            || !self.paint_collection_item_actions_enabled(collection)
+        {
             return;
         }
         if collection == DesignPanelCollection::Export {
