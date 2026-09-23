@@ -111,6 +111,23 @@ fn chip(id: SharedString, label: impl Into<SharedString>, cx: &App) -> Stateful<
     .child(label.into())
 }
 impl EditorToolbar {
+    pub fn set_supported_draw_actions(
+        &mut self,
+        actions: impl IntoIterator<Item = DrawToolbarAction>,
+        cx: &mut Context<Self>,
+    ) {
+        let mut supported = Vec::new();
+        for action in actions {
+            if !supported.contains(&action) {
+                supported.push(action);
+            }
+        }
+        if self.supported_draw_actions.as_ref() != Some(&supported) {
+            self.supported_draw_actions = Some(supported);
+            cx.notify();
+        }
+    }
+
     pub fn set_draw_brush_capabilities(
         &mut self,
         capabilities: crate::toolbar::DrawBrushCapabilities,
@@ -432,6 +449,13 @@ impl EditorToolbar {
         icon: LucideIcon,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        if self
+            .supported_draw_actions
+            .as_ref()
+            .is_some_and(|actions| !actions.contains(&action))
+        {
+            return div().into_any_element();
+        }
         chip(format!("{}-{action:?}", self.id).into(), label, cx)
             .debug_selector(move || format!("toolbar-draw-action-{action:?}"))
             .child(render_lucide_icon(icon, Color::Text.resolve(cx), 16.))
