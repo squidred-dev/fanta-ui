@@ -13344,6 +13344,28 @@ fn stable_effect_settings_target_survives_host_reorder_and_capabilities_gate_lea
 }
 
 #[gpui::test]
+fn drop_shadow_settings_popover_prepaints_without_recursive_deferred_draws(
+    cx: &mut TestAppContext,
+) {
+    let mut node = DesignPanelNode::new("effects", "Effects", DesignPanelNodeKind::Rectangle);
+    node.effects =
+        vec![super::super::DesignEffect::new(DesignEffectKind::DropShadow).with_id("shadow")];
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    panel.update(visual_cx, |panel, cx| {
+        *panel.overlays.active_effect_settings_test_slot() = Some(EffectSettingsTarget {
+            index: 0,
+            effect_id: "shadow".into(),
+        });
+        cx.notify();
+    });
+    visual_cx.run_until_parked();
+    panel.read_with(visual_cx, |panel, _| {
+        assert!(panel.overlays.active_effect_settings().is_some());
+    });
+}
+
+#[gpui::test]
 fn effect_style_and_variable_intents_remain_controlled(cx: &mut TestAppContext) {
     let mut node = DesignPanelNode::new("effects", "Effects", DesignPanelNodeKind::Rectangle);
     node.effects =

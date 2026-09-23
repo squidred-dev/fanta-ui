@@ -1377,6 +1377,43 @@ fn top_level_type_and_gradient_subtype_emit_distinct_typed_edits(cx: &mut TestAp
 }
 
 #[gpui::test]
+fn host_can_limit_paint_types_and_reject_unsupported_edits(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_supported_paint_types(
+                &[DesignPaintType::Solid, DesignPaintType::Gradient],
+                cx,
+            );
+            picker.set_target(
+                "node",
+                DesignPanelCollection::Fill,
+                0,
+                DesignPaint::solid(DesignColor::BLUE).with_id("fill"),
+                window,
+                cx,
+            );
+            picker.select_paint_type(DesignPaintType::Pattern, cx);
+        });
+    });
+    assert!(events.borrow().is_empty());
+    visual_cx.read(|app| {
+        assert_eq!(
+            picker.read(app).supported_paint_types,
+            [DesignPaintType::Solid, DesignPaintType::Gradient]
+        );
+    });
+    visual_cx.update(|_, app| {
+        picker.update(app, |picker, cx| {
+            picker.select_paint_type(DesignPaintType::Gradient, cx);
+        });
+    });
+    assert_eq!(events.borrow().len(), 1);
+}
+
+#[gpui::test]
 fn gradient_subtype_menu_roves_wraps_and_commits_the_highlighted_kind(cx: &mut TestAppContext) {
     let (host, visual_cx) = setup_picker(cx);
     let picker = picker(&host, visual_cx);

@@ -91,11 +91,12 @@ use super::{
     DesignNoiseType, DesignNudgeSettings, DesignOpenTypeFeatureTag, DesignPageLocalStylesViewData,
     DesignPageViewData, DesignPaint, DesignPaintColorTarget, DesignPaintEdit, DesignPaintPayload,
     DesignPaintProperty, DesignPaintStyleImportState, DesignPaintStyleSelection,
-    DesignPaintStyleViewData, DesignPaintTarget, DesignPaintValue, DesignPaintVariableViewData,
-    DesignPanelAction, DesignPanelAutoLayoutDirection, DesignPanelAutoLayoutParticipation,
-    DesignPanelBindingKind, DesignPanelCollection, DesignPanelEditMode, DesignPanelEditPhase,
-    DesignPanelInspectionContext, DesignPanelMultipleSelection, DesignPanelNavigationViewData,
-    DesignPanelNode, DesignPanelNodeKind, DesignPanelParentLayout, DesignPanelPermissions,
+    DesignPaintStyleViewData, DesignPaintTarget, DesignPaintType, DesignPaintValue,
+    DesignPaintVariableViewData, DesignPanelAction, DesignPanelAutoLayoutDirection,
+    DesignPanelAutoLayoutParticipation, DesignPanelBindingKind, DesignPanelCollection,
+    DesignPanelEditMode, DesignPanelEditPhase, DesignPanelInspectionContext,
+    DesignPanelMultipleSelection, DesignPanelNavigationViewData, DesignPanelNode,
+    DesignPanelNodeKind, DesignPanelParentLayout, DesignPanelPermissions,
     DesignPanelPreferencesViewData, DesignPanelProjectionViewData, DesignPanelProperty,
     DesignPanelPropertyValueState, DesignPanelResourcesViewData, DesignPanelSection,
     DesignPanelSelectionKind, DesignPanelSurface, DesignPanelTarget,
@@ -1325,6 +1326,7 @@ pub struct DesignPanel {
     preferences: DesignInspectorPreferences,
     features: DesignPanelFeatureState,
     paint_picker: Entity<PaintPicker>,
+    paint_visibility_supported: bool,
     typography_style_picker: Entity<TypographyStylePicker>,
     overlays: DesignOverlayCoordinator,
     sections: DesignSectionController,
@@ -1382,6 +1384,23 @@ impl DesignPanel {
         cx: &mut Context<Self>,
     ) -> Self {
         DesignPanelFactory::assemble_with_context(id, inspection_context, window, cx)
+    }
+
+    pub fn set_supported_paint_types(
+        &mut self,
+        supported: &[DesignPaintType],
+        cx: &mut Context<Self>,
+    ) {
+        self.paint_picker.update(cx, |picker, cx| {
+            picker.set_supported_paint_types(supported, cx);
+        });
+    }
+
+    pub fn set_paint_visibility_supported(&mut self, supported: bool, cx: &mut Context<Self>) {
+        if self.paint_visibility_supported != supported {
+            self.paint_visibility_supported = supported;
+            cx.notify();
+        }
     }
 
     /// Opens the page background color editor, or the first selected fill's

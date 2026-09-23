@@ -171,6 +171,10 @@ impl PaintPicker {
             .border_b_1()
             .border_color(crate::atoms::SemanticColor::Border.resolve(cx));
         for paint_type in DesignPaintType::ALL {
+            let supported = self.supported_paint_types.contains(&paint_type);
+            if !supported && paint.paint_type() != paint_type {
+                continue;
+            }
             tabs = tabs.child(
                 crate::atoms::ui_button(SharedString::from(format!(
                     "{}-type-{}",
@@ -184,7 +188,7 @@ impl PaintPicker {
                 .w(px(PAINT_HEADER_CONTROL_SIZE))
                 .h(px(PAINT_HEADER_CONTROL_SIZE))
                 .selected(paint.paint_type() == paint_type)
-                .disabled(disabled)
+                .disabled(disabled || !supported)
                 .child(self.render_paint_kind_mark(
                     if paint_type == DesignPaintType::Gradient && paint.kind.is_gradient() {
                         paint.kind

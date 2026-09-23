@@ -509,9 +509,16 @@ impl DesignPropertiesController for DesignPanel {
                 .host
                 .inspected_node()
                 .supports_section(DesignPanelSection::Selection),
-            DesignPanelProperty::PaintOpacity { collection, index }
-            | DesignPanelProperty::PaintVisible { collection, index } => {
+            DesignPanelProperty::PaintOpacity { collection, index } => {
                 self.collection_is_supported(collection)
+                    && self
+                        .paint_collection(collection)
+                        .and_then(|paints| paints.get(index))
+                        .is_some_and(|paint| !paint.read_only)
+            }
+            DesignPanelProperty::PaintVisible { collection, index } => {
+                self.paint_visibility_supported
+                    && self.collection_is_supported(collection)
                     && self
                         .paint_collection(collection)
                         .and_then(|paints| paints.get(index))

@@ -886,6 +886,7 @@ impl DesignPanelFactory {
             preferences: DesignInspectorPreferences::default(),
             features,
             paint_picker,
+            paint_visibility_supported: true,
             typography_style_picker,
             overlays: DesignOverlayCoordinator::with_focus_handles(cx),
             sections: DesignSectionController::default(),

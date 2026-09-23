@@ -1846,20 +1846,6 @@ impl DesignEffectsController for DesignPanel {
                     DesignPanelProperty::EffectShadowColor(index),
                     cx,
                 ))
-                .child(self.render_value_cell(
-                    format!("effect-shadow-blend-mode-{index}"),
-                    "M",
-                    settings.blend_mode.label(),
-                    DesignPanelProperty::EffectShadowBlendMode(index),
-                    DesignPanelValue::BlendMode(
-                        if settings.blend_mode == DesignBlendMode::Normal {
-                            DesignBlendMode::Multiply
-                        } else {
-                            DesignBlendMode::Normal
-                        },
-                    ),
-                    cx,
-                ))
                 .child(
                     h_flex()
                         .w_full()
@@ -1931,20 +1917,6 @@ impl DesignEffectsController for DesignPanel {
                     "Color",
                     settings.color,
                     DesignPanelProperty::EffectShadowColor(index),
-                    cx,
-                ))
-                .child(self.render_value_cell(
-                    format!("effect-shadow-blend-mode-{index}"),
-                    "M",
-                    settings.blend_mode.label(),
-                    DesignPanelProperty::EffectShadowBlendMode(index),
-                    DesignPanelValue::BlendMode(
-                        if settings.blend_mode == DesignBlendMode::Normal {
-                            DesignBlendMode::Multiply
-                        } else {
-                            DesignBlendMode::Normal
-                        },
-                    ),
                     cx,
                 ))
                 .child(

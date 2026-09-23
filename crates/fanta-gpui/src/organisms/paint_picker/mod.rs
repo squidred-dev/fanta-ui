@@ -432,6 +432,7 @@ pub struct PaintPicker {
     color_style_sample_view_data: DesignColorStyleSampleViewData,
     media_view_data: DesignMediaPaintViewData,
     shader_view_data: DesignShaderViewData,
+    supported_paint_types: Vec<DesignPaintType>,
     disabled: bool,
     active_tab: PaintPickerTab,
     shader_browser_requested: bool,
@@ -587,6 +588,7 @@ impl PaintPicker {
             color_style_sample_view_data: DesignColorStyleSampleViewData::default(),
             media_view_data: DesignMediaPaintViewData::default(),
             shader_view_data: DesignShaderViewData::default(),
+            supported_paint_types: DesignPaintType::ALL.to_vec(),
             disabled: false,
             active_tab: PaintPickerTab::Custom,
             shader_browser_requested: false,
@@ -713,6 +715,21 @@ impl PaintPicker {
 
     fn clear_nested_overlays(&mut self) {
         self.nested_overlays.clear();
+    }
+
+    pub fn set_supported_paint_types(
+        &mut self,
+        supported: &[DesignPaintType],
+        cx: &mut Context<Self>,
+    ) {
+        let supported: Vec<_> = DesignPaintType::ALL
+            .into_iter()
+            .filter(|paint_type| supported.contains(paint_type))
+            .collect();
+        if self.supported_paint_types != supported {
+            self.supported_paint_types = supported;
+            cx.notify();
+        }
     }
 
     /// Supplies the authoritative paint snapshot and opaque target identity.
@@ -1151,7 +1168,7 @@ impl PaintPicker {
     }
 
     fn select_paint_type(&mut self, paint_type: DesignPaintType, cx: &mut Context<Self>) {
-        if self.editing_disabled() {
+        if self.editing_disabled() || !self.supported_paint_types.contains(&paint_type) {
             return;
         }
         self.cancel_text_input_edit_sessions(cx);
@@ -1176,7 +1193,7 @@ impl PaintPicker {
     }
 
     fn select_paint_kind(&mut self, kind: DesignPaintKind, cx: &mut Context<Self>) {
-        if self.editing_disabled() {
+        if self.editing_disabled() || !self.supported_paint_types.contains(&kind.paint_type()) {
             return;
         }
         if !kind.is_gradient() {

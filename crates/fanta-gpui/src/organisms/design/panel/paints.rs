@@ -1740,15 +1740,17 @@ impl DesignPaintController for DesignPanel {
                     .when(can_reorder, |handle| handle.child("⠿")),
             )
             .child(paint_values)
-            .child(self.render_visibility_button(
-                format!(
-                    "{}-paint-visible-{index}",
-                    collection.label().to_lowercase().replace(' ', "-")
-                ),
-                paint.visible,
-                DesignPanelProperty::PaintVisible { collection, index },
-                cx,
-            ))
+            .when(self.paint_visibility_supported, |row| {
+                row.child(self.render_visibility_button(
+                    format!(
+                        "{}-paint-visible-{index}",
+                        collection.label().to_lowercase().replace(' ', "-")
+                    ),
+                    paint.visible,
+                    DesignPanelProperty::PaintVisible { collection, index },
+                    cx,
+                ))
+            })
             .child(self.render_remove_button(
                 format!(
                     "remove-{}-{index}",

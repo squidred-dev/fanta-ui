@@ -108,6 +108,31 @@ fn draw_pressure_is_controlled_and_read_only_suppresses_edits(cx: &mut TestAppCo
 }
 
 #[gpui::test]
+fn soft_round_preset_requests_a_soft_brush_without_mutating_host_state(cx: &mut TestAppContext) {
+    let (host, actions, cx) = mount_component(cx, |_, cx| {
+        DrawInspector::new("draw", DrawInspectorViewData::default(), cx)
+    });
+    cx.simulate_resize(size(px(360.), px(900.)));
+    cx.run_until_parked();
+    let options = crate::toolbar::DrawToolbarOptions {
+        brush_tip: "Soft round".into(),
+        hardness: 0,
+        ..Default::default()
+    };
+    assert_pointer_and_keyboard_parity(
+        cx,
+        "draw-preset-Soft round",
+        &actions,
+        DrawInspectorAction::OptionsChangeRequested { options },
+    );
+    cx.read(|app| {
+        let data = host.read(app).component.read(app).view_data();
+        assert_eq!(data.options.brush_tip.as_ref(), "Round");
+        assert_eq!(data.options.hardness, 100);
+    });
+}
+
+#[gpui::test]
 fn vector_pencil_capabilities_show_only_supported_draw_controls(cx: &mut TestAppContext) {
     let (host, _, cx) = mount_component(cx, |_, cx| {
         DrawInspector::new("draw", DrawInspectorViewData::default(), cx)

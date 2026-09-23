@@ -224,7 +224,12 @@ impl EditorToolbar {
         };
         let mut options = self.draw_options.clone();
         match choice {
-            DrawChoice::BrushTip => options.brush_tip = value,
+            DrawChoice::BrushTip => {
+                options.brush_tip = value;
+                if options.brush_tip.as_ref() == "Soft round" {
+                    options.hardness = 0;
+                }
+            }
             DrawChoice::CropRatio => options.crop_ratio = value,
         }
         self.set_overlay(None, cx);
@@ -585,14 +590,6 @@ impl EditorToolbar {
             ToolbarTool::Crop => {
                 row = row
                     .child(self.render_draw_choice(DrawChoice::CropRatio, window, cx))
-                    .child(self.draw_toggle(
-                        "delete-cropped",
-                        "Delete cropped pixels",
-                        LucideIcon::Trash,
-                        o.delete_cropped_pixels,
-                        |o| o.delete_cropped_pixels = !o.delete_cropped_pixels,
-                        cx,
-                    ))
                     .child(self.draw_action(
                         DrawToolbarAction::CancelCrop,
                         "Cancel",

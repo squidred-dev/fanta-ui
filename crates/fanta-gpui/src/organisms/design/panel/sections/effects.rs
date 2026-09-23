@@ -144,14 +144,6 @@ pub(in super::super) trait EffectsInspectorChrome {
         cx: &mut Context<DesignPanel>,
     ) -> AnyElement;
 
-    fn effects_visibility_button(
-        &self,
-        id_suffix: impl Into<SharedString>,
-        visible: bool,
-        property: DesignPanelProperty,
-        cx: &mut Context<DesignPanel>,
-    ) -> AnyElement;
-
     fn effects_settings_for_target(
         &self,
         target: &EffectTargetProjection,
@@ -189,16 +181,6 @@ impl EffectsInspectorChrome for DesignPanel {
         self.render_value_cell(id_suffix, prefix, value, property, next, cx)
     }
 
-    fn effects_visibility_button(
-        &self,
-        id_suffix: impl Into<SharedString>,
-        visible: bool,
-        property: DesignPanelProperty,
-        cx: &mut Context<DesignPanel>,
-    ) -> AnyElement {
-        self.render_visibility_button(id_suffix, visible, property, cx)
-    }
-
     fn effects_settings_for_target(
         &self,
         target: &EffectTargetProjection,
@@ -213,7 +195,6 @@ impl EffectsInspectorChrome for DesignPanel {
 #[derive(Clone)]
 enum EffectsEvent {
     ToggleSettings(EffectTargetProjection),
-    SetSettings(EffectTargetProjection, bool),
     Reorder {
         dragged: EffectTargetProjection,
         destination: EffectTargetProjection,
@@ -249,60 +230,6 @@ impl EffectsEventSink {
     ) {
         dispatch(panel, event, cx);
     }
-
-    fn set_popover_open(
-        &self,
-        target: EffectTargetProjection,
-        open: bool,
-        window: &mut Window,
-        cx: &mut App,
-    ) {
-        self.panel.update(cx, |panel, cx| {
-            if open {
-                panel.remember_overlay_focus_return(DesignOpenOverlay::EffectSettings, window, cx);
-                dispatch(panel, EffectsEvent::SetSettings(target, true), cx);
-            } else if settings_target_is_active(panel, &target) {
-                let _ = panel.dismiss_overlay_from_outside_click(
-                    DesignOpenOverlay::EffectSettings,
-                    window,
-                    cx,
-                );
-            }
-        });
-    }
-
-    fn settings_content(
-        &self,
-        target: &EffectTargetProjection,
-        window: &mut Window,
-        cx: &mut App,
-    ) -> AnyElement {
-        self.panel.update(cx, |panel, cx| {
-            let Some(settings) = panel.effects_settings_for_target(target, cx) else {
-                return div().into_any_element();
-            };
-            v_flex()
-                .w(popup_width(window, 292.))
-                .p_3()
-                .gap_2()
-                .child(
-                    div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
-                        .font_semibold()
-                        .child(
-                            panel.host.inspected_node().effects[resolve_effect_index(
-                                panel, target,
-                            )
-                            .expect("validated effect target")]
-                            .settings
-                            .kind()
-                            .label(),
-                        ),
-                )
-                .child(settings)
-                .into_any_element()
-        })
-    }
 }
 
 fn resolve_effect_index(panel: &DesignPanel, target: &EffectTargetProjection) -> Option<usize> {
@@ -325,17 +252,6 @@ fn resolve_effect_index(panel: &DesignPanel, target: &EffectTargetProjection) ->
             .inspected_node()
             .effect_index_by_id(target.effect_id.as_ref())
     }
-}
-
-fn settings_target_is_active(panel: &DesignPanel, target: &EffectTargetProjection) -> bool {
-    let Some(index) = resolve_effect_index(panel, target) else {
-        return false;
-    };
-    panel
-        .overlays
-        .active_effect_settings()
-        .as_ref()
-        .is_some_and(|active| active.matches(&panel.host.inspected_node().effects[index], index))
 }
 
 fn set_settings_open(
@@ -377,7 +293,6 @@ fn dispatch(panel: &mut DesignPanel, event: EffectsEvent, cx: &mut Context<Desig
                 .is_some_and(|active| active.matches(effect, index));
             set_settings_open(panel, target, !active, cx);
         }
-        EffectsEvent::SetSettings(target, open) => set_settings_open(panel, target, open, cx),
         EffectsEvent::Reorder {
             dragged,
             destination,
@@ -469,9 +384,7 @@ pub(in super::super) fn render(
 
     let mut content = v_flex().px(px(PANEL_PADDING)).pb_4().gap_1();
     for (index, effect) in projection.content.effects.iter().enumerate() {
-        let can_reorder = projection.access.can_edit
-            && projection.access.collection_supported
-            && projection.content.effects.len() > 1;
+        let can_reorder = false;
         let active = projection.settings_are_active(effect, index);
         let target = projection.target(effect, index);
         let target_for_keyboard = target.clone();
@@ -487,32 +400,13 @@ pub(in super::super) fn render(
         .w(px(24.))
         .h(px(24.))
         .selected(active)
-        .on_keyboard_activate(move |_, cx| {
+        .on_activate(move |_, _, cx| {
             events_for_keyboard.send(
                 EffectsEvent::ToggleSettings(target_for_keyboard.clone()),
                 cx,
             );
         })
         .icon(IconName::Settings2);
-
-        let events_for_open = events.clone();
-        let target_for_open = target.clone();
-        let events_for_content = events.clone();
-        let target_for_content = target.clone();
-        let settings_popover = Popover::new(SharedString::from(format!(
-            "{}-effect-settings-popover-{index}",
-            projection.identity.panel_id
-        )))
-        .anchor(Anchor::TopRight)
-        .open(active)
-        .overlay_closable(true)
-        .on_open_change(move |open, window, cx| {
-            events_for_open.set_popover_open(target_for_open.clone(), *open, window, cx);
-        })
-        .trigger(settings_trigger)
-        .content(move |_, window, cx| {
-            events_for_content.settings_content(&target_for_content, window, cx)
-        });
 
         let destination = target.clone();
         let drag = EffectDrag {
@@ -558,13 +452,7 @@ pub(in super::super) fn render(
         .opacity(1.);
         let actions = crate::molecules::inspector_action_group(metrics)
             .gap_1()
-            .child(settings_popover)
-            .child(chrome.effects_visibility_button(
-                format!("effect-visible-{index}"),
-                effect.visible,
-                DesignPanelProperty::EffectVisible(index),
-                cx,
-            ))
+            .child(settings_trigger)
             .child(render_remove_button(
                 projection,
                 target.clone(),
@@ -631,6 +519,17 @@ pub(in super::super) fn render(
             .on_drop(drop_listener)
         });
         content = content.child(row);
+        if active && let Some(settings) = chrome.effects_settings_for_target(&target, cx) {
+            content = content.child(
+                v_flex()
+                    .w_full()
+                    .p_3()
+                    .gap_2()
+                    .rounded(px(crate::atoms::tokens::Radius::CONTROL))
+                    .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                    .child(settings),
+            );
+        }
     }
     chrome.effects_section(content.into_any_element(), cx)
 }
