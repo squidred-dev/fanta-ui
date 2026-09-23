@@ -334,9 +334,12 @@ impl Timeline {
             .filter(|k| self.view_data.selected_keyframes.contains(&k.id))
             .collect();
         match event.keystroke.key.as_str() {
-            "space" => cx.emit(TimelineAction::PlayStateChangeRequested {
-                playing: !self.view_data.playing,
-            }),
+            "space" if self.transport_available => {
+                cx.emit(TimelineAction::PlayStateChangeRequested {
+                    playing: !self.view_data.playing,
+                })
+            }
+            "space" => {}
             "home" => cx.emit(TimelineAction::SeekRequested { time_ms: 0 }),
             "end" => cx.emit(TimelineAction::SeekRequested {
                 time_ms: self.view_data.duration_ms,

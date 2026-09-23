@@ -67,6 +67,44 @@ fn transport_pointer_enter_and_space_emit_exactly_one_request(cx: &mut TestAppCo
     );
 }
 #[gpui::test]
+fn unavailable_transport_disables_pointer_and_keyboard_requests(cx: &mut TestAppContext) {
+    let (host, actions, cx) =
+        mount_component(cx, |_, cx| Timeline::new("test-timeline", data(), cx));
+    let timeline = cx.read(|cx| host.read(cx).component.clone());
+    cx.simulate_resize(size(px(1400.), px(360.)));
+    timeline.update(cx, |timeline, cx| {
+        timeline.set_transport_available(false, cx);
+        assert!(!timeline.transport_available());
+    });
+    cx.run_until_parked();
+
+    for selector in ["timeline-previous", "timeline-play", "timeline-next"] {
+        let button = cx
+            .debug_bounds(selector)
+            .expect("transport control renders disabled");
+        cx.simulate_click(button.center(), Modifiers::none());
+        cx.run_until_parked();
+    }
+    cx.update(|window, cx| timeline.focus_handle(cx).focus(window, cx));
+    cx.simulate_keystrokes("space");
+    cx.run_until_parked();
+    assert!(actions.borrow().is_empty());
+
+    timeline.update(cx, |timeline, cx| {
+        timeline.set_transport_available(true, cx)
+    });
+    cx.run_until_parked();
+    let play = cx
+        .debug_bounds("timeline-play")
+        .expect("play is available again");
+    cx.simulate_click(play.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(
+        actions.borrow().as_slice(),
+        [TimelineAction::PlayStateChangeRequested { playing: true }]
+    );
+}
+#[gpui::test]
 fn ruler_tracks_and_keys_share_coordinates_at_every_width_and_zoom(cx: &mut TestAppContext) {
     let (host, _, cx) = mount_component(cx, |_, cx| Timeline::new("test-timeline", data(), cx));
     let timeline = cx.read(|cx| host.read(cx).component.clone());

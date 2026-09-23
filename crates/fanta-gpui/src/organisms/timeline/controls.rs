@@ -79,7 +79,7 @@ impl Timeline {
                 "Previous keyframe",
                 LucideIcon::SkipBack,
                 false,
-                true,
+                self.transport_available,
                 TimelineAction::SeekRequested {
                     time_ms: self.adjacent_key(false),
                 },
@@ -98,7 +98,7 @@ impl Timeline {
                     LucideIcon::Play
                 },
                 d.playing,
-                true,
+                self.transport_available,
                 TimelineAction::PlayStateChangeRequested {
                     playing: !d.playing,
                 },
@@ -109,7 +109,7 @@ impl Timeline {
                 "Next keyframe",
                 LucideIcon::SkipForward,
                 false,
-                true,
+                self.transport_available,
                 TimelineAction::SeekRequested {
                     time_ms: self.adjacent_key(true),
                 },

@@ -73,6 +73,7 @@ pub struct Timeline {
     id: SharedString,
     focus_handle: FocusHandle,
     view_data: TimelineViewData,
+    transport_available: bool,
     auto_keyframe_available: bool,
     comments_available: bool,
     show_empty_state: bool,
@@ -121,6 +122,7 @@ impl Timeline {
             id: id.into(),
             focus_handle: cx.focus_handle(),
             view_data,
+            transport_available: true,
             auto_keyframe_available: true,
             comments_available: true,
             show_empty_state: true,
@@ -145,6 +147,15 @@ impl Timeline {
     }
     pub fn view_data(&self) -> &TimelineViewData {
         &self.view_data
+    }
+    pub fn transport_available(&self) -> bool {
+        self.transport_available
+    }
+    pub fn set_transport_available(&mut self, available: bool, cx: &mut Context<Self>) {
+        if self.transport_available != available {
+            self.transport_available = available;
+            cx.notify();
+        }
     }
     pub fn set_auto_keyframe_available(&mut self, available: bool, cx: &mut Context<Self>) {
         if self.auto_keyframe_available != available {
