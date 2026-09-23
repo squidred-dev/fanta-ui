@@ -1282,6 +1282,30 @@ fn vector_eraser_toolbar_only_offers_size(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn vector_rectangle_selection_hides_raster_controls(cx: &mut TestAppContext) {
+    let (host, cx) = setup(cx);
+    let toolbar = cx.read(|app| host.read(app).toolbar.clone());
+    cx.simulate_resize(size(px(1200.), px(800.)));
+    cx.update(|_, app| {
+        toolbar.update(app, |toolbar, cx| {
+            toolbar.set_mode(ToolbarMode::Draw, cx);
+            toolbar.set_active_tool(ToolbarTool::RectangleSelect, cx);
+            toolbar.set_draw_selection_capabilities(
+                crate::toolbar::DrawSelectionCapabilities::VECTOR_RECTANGLE,
+                cx,
+            );
+        })
+    });
+    cx.run_until_parked();
+    for selector in ["toolbar-draw-feather", "toolbar-draw-anti-alias"] {
+        assert!(
+            cx.debug_bounds(selector).is_none(),
+            "{selector} should be hidden"
+        );
+    }
+}
+
+#[gpui::test]
 fn host_draw_action_filter_hides_unsupported_path_actions(cx: &mut TestAppContext) {
     let (host, cx) = setup(cx);
     let toolbar = cx.read(|app| host.read(app).toolbar.clone());

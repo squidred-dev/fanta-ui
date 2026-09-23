@@ -68,6 +68,28 @@ impl Default for DrawBrushCapabilities {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DrawSelectionCapabilities {
+    pub feather: bool,
+    pub anti_alias: bool,
+}
+
+impl DrawSelectionCapabilities {
+    pub const VECTOR_RECTANGLE: Self = Self {
+        feather: false,
+        anti_alias: false,
+    };
+}
+
+impl Default for DrawSelectionCapabilities {
+    fn default() -> Self {
+        Self {
+            feather: true,
+            anti_alias: true,
+        }
+    }
+}
+
 /// Host-owned paint and selection settings. Distances use document pixels.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DrawToolbarOptions {

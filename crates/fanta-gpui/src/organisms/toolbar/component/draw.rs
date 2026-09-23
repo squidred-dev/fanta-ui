@@ -139,6 +139,17 @@ impl EditorToolbar {
         }
     }
 
+    pub fn set_draw_selection_capabilities(
+        &mut self,
+        capabilities: crate::toolbar::DrawSelectionCapabilities,
+        cx: &mut Context<Self>,
+    ) {
+        if self.draw_selection_capabilities != capabilities {
+            self.draw_selection_capabilities = capabilities;
+            cx.notify();
+        }
+    }
+
     pub fn draw_options(&self) -> &DrawToolbarOptions {
         &self.draw_options
     }
@@ -532,9 +543,11 @@ impl EditorToolbar {
                         cx,
                     ));
                 }
-                row = row
-                    .child(self.render_draw_number(DrawNumber::Feather, window, cx))
-                    .child(self.draw_toggle(
+                if self.draw_selection_capabilities.feather {
+                    row = row.child(self.render_draw_number(DrawNumber::Feather, window, cx));
+                }
+                if self.draw_selection_capabilities.anti_alias {
+                    row = row.child(self.draw_toggle(
                         "anti-alias",
                         "Anti-alias selection edges",
                         LucideIcon::Blend,
@@ -542,6 +555,7 @@ impl EditorToolbar {
                         |o| o.anti_alias = !o.anti_alias,
                         cx,
                     ));
+                }
                 if self.active_tool == ToolbarTool::MagicWand {
                     row = row
                         .child(self.render_draw_number(DrawNumber::Tolerance, window, cx))

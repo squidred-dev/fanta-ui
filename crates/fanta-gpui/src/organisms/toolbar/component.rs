@@ -64,6 +64,7 @@ pub struct EditorToolbar {
     motion_options: MotionToolbarOptions,
     draw_options: super::DrawToolbarOptions,
     draw_brush_capabilities: super::DrawBrushCapabilities,
+    draw_selection_capabilities: super::DrawSelectionCapabilities,
     draw_slider: Entity<crate::molecules::Slider>,
     draw_input: Entity<InputState>,
     /// Host chrome rendered in the main row's trailing capsule (§12: the
@@ -158,6 +159,7 @@ impl EditorToolbar {
             motion_options: MotionToolbarOptions::default(),
             draw_options: super::DrawToolbarOptions::default(),
             draw_brush_capabilities: super::DrawBrushCapabilities::default(),
+            draw_selection_capabilities: super::DrawSelectionCapabilities::default(),
             draw_slider,
             draw_input,
             chrome_controls: Vec::new(),
