@@ -115,7 +115,8 @@ impl EditorToolbar {
         let menu_width = popup_width(window, 248.);
         let menu_height = popup_height(
             window,
-            group.tools().len() as f32 * TOOL_FLYOUT_ROW_HEIGHT + TOOL_FLYOUT_VERTICAL_PADDING,
+            self.group_tools(group).count() as f32 * TOOL_FLYOUT_ROW_HEIGHT
+                + TOOL_FLYOUT_VERTICAL_PADDING,
         );
         let mut menu = popup_surface(
             SharedString::from(format!(
@@ -136,8 +137,7 @@ impl EditorToolbar {
         .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _, cx| {
             this.dismiss_overlay_for_pointer(cx);
         }));
-        for (index, tool) in group.tools().iter().enumerate() {
-            let tool = *tool;
+        for (index, tool) in self.group_tools(group).enumerate() {
             let selected = self.active_tool == tool;
             let highlighted = self.menu_cursor == index;
             menu = menu.child(

@@ -124,7 +124,11 @@ impl EditorToolbar {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let tool = group.display_tool(self.active_tool);
+        let tool = self
+            .group_tools(group)
+            .find(|tool| *tool == self.active_tool)
+            .or_else(|| self.group_tools(group).next())
+            .unwrap_or_else(|| group.default_tool());
         let selected = group.tools().contains(&self.active_tool);
         let menu_open = self.overlay == Some(ToolbarOverlay::ToolGroup(group));
         let accent = Self::mode_accent(self.mode, cx);
@@ -245,11 +249,14 @@ impl EditorToolbar {
         let mut tools = h_flex().h_full().gap(px(2.));
         for item in self.mode.layout() {
             tools = match item {
-                ToolbarItem::Group(group) => {
+                ToolbarItem::Group(group) if self.group_tools(*group).next().is_some() => {
                     tools.child(self.render_tool_group(*group, window, cx))
                 }
-                ToolbarItem::Tool(ToolbarTool::Actions) => tools,
-                ToolbarItem::Tool(tool) => tools.child(self.render_tool_button(*tool, window, cx)),
+                ToolbarItem::Tool(tool)
+                    if *tool != ToolbarTool::Actions && self.tool_supported(*tool) =>
+                {
+                    tools.child(self.render_tool_button(*tool, window, cx))
+                }
                 ToolbarItem::Separator => tools.child(
                     div()
                         .w(px(1.))
@@ -257,6 +264,7 @@ impl EditorToolbar {
                         .mx_1()
                         .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
                 ),
+                _ => tools,
             };
         }
 
@@ -327,7 +335,9 @@ impl EditorToolbar {
             )
             // Keep Actions visible while mode-specific tools scroll, so a
             // keyboard invocation always has a real, nearby anchor.
-            .child(self.render_tool_button(ToolbarTool::Actions, window, cx))
+            .when(self.tool_supported(ToolbarTool::Actions), |row| {
+                row.child(self.render_tool_button(ToolbarTool::Actions, window, cx))
+            })
             .when(!self.chrome_controls.is_empty(), |row| {
                 row.child(self.render_chrome_cluster(cx))
             })
@@ -381,6 +391,9 @@ impl EditorToolbar {
         selected: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        if !self.secondary_control_supported(control) {
+            return div().into_any_element();
+        }
         let label = label.into();
         let tooltip = label.clone();
         let accent = crate::atoms::SemanticColor::TextOnBrand.resolve(cx);
@@ -456,6 +469,9 @@ impl EditorToolbar {
         selected: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        if !self.secondary_control_supported(control) {
+            return div().into_any_element();
+        }
         let label = label.into();
         let tooltip = label.clone();
         let accent = crate::atoms::SemanticColor::TextOnBrand.resolve(cx);
@@ -532,6 +548,9 @@ impl EditorToolbar {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        if !self.secondary_control_supported(control) {
+            return div().into_any_element();
+        }
         let label = label.into();
         let open = self.overlay == Some(ToolbarOverlay::OptionEditor(control));
         h_flex()

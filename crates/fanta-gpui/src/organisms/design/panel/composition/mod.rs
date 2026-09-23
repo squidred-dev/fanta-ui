@@ -48,6 +48,12 @@ impl DesignPropertyPanel {
         &self.controller
     }
 
+    pub fn open_color_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        self.controller.update(cx, |controller, cx| {
+            controller.open_color_picker(window, cx)
+        })
+    }
+
     /// Call before the host hides or unmounts this inspector. Active edits
     /// receive one terminal Cancel and overlays close without changing the
     /// accepted host snapshot, navigation, or property values.

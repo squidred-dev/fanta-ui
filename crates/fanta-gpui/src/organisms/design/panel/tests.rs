@@ -11457,6 +11457,53 @@ fn retained_auxiliary_color_picker_preserves_rgba_phases_and_page_identity(
 }
 
 #[gpui::test]
+fn page_background_swatch_opens_one_anchored_color_picker(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup(
+        DesignPanelNode::new("page-proxy", "Page", DesignPanelNodeKind::Frame),
+        cx,
+    );
+    let panel = panel(&host, visual_cx);
+    panel.update(visual_cx, |panel, cx| {
+        panel.set_inspection_context(
+            DesignPanelInspectionContext::page(DesignPanelPermissions::editor()),
+            cx,
+        );
+        panel.set_page_view_data(
+            DesignPageViewData::canonical(
+                "page",
+                super::super::DesignPageBackground::new(DesignColor::WHITE),
+            ),
+            cx,
+        );
+    });
+    visual_cx.run_until_parked();
+    let row = visual_cx
+        .debug_bounds("design-page-background-row")
+        .expect("the whole Page background row is interactive");
+    assert!(row.size.width > px(200.));
+
+    visual_cx.simulate_click(
+        gpui::point(row.left() + px(10.), row.center().y),
+        Modifiers::none(),
+    );
+    visual_cx.run_until_parked();
+    assert!(
+        visual_cx
+            .debug_bounds("design-page-background-popup")
+            .is_some()
+    );
+    assert!(visual_cx.read(|app| panel.read(app).overlays.page_background_picker_open()));
+
+    visual_cx.simulate_click(gpui::point(px(5.), px(5.)), Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(
+        visual_cx
+            .debug_bounds("design-page-background-popup")
+            .is_none()
+    );
+}
+
+#[gpui::test]
 fn media_crop_commit_then_picker_close_has_no_extra_cancel(cx: &mut TestAppContext) {
     let mut node = DesignPanelNode::new("media-node", "Media", DesignPanelNodeKind::Rectangle);
     let mut paint = DesignPaint::image(super::super::DesignPaintSource::new(

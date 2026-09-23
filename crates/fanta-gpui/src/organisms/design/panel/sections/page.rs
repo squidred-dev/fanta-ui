@@ -1782,27 +1782,8 @@ pub(in super::super) fn render(
         header = header.child(mode_browser);
     }
     let mut page_body = v_flex().px(px(PANEL_PADDING)).pb_4().gap_2();
-    if let Some(page) = page {
-        page_body = page_body.child(
-            h_flex()
-                .h(px(ROW_HEIGHT))
-                .gap_2()
-                .child(
-                    div()
-                        .size(px(20.))
-                        .rounded(px(4.))
-                        .border_1()
-                        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                        .bg(color_hsla(page.background.color)),
-                )
-                .child(
-                    div()
-                        .flex_1()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
-                        .child("Page background"),
-                )
-                .child(chrome.take_background_picker()),
-        );
+    if page.is_some() {
+        page_body = page_body.child(chrome.take_background_picker());
         if let Some(local_styles) = projection.page_local_styles_view_data_for_context() {
             page_body = page_body.child(render_page_local_styles(
                 projection,

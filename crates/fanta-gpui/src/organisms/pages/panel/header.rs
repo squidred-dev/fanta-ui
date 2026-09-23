@@ -66,8 +66,7 @@ impl PagesPanel {
                     })
                     .child(
                         truncating_label(title)
-                            .typography(crate::atoms::TypographyToken::BodyLarge)
-                            .font_semibold()
+                            .typography(crate::atoms::TypographyToken::BodyMediumStrong)
                             .debug_selector(|| "pages-header-title".to_owned()),
                     ),
             )

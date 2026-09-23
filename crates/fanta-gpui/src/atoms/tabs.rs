@@ -7,7 +7,7 @@ use gpui::{
     SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
     prelude::FluentBuilder as _, px,
 };
-use gpui_component::{StyledExt as _, h_flex};
+use gpui_component::h_flex;
 
 use super::{
     ActivateEvent, CONTROL_KEY_CONTEXT, ControlExt as _, SemanticColor, TypographyExt as _,
@@ -154,10 +154,9 @@ impl RenderOnce for Tab {
                     .min_w(px(tokens::Space::NONE))
                     .truncate()
                     .typography(TypographyToken::BodyMedium)
-                    .when(self.compact, |tab| {
-                        tab.typography(TypographyToken::BodySmallStrong)
+                    .when(selected, |label| {
+                        label.typography(TypographyToken::BodyMediumStrong)
                     })
-                    .when(selected, |label| label.font_semibold())
                     .text_color(if selected {
                         SemanticColor::Text.resolve(cx)
                     } else {

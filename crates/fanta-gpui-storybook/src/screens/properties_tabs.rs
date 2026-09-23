@@ -561,6 +561,8 @@ fn motion_fixture() -> MotionInspectorViewData {
             InspectorChoice::new("opacity", "Opacity"),
             InspectorChoice::new("scale", "Scale"),
         ],
+        can_edit_timing: true,
+        can_preview: true,
         ..Default::default()
     }
 }
@@ -618,6 +620,8 @@ fn prototype_fixture() -> PrototypeInspectorViewData {
             animation: "Smart animate · 300 ms".into(),
         }],
         flow_name: Some("Shopping flow".into()),
+        can_start_flow: true,
+        can_present: true,
         read_only: false,
     }
 }

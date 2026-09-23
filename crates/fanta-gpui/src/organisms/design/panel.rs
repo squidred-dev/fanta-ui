@@ -1384,6 +1384,39 @@ impl DesignPanel {
         DesignPanelFactory::assemble_with_context(id, inspection_context, window, cx)
     }
 
+    /// Opens the page background color editor, or the first selected fill's
+    /// paint editor, using the same retained picker as the inspector row.
+    pub fn open_color_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.host.inspection_context.selection().kind() == DesignPanelSelectionKind::None {
+            let Some(page_id) = self
+                .page_view_data_for_context()
+                .map(|page| page.page_id.clone())
+            else {
+                return false;
+            };
+            self.overlays.open(DesignOverlayState::PageBackground);
+            self.open_auxiliary_color_picker(
+                AuxiliaryColorPickerTarget::PageBackground { page_id },
+                window,
+                cx,
+            );
+        } else {
+            let Some(paint) = self.host.inspected_node().fills.first() else {
+                return false;
+            };
+            let target = PaintPickerTarget {
+                collection: DesignPanelCollection::Fill,
+                index: 0,
+                paint_id: paint.id.clone(),
+            };
+            self.remember_overlay_focus_return(DesignOpenOverlay::PaintPicker, window, cx);
+            self.overlays.open(DesignOverlayState::PaintPicker(target));
+            self.sync_paint_picker(window, cx);
+        }
+        cx.notify();
+        true
+    }
+
     /// Returns the first inspected node from the authoritative context.
     ///
     /// A Page/no-selection context has no inspected node, so the legacy node

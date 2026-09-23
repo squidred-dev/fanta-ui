@@ -73,6 +73,7 @@ pub struct Timeline {
     id: SharedString,
     focus_handle: FocusHandle,
     view_data: TimelineViewData,
+    auto_keyframe_available: bool,
     show_empty_state: bool,
     collapsed: bool,
     overlay: Option<Overlay>,
@@ -119,6 +120,7 @@ impl Timeline {
             id: id.into(),
             focus_handle: cx.focus_handle(),
             view_data,
+            auto_keyframe_available: true,
             show_empty_state: true,
             collapsed: false,
             overlay: None,
@@ -141,6 +143,12 @@ impl Timeline {
     }
     pub fn view_data(&self) -> &TimelineViewData {
         &self.view_data
+    }
+    pub fn set_auto_keyframe_available(&mut self, available: bool, cx: &mut Context<Self>) {
+        if self.auto_keyframe_available != available {
+            self.auto_keyframe_available = available;
+            cx.notify();
+        }
     }
     pub fn set_view_data(&mut self, data: TimelineViewData, cx: &mut Context<Self>) {
         self.view_data = data.normalized();

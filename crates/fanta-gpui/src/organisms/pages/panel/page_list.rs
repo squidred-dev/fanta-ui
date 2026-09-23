@@ -141,7 +141,7 @@ impl PagesPanel {
         .track_focus(&row_focus_handle.tab_index(0).tab_stop(true))
         .border_0()
         .px_2()
-        .typography(crate::atoms::TypographyToken::BodyLarge)
+        .typography(crate::atoms::TypographyToken::BodyMedium)
         .focus(|style| {
             style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
                 .resolve(cx)
@@ -155,7 +155,7 @@ impl PagesPanel {
         .when(is_selected, |row| {
             row.bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
                 .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
-                .font_semibold()
+                .typography(crate::atoms::TypographyToken::BodyMediumStrong)
         })
         .on_hover(cx.listener({
             let hovered_page_id = page.id.clone();

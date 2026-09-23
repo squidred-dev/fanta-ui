@@ -19,6 +19,7 @@ use gpui_component::{h_flex, v_flex};
 pub struct MotionInspector {
     id: SharedString,
     data: MotionInspectorViewData,
+    auto_keyframe_available: bool,
     focus: FocusHandle,
     duration: Entity<Entry>,
     delay: Entity<Entry>,
@@ -43,7 +44,7 @@ impl MotionInspector {
                 },
                 cx,
                 |this, event, cx| {
-                    if !this.data.read_only {
+                    if !this.data.read_only && this.data.can_edit_timing {
                         cx.emit(Action::DurationChangeRequested {
                             duration_ms: event.0.parse::<f64>().unwrap_or(1.).round() as u32,
                         });
@@ -58,7 +59,7 @@ impl MotionInspector {
                 },
                 cx,
                 |this, event, cx| {
-                    if !this.data.read_only {
+                    if !this.data.read_only && this.data.can_edit_timing {
                         cx.emit(Action::DelayChangeRequested {
                             delay_ms: event.0.parse::<f64>().unwrap_or(0.).round() as u32,
                         });
@@ -67,6 +68,7 @@ impl MotionInspector {
             ),
             easing: picker(&format!("{id}-easing"), cx, |this, event, cx| {
                 if !this.data.read_only
+                    && this.data.can_edit_timing
                     && let Some(easing) = TimelineEasing::presets()
                         .into_iter()
                         .find(|v| v.label() == event.0.as_ref())
@@ -91,6 +93,7 @@ impl MotionInspector {
             }),
             id,
             data,
+            auto_keyframe_available: true,
             focus: cx.focus_handle(),
         }
     }
@@ -101,6 +104,13 @@ impl MotionInspector {
         self.data = data;
         cx.notify();
     }
+
+    pub fn set_auto_keyframe_available(&mut self, available: bool, cx: &mut Context<Self>) {
+        if self.auto_keyframe_available != available {
+            self.auto_keyframe_available = available;
+            cx.notify();
+        }
+    }
 }
 impl Focusable for MotionInspector {
     fn focus_handle(&self, _: &App) -> FocusHandle {
@@ -110,13 +120,19 @@ impl Focusable for MotionInspector {
 impl Render for MotionInspector {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let disabled = self.data.read_only || self.data.selection_name.is_empty();
+        let timing_disabled = disabled || !self.data.can_edit_timing;
         sync_entry(
             &self.duration,
             self.data.duration_ms.to_string(),
-            disabled,
+            timing_disabled,
             cx,
         );
-        sync_entry(&self.delay, self.data.delay_ms.to_string(), disabled, cx);
+        sync_entry(
+            &self.delay,
+            self.data.delay_ms.to_string(),
+            timing_disabled,
+            cx,
+        );
         sync_picker(
             &self.easing,
             self.data.easing.label(),
@@ -124,7 +140,7 @@ impl Render for MotionInspector {
                 .into_iter()
                 .map(|v| InspectorChoice::new(v.label(), v.label()))
                 .collect(),
-            disabled,
+            timing_disabled,
             cx,
         );
         sync_picker(
@@ -228,37 +244,43 @@ impl Render for MotionInspector {
                                         } else {
                                             LucideIcon::Play
                                         },
-                                        true,
+                                        self.data.can_preview,
                                         cx,
                                     )
                                     .flex_1()
                                     .bg(Color::BackgroundSecondary.resolve(cx))
                                     .on_activate(cx.listener(|this, _, _, cx| {
-                                        cx.emit(Action::PlayingChangeRequested {
-                                            playing: !this.data.playing,
-                                        })
-                                    })),
-                                )
-                                .child(
-                                    action(
-                                        format!("{}-auto", self.id).into(),
-                                        "Auto key",
-                                        LucideIcon::Diamond,
-                                        !disabled,
-                                        cx,
-                                    )
-                                    .flex_1()
-                                    .when(self.data.auto_keyframe, |v| {
-                                        v.bg(Color::BackgroundSecondary.resolve(cx))
-                                    })
-                                    .on_activate(cx.listener(|this, _, _, cx| {
-                                        if !this.data.read_only {
-                                            cx.emit(Action::AutoKeyframeChangeRequested {
-                                                enabled: !this.data.auto_keyframe,
+                                        if this.data.can_preview {
+                                            cx.emit(Action::PlayingChangeRequested {
+                                                playing: !this.data.playing,
                                             });
                                         }
                                     })),
-                                ),
+                                )
+                                .when(self.auto_keyframe_available, |row| {
+                                    row.child(
+                                        action(
+                                            format!("{}-auto", self.id).into(),
+                                            "Auto key",
+                                            LucideIcon::Diamond,
+                                            !disabled,
+                                            cx,
+                                        )
+                                        .flex_1()
+                                        .when(self.data.auto_keyframe, |v| {
+                                            v.bg(Color::BackgroundSecondary.resolve(cx))
+                                        })
+                                        .on_activate(
+                                            cx.listener(|this, _, _, cx| {
+                                                if !this.data.read_only {
+                                                    cx.emit(Action::AutoKeyframeChangeRequested {
+                                                        enabled: !this.data.auto_keyframe,
+                                                    });
+                                                }
+                                            }),
+                                        ),
+                                    )
+                                }),
                         ),
                 ),
             )

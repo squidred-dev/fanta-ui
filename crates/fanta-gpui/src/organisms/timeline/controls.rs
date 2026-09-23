@@ -115,17 +115,19 @@ impl Timeline {
                 },
                 cx,
             ))
-            .child(self.command(
-                "auto-keyframe",
-                "Auto-keyframe",
-                LucideIcon::CircleDot,
-                d.auto_keyframe,
-                editing,
-                TimelineAction::AutoKeyframeChangeRequested {
-                    enabled: !d.auto_keyframe,
-                },
-                cx,
-            ))
+            .when(self.auto_keyframe_available, |controls| {
+                controls.child(self.command(
+                    "auto-keyframe",
+                    "Auto-keyframe",
+                    LucideIcon::CircleDot,
+                    d.auto_keyframe,
+                    editing,
+                    TimelineAction::AutoKeyframeChangeRequested {
+                        enabled: !d.auto_keyframe,
+                    },
+                    cx,
+                ))
+            })
             .child(self.command(
                 "keyframe",
                 "Add keyframe · K",

@@ -29,6 +29,8 @@ pub struct MotionInspectorViewData {
     pub presets: Vec<InspectorChoice>,
     pub selected_preset: Option<SharedString>,
     pub animated_properties: Vec<InspectorChoice>,
+    pub can_edit_timing: bool,
+    pub can_preview: bool,
     pub read_only: bool,
 }
 impl Default for MotionInspectorViewData {
@@ -44,6 +46,8 @@ impl Default for MotionInspectorViewData {
             presets: Vec::new(),
             selected_preset: None,
             animated_properties: Vec::new(),
+            can_edit_timing: false,
+            can_preview: false,
             read_only: false,
         }
     }
@@ -205,6 +209,8 @@ pub struct PrototypeInspectorViewData {
     pub background_hex: SharedString,
     pub connections: Vec<PrototypeConnection>,
     pub flow_name: Option<SharedString>,
+    pub can_start_flow: bool,
+    pub can_present: bool,
     pub read_only: bool,
 }
 impl Default for PrototypeInspectorViewData {
@@ -216,6 +222,8 @@ impl Default for PrototypeInspectorViewData {
             background_hex: "000000".into(),
             connections: Vec::new(),
             flow_name: None,
+            can_start_flow: false,
+            can_present: true,
             read_only: false,
         }
     }

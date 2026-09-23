@@ -91,6 +91,69 @@ impl EditorToolbar {
         self.active_tool
     }
 
+    /// Limits visible tools and shortcut requests to capabilities supplied by the host.
+    /// Without a host filter the complete component catalog remains available.
+    pub fn set_supported_tools(
+        &mut self,
+        tools: impl IntoIterator<Item = ToolbarTool>,
+        cx: &mut Context<Self>,
+    ) {
+        let mut supported = Vec::new();
+        for tool in tools {
+            if !supported.contains(&tool) {
+                supported.push(tool);
+            }
+        }
+        if self.supported_tools.as_ref() != Some(&supported) {
+            self.supported_tools = Some(supported);
+            if matches!(self.overlay, Some(ToolbarOverlay::ToolGroup(_))) {
+                self.set_overlay(None, cx);
+            }
+            cx.notify();
+        }
+    }
+
+    pub(super) fn tool_supported(&self, tool: ToolbarTool) -> bool {
+        self.supported_tools
+            .as_ref()
+            .is_none_or(|tools| tools.contains(&tool))
+    }
+
+    pub(super) fn group_tools(
+        &self,
+        group: ToolbarToolGroup,
+    ) -> impl Iterator<Item = ToolbarTool> + '_ {
+        group
+            .tools()
+            .iter()
+            .copied()
+            .filter(|tool| self.tool_supported(*tool))
+    }
+
+    /// Limits mode-specific secondary controls to actions implemented by the host.
+    pub fn set_supported_secondary_controls(
+        &mut self,
+        controls: impl IntoIterator<Item = ToolbarSecondaryControl>,
+        cx: &mut Context<Self>,
+    ) {
+        let mut supported = Vec::new();
+        for control in controls {
+            if !supported.contains(&control) {
+                supported.push(control);
+            }
+        }
+        if self.supported_secondary_controls.as_ref() != Some(&supported) {
+            self.supported_secondary_controls = Some(supported);
+            cx.notify();
+        }
+    }
+
+    pub(super) fn secondary_control_supported(&self, control: ToolbarSecondaryControl) -> bool {
+        self.supported_secondary_controls
+            .as_ref()
+            .is_none_or(|controls| controls.contains(&control))
+    }
+
     /// Returns the clamped canvas zoom percentage.
     pub fn zoom_percent(&self) -> u16 {
         self.zoom_percent
@@ -237,15 +300,16 @@ impl EditorToolbar {
         was_open: bool,
         cx: &mut Context<Self>,
     ) {
+        if self.group_tools(group).next().is_none() {
+            return;
+        }
         let next = (!was_open).then_some(ToolbarOverlay::ToolGroup(group));
         if !was_open {
-            self.reset_menu_cursor(
-                group
-                    .tools()
-                    .iter()
-                    .position(|tool| *tool == self.active_tool)
-                    .unwrap_or(0),
-            );
+            let cursor = self
+                .group_tools(group)
+                .position(|tool| tool == self.active_tool)
+                .unwrap_or(0);
+            self.reset_menu_cursor(cursor);
         }
         self.set_overlay(next, cx);
         cx.notify();
@@ -307,6 +371,9 @@ impl EditorToolbar {
     }
 
     pub(super) fn request_tool(&mut self, tool: ToolbarTool, cx: &mut Context<Self>) {
+        if !self.tool_supported(tool) {
+            return;
+        }
         self.set_overlay(None, cx);
         let requested_mode = if tool.is_available_in(self.mode) {
             self.mode
@@ -386,7 +453,10 @@ impl EditorToolbar {
     /// Number of highlightable rows in the open non-Actions menu overlay.
     fn open_menu_len(&self) -> Option<usize> {
         match self.overlay? {
-            ToolbarOverlay::ToolGroup(group) => Some(group.tools().len()),
+            ToolbarOverlay::ToolGroup(group) => {
+                let len = self.group_tools(group).count();
+                (len > 0).then_some(len)
+            }
             ToolbarOverlay::OptionEditor(control) => {
                 let len = self.choice_candidates(control).len();
                 (len > 0).then_some(len)
@@ -414,7 +484,10 @@ impl EditorToolbar {
         let cursor = self.menu_cursor.min(len - 1);
         match self.overlay {
             Some(ToolbarOverlay::ToolGroup(group)) => {
-                self.choose_tool_from_menu(group.tools()[cursor], window, cx);
+                let tool = self.group_tools(group).nth(cursor);
+                if let Some(tool) = tool {
+                    self.choose_tool_from_menu(tool, window, cx);
+                }
             }
             Some(ToolbarOverlay::Mode) => {
                 self.request_mode(ToolbarMode::ALL[cursor], cx);
@@ -589,6 +662,9 @@ impl EditorToolbar {
         control: ToolbarSecondaryControl,
         cx: &mut Context<Self>,
     ) {
+        if !self.secondary_control_supported(control) {
+            return;
+        }
         cx.emit(ToolbarAction::SecondaryControlInvoked {
             mode: self.mode,
             control,
@@ -601,6 +677,9 @@ impl EditorToolbar {
         value: ToolbarControlValue,
         cx: &mut Context<Self>,
     ) {
+        if !self.secondary_control_supported(control) {
+            return;
+        }
         cx.emit(ToolbarAction::ControlChangeRequested {
             mode: self.mode,
             control,

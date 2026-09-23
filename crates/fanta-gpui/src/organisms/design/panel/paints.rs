@@ -1904,10 +1904,10 @@ impl DesignPaintController for DesignPanel {
         .justify_start()
         .selected(selected || open)
         .disabled(!inspectable)
-        .on_keyboard_activate({
+        .on_activate({
             let panel = panel.clone();
             let target = target.clone();
-            move |window, cx| {
+            move |_, window, cx| {
                 let target = target.clone();
                 panel.update(cx, |this, cx| {
                     if !open {
@@ -3008,10 +3008,10 @@ impl DesignPaintController for DesignPanel {
         .h(px(28.))
         .justify_start()
         .selected(open)
-        .on_keyboard_activate({
+        .on_activate({
             let panel = panel.clone();
             let target = target.clone();
-            move |window, cx| {
+            move |_, window, cx| {
                 let target = target.clone();
                 panel.update(cx, |this, cx| {
                     if !open {
@@ -3874,10 +3874,7 @@ impl DesignPaintController for DesignPanel {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let panel = cx.entity();
-        let panel_for_open = panel.clone();
         let picker = self.paint_picker.clone();
-        let picker_content = picker.clone();
-        let picker_focus = picker.focus_handle(cx);
         let current = page.background.color;
         let target = AuxiliaryColorPickerTarget::PageBackground {
             page_id: page.page_id.clone(),
@@ -3898,74 +3895,89 @@ impl DesignPaintController for DesignPanel {
             "{}-page-background-trigger",
             self.id
         )))
-        .label(SharedString::from(format!("#{}", current.hex())))
+        .debug_selector(|| "design-page-background-row".to_owned())
         .tooltip(
             disabled_reason
                 .clone()
                 .unwrap_or_else(|| "Change Page background".into()),
         )
         .xsmall()
-        .compact()
         .ghost()
-        .on_keyboard_activate({
+        .w_full()
+        .h(px(ROW_HEIGHT))
+        .justify_start()
+        .gap_2()
+        .child(
+            div()
+                .size(px(20.))
+                .flex_none()
+                .rounded(px(4.))
+                .border_1()
+                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                .bg(color_hsla(current)),
+        )
+        .child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .child("Page background"),
+        )
+        .child(
+            div()
+                .flex_none()
+                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .child(SharedString::from(format!("#{}", current.hex()))),
+        )
+        .on_activate({
             let panel = panel.clone();
             let target = target.clone();
-            move |window, cx| {
+            move |_, window, cx| {
                 let target = target.clone();
                 panel.update(cx, |this, cx| {
-                    this.overlays
-                        .set_open(DesignOverlayState::PageBackground, !open);
                     if !open {
+                        this.overlays.open(DesignOverlayState::PageBackground);
                         this.open_auxiliary_color_picker(target, window, cx);
                     } else if this.overlays.auxiliary_color_picker().as_ref() == Some(&target) {
                         this.prepare_paint_picker_for_dismissal(cx);
                         this.cancel_active_paint_edit(cx);
                         this.overlays
                             .discard(DesignOpenOverlay::AuxiliaryColorPicker);
+                        this.overlays.discard(DesignOpenOverlay::PageBackground);
                     }
                     cx.notify();
                 });
             }
         });
 
-        Popover::new(SharedString::from(format!(
-            "{}-page-background-popover",
-            self.id
-        )))
-        .anchor(Anchor::TopRight)
-        .open(open)
-        .overlay_closable(true)
-        .track_focus(&picker_focus)
-        .on_open_change(move |open, window, cx| {
-            let target = target.clone();
-            panel_for_open.update(cx, |this, cx| {
-                if *open {
-                    this.remember_overlay_focus_return(
-                        DesignOpenOverlay::PageBackground,
-                        window,
-                        cx,
-                    );
-                    this.overlays.open(DesignOverlayState::PageBackground);
-                    this.open_auxiliary_color_picker(target, window, cx);
-                } else if this.overlays.auxiliary_color_picker().as_ref() == Some(&target) {
-                    let _ = this.dismiss_overlay_from_outside_click(
-                        DesignOpenOverlay::AuxiliaryColorPicker,
-                        window,
-                        cx,
-                    );
-                } else if this.overlays.page_background_picker_open() {
-                    let _ = this.dismiss_overlay_from_outside_click(
-                        DesignOpenOverlay::PageBackground,
-                        window,
-                        cx,
-                    );
-                }
-            });
-        })
-        .trigger(trigger)
-        .appearance(false)
-        .content(move |_, _, _| picker_content.clone())
-        .into_any_element()
+        div()
+            .relative()
+            .w_full()
+            .child(trigger)
+            .when(open, |row| {
+                row.child(
+                    div().absolute().top(px(ROW_HEIGHT)).right_0().child(
+                        crate::molecules::anchored_popup(
+                            Anchor::BottomRight,
+                            gpui::point(px(0.), px(0.)),
+                            40,
+                            div()
+                                .id(format!("{}-page-background-popup", self.id))
+                                .debug_selector(|| "design-page-background-popup".to_owned())
+                                .occlude()
+                                .on_mouse_down_out(cx.listener(|this, _, window, cx| {
+                                    this.dismiss_overlay_from_outside_click(
+                                        DesignOpenOverlay::AuxiliaryColorPicker,
+                                        window,
+                                        cx,
+                                    );
+                                }))
+                                .child(picker),
+                        ),
+                    ),
+                )
+            })
+            .into_any_element()
     }
 }
 

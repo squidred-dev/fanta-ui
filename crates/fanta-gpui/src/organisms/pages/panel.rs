@@ -15,7 +15,7 @@ use gpui::{
 #[cfg(not(test))]
 use gpui_component::animation::cubic_bezier;
 use gpui_component::{
-    Disableable as _, Icon, IconName, Sizable as _, StyledExt as _,
+    Disableable as _, Icon, IconName, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputEvent, InputState, SelectAll},

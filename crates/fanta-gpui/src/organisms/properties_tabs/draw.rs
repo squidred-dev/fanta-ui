@@ -1,5 +1,6 @@
 use super::{DrawInspectorAction as Action, DrawInspectorViewData, InspectorChoice, controls::*};
 use crate::atoms::{ControlExt as _, LucideIcon, SemanticColor as Color, tokens};
+use crate::toolbar::DrawBrushCapabilities;
 use gpui::StatefulInteractiveElement as _;
 use gpui::{
     App, Context, Entity, EventEmitter, FocusHandle, Focusable, InteractiveElement as _,
@@ -11,6 +12,7 @@ use gpui_component::{h_flex, v_flex};
 pub struct DrawInspector {
     id: SharedString,
     data: DrawInspectorViewData,
+    capabilities: DrawBrushCapabilities,
     focus: FocusHandle,
     tip: Entity<Picker>,
     blend: Entity<Picker>,
@@ -63,6 +65,7 @@ impl DrawInspector {
             smoothing: Self::numeric(&id, "smoothing", 0., 100., cx),
             id,
             data,
+            capabilities: DrawBrushCapabilities::default(),
             focus: cx.focus_handle(),
         }
     }
@@ -102,6 +105,17 @@ impl DrawInspector {
     pub fn set_view_data(&mut self, data: DrawInspectorViewData, cx: &mut Context<Self>) {
         self.data = data;
         cx.notify();
+    }
+
+    pub fn set_capabilities(
+        &mut self,
+        capabilities: DrawBrushCapabilities,
+        cx: &mut Context<Self>,
+    ) {
+        if self.capabilities != capabilities {
+            self.capabilities = capabilities;
+            cx.notify();
+        }
     }
 }
 impl Focusable for DrawInspector {
@@ -160,9 +174,13 @@ impl Render for DrawInspector {
             .child(
                 section("Brush", cx).child(
                     body()
-                        .child(row("Tip", self.tip.clone(), cx))
+                        .when(self.capabilities.brush_tip, |body| {
+                            body.child(row("Tip", self.tip.clone(), cx))
+                        })
                         .child(row("Size · px", self.size.clone(), cx))
-                        .child(row("Hardness · %", self.hardness.clone(), cx)),
+                        .when(self.capabilities.hardness, |body| {
+                            body.child(row("Hardness · %", self.hardness.clone(), cx))
+                        }),
                 ),
             )
             .child(
@@ -171,76 +189,93 @@ impl Render for DrawInspector {
                         .child(row("Color", self.color.clone(), cx))
                         .child(row("Blend mode", self.blend.clone(), cx))
                         .child(row("Opacity · %", self.opacity.clone(), cx))
-                        .child(row("Flow · %", self.flow.clone(), cx)),
+                        .when(self.capabilities.flow, |body| {
+                            body.child(row("Flow · %", self.flow.clone(), cx))
+                        }),
                 ),
             )
             .child(
                 section("Stroke", cx).child(
                     body()
                         .child(row("Smooth · %", self.smoothing.clone(), cx))
-                        .child(
-                            h_flex()
-                                .gap(px(tokens::Space::SM))
-                                .child(
-                                    action(
-                                        format!("{}-pressure", self.id).into(),
-                                        "Pen pressure",
-                                        LucideIcon::PenTool,
-                                        !disabled,
-                                        cx,
-                                    )
-                                    .flex_1()
-                                    .when(self.data.options.pressure, |v| {
-                                        v.bg(Color::BackgroundSecondary.resolve(cx))
-                                    })
-                                    .on_activate(cx.listener(|this, _, _, cx| {
-                                        if !this.data.read_only {
-                                            let mut options = this.data.options.clone();
-                                            options.pressure = !options.pressure;
-                                            cx.emit(Action::OptionsChangeRequested { options });
-                                        }
-                                    })),
+                        .when(
+                            self.capabilities.pressure || self.capabilities.anti_alias,
+                            |body| {
+                                body.child(
+                                    h_flex()
+                                        .gap(px(tokens::Space::SM))
+                                        .when(self.capabilities.pressure, |row| {
+                                            row.child(
+                                                action(
+                                                    format!("{}-pressure", self.id).into(),
+                                                    "Pen pressure",
+                                                    LucideIcon::PenTool,
+                                                    !disabled,
+                                                    cx,
+                                                )
+                                                .flex_1()
+                                                .when(self.data.options.pressure, |v| {
+                                                    v.bg(Color::BackgroundSecondary.resolve(cx))
+                                                })
+                                                .on_activate(cx.listener(|this, _, _, cx| {
+                                                    if !this.data.read_only {
+                                                        let mut options = this.data.options.clone();
+                                                        options.pressure = !options.pressure;
+                                                        cx.emit(Action::OptionsChangeRequested {
+                                                            options,
+                                                        });
+                                                    }
+                                                })),
+                                            )
+                                        })
+                                        .when(self.capabilities.anti_alias, |row| {
+                                            row.child(
+                                                action(
+                                                    format!("{}-antialias", self.id).into(),
+                                                    "Anti-alias",
+                                                    LucideIcon::Spline,
+                                                    !disabled,
+                                                    cx,
+                                                )
+                                                .flex_1()
+                                                .when(self.data.options.anti_alias, |v| {
+                                                    v.bg(Color::BackgroundSecondary.resolve(cx))
+                                                })
+                                                .on_activate(cx.listener(|this, _, _, cx| {
+                                                    if !this.data.read_only {
+                                                        let mut options = this.data.options.clone();
+                                                        options.anti_alias = !options.anti_alias;
+                                                        cx.emit(Action::OptionsChangeRequested {
+                                                            options,
+                                                        });
+                                                    }
+                                                })),
+                                            )
+                                        }),
                                 )
-                                .child(
-                                    action(
-                                        format!("{}-antialias", self.id).into(),
-                                        "Anti-alias",
-                                        LucideIcon::Spline,
-                                        !disabled,
-                                        cx,
-                                    )
-                                    .flex_1()
-                                    .when(self.data.options.anti_alias, |v| {
-                                        v.bg(Color::BackgroundSecondary.resolve(cx))
-                                    })
-                                    .on_activate(cx.listener(|this, _, _, cx| {
-                                        if !this.data.read_only {
-                                            let mut options = this.data.options.clone();
-                                            options.anti_alias = !options.anti_alias;
-                                            cx.emit(Action::OptionsChangeRequested { options });
-                                        }
-                                    })),
-                                ),
+                            },
                         ),
                 ),
             )
-            .child(
-                div().p(px(tokens::Space::LG)).child(
-                    action(
-                        format!("{}-save-preset", self.id).into(),
-                        "Save brush preset",
-                        LucideIcon::Plus,
-                        !disabled,
-                        cx,
-                    )
-                    .w_full()
-                    .bg(Color::BackgroundSecondary.resolve(cx))
-                    .on_activate(cx.listener(|this, _, _, cx| {
-                        if !this.data.read_only {
-                            cx.emit(Action::BrushPresetSaveRequested);
-                        }
-                    })),
-                ),
-            )
+            .when(self.capabilities.save_preset, |panel| {
+                panel.child(
+                    div().p(px(tokens::Space::LG)).child(
+                        action(
+                            format!("{}-save-preset", self.id).into(),
+                            "Save brush preset",
+                            LucideIcon::Plus,
+                            !disabled,
+                            cx,
+                        )
+                        .w_full()
+                        .bg(Color::BackgroundSecondary.resolve(cx))
+                        .on_activate(cx.listener(|this, _, _, cx| {
+                            if !this.data.read_only {
+                                cx.emit(Action::BrushPresetSaveRequested);
+                            }
+                        })),
+                    ),
+                )
+            })
     }
 }

@@ -114,6 +114,50 @@ fn setup(cx: &mut TestAppContext) -> (Entity<TestHost>, &mut VisualTestContext) 
 }
 
 #[gpui::test]
+fn host_capability_filters_remove_dead_toolbar_controls(cx: &mut TestAppContext) {
+    let (host, cx) = setup(cx);
+    let toolbar = cx.read(|app| host.read(app).toolbar.clone());
+    toolbar.update(cx, |toolbar, cx| {
+        toolbar.set_supported_tools(
+            [
+                ToolbarTool::Move,
+                ToolbarTool::Rectangle,
+                ToolbarTool::Actions,
+            ],
+            cx,
+        );
+        toolbar.set_supported_secondary_controls([ToolbarSecondaryControl::DevInspect], cx);
+    });
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("toolbar-group-shape-tools-trigger")
+            .is_some()
+    );
+    assert!(
+        cx.debug_bounds("toolbar-group-creation-tools-trigger")
+            .is_none()
+    );
+
+    toolbar.update(cx, |toolbar, cx| {
+        toolbar.toggle_tool_group(ToolbarToolGroup::Shape, false, cx);
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("toolbar-flyout-rectangle").is_some());
+    assert!(cx.debug_bounds("toolbar-flyout-ellipse").is_none());
+
+    toolbar.update(cx, |toolbar, cx| {
+        toolbar.request_tool(ToolbarTool::Ellipse, cx);
+        toolbar.set_mode(ToolbarMode::Dev, cx);
+    });
+    cx.run_until_parked();
+    let actions = cx.read(|app| host.read(app).actions.clone());
+    assert!(actions.borrow().is_empty());
+    assert!(cx.debug_bounds("toolbar-secondary-dev-inspect").is_some());
+    assert!(cx.debug_bounds("toolbar-secondary-dev-annotate").is_none());
+    assert!(cx.debug_bounds("toolbar-secondary-dev-ready").is_none());
+}
+
+#[gpui::test]
 fn actions_query_accepts_backward_and_forward_deletion(cx: &mut TestAppContext) {
     let (host, cx) = setup(cx);
     let toolbar = cx.read(|app| host.read(app).toolbar.clone());

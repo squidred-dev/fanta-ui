@@ -3,7 +3,9 @@
 
 mod commands;
 mod draw_model;
-pub use draw_model::{DrawSelectionOperation, DrawToolbarAction, DrawToolbarOptions};
+pub use draw_model::{
+    DrawBrushCapabilities, DrawSelectionOperation, DrawToolbarAction, DrawToolbarOptions,
+};
 mod component;
 mod icons;
 mod model;

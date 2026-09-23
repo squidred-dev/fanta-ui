@@ -1,5 +1,40 @@
 use gpui::SharedString;
 
+/// Host capabilities for brush controls that are not part of every drawing engine.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DrawBrushCapabilities {
+    pub brush_tip: bool,
+    pub hardness: bool,
+    pub flow: bool,
+    pub pressure: bool,
+    pub anti_alias: bool,
+    pub save_preset: bool,
+}
+
+impl DrawBrushCapabilities {
+    pub const VECTOR_PENCIL: Self = Self {
+        brush_tip: false,
+        hardness: false,
+        flow: false,
+        pressure: false,
+        anti_alias: false,
+        save_preset: false,
+    };
+}
+
+impl Default for DrawBrushCapabilities {
+    fn default() -> Self {
+        Self {
+            brush_tip: true,
+            hardness: true,
+            flow: true,
+            pressure: true,
+            anti_alias: true,
+            save_preset: true,
+        }
+    }
+}
+
 /// Host-owned paint and selection settings. Distances use document pixels.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DrawToolbarOptions {

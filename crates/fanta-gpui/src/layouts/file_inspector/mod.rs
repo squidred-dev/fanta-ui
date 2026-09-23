@@ -85,7 +85,7 @@ impl FileInspectorSidebar {
             .p_3()
             .gap_3()
             .items_center()
-            .typography(TypographyToken::BodyLarge)
+            .typography(TypographyToken::BodyMedium)
             .text_color(SemanticColor::Text.resolve(cx))
             .when(self.collapsed, |header| {
                 header.child(div().flex_none().child(render_fanta_logo(

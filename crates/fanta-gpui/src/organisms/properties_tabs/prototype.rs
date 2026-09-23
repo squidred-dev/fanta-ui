@@ -196,16 +196,14 @@ impl Render for PrototypeInspector {
                                     format!("{}-flow-start", self.id).into(),
                                     "Set as starting point",
                                     LucideIcon::Flag,
-                                    !disabled && !self.data.selection_name.is_empty(),
+                                    !disabled && self.data.can_start_flow,
                                     cx,
                                 )
                                 .w_full()
                                 .bg(Color::BackgroundSecondary.resolve(cx))
                                 .on_activate(cx.listener(
                                     |this, _, _, cx| {
-                                        if !this.data.read_only
-                                            && !this.data.selection_name.is_empty()
-                                        {
+                                        if !this.data.read_only && this.data.can_start_flow {
                                             cx.emit(Action::FlowStartRequested);
                                         }
                                     },
@@ -253,13 +251,13 @@ impl Render for PrototypeInspector {
                         format!("{}-present", self.id).into(),
                         "Present prototype",
                         LucideIcon::Play,
-                        !self.data.selection_name.is_empty(),
+                        self.data.can_present,
                         cx,
                     )
                     .w_full()
                     .bg(Color::BackgroundSecondary.resolve(cx))
                     .on_activate(cx.listener(|this, _, _, cx| {
-                        if !this.data.selection_name.is_empty() {
+                        if this.data.can_present {
                             cx.emit(Action::PresentRequested);
                         }
                     })),

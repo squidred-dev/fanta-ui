@@ -10,6 +10,7 @@ fn motion_controls_request_edits_without_mutating_host_state(cx: &mut TestAppCon
             MotionInspectorViewData {
                 selection_name: "Hero".into(),
                 animated_properties: vec![InspectorChoice::new("opacity", "Opacity")],
+                can_preview: true,
                 ..Default::default()
             },
             cx,
@@ -104,6 +105,44 @@ fn draw_pressure_is_controlled_and_read_only_suppresses_edits(cx: &mut TestAppCo
     cx.simulate_click(bounds.center(), Modifiers::none());
     cx.run_until_parked();
     assert!(actions.borrow().is_empty());
+}
+
+#[gpui::test]
+fn vector_pencil_capabilities_show_only_supported_draw_controls(cx: &mut TestAppContext) {
+    let (host, _, cx) = mount_component(cx, |_, cx| {
+        DrawInspector::new("draw", DrawInspectorViewData::default(), cx)
+    });
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |view, cx| {
+        view.set_capabilities(crate::toolbar::DrawBrushCapabilities::VECTOR_PENCIL, cx);
+    });
+    cx.simulate_resize(size(px(360.), px(900.)));
+    cx.run_until_parked();
+    for selector in [
+        "draw-size",
+        "draw-color",
+        "draw-opacity",
+        "draw-smoothing",
+        "draw-blend",
+    ] {
+        assert!(
+            cx.debug_bounds(selector).is_some(),
+            "{selector} should remain visible"
+        );
+    }
+    for selector in [
+        "draw-tip",
+        "draw-hardness",
+        "draw-flow",
+        "draw-pressure",
+        "draw-antialias",
+        "draw-save-preset",
+    ] {
+        assert!(
+            cx.debug_bounds(selector).is_none(),
+            "{selector} should be hidden"
+        );
+    }
 }
 
 #[gpui::test]

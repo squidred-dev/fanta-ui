@@ -111,6 +111,17 @@ fn chip(id: SharedString, label: impl Into<SharedString>, cx: &App) -> Stateful<
     .child(label.into())
 }
 impl EditorToolbar {
+    pub fn set_draw_brush_capabilities(
+        &mut self,
+        capabilities: crate::toolbar::DrawBrushCapabilities,
+        cx: &mut Context<Self>,
+    ) {
+        if self.draw_brush_capabilities != capabilities {
+            self.draw_brush_capabilities = capabilities;
+            cx.notify();
+        }
+    }
+
     pub fn draw_options(&self) -> &DrawToolbarOptions {
         &self.draw_options
     }
@@ -444,7 +455,9 @@ impl EditorToolbar {
         let o = &self.draw_options;
         match self.active_tool {
             ToolbarTool::Brush | ToolbarTool::Pencil | ToolbarTool::Eraser => {
-                row = row.child(self.render_draw_choice(DrawChoice::BrushTip, window, cx));
+                if self.draw_brush_capabilities.brush_tip {
+                    row = row.child(self.render_draw_choice(DrawChoice::BrushTip, window, cx));
+                }
                 for field in [
                     DrawNumber::Size,
                     DrawNumber::Hardness,
@@ -452,16 +465,25 @@ impl EditorToolbar {
                     DrawNumber::Flow,
                     DrawNumber::Smoothing,
                 ] {
-                    row = row.child(self.render_draw_number(field, window, cx));
+                    let supported = match field {
+                        DrawNumber::Hardness => self.draw_brush_capabilities.hardness,
+                        DrawNumber::Flow => self.draw_brush_capabilities.flow,
+                        _ => true,
+                    };
+                    if supported {
+                        row = row.child(self.render_draw_number(field, window, cx));
+                    }
                 }
-                row = row.child(self.draw_toggle(
-                    "pressure",
-                    "Use pen pressure",
-                    LucideIcon::PenTool,
-                    o.pressure,
-                    |o| o.pressure = !o.pressure,
-                    cx,
-                ));
+                if self.draw_brush_capabilities.pressure {
+                    row = row.child(self.draw_toggle(
+                        "pressure",
+                        "Use pen pressure",
+                        LucideIcon::PenTool,
+                        o.pressure,
+                        |o| o.pressure = !o.pressure,
+                        cx,
+                    ));
+                }
             }
             ToolbarTool::RectangleSelect
             | ToolbarTool::EllipseSelect

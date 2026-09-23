@@ -9,7 +9,7 @@ use gpui::{
     Subscription, UniformListScrollHandle, Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_component::{
-    Icon, IconName, Sizable as _, StyledExt as _, h_flex,
+    Icon, IconName, Sizable as _, h_flex,
     input::{Input, InputEvent, InputState, SelectAll},
     scroll::Scrollbar,
     tooltip::Tooltip,
@@ -470,8 +470,7 @@ impl LayersPanel {
                     })
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyLarge)
-                            .font_semibold()
+                            .typography(crate::atoms::TypographyToken::BodyMediumStrong)
                             .child("Layers"),
                     ),
             )
