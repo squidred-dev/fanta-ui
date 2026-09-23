@@ -229,6 +229,20 @@ impl PaintPicker {
         if self.paint_style_creation_enabled != enabled {
             self.paint_style_creation_enabled = enabled;
             self.creation_menu_index = 0;
+            if self.creation_kinds().is_empty() {
+                self.forget_nested_overlay(PaintPickerOverlay::Creation);
+            }
+            cx.notify();
+        }
+    }
+
+    pub fn set_color_variable_creation_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.color_variable_creation_enabled != enabled {
+            self.color_variable_creation_enabled = enabled;
+            self.creation_menu_index = 0;
+            if self.creation_kinds().is_empty() {
+                self.forget_nested_overlay(PaintPickerOverlay::Creation);
+            }
             cx.notify();
         }
     }
@@ -308,7 +322,7 @@ impl PaintPicker {
     }
 
     pub(crate) fn request_color_variable_create(&self, cx: &mut Context<Self>) {
-        if self.editing_disabled() {
+        if !self.color_variable_creation_enabled || self.editing_disabled() {
             return;
         }
         let (Some(target), Some(color_target), Some(color)) = (
@@ -345,7 +359,10 @@ impl PaintPicker {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.editing_disabled() || self.selected_color_target().is_none() {
+        if self.creation_kinds().is_empty()
+            || self.editing_disabled()
+            || self.selected_color_target().is_none()
+        {
             return;
         }
         self.creation_menu_index = 0;
@@ -381,6 +398,9 @@ impl PaintPicker {
         cx: &mut Context<Self>,
     ) {
         let count = self.creation_kinds().len();
+        if count == 0 {
+            return;
+        }
         match event.keystroke.key.as_str() {
             "up" => {
                 self.creation_menu_index = (self.creation_menu_index + count - 1) % count;
@@ -424,10 +444,14 @@ impl PaintPicker {
     }
 
     pub(super) fn creation_kinds(&self) -> &'static [PaintCreationKind] {
-        if self.paint_style_creation_enabled {
-            &PaintCreationKind::ALL
-        } else {
-            &PaintCreationKind::VARIABLE_ONLY
+        match (
+            self.paint_style_creation_enabled,
+            self.color_variable_creation_enabled,
+        ) {
+            (true, true) => &PaintCreationKind::ALL,
+            (true, false) => &PaintCreationKind::STYLE_ONLY,
+            (false, true) => &PaintCreationKind::VARIABLE_ONLY,
+            (false, false) => &PaintCreationKind::NONE,
         }
     }
 
@@ -474,6 +498,9 @@ impl PaintPicker {
     }
 
     pub(super) fn render_creation_menu(&self, cx: &mut Context<Self>) -> AnyElement {
+        if self.creation_kinds().is_empty() {
+            return div().into_any_element();
+        }
         let picker_for_open = cx.entity();
         let picker_for_trigger = picker_for_open.clone();
         let picker_for_content = picker_for_open.clone();
@@ -484,12 +511,19 @@ impl PaintPicker {
         let menu_focus_for_content = menu_focus_handle.clone();
         let disabled = self.editing_disabled() || self.selected_color_target().is_none();
         let trigger = crate::atoms::ui_button(SharedString::from(format!("{}-create", self.id)))
+            .debug_selector(|| "paint-picker-create-trigger".to_owned())
             .icon(IconName::Plus)
-            .tooltip(if self.paint_style_creation_enabled {
-                "Create style or variable"
-            } else {
-                "Create variable"
-            })
+            .tooltip(
+                match (
+                    self.paint_style_creation_enabled,
+                    self.color_variable_creation_enabled,
+                ) {
+                    (true, true) => "Create style or variable",
+                    (true, false) => "Create style",
+                    (false, true) => "Create variable",
+                    (false, false) => "Create",
+                },
+            )
             .xsmall()
             .compact()
             .ghost()
@@ -511,7 +545,11 @@ impl PaintPicker {
             .overlay_closable(true)
             .on_open_change(move |open, window, cx| {
                 picker_for_open.update(cx, |this, cx| {
-                    if *open && !this.editing_disabled() && this.selected_color_target().is_some() {
+                    if *open
+                        && !this.creation_kinds().is_empty()
+                        && !this.editing_disabled()
+                        && this.selected_color_target().is_some()
+                    {
                         this.creation_menu_index = 0;
                         this.open_nested_overlay(PaintPickerOverlay::Creation, window, cx);
                     } else {

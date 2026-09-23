@@ -270,7 +270,9 @@ enum PaintCreationKind {
 
 impl PaintCreationKind {
     const ALL: [Self; 2] = [Self::Style, Self::Variable];
+    const STYLE_ONLY: [Self; 1] = [Self::Style];
     const VARIABLE_ONLY: [Self; 1] = [Self::Variable];
+    const NONE: [Self; 0] = [];
 
     const fn label(self) -> &'static str {
         match self {
@@ -434,6 +436,7 @@ pub struct PaintPicker {
     color_style_sample_view_data: DesignColorStyleSampleViewData,
     media_view_data: DesignMediaPaintViewData,
     paint_style_creation_enabled: bool,
+    color_variable_creation_enabled: bool,
     eyedropper_enabled: bool,
     shader_view_data: DesignShaderViewData,
     supported_paint_types: Vec<DesignPaintType>,
@@ -593,6 +596,7 @@ impl PaintPicker {
             color_style_sample_view_data: DesignColorStyleSampleViewData::default(),
             media_view_data: DesignMediaPaintViewData::default(),
             paint_style_creation_enabled: true,
+            color_variable_creation_enabled: true,
             eyedropper_enabled: true,
             shader_view_data: DesignShaderViewData::default(),
             supported_paint_types: DesignPaintType::ALL.to_vec(),

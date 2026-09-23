@@ -655,7 +655,8 @@ impl DesignPanelFactory {
                     target,
                     color_target,
                     color,
-                } if target.node_id == this.host.inspected_node().id
+                } if this.color_variable_creation_enabled
+                    && target.node_id == this.host.inspected_node().id
                     && this.overlays.active_picker()
                         == Some(PaintPickerTarget {
                             collection: target.collection,
@@ -889,6 +890,7 @@ impl DesignPanelFactory {
             paint_picker,
             paint_visibility_supported: true,
             eyedropper_enabled: true,
+            color_variable_creation_enabled: true,
             supported_blend_modes: DesignBlendMode::ALL.to_vec(),
             typography_style_picker,
             overlays: DesignOverlayCoordinator::with_focus_handles(cx),

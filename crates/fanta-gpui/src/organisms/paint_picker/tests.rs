@@ -1611,6 +1611,62 @@ fn picker_creation_menu_omits_unavailable_paint_style_action(cx: &mut TestAppCon
 }
 
 #[gpui::test]
+fn picker_creation_menu_omits_unavailable_variable_and_disappears_when_empty(
+    cx: &mut TestAppContext,
+) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target(
+                "node",
+                DesignPanelCollection::Fill,
+                0,
+                DesignPaint::solid(DesignColor::BLUE).with_id("fill"),
+                window,
+                cx,
+            );
+            picker.set_color_variable_creation_enabled(false, cx);
+            assert_eq!(picker.creation_kinds(), [PaintCreationKind::Style]);
+            picker.request_color_variable_create(cx);
+            picker.activate_creation_kind(PaintCreationKind::Style, window, cx);
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(
+        visual_cx
+            .debug_bounds("paint-picker-create-trigger")
+            .is_some()
+    );
+    assert!(matches!(
+        events.borrow().as_slice(),
+        [PaintPickerEvent::PaintStyleCreateRequested { target, .. }]
+            if target.paint_id.as_ref() == "fill"
+    ));
+
+    events.borrow_mut().clear();
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_paint_style_creation_enabled(false, cx);
+            assert!(picker.creation_kinds().is_empty());
+            picker.open_creation_menu_from_keyboard(window, cx);
+            assert!(!picker.nested_overlay_is_open(PaintPickerOverlay::Creation));
+            picker.request_color_variable_create(cx);
+            picker.request_paint_style_create(cx);
+            picker.commit_creation_menu(window, cx);
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(
+        visual_cx
+            .debug_bounds("paint-picker-create-trigger")
+            .is_none()
+    );
+    assert!(events.borrow().is_empty());
+}
+
+#[gpui::test]
 fn media_property_viewer_can_switch_to_another_supported_paint_type(cx: &mut TestAppContext) {
     let (host, visual_cx) = setup_picker(cx);
     let picker = picker(&host, visual_cx);

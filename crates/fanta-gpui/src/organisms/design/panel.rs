@@ -1328,6 +1328,7 @@ pub struct DesignPanel {
     paint_picker: Entity<PaintPicker>,
     paint_visibility_supported: bool,
     eyedropper_enabled: bool,
+    color_variable_creation_enabled: bool,
     supported_blend_modes: Vec<DesignBlendMode>,
     typography_style_picker: Entity<TypographyStylePicker>,
     overlays: DesignOverlayCoordinator,
@@ -1410,6 +1411,16 @@ impl DesignPanel {
             self.eyedropper_enabled = enabled;
             self.paint_picker.update(cx, |picker, cx| {
                 picker.set_eyedropper_enabled(enabled, cx);
+            });
+            cx.notify();
+        }
+    }
+
+    pub fn set_color_variable_creation_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.color_variable_creation_enabled != enabled {
+            self.color_variable_creation_enabled = enabled;
+            self.paint_picker.update(cx, |picker, cx| {
+                picker.set_color_variable_creation_enabled(enabled, cx);
             });
             cx.notify();
         }

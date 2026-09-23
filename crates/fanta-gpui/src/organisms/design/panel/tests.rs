@@ -12400,6 +12400,42 @@ fn disabled_eyedropper_cannot_emit_a_host_action(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn disabled_color_variable_creation_cannot_emit_a_host_action(cx: &mut TestAppContext) {
+    let node = DesignPanelNode::new("rectangle", "Rectangle", DesignPanelNodeKind::Rectangle);
+    let paint_id = node.fills[0].id.clone();
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    let captured_actions = actions(&host, visual_cx);
+    visual_cx.update(|window, app| {
+        panel.update(app, |panel, cx| {
+            panel.set_color_variable_creation_enabled(false, cx);
+            *panel.overlays.active_picker_test_slot() = Some(PaintPickerTarget {
+                collection: DesignPanelCollection::Fill,
+                index: 0,
+                paint_id: paint_id.clone(),
+            });
+            panel.sync_paint_picker(window, cx);
+        });
+    });
+    let picker = visual_cx.read(|app| panel.read(app).paint_picker.clone());
+    picker.update(visual_cx, |picker, cx| {
+        picker.request_color_variable_create(cx);
+        cx.emit(PaintPickerEvent::ColorVariableCreateRequested {
+            target: super::super::paint_picker::PaintPickerTarget {
+                node_id: "rectangle".into(),
+                collection: DesignPanelCollection::Fill,
+                index: 0,
+                paint_id,
+            },
+            color_target: DesignPaintColorTarget::Solid,
+            color: DesignColor::BLUE,
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(captured_actions.borrow().is_empty());
+}
+
+#[gpui::test]
 fn picker_host_requests_preserve_stable_leaf_identity_and_exact_editability_gates(
     cx: &mut TestAppContext,
 ) {
