@@ -759,7 +759,8 @@ impl DesignPanelFactory {
                 PaintPickerEvent::EyedropperRequested {
                     target,
                     color_target,
-                } if target.node_id == this.host.inspected_node().id
+                } if this.eyedropper_enabled
+                    && target.node_id == this.host.inspected_node().id
                     && this.overlays.active_picker()
                         == Some(PaintPickerTarget {
                             collection: target.collection,
@@ -887,6 +888,7 @@ impl DesignPanelFactory {
             features,
             paint_picker,
             paint_visibility_supported: true,
+            eyedropper_enabled: true,
             supported_blend_modes: DesignBlendMode::ALL.to_vec(),
             typography_style_picker,
             overlays: DesignOverlayCoordinator::with_focus_handles(cx),

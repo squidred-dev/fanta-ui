@@ -233,6 +233,13 @@ impl PaintPicker {
         }
     }
 
+    pub fn set_eyedropper_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.eyedropper_enabled != enabled {
+            self.eyedropper_enabled = enabled;
+            cx.notify();
+        }
+    }
+
     /// Replaces host-controlled fill-shader discovery/import data without
     /// mutating the current paint payload.
     pub fn set_shader_view_data(
@@ -452,7 +459,7 @@ impl PaintPicker {
     }
 
     pub(crate) fn request_eyedropper(&self, cx: &mut Context<Self>) {
-        if self.color_editing_disabled() {
+        if !self.eyedropper_enabled || self.color_editing_disabled() {
             return;
         }
         let (Some(target), Some(color_target)) =

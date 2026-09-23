@@ -12,6 +12,7 @@ pub(in super::super::super) struct TypographyStylePickerProjection {
     panel_id: SharedString,
     target: DesignPanelTarget,
     open: bool,
+    available: bool,
     editable: bool,
     picker: Entity<TypographyStylePicker>,
 }
@@ -21,6 +22,7 @@ impl TypographyStylePickerProjection {
         panel_id: SharedString,
         target: DesignPanelTarget,
         open: bool,
+        available: bool,
         editable: bool,
         picker: Entity<TypographyStylePicker>,
     ) -> Self {
@@ -28,6 +30,7 @@ impl TypographyStylePickerProjection {
             panel_id,
             target,
             open,
+            available,
             editable,
             picker,
         }
@@ -74,6 +77,7 @@ fn dispatch(
     match event {
         TypographyStylePickerEvent::Open
             if panel.command_target() == *expected_target
+                && panel.typography_style_picker_available()
                 && panel.host.inspected_node().typography.is_some()
                 && panel.host.inspection_context.selection().kind()
                     != DesignPanelSelectionKind::None =>
@@ -98,6 +102,9 @@ pub(in super::super::super) fn render(
     events: &TypographyStylePickerEventSink,
     cx: &mut Context<DesignPanel>,
 ) -> AnyElement {
+    if !projection.available {
+        return div().into_any_element();
+    }
     let picker_content = projection.picker.clone();
     let picker_focus = projection.picker.focus_handle(cx);
     let target_for_trigger = projection.target.clone();
@@ -113,6 +120,7 @@ pub(in super::super::super) fn render(
         "{}-typography-styles",
         projection.panel_id
     )))
+    .debug_selector(|| "typography-style-trigger".to_owned())
     .tooltip(tooltip)
     .xsmall()
     .compact()

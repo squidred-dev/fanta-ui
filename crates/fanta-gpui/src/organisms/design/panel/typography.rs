@@ -18,6 +18,7 @@ pub(super) fn projection(
         panel.id.clone(),
         panel_target.clone(),
         panel.overlays.typography_style_picker_open(),
+        panel.typography_style_picker_available(),
         panel.property_is_editable(DesignPanelProperty::TypographyStyle),
         panel.typography_style_picker.clone(),
     );
@@ -143,6 +144,7 @@ pub(super) trait DesignTypographyController: Sized {
         value: &DesignPanelValue,
     ) -> Option<DesignTextPathStartData>;
     fn typography_style_binding(&self) -> Option<DesignTypographyStyleBinding>;
+    fn typography_style_picker_available(&self) -> bool;
     fn sync_typography_style_picker(&self, cx: &mut Context<Self>);
     fn open_typography_style_picker(&mut self, window: &mut Window, cx: &mut Context<Self>);
     fn render_typography_style_button(&self, cx: &mut Context<Self>) -> AnyElement;
@@ -777,6 +779,10 @@ impl DesignTypographyController for DesignPanel {
             .and_then(|typography| typography.style_binding.clone())
     }
 
+    fn typography_style_picker_available(&self) -> bool {
+        self.typography_style_binding().is_some() || !self.resources.typography_styles.is_empty()
+    }
+
     fn sync_typography_style_picker(&self, cx: &mut Context<Self>) {
         let binding = self.typography_style_binding();
         let disabled = !self.property_is_editable(DesignPanelProperty::TypographyStyle);
@@ -788,6 +794,7 @@ impl DesignTypographyController for DesignPanel {
 
     fn open_typography_style_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.host.inspected_node().typography.is_none()
+            || !self.typography_style_picker_available()
             || self.host.inspection_context.selection().kind() == DesignPanelSelectionKind::None
         {
             return;
@@ -814,6 +821,7 @@ impl DesignTypographyController for DesignPanel {
             self.id.clone(),
             self.command_target(),
             self.overlays.typography_style_picker_open(),
+            self.typography_style_picker_available(),
             self.property_is_editable(DesignPanelProperty::TypographyStyle),
             self.typography_style_picker.clone(),
         );

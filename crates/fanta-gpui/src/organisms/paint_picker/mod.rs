@@ -434,6 +434,7 @@ pub struct PaintPicker {
     color_style_sample_view_data: DesignColorStyleSampleViewData,
     media_view_data: DesignMediaPaintViewData,
     paint_style_creation_enabled: bool,
+    eyedropper_enabled: bool,
     shader_view_data: DesignShaderViewData,
     supported_paint_types: Vec<DesignPaintType>,
     supported_blend_modes: Vec<DesignBlendMode>,
@@ -592,6 +593,7 @@ impl PaintPicker {
             color_style_sample_view_data: DesignColorStyleSampleViewData::default(),
             media_view_data: DesignMediaPaintViewData::default(),
             paint_style_creation_enabled: true,
+            eyedropper_enabled: true,
             shader_view_data: DesignShaderViewData::default(),
             supported_paint_types: DesignPaintType::ALL.to_vec(),
             supported_blend_modes: DesignBlendMode::NON_PASS_THROUGH.to_vec(),
@@ -1084,7 +1086,7 @@ impl PaintPicker {
     }
 
     fn handle_picker_key(&self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        if is_eyedropper_shortcut(event) {
+        if self.eyedropper_enabled && is_eyedropper_shortcut(event) {
             self.request_eyedropper(cx);
             window.prevent_default();
             cx.stop_propagation();

@@ -606,8 +606,12 @@ impl DesignTypographyStyleViewData {
         }
     }
 
-    pub const fn is_empty(&self) -> bool {
-        self.page_styles.is_empty() && self.libraries.is_empty()
+    pub fn is_empty(&self) -> bool {
+        self.page_styles.is_empty()
+            && self
+                .libraries
+                .iter()
+                .all(|library| library.styles.is_empty())
     }
 
     pub fn style(

@@ -1858,29 +1858,31 @@ impl PaintPicker {
                     h_flex()
                         .w_full()
                         .gap_2()
-                        .child(
-                            crate::atoms::ui_button(SharedString::from(format!(
-                                "{}-eyedropper",
-                                self.id
-                            )))
-                            .debug_selector(|| "color-picker-eyedropper".to_owned())
-                            .tooltip("Pick color from canvas")
-                            .xsmall()
-                            .compact()
-                            .ghost()
-                            .w(px(24.))
-                            .disabled(self.color_editing_disabled())
-                            .child(render_lucide_icon(
-                                LucideIcon::Pipette,
-                                crate::atoms::SemanticColor::Text.resolve(cx),
-                                tokens::IconSize::SM,
-                            ))
-                            .on_activate(cx.listener(
-                                |this, _, _, cx| {
-                                    this.request_eyedropper(cx);
-                                },
-                            )),
-                        )
+                        .when(self.eyedropper_enabled, |row| {
+                            row.child(
+                                crate::atoms::ui_button(SharedString::from(format!(
+                                    "{}-eyedropper",
+                                    self.id
+                                )))
+                                .debug_selector(|| "color-picker-eyedropper".to_owned())
+                                .tooltip("Pick color from canvas")
+                                .xsmall()
+                                .compact()
+                                .ghost()
+                                .w(px(24.))
+                                .disabled(self.color_editing_disabled())
+                                .child(render_lucide_icon(
+                                    LucideIcon::Pipette,
+                                    crate::atoms::SemanticColor::Text.resolve(cx),
+                                    tokens::IconSize::SM,
+                                ))
+                                .on_activate(cx.listener(
+                                    |this, _, _, cx| {
+                                        this.request_eyedropper(cx);
+                                    },
+                                )),
+                            )
+                        })
                         .child(
                             v_flex()
                                 .flex_1()

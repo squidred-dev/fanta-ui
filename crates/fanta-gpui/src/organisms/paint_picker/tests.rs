@@ -532,6 +532,46 @@ fn picker_recognizes_figma_eyedropper_shortcuts() {
 }
 
 #[gpui::test]
+fn eyedropper_capability_hides_control_and_ignores_shortcut(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target(
+                "node",
+                DesignPanelCollection::Fill,
+                0,
+                DesignPaint::solid(DesignColor::BLACK).with_id("fill"),
+                window,
+                cx,
+            );
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("color-picker-eyedropper").is_some());
+
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_eyedropper_enabled(false, cx);
+            picker.request_eyedropper(cx);
+            picker.handle_picker_key(
+                &KeyDownEvent {
+                    keystroke: Keystroke::parse("i").expect("I shortcut"),
+                    is_held: false,
+                    prefer_character_input: false,
+                },
+                window,
+                cx,
+            );
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("color-picker-eyedropper").is_none());
+    assert!(events.borrow().is_empty());
+}
+
+#[gpui::test]
 fn color_format_menu_roves_home_end_wraps_and_restores_focus(cx: &mut TestAppContext) {
     let (host, visual_cx) = setup_picker(cx);
     let picker = picker(&host, visual_cx);

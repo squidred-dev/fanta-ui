@@ -10558,6 +10558,15 @@ fn typography_style_picker_is_retained_but_closes_when_entering_native_viewer_pr
 
     visual_cx.update(|window, app| {
         panel.update(app, |panel, cx| {
+            panel.set_typography_style_view_data(
+                super::super::DesignTypographyStyleViewData::new(
+                    [super::super::DesignTypographyStyle::new(
+                        "body", "Body", "Inter", "Regular", 14.,
+                    )],
+                    [],
+                ),
+                cx,
+            );
             panel.open_typography_style_picker(window, cx);
             assert!(panel.overlays.typography_style_picker_open());
             drop(panel.render_typography(cx));
@@ -10623,6 +10632,57 @@ fn bound_text_style_replaces_only_style_owned_typography_leaves(cx: &mut TestApp
         );
         drop(panel.render_typography(cx));
         drop(panel.render_typography_style_button(cx));
+    });
+}
+
+#[gpui::test]
+fn text_style_button_appears_only_with_styles_or_a_binding(cx: &mut TestAppContext) {
+    let node = DesignPanelNode::new("text", "Text", DesignPanelNodeKind::Text);
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    visual_cx.update(|window, app| {
+        panel.update(app, |panel, cx| {
+            assert!(!panel.typography_style_picker_available());
+            panel.open_typography_style_picker(window, cx);
+            assert!(!panel.overlays.typography_style_picker_open());
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("typography-style-trigger").is_none());
+
+    panel.update(visual_cx, |panel, cx| {
+        panel.set_typography_style_view_data(
+            super::super::DesignTypographyStyleViewData::new(
+                [super::super::DesignTypographyStyle::new(
+                    "body", "Body", "Inter", "Regular", 14.,
+                )],
+                [],
+            ),
+            cx,
+        );
+        assert!(panel.typography_style_picker_available());
+    });
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("typography-style-trigger").is_some());
+
+    visual_cx.update(|window, app| {
+        panel.update(app, |panel, cx| {
+            panel.open_typography_style_picker(window, cx);
+            assert!(panel.overlays.typography_style_picker_open());
+            panel.set_typography_style_view_data(Default::default(), cx);
+            assert!(!panel.overlays.typography_style_picker_open());
+            let mut bound_node = DesignPanelNode::new("text", "Text", DesignPanelNodeKind::Text);
+            bound_node
+                .typography
+                .as_mut()
+                .expect("text typography")
+                .style_binding = Some(super::super::DesignTypographyStyleBinding::new(
+                super::super::DesignTypographyStyleSelection::page("body"),
+                "Body",
+            ));
+            panel.set_node(bound_node, cx);
+            assert!(panel.typography_style_picker_available());
+        });
     });
 }
 
@@ -12302,6 +12362,41 @@ fn a_bound_color_does_not_disable_unrelated_picker_controls(cx: &mut TestAppCont
             ..
         } if variable_id.as_ref() == "replacement-variable"
     )));
+}
+
+#[gpui::test]
+fn disabled_eyedropper_cannot_emit_a_host_action(cx: &mut TestAppContext) {
+    let node = DesignPanelNode::new("rectangle", "Rectangle", DesignPanelNodeKind::Rectangle);
+    let paint_id = node.fills[0].id.clone();
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    let captured_actions = actions(&host, visual_cx);
+    visual_cx.update(|window, app| {
+        panel.update(app, |panel, cx| {
+            panel.set_eyedropper_enabled(false, cx);
+            *panel.overlays.active_picker_test_slot() = Some(PaintPickerTarget {
+                collection: DesignPanelCollection::Fill,
+                index: 0,
+                paint_id: paint_id.clone(),
+            });
+            panel.sync_paint_picker(window, cx);
+        });
+    });
+    let picker = visual_cx.read(|app| panel.read(app).paint_picker.clone());
+    picker.update(visual_cx, |picker, cx| {
+        picker.request_eyedropper(cx);
+        cx.emit(PaintPickerEvent::EyedropperRequested {
+            target: super::super::paint_picker::PaintPickerTarget {
+                node_id: "rectangle".into(),
+                collection: DesignPanelCollection::Fill,
+                index: 0,
+                paint_id,
+            },
+            color_target: DesignPaintColorTarget::Solid,
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(captured_actions.borrow().is_empty());
 }
 
 #[gpui::test]

@@ -1168,6 +1168,9 @@ impl DesignPanelViewDataController for DesignPanel {
         if self.resources.typography_styles == view_data {
             return;
         }
+        if view_data.is_empty() && self.typography_style_binding().is_none() {
+            self.overlays.discard(DesignOpenOverlay::TypographyStyle);
+        }
         self.resources.typography_styles = view_data.clone();
         self.typography_style_picker.update(cx, |picker, cx| {
             picker.set_view_data(view_data, cx);
