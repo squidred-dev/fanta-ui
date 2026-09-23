@@ -1452,6 +1452,7 @@ impl DesignTypographyController for DesignPanel {
         let panel_for_open = panel.clone();
         let axes = typography.variable_axes.clone();
         let has_variable_axes = !axes.is_empty();
+        let advanced_type_settings_enabled = typography.advanced_type_settings_enabled;
         let trigger =
             sections::typography::type_settings::render_trigger(&overlay, &type_settings_events);
         let open = overlay.open;
@@ -1601,9 +1602,11 @@ impl DesignTypographyController for DesignPanel {
             let mut tabs = crate::molecules::inspector_action_group(metrics)
                 .flex_1()
                 .gap_1()
-                .child(tab_button(TypographySettingsTab::Basics))
-                .child(tab_button(TypographySettingsTab::Details));
-            if has_variable_axes {
+                .child(tab_button(TypographySettingsTab::Basics));
+            if advanced_type_settings_enabled {
+                tabs = tabs.child(tab_button(TypographySettingsTab::Details));
+            }
+            if advanced_type_settings_enabled && has_variable_axes {
                 tabs = tabs.child(tab_button(TypographySettingsTab::Variable));
             }
 
@@ -1735,134 +1738,137 @@ impl DesignTypographyController for DesignPanel {
                                 panel.clone(),
                                 cx,
                             ),
-                        ))
-                        .child(control_row(
-                            "Case",
-                            Self::render_type_setting_segments(
-                                panel_id.clone(),
-                                "case",
-                                case_options,
-                                case_editable,
-                                DesignPanelProperty::TextCase,
-                                panel.clone(),
-                                cx,
-                            ),
-                        ))
-                        .child(
-                            div()
-                                .h(px(1.))
-                                .w_full()
-                                .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
-                        )
-                        .child(control_row(
-                            "Vertical trim",
-                            Self::render_type_setting_segments(
-                                panel_id.clone(),
-                                "vertical-trim",
-                                leading_trim_options,
-                                leading_trim_editable,
-                                DesignPanelProperty::TextLeadingTrim,
-                                panel.clone(),
-                                cx,
-                            ),
-                        ))
-                        .child(control_row(
-                            "List style",
-                            Self::render_type_setting_segments(
-                                panel_id.clone(),
-                                "list",
-                                list_options,
-                                list_editable,
-                                DesignPanelProperty::TextList,
-                                panel.clone(),
-                                cx,
-                            ),
-                        ))
-                        .when(list != DesignTextList::None, |body| {
-                            body.child(control_row(
-                                "List spacing",
-                                Self::render_type_setting_number_field(
+                        ));
+                    if advanced_type_settings_enabled {
+                        body = body
+                            .child(control_row(
+                                "Case",
+                                Self::render_type_setting_segments(
                                     panel_id.clone(),
-                                    "list-spacing",
-                                    list_spacing_label.clone(),
-                                    DesignPanelProperty::ListSpacing,
-                                    DesignPanelValue::Number(list_spacing),
-                                    list_spacing_editable,
-                                    list_spacing_editing,
-                                    property_editor_invalid,
-                                    property_input.clone(),
+                                    "case",
+                                    case_options,
+                                    case_editable,
+                                    DesignPanelProperty::TextCase,
                                     panel.clone(),
                                     cx,
                                 ),
                             ))
-                        })
-                        .child(control_row(
-                            "Paragraph spacing",
-                            h_flex()
-                                .w_full()
-                                .gap_1()
-                                .child(div().flex_1().min_w(px(0.)).child(
+                            .child(
+                                div()
+                                    .h(px(1.))
+                                    .w_full()
+                                    .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
+                            )
+                            .child(control_row(
+                                "Vertical trim",
+                                Self::render_type_setting_segments(
+                                    panel_id.clone(),
+                                    "vertical-trim",
+                                    leading_trim_options,
+                                    leading_trim_editable,
+                                    DesignPanelProperty::TextLeadingTrim,
+                                    panel.clone(),
+                                    cx,
+                                ),
+                            ))
+                            .child(control_row(
+                                "List style",
+                                Self::render_type_setting_segments(
+                                    panel_id.clone(),
+                                    "list",
+                                    list_options,
+                                    list_editable,
+                                    DesignPanelProperty::TextList,
+                                    panel.clone(),
+                                    cx,
+                                ),
+                            ))
+                            .when(list != DesignTextList::None, |body| {
+                                body.child(control_row(
+                                    "List spacing",
                                     Self::render_type_setting_number_field(
                                         panel_id.clone(),
-                                        "paragraph-spacing",
-                                        paragraph_spacing_label.clone(),
-                                        DesignPanelProperty::ParagraphSpacing,
-                                        DesignPanelValue::Number(paragraph_spacing),
-                                        paragraph_spacing_editable,
-                                        paragraph_spacing_editing,
+                                        "list-spacing",
+                                        list_spacing_label.clone(),
+                                        DesignPanelProperty::ListSpacing,
+                                        DesignPanelValue::Number(list_spacing),
+                                        list_spacing_editable,
+                                        list_spacing_editing,
                                         property_editor_invalid,
                                         property_input.clone(),
                                         panel.clone(),
                                         cx,
                                     ),
                                 ))
-                                .when_some(
-                                    paragraph_spacing_variable_button_state.clone().and_then(
-                                        |button_state| {
-                                            Self::render_property_variable_button_for(
-                                                panel.clone(),
-                                                DesignPanelProperty::ParagraphSpacing,
-                                                button_state,
-                                                cx,
-                                            )
-                                        },
-                                    ),
-                                    |row, button| row.child(button),
-                                )
-                                .into_any_element(),
-                        ))
-                        .child(control_row(
-                            "Truncate text",
-                            Self::render_type_setting_segments(
-                                panel_id.clone(),
-                                "truncate",
-                                truncate_options,
-                                truncate_editable,
-                                DesignPanelProperty::TextTruncate,
-                                panel.clone(),
-                                cx,
-                            ),
-                        ))
-                        .when(max_lines_available, |body| {
-                            body.child(control_row(
-                                "Max lines",
-                                Self::render_type_setting_number_field(
+                            })
+                            .child(control_row(
+                                "Paragraph spacing",
+                                h_flex()
+                                    .w_full()
+                                    .gap_1()
+                                    .child(div().flex_1().min_w(px(0.)).child(
+                                        Self::render_type_setting_number_field(
+                                            panel_id.clone(),
+                                            "paragraph-spacing",
+                                            paragraph_spacing_label.clone(),
+                                            DesignPanelProperty::ParagraphSpacing,
+                                            DesignPanelValue::Number(paragraph_spacing),
+                                            paragraph_spacing_editable,
+                                            paragraph_spacing_editing,
+                                            property_editor_invalid,
+                                            property_input.clone(),
+                                            panel.clone(),
+                                            cx,
+                                        ),
+                                    ))
+                                    .when_some(
+                                        paragraph_spacing_variable_button_state.clone().and_then(
+                                            |button_state| {
+                                                Self::render_property_variable_button_for(
+                                                    panel.clone(),
+                                                    DesignPanelProperty::ParagraphSpacing,
+                                                    button_state,
+                                                    cx,
+                                                )
+                                            },
+                                        ),
+                                        |row, button| row.child(button),
+                                    )
+                                    .into_any_element(),
+                            ))
+                            .child(control_row(
+                                "Truncate text",
+                                Self::render_type_setting_segments(
                                     panel_id.clone(),
-                                    "max-lines",
-                                    max_lines_label.clone(),
-                                    DesignPanelProperty::TextMaxLines,
-                                    DesignPanelValue::OptionalNumber(
-                                        max_lines.map(|lines| lines as f32),
-                                    ),
-                                    max_lines_editable,
-                                    max_lines_editing,
-                                    property_editor_invalid,
-                                    property_input.clone(),
+                                    "truncate",
+                                    truncate_options,
+                                    truncate_editable,
+                                    DesignPanelProperty::TextTruncate,
                                     panel.clone(),
                                     cx,
                                 ),
                             ))
-                        });
+                            .when(max_lines_available, |body| {
+                                body.child(control_row(
+                                    "Max lines",
+                                    Self::render_type_setting_number_field(
+                                        panel_id.clone(),
+                                        "max-lines",
+                                        max_lines_label.clone(),
+                                        DesignPanelProperty::TextMaxLines,
+                                        DesignPanelValue::OptionalNumber(
+                                            max_lines.map(|lines| lines as f32),
+                                        ),
+                                        max_lines_editable,
+                                        max_lines_editing,
+                                        property_editor_invalid,
+                                        property_input.clone(),
+                                        panel.clone(),
+                                        cx,
+                                    ),
+                                ))
+                            });
+                    }
                 }
                 TypographySettingsTab::Details => {
                     let bool_options = |enabled: bool| {

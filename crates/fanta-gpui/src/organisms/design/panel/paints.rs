@@ -932,10 +932,12 @@ impl DesignPaintController for DesignPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if !matches!(
-            collection,
-            DesignPanelCollection::Fill | DesignPanelCollection::Stroke
-        ) || !self.collection_is_supported(collection)
+        if !self.resources.paint_styles.enabled
+            || !matches!(
+                collection,
+                DesignPanelCollection::Fill | DesignPanelCollection::Stroke
+            )
+            || !self.collection_is_supported(collection)
         {
             return;
         }
@@ -981,7 +983,8 @@ impl DesignPaintController for DesignPanel {
         style: DesignPaintStyleSelection,
         cx: &mut Context<Self>,
     ) {
-        if !self.can_edit()
+        if !self.resources.paint_styles.enabled
+            || !self.can_edit()
             || !self.collection_is_supported(collection)
             || self
                 .resources
@@ -1010,7 +1013,8 @@ impl DesignPaintController for DesignPanel {
         style: DesignPaintStyleSelection,
         cx: &mut Context<Self>,
     ) {
-        if !self.can_edit()
+        if !self.resources.paint_styles.enabled
+            || !self.can_edit()
             || !self.collection_is_supported(collection)
             || self
                 .resources
@@ -1041,7 +1045,11 @@ impl DesignPaintController for DesignPanel {
         let Some(paints) = self.paint_collection(collection).map(<[_]>::to_vec) else {
             return;
         };
-        if !self.can_edit() || paints.is_empty() || self.paint_style_binding(collection).is_some() {
+        if !self.resources.paint_styles.enabled
+            || !self.can_edit()
+            || paints.is_empty()
+            || self.paint_style_binding(collection).is_some()
+        {
             return;
         }
         self.overlays.discard(DesignOpenOverlay::PaintStyle);
@@ -1068,7 +1076,10 @@ impl DesignPaintController for DesignPanel {
         else {
             return;
         };
-        if !self.can_edit() || !self.collection_is_supported(collection) {
+        if !self.resources.paint_styles.enabled
+            || !self.can_edit()
+            || !self.collection_is_supported(collection)
+        {
             return;
         }
         self.overlays.discard(DesignOpenOverlay::PaintStyle);
@@ -1089,6 +1100,9 @@ impl DesignPaintController for DesignPanel {
         collection: DesignPanelCollection,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        if !self.resources.paint_styles.enabled {
+            return div().into_any_element();
+        }
         let panel = cx.entity();
         let panel_for_open = panel.clone();
         let panel_for_content = panel;
@@ -2061,7 +2075,10 @@ impl DesignPaintController for DesignPanel {
         kind: SelectionColorResourceKind,
         cx: &mut Context<Self>,
     ) {
-        if self.selection_color(selection_color_id.as_ref()).is_none() {
+        if self.selection_color(selection_color_id.as_ref()).is_none()
+            || kind == SelectionColorResourceKind::PaintStyle
+                && !self.resources.paint_styles.enabled
+        {
             return;
         }
         if kind == SelectionColorResourceKind::PaintStyle {
@@ -2098,7 +2115,8 @@ impl DesignPaintController for DesignPanel {
         let Some(color) = self.selection_color(selection_color_id.as_ref()) else {
             return;
         };
-        if !self.selection_color_can_mutate(&color)
+        if !self.resources.paint_styles.enabled
+            || !self.selection_color_can_mutate(&color)
             || self
                 .resources
                 .paint_styles
@@ -2130,7 +2148,8 @@ impl DesignPaintController for DesignPanel {
         let Some(color) = self.selection_color(selection_color_id.as_ref()) else {
             return;
         };
-        if !self.selection_color_can_mutate(&color)
+        if !self.resources.paint_styles.enabled
+            || !self.selection_color_can_mutate(&color)
             || self
                 .resources
                 .paint_styles
@@ -2161,7 +2180,8 @@ impl DesignPaintController for DesignPanel {
         let Some(color) = self.selection_color(selection_color_id.as_ref()) else {
             return;
         };
-        if !self.selection_color_can_mutate(&color)
+        if !self.resources.paint_styles.enabled
+            || !self.selection_color_can_mutate(&color)
             || color.style_binding.is_some()
             || color.style_paints.is_empty()
         {
@@ -2197,7 +2217,7 @@ impl DesignPaintController for DesignPanel {
         else {
             return;
         };
-        if !self.selection_color_can_mutate(&color) {
+        if !self.resources.paint_styles.enabled || !self.selection_color_can_mutate(&color) {
             return;
         }
         self.overlays
@@ -2350,6 +2370,9 @@ impl DesignPaintController for DesignPanel {
         color: &super::super::DesignSelectionColor,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        if !self.resources.paint_styles.enabled {
+            return div().into_any_element();
+        }
         let color = color.clone();
         let selection_color_id = color.id.clone();
         let active = self

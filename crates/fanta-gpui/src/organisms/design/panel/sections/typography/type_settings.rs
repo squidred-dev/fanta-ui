@@ -32,7 +32,16 @@ impl TypeSettingsOverlayProjection {
             panel_id: panel.id.clone(),
             target: panel.command_target(),
             open: panel.overlays.type_settings_open(),
-            tab: effective_tab(panel.features.typography.settings_tab, has_variable_axes),
+            tab: effective_tab(
+                panel.features.typography.settings_tab,
+                has_variable_axes,
+                panel
+                    .host
+                    .inspected_node()
+                    .typography
+                    .as_ref()
+                    .is_none_or(|typography| typography.advanced_type_settings_enabled),
+            ),
             focus: panel.overlays.type_settings_focus().clone(),
         }
     }
@@ -313,8 +322,11 @@ pub(in super::super::super) enum TypeSettingsOverlayEvent {
 pub(in super::super::super) fn effective_tab(
     requested: TypographySettingsTab,
     has_variable_axes: bool,
+    advanced_type_settings_enabled: bool,
 ) -> TypographySettingsTab {
-    if requested == TypographySettingsTab::Variable && !has_variable_axes {
+    if !advanced_type_settings_enabled {
+        TypographySettingsTab::Basics
+    } else if requested == TypographySettingsTab::Variable && !has_variable_axes {
         TypographySettingsTab::Details
     } else {
         requested
@@ -365,7 +377,16 @@ pub(in super::super::super) fn dispatch(
             prepare_open(panel, focus, window, cx);
             cx.notify();
         }
-        TypeSettingsOverlayEvent::SelectTab(tab) if live_target_matches => {
+        TypeSettingsOverlayEvent::SelectTab(tab)
+            if live_target_matches
+                && (tab == TypographySettingsTab::Basics
+                    || panel
+                        .host
+                        .inspected_node()
+                        .typography
+                        .as_ref()
+                        .is_some_and(|typography| typography.advanced_type_settings_enabled)) =>
+        {
             panel.features.typography.settings_tab = tab;
             cx.notify();
         }
@@ -392,15 +413,19 @@ mod tests {
     #[test]
     fn variable_tab_falls_back_only_without_axes() {
         assert_eq!(
-            effective_tab(TypographySettingsTab::Variable, false),
+            effective_tab(TypographySettingsTab::Variable, false, true),
             TypographySettingsTab::Details
         );
         assert_eq!(
-            effective_tab(TypographySettingsTab::Variable, true),
+            effective_tab(TypographySettingsTab::Variable, true, true),
             TypographySettingsTab::Variable
         );
         assert_eq!(
-            effective_tab(TypographySettingsTab::Basics, false),
+            effective_tab(TypographySettingsTab::Basics, false, true),
+            TypographySettingsTab::Basics
+        );
+        assert_eq!(
+            effective_tab(TypographySettingsTab::Details, true, false),
             TypographySettingsTab::Basics
         );
     }

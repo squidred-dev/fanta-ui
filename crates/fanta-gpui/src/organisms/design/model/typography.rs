@@ -933,6 +933,7 @@ impl Default for DesignTextPathViewData {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DesignTypography {
+    pub advanced_type_settings_enabled: bool,
     pub style_binding: Option<DesignTypographyStyleBinding>,
     pub family: SharedString,
     pub style: SharedString,
@@ -969,6 +970,7 @@ pub struct DesignTypography {
 impl Default for DesignTypography {
     fn default() -> Self {
         Self {
+            advanced_type_settings_enabled: true,
             style_binding: None,
             family: "Inter".into(),
             style: "Regular".into(),
@@ -998,6 +1000,11 @@ impl Default for DesignTypography {
 }
 
 impl DesignTypography {
+    pub fn with_advanced_type_settings_enabled(mut self, enabled: bool) -> Self {
+        self.advanced_type_settings_enabled = enabled;
+        self
+    }
+
     /// Whether Figma exposes the Max lines control for this text-resize state.
     ///
     /// Parent auto-layout sizing is a node-level concern and is intentionally

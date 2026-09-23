@@ -1542,6 +1542,35 @@ fn pattern_source_selector_rejects_stale_and_locked_choices(cx: &mut TestAppCont
 }
 
 #[gpui::test]
+fn picker_creation_menu_omits_unavailable_paint_style_action(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target(
+                "node",
+                DesignPanelCollection::Fill,
+                0,
+                DesignPaint::solid(DesignColor::BLUE).with_id("fill"),
+                window,
+                cx,
+            );
+            picker.set_paint_style_creation_enabled(false, cx);
+            assert_eq!(picker.creation_kinds(), [PaintCreationKind::Variable]);
+            picker.request_paint_style_create(cx);
+            picker.activate_creation_kind(PaintCreationKind::Variable, window, cx);
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(matches!(
+        events.borrow().as_slice(),
+        [PaintPickerEvent::ColorVariableCreateRequested { target, .. }]
+            if target.paint_id.as_ref() == "fill"
+    ));
+}
+
+#[gpui::test]
 fn media_property_viewer_can_switch_to_another_supported_paint_type(cx: &mut TestAppContext) {
     let (host, visual_cx) = setup_picker(cx);
     let picker = picker(&host, visual_cx);

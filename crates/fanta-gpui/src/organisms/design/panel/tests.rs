@@ -10880,6 +10880,50 @@ fn type_settings_renders_both_interactive_tabs_and_preserves_secondary_intents(
 }
 
 #[gpui::test]
+fn type_settings_capability_keeps_only_supported_basic_controls(cx: &mut TestAppContext) {
+    let mut node = DesignPanelNode::new("text", "Text", DesignPanelNodeKind::Text);
+    node.typography
+        .as_mut()
+        .expect("text typography")
+        .advanced_type_settings_enabled = false;
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+
+    visual_cx.update(|window, app| {
+        panel.update(app, |panel, cx| {
+            *panel.overlays.type_settings_open_test_slot() = true;
+            panel.features.typography.settings_tab = TypographySettingsTab::Details;
+            assert_eq!(
+                sections::typography::type_settings::TypeSettingsOverlayProjection::from_panel(
+                    panel, false
+                )
+                .tab,
+                TypographySettingsTab::Basics
+            );
+
+            panel.features.typography.settings_tab = TypographySettingsTab::Basics;
+            let target = panel.command_target();
+            let focus = panel.overlays.type_settings_focus().clone();
+            sections::typography::type_settings::dispatch(
+                panel,
+                &target,
+                sections::typography::type_settings::TypeSettingsOverlayEvent::SelectTab(
+                    TypographySettingsTab::Details,
+                ),
+                &focus,
+                window,
+                cx,
+            );
+            assert_eq!(
+                panel.features.typography.settings_tab,
+                TypographySettingsTab::Basics
+            );
+            drop(panel.render_typography(cx));
+        });
+    });
+}
+
+#[gpui::test]
 fn type_setting_number_field_keeps_its_native_trigger_and_restores_it(cx: &mut TestAppContext) {
     let node = DesignPanelNode::new("text", "Text", DesignPanelNodeKind::Text);
     let (host, visual_cx) = setup(node, cx);
@@ -14133,6 +14177,40 @@ fn whole_paint_style_intents_never_target_a_leaf_color(cx: &mut TestAppContext) 
             ..
         } if style == &local_selection
     ));
+}
+
+#[gpui::test]
+fn paint_style_capability_hides_browser_and_rejects_style_intents(cx: &mut TestAppContext) {
+    let mut node = DesignPanelNode::new("rectangle", "Rectangle", DesignPanelNodeKind::Rectangle);
+    node.fills = vec![DesignPaint::solid(DesignColor::BLUE).with_id("fill")];
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    let captured = actions(&host, visual_cx);
+    let style = super::super::DesignPaintStyleSelection::page("brand");
+
+    visual_cx.update(|window, app| {
+        panel.update(app, |panel, cx| {
+            assert!(panel.paint_style_view_data().enabled);
+            panel.set_paint_style_view_data(
+                super::super::DesignPaintStyleViewData::new(
+                    [super::super::DesignPaintStyle::new(
+                        "brand",
+                        "Brand",
+                        [DesignPaint::solid(DesignColor::PURPLE)],
+                    )],
+                    [],
+                )
+                .with_enabled(false),
+                cx,
+            );
+            panel.open_paint_style_browser(DesignPanelCollection::Fill, window, cx);
+            panel.emit_paint_style_apply(DesignPanelCollection::Fill, style.clone(), cx);
+            panel.emit_paint_style_create(DesignPanelCollection::Fill, cx);
+            assert!(panel.overlays.paint_style_browser_open().is_none());
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(captured.borrow().is_empty());
 }
 
 #[gpui::test]

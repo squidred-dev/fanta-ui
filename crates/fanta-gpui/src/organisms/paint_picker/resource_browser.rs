@@ -225,6 +225,14 @@ impl PaintPicker {
         }
     }
 
+    pub fn set_paint_style_creation_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.paint_style_creation_enabled != enabled {
+            self.paint_style_creation_enabled = enabled;
+            self.creation_menu_index = 0;
+            cx.notify();
+        }
+    }
+
     /// Replaces host-controlled fill-shader discovery/import data without
     /// mutating the current paint payload.
     pub fn set_shader_view_data(
@@ -311,7 +319,7 @@ impl PaintPicker {
     }
 
     pub(crate) fn request_paint_style_create(&self, cx: &mut Context<Self>) {
-        if self.editing_disabled() {
+        if !self.paint_style_creation_enabled || self.editing_disabled() {
             return;
         }
         let (Some(target), Some(color_target)) =
@@ -333,7 +341,7 @@ impl PaintPicker {
         if self.editing_disabled() || self.selected_color_target().is_none() {
             return;
         }
-        self.creation_menu_index = PaintCreationKind::Style as usize;
+        self.creation_menu_index = 0;
         self.open_nested_overlay(PaintPickerOverlay::Creation, window, cx);
         let focus_handle = self.creation_menu_focus_handle.clone();
         window.defer(cx, move |window, cx| {
@@ -365,7 +373,7 @@ impl PaintPicker {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let count = PaintCreationKind::ALL.len();
+        let count = self.creation_kinds().len();
         match event.keystroke.key.as_str() {
             "up" => {
                 self.creation_menu_index = (self.creation_menu_index + count - 1) % count;
@@ -403,9 +411,17 @@ impl PaintPicker {
     /// Commits the highlighted creation kind; bound to the shared
     /// `ActivateControl` command on the roving menu surface.
     pub(super) fn commit_creation_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let count = PaintCreationKind::ALL.len();
-        let kind = PaintCreationKind::ALL[self.creation_menu_index.min(count - 1)];
-        self.activate_creation_kind(kind, window, cx);
+        if let Some(kind) = self.creation_kinds().get(self.creation_menu_index).copied() {
+            self.activate_creation_kind(kind, window, cx);
+        }
+    }
+
+    pub(super) fn creation_kinds(&self) -> &'static [PaintCreationKind] {
+        if self.paint_style_creation_enabled {
+            &PaintCreationKind::ALL
+        } else {
+            &PaintCreationKind::VARIABLE_ONLY
+        }
     }
 
     pub(crate) fn request_color_style_sample(
@@ -456,12 +472,17 @@ impl PaintPicker {
         let picker_for_content = picker_for_open.clone();
         let picker_id = self.id.clone();
         let highlighted_index = self.creation_menu_index;
+        let creation_kinds = self.creation_kinds().to_vec();
         let menu_focus_handle = self.creation_menu_focus_handle.clone();
         let menu_focus_for_content = menu_focus_handle.clone();
         let disabled = self.editing_disabled() || self.selected_color_target().is_none();
         let trigger = crate::atoms::ui_button(SharedString::from(format!("{}-create", self.id)))
             .icon(IconName::Plus)
-            .tooltip("Create style or variable")
+            .tooltip(if self.paint_style_creation_enabled {
+                "Create style or variable"
+            } else {
+                "Create variable"
+            })
             .xsmall()
             .compact()
             .ghost()
@@ -484,7 +505,7 @@ impl PaintPicker {
             .on_open_change(move |open, window, cx| {
                 picker_for_open.update(cx, |this, cx| {
                     if *open && !this.editing_disabled() && this.selected_color_target().is_some() {
-                        this.creation_menu_index = PaintCreationKind::Style as usize;
+                        this.creation_menu_index = 0;
                         this.open_nested_overlay(PaintPickerOverlay::Creation, window, cx);
                     } else {
                         this.dismiss_nested_overlay(
@@ -520,7 +541,7 @@ impl PaintPicker {
                     })
                     .w(popup_width(window, 144.))
                     .gap_1()
-                    .children(PaintCreationKind::ALL.into_iter().enumerate().map(
+                    .children(creation_kinds.clone().into_iter().enumerate().map(
                         |(index, kind)| {
                             let picker = picker_for_content.clone();
                             crate::atoms::ui_button(SharedString::from(format!(

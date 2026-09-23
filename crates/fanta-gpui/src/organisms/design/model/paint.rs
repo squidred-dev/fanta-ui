@@ -530,10 +530,21 @@ impl DesignPaintStyleSelection {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DesignPaintStyleViewData {
     pub page_styles: Vec<DesignPaintStyle>,
     pub libraries: Vec<DesignPaintStyleLibrary>,
+    pub enabled: bool,
+}
+
+impl Default for DesignPaintStyleViewData {
+    fn default() -> Self {
+        Self {
+            page_styles: Vec::new(),
+            libraries: Vec::new(),
+            enabled: true,
+        }
+    }
 }
 
 impl DesignPaintStyleViewData {
@@ -544,7 +555,13 @@ impl DesignPaintStyleViewData {
         Self {
             page_styles: page_styles.into_iter().collect(),
             libraries: libraries.into_iter().collect(),
+            enabled: true,
         }
+    }
+
+    pub const fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
     }
 
     pub fn style(&self, selection: &DesignPaintStyleSelection) -> Option<&DesignPaintStyle> {

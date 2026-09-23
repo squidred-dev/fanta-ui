@@ -1039,6 +1039,18 @@ impl DesignPanelViewDataController for DesignPanel {
         if self.resources.paint_styles == view_data {
             return;
         }
+        if !view_data.enabled {
+            self.overlays.discard(DesignOpenOverlay::PaintStyle);
+            if self
+                .overlays
+                .selection_color_resource_browser()
+                .as_ref()
+                .is_some_and(|target| target.kind == SelectionColorResourceKind::PaintStyle)
+            {
+                self.overlays
+                    .discard(DesignOpenOverlay::SelectionColorResource);
+            }
+        }
         if self.overlays.paint_style_browser_open().is_some()
             || self
                 .overlays
@@ -1057,6 +1069,9 @@ impl DesignPanelViewDataController for DesignPanel {
                         .map(|library| (&library.id, &library.name)),
                 );
         }
+        self.paint_picker.update(cx, |picker, cx| {
+            picker.set_paint_style_creation_enabled(view_data.enabled, cx);
+        });
         self.resources.paint_styles = view_data;
         cx.notify();
     }
