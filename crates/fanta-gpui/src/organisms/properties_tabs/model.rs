@@ -31,6 +31,7 @@ pub struct MotionInspectorViewData {
     pub animated_properties: Vec<InspectorChoice>,
     pub can_edit_timing: bool,
     pub can_preview: bool,
+    pub timeline_open_available: bool,
     pub read_only: bool,
 }
 impl Default for MotionInspectorViewData {
@@ -48,6 +49,7 @@ impl Default for MotionInspectorViewData {
             animated_properties: Vec::new(),
             can_edit_timing: false,
             can_preview: false,
+            timeline_open_available: true,
             read_only: false,
         }
     }

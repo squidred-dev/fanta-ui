@@ -295,19 +295,23 @@ impl Render for MotionInspector {
                     )
                 },
             )))
-            .child(
-                div().p(px(tokens::Space::LG)).child(
-                    action(
-                        format!("{}-timeline", self.id).into(),
-                        "Open timeline",
-                        LucideIcon::PanelBottom,
-                        true,
-                        cx,
-                    )
-                    .w_full()
-                    .bg(Color::BackgroundSecondary.resolve(cx))
-                    .on_activate(cx.listener(|_, _, _, cx| cx.emit(Action::TimelineOpenRequested))),
-                ),
-            )
+            .when(self.data.timeline_open_available, |view| {
+                view.child(
+                    div().p(px(tokens::Space::LG)).child(
+                        action(
+                            format!("{}-timeline", self.id).into(),
+                            "Open timeline",
+                            LucideIcon::PanelBottom,
+                            true,
+                            cx,
+                        )
+                        .w_full()
+                        .bg(Color::BackgroundSecondary.resolve(cx))
+                        .on_activate(
+                            cx.listener(|_, _, _, cx| cx.emit(Action::TimelineOpenRequested)),
+                        ),
+                    ),
+                )
+            })
     }
 }

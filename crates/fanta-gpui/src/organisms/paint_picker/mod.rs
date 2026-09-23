@@ -1133,7 +1133,7 @@ impl PaintPicker {
     }
 
     fn emit_payload(&self, paint: DesignPaint, cx: &mut Context<Self>) {
-        if self.editing_disabled() || self.paint.as_ref() == Some(&paint) {
+        if self.base_editing_disabled() || self.paint.as_ref() == Some(&paint) {
             return;
         }
         let Some(target) = self.target.clone() else {
@@ -1185,7 +1185,7 @@ impl PaintPicker {
     }
 
     fn select_paint_type(&mut self, paint_type: DesignPaintType, cx: &mut Context<Self>) {
-        if self.editing_disabled() || !self.supported_paint_types.contains(&paint_type) {
+        if self.base_editing_disabled() || !self.supported_paint_types.contains(&paint_type) {
             return;
         }
         self.cancel_text_input_edit_sessions(cx);
@@ -1210,7 +1210,8 @@ impl PaintPicker {
     }
 
     fn select_paint_kind(&mut self, kind: DesignPaintKind, cx: &mut Context<Self>) {
-        if self.editing_disabled() || !self.supported_paint_types.contains(&kind.paint_type()) {
+        if self.base_editing_disabled() || !self.supported_paint_types.contains(&kind.paint_type())
+        {
             return;
         }
         if !kind.is_gradient() {

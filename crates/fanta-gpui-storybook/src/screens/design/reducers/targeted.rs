@@ -691,6 +691,10 @@ pub(crate) fn aggregate_story_multiple_selection(
 
     let mut effect_capabilities = DesignEffectCapabilities {
         kind_availability: Vec::new(),
+        progressive_blur: first.effect_capabilities.progressive_blur
+            && second.effect_capabilities.progressive_blur,
+        shadow_blend_mode: first.effect_capabilities.shadow_blend_mode
+            && second.effect_capabilities.shadow_blend_mode,
         shadow_spread: first.effect_capabilities.shadow_spread
             && second.effect_capabilities.shadow_spread,
         show_shadow_behind_transparent_areas: first

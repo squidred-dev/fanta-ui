@@ -1,7 +1,8 @@
 use super::{PrototypeInspectorAction as Action, PrototypeInspectorViewData, controls::*};
 use crate::atoms::{
-    ControlExt as _, LucideIcon, SemanticColor as Color, TypographyExt as _, TypographyToken,
-    tokens, truncating_label,
+    ControlExt as _, LucideIcon, SemanticButtonIconAlignment, SemanticButtonSize,
+    SemanticButtonVariant, SemanticColor as Color, TypographyExt as _, TypographyToken,
+    semantic_button, tokens, truncating_label,
 };
 use gpui::StatefulInteractiveElement as _;
 use gpui::{
@@ -247,15 +248,15 @@ impl Render for PrototypeInspector {
             )
             .child(
                 div().p(px(tokens::Space::LG)).child(
-                    action(
-                        format!("{}-present", self.id).into(),
-                        "Present prototype",
-                        LucideIcon::Play,
-                        self.data.can_present,
-                        cx,
+                    semantic_button(
+                        format!("{}-present", self.id),
+                        SemanticButtonVariant::Primary,
+                        SemanticButtonSize::Large,
                     )
-                    .w_full()
-                    .bg(Color::BackgroundSecondary.resolve(cx))
+                    .label("Present prototype")
+                    .icon(LucideIcon::Play, SemanticButtonIconAlignment::Left)
+                    .full_width(true)
+                    .disabled(!self.data.can_present)
                     .on_activate(cx.listener(|this, _, _, cx| {
                         if this.data.can_present {
                             cx.emit(Action::PresentRequested);

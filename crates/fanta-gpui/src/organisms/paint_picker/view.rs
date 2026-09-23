@@ -161,7 +161,7 @@ impl PaintPicker {
 
     fn render_type_tabs(&self, paint: &DesignPaint, cx: &mut Context<Self>) -> AnyElement {
         debug_assert!(PICKER_WIDTH >= paint_header_min_width());
-        let disabled = self.editing_disabled();
+        let disabled = self.base_editing_disabled();
         let mut tabs = h_flex()
             .w_full()
             .h(px(PAINT_TYPE_ROW_HEIGHT))

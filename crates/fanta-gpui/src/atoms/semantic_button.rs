@@ -136,6 +136,7 @@ pub struct SemanticButton {
     state: SemanticButtonState,
     icon: Option<LucideIcon>,
     icon_alignment: SemanticButtonIconAlignment,
+    full_width: bool,
     on_activate: Option<ActivateHandler>,
 }
 
@@ -153,6 +154,7 @@ impl SemanticButton {
             state: SemanticButtonState::Default,
             icon: None,
             icon_alignment: SemanticButtonIconAlignment::None,
+            full_width: false,
             on_activate: None,
         }
     }
@@ -179,6 +181,11 @@ impl SemanticButton {
         if disabled {
             self.state = SemanticButtonState::Disabled;
         }
+        self
+    }
+
+    pub const fn full_width(mut self, full_width: bool) -> Self {
+        self.full_width = full_width;
         self
     }
 
@@ -327,12 +334,15 @@ impl RenderOnce for SemanticButton {
             })
             .when(!centered_icon, |content| content.child(self.label));
         let handler = self.on_activate;
+        let selector = self.id.to_string();
 
         div()
             .id(self.id)
+            .debug_selector(move || selector.clone())
             .key_context(super::CONTROL_KEY_CONTEXT)
             .tab_index(if disabled { -1 } else { 0 })
             .h(px(self.size.height()))
+            .when(self.full_width, |button| button.w_full())
             .when(self.size == SemanticButtonSize::Wide, |button| {
                 button.w(px(tokens::ButtonGeometry::WIDE_WIDTH))
             })

@@ -266,6 +266,57 @@ fn prototype_operations_keep_connection_identity(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn prototype_present_primary_action_respects_host_availability(cx: &mut TestAppContext) {
+    let (host, actions, cx) = mount_component(cx, |_, cx| {
+        PrototypeInspector::new("prototype", PrototypeInspectorViewData::default(), cx)
+    });
+    cx.simulate_resize(size(px(360.), px(900.)));
+    cx.run_until_parked();
+    assert_pointer_and_keyboard_parity(
+        cx,
+        "prototype-present",
+        &actions,
+        PrototypeInspectorAction::PresentRequested,
+    );
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |view, cx| {
+        let mut data = view.view_data().clone();
+        data.can_present = false;
+        view.set_view_data(data, cx);
+    });
+    cx.run_until_parked();
+    let bounds = cx
+        .debug_bounds("prototype-present")
+        .expect("Present button should render");
+    cx.simulate_click(bounds.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(actions.borrow().is_empty());
+}
+
+#[gpui::test]
+fn motion_timeline_action_is_only_rendered_when_host_can_open_it(cx: &mut TestAppContext) {
+    let (host, actions, cx) = mount_component(cx, |_, cx| {
+        MotionInspector::new("motion", MotionInspectorViewData::default(), cx)
+    });
+    cx.simulate_resize(size(px(360.), px(900.)));
+    cx.run_until_parked();
+    assert_pointer_and_keyboard_parity(
+        cx,
+        "motion-timeline",
+        &actions,
+        MotionInspectorAction::TimelineOpenRequested,
+    );
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |view, cx| {
+        let mut data = view.view_data().clone();
+        data.timeline_open_available = false;
+        view.set_view_data(data, cx);
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("motion-timeline").is_none());
+}
+
+#[gpui::test]
 fn comments_resolve_and_reply_target_the_supplied_thread(cx: &mut TestAppContext) {
     let (host, actions, cx) = mount_component(cx, |_, cx| {
         CommentsInspector::new(

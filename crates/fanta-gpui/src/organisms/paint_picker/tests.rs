@@ -1414,6 +1414,80 @@ fn host_can_limit_paint_types_and_reject_unsupported_edits(cx: &mut TestAppConte
 }
 
 #[gpui::test]
+fn pattern_image_and_video_tabs_emit_payloads(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    for paint_type in [
+        DesignPaintType::Pattern,
+        DesignPaintType::Image,
+        DesignPaintType::Video,
+    ] {
+        events.borrow_mut().clear();
+        visual_cx.update(|window, app| {
+            picker.update(app, |picker, cx| {
+                picker.set_target(
+                    "node",
+                    DesignPanelCollection::Fill,
+                    0,
+                    DesignPaint::solid(DesignColor::BLUE).with_id("fill"),
+                    window,
+                    cx,
+                );
+                picker.select_paint_type(paint_type, cx);
+            });
+        });
+        assert!(matches!(
+            events.borrow().as_slice(),
+            [PaintPickerEvent::Edit {
+                edit,
+                phase: DesignPanelEditPhase::Commit,
+                ..
+            }] if matches!(&edit.value, DesignPaintValue::Payload(payload) if payload.kind().paint_type() == paint_type)
+        ));
+    }
+}
+
+#[gpui::test]
+fn media_property_viewer_can_switch_to_another_supported_paint_type(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target(
+                "node",
+                DesignPanelCollection::Fill,
+                0,
+                DesignPaint::image(DesignPaintSource::new("source", "Photo")).with_id("image-fill"),
+                window,
+                cx,
+            );
+            picker.set_media_view_data(
+                DesignMediaPaintViewData::new([DesignMediaPaintView::new(
+                    DesignPanelCollection::Fill,
+                    "image-fill",
+                    0,
+                )
+                .with_capabilities(DesignMediaPaintCapabilities::viewer())]),
+                cx,
+            );
+            assert!(picker.editing_disabled());
+            assert!(!picker.base_editing_disabled());
+            picker.select_paint_type(DesignPaintType::Solid, cx);
+        });
+    });
+    assert!(matches!(
+        events.borrow().as_slice(),
+        [PaintPickerEvent::Edit {
+            edit,
+            phase: DesignPanelEditPhase::Commit,
+            ..
+        }] if matches!(&edit.value, DesignPaintValue::Payload(DesignPaintPayload::Solid(_)))
+    ));
+}
+
+#[gpui::test]
 fn gradient_subtype_menu_roves_wraps_and_commits_the_highlighted_kind(cx: &mut TestAppContext) {
     let (host, visual_cx) = setup_picker(cx);
     let picker = picker(&host, visual_cx);
