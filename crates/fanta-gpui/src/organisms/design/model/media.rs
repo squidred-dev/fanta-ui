@@ -530,6 +530,7 @@ impl DesignMediaSourceAction {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DesignMediaPaintCapabilities {
     pub can_edit_properties: bool,
+    pub can_rotate_crop: bool,
     pub can_upload_source: bool,
     pub can_make_image: bool,
     pub can_edit_image: bool,
@@ -544,6 +545,7 @@ impl DesignMediaPaintCapabilities {
     pub const fn editor() -> Self {
         Self {
             can_edit_properties: true,
+            can_rotate_crop: true,
             can_upload_source: true,
             can_make_image: true,
             can_edit_image: true,
@@ -554,6 +556,7 @@ impl DesignMediaPaintCapabilities {
     pub const fn property_editor_only() -> Self {
         Self {
             can_edit_properties: true,
+            can_rotate_crop: true,
             can_upload_source: false,
             can_make_image: false,
             can_edit_image: false,
@@ -564,6 +567,7 @@ impl DesignMediaPaintCapabilities {
     pub const fn viewer() -> Self {
         Self {
             can_edit_properties: false,
+            can_rotate_crop: true,
             can_upload_source: false,
             can_make_image: false,
             can_edit_image: false,
@@ -588,6 +592,11 @@ impl DesignMediaPaintCapabilities {
         accepted_drop_file_kinds: DesignMediaFileKinds,
     ) -> Self {
         self.accepted_drop_file_kinds = accepted_drop_file_kinds;
+        self
+    }
+
+    pub const fn with_crop_rotation(mut self, can_rotate_crop: bool) -> Self {
+        self.can_rotate_crop = can_rotate_crop;
         self
     }
 
@@ -797,13 +806,27 @@ impl DesignMediaPaintView {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct DesignMediaPaintViewData {
     pub paints: Vec<DesignMediaPaintView>,
+    pub pattern_sources: Vec<DesignPatternSource>,
 }
 
 impl DesignMediaPaintViewData {
     pub fn new(paints: impl IntoIterator<Item = DesignMediaPaintView>) -> Self {
         Self {
             paints: paints.into_iter().collect(),
+            pattern_sources: Vec::new(),
         }
+    }
+
+    pub fn with_pattern_sources(
+        mut self,
+        sources: impl IntoIterator<Item = DesignPatternSource>,
+    ) -> Self {
+        self.pattern_sources = sources.into_iter().collect();
+        self
+    }
+
+    pub fn pattern_source(&self, id: &SharedString) -> Option<&DesignPatternSource> {
+        self.pattern_sources.iter().find(|source| source.id == *id)
     }
 
     pub fn paint(
@@ -815,6 +838,22 @@ impl DesignMediaPaintViewData {
         self.paints
             .iter()
             .find(|paint| paint.matches(collection, paint_id, index))
+    }
+}
+
+/// A host-selected scene node that may be used as a Pattern paint tile.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DesignPatternSource {
+    pub id: SharedString,
+    pub name: SharedString,
+}
+
+impl DesignPatternSource {
+    pub fn new(id: impl Into<SharedString>, name: impl Into<SharedString>) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+        }
     }
 }
 

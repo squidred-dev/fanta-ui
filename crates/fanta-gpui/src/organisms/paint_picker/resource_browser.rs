@@ -217,6 +217,9 @@ impl PaintPicker {
         cx: &mut Context<Self>,
     ) {
         if self.media_view_data != view_data {
+            if view_data.pattern_sources.is_empty() {
+                self.forget_nested_overlay(PaintPickerOverlay::PatternSource);
+            }
             self.media_view_data = view_data;
             cx.notify();
         }

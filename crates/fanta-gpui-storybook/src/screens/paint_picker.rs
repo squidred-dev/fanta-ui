@@ -23,6 +23,14 @@ impl PaintPickerStory {
                 window,
                 cx,
             );
+            picker.set_media_view_data(
+                DesignMediaPaintViewData::new([]).with_pattern_sources([
+                    DesignPatternSource::new("sample-tile", "Rounded tile"),
+                    DesignPatternSource::new("sample-symbol", "Leaf symbol"),
+                    DesignPatternSource::new("sample-motif", "Abstract motif"),
+                ]),
+                cx,
+            );
             picker
         });
         Self {

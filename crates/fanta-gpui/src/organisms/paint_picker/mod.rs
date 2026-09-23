@@ -67,11 +67,11 @@ use crate::design::{
     DesignPaintPayload, DesignPaintProperty, DesignPaintSource, DesignPaintTransform,
     DesignPaintType, DesignPaintValue, DesignPaintVariableViewData, DesignPanelCollection,
     DesignPanelEditPhase, DesignPatternHorizontalAlignment, DesignPatternPaint,
-    DesignPatternSpacing, DesignPatternTileType, DesignShaderDefinition, DesignShaderPaint,
-    DesignShaderPropertyDefinition, DesignShaderPropertyValue, DesignShaderSelection,
-    DesignShaderViewData, DesignSolidPaint, DesignVariable, DesignVariableImportState,
-    DesignVariableResolvedValue, DesignVariableSource, DesignVideoPaint, DesignVideoPreviewAction,
-    DesignVideoPreviewState, DesignVideoPreviewStatus,
+    DesignPatternSource, DesignPatternSpacing, DesignPatternTileType, DesignShaderDefinition,
+    DesignShaderPaint, DesignShaderPropertyDefinition, DesignShaderPropertyValue,
+    DesignShaderSelection, DesignShaderViewData, DesignSolidPaint, DesignVariable,
+    DesignVariableImportState, DesignVariableResolvedValue, DesignVariableSource, DesignVideoPaint,
+    DesignVideoPreviewAction, DesignVideoPreviewState, DesignVideoPreviewStatus,
 };
 
 const PICKER_WIDTH: f32 = tokens::MenuWidth::PICKER;
@@ -337,6 +337,7 @@ enum PaintPickerOverlay {
     BlendMode,
     ColorFormat,
     GradientKind,
+    PatternSource,
     Creation,
     ResourceScope,
 }
@@ -801,6 +802,9 @@ impl PaintPicker {
             self.continuous_edit = None;
             self.reset_text_input_edit_sessions();
         } else {
+            if !matches!(&paint.payload, DesignPaintPayload::Pattern(_)) {
+                self.forget_nested_overlay(PaintPickerOverlay::PatternSource);
+            }
             self.selected_stop = if !previous_stop_id.is_empty() {
                 paint
                     .gradient_stops
@@ -885,6 +889,7 @@ impl PaintPicker {
                     PaintPickerOverlay::Creation,
                     PaintPickerOverlay::ResourceScope,
                     PaintPickerOverlay::GradientKind,
+                    PaintPickerOverlay::PatternSource,
                     PaintPickerOverlay::BlendMode,
                 ] {
                     self.forget_nested_overlay(overlay);
@@ -908,6 +913,7 @@ impl PaintPicker {
             PaintPickerOverlay::Creation,
             PaintPickerOverlay::ResourceScope,
             PaintPickerOverlay::GradientKind,
+            PaintPickerOverlay::PatternSource,
             PaintPickerOverlay::BlendMode,
         ] {
             self.forget_nested_overlay(overlay);

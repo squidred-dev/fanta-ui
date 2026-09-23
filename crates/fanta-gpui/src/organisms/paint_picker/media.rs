@@ -73,6 +73,7 @@ impl PaintPicker {
             })
     }
 
+    #[cfg(test)]
     pub(super) fn source_replacement_disabled(&self) -> bool {
         if self.base_editing_disabled() {
             return true;
@@ -99,21 +100,152 @@ impl PaintPicker {
                 .allows_source_action(action)
     }
 
-    pub(super) fn request_source_replace(&self, cx: &mut Context<Self>) {
-        if self.source_replacement_disabled() {
-            return;
-        }
-        if !self
-            .paint
-            .as_ref()
-            .is_some_and(|paint| matches!(&paint.payload, DesignPaintPayload::Pattern(_)))
+    pub(super) fn select_pattern_source(
+        &mut self,
+        source_id: SharedString,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.base_editing_disabled()
+            || source_id.is_empty()
+            || self
+                .target
+                .as_ref()
+                .is_some_and(|target| target.node_id == source_id)
+            || self.media_view_data.pattern_source(&source_id).is_none()
+            || !matches!(
+                self.paint.as_ref().map(|paint| &paint.payload),
+                Some(DesignPaintPayload::Pattern(pattern)) if pattern.source_node_id != source_id
+            )
         {
             return;
         }
-        let Some(target) = self.target.clone() else {
-            return;
-        };
-        cx.emit(PaintPickerEvent::SourceReplaceRequested { target });
+        if self
+            .emit_edit(
+                DesignPaintEdit {
+                    property: DesignPaintProperty::PatternSourceNode,
+                    value: DesignPaintValue::PatternSourceNode(source_id),
+                },
+                DesignPanelEditPhase::Commit,
+                cx,
+            )
+            .is_some()
+        {
+            self.close_nested_overlay(PaintPickerOverlay::PatternSource, window, cx);
+        }
+    }
+
+    fn render_pattern_source_selector(
+        &self,
+        sources: Vec<DesignPatternSource>,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let picker_for_open = cx.entity();
+        let picker_for_trigger = picker_for_open.clone();
+        let picker_for_content = picker_for_open.clone();
+        let picker_id = self.id.clone();
+        let selected_source_id = self.paint.as_ref().and_then(|paint| match &paint.payload {
+            DesignPaintPayload::Pattern(pattern) => Some(pattern.source_node_id.clone()),
+            _ => None,
+        });
+        let disabled = self.base_editing_disabled() || sources.is_empty();
+        let trigger = crate::atoms::ui_button(SharedString::from(format!(
+            "{}-pattern-source-trigger",
+            self.id
+        )))
+        .label(
+            if selected_source_id.as_ref().is_some_and(|id| !id.is_empty()) {
+                "Change"
+            } else {
+                "Choose"
+            },
+        )
+        .tooltip(if sources.is_empty() {
+            "No eligible layers on this page"
+        } else {
+            "Choose a layer for the pattern tile"
+        })
+        .xsmall()
+        .compact()
+        .outline()
+        .selected(self.nested_overlay_is_open(PaintPickerOverlay::PatternSource))
+        .disabled(disabled)
+        .on_keyboard_activate(move |window, cx| {
+            picker_for_trigger.update(cx, |this, cx| {
+                if this.nested_overlay_is_open(PaintPickerOverlay::PatternSource) {
+                    this.close_nested_overlay(PaintPickerOverlay::PatternSource, window, cx);
+                } else {
+                    this.open_nested_overlay(PaintPickerOverlay::PatternSource, window, cx);
+                    cx.notify();
+                }
+            });
+        });
+
+        let selector = format!("{}-pattern-source-trigger", self.id);
+        let popover = Popover::new(SharedString::from(format!(
+            "{}-pattern-source-menu",
+            self.id
+        )))
+        .anchor(Anchor::BottomRight)
+        .open(self.nested_overlay_is_open(PaintPickerOverlay::PatternSource))
+        .overlay_closable(true)
+        .on_open_change(move |open, window, cx| {
+            picker_for_open.update(cx, |this, cx| {
+                if *open {
+                    this.open_nested_overlay(PaintPickerOverlay::PatternSource, window, cx);
+                    cx.notify();
+                } else {
+                    this.dismiss_nested_overlay(
+                        PaintPickerOverlay::PatternSource,
+                        InspectorOverlayDismissCause::OutsideClick,
+                        window,
+                        cx,
+                    );
+                }
+            });
+        })
+        .trigger(trigger)
+        .content(move |_, window, _| {
+            v_flex()
+                .id(SharedString::from(format!(
+                    "{picker_id}-pattern-source-options"
+                )))
+                .w(popup_width(window, 220.))
+                .max_h(popup_height(window, 300.))
+                .overflow_y_scroll()
+                .p_1()
+                .gap_1()
+                .children(sources.clone().into_iter().map(|source| {
+                    let picker = picker_for_content.clone();
+                    let source_id = source.id.clone();
+                    let selector = format!("{}-pattern-source-{}", picker_id, source.id);
+                    let button = crate::atoms::ui_button(SharedString::from(format!(
+                        "{}-pattern-source-{}",
+                        picker_id, source.id
+                    )))
+                    .label(source.name)
+                    .tooltip(source.id)
+                    .xsmall()
+                    .compact()
+                    .ghost()
+                    .w_full()
+                    .selected(selected_source_id.as_ref() == Some(&source_id))
+                    .on_activate(move |_, window, cx| {
+                        picker.update(cx, |this, cx| {
+                            this.select_pattern_source(source_id.clone(), window, cx);
+                        });
+                    });
+                    div()
+                        .id(SharedString::from(format!("{selector}-row")))
+                        .debug_selector(move || selector.clone())
+                        .child(button)
+                }))
+        });
+        div()
+            .id(SharedString::from(format!("{selector}-anchor")))
+            .debug_selector(move || selector.clone())
+            .child(popover)
+            .into_any_element()
     }
 
     pub(super) fn request_media_source_action(
@@ -260,7 +392,18 @@ impl PaintPicker {
         let (title, source_name, icon) = match &paint.payload {
             DesignPaintPayload::Pattern(pattern) => (
                 "Pattern fill",
-                pattern.source_node_id.clone(),
+                self.media_view_data
+                    .pattern_source(&pattern.source_node_id)
+                    .map_or_else(
+                        || {
+                            if pattern.source_node_id.is_empty() {
+                                "Choose a layer".into()
+                            } else {
+                                pattern.source_node_id.clone()
+                            }
+                        },
+                        |source| source.name.clone(),
+                    ),
                 IconName::LayoutDashboard,
             ),
             DesignPaintPayload::Image(image) => (
@@ -302,6 +445,21 @@ impl PaintPicker {
         };
 
         let pattern_source = matches!(&paint.payload, DesignPaintPayload::Pattern(_));
+        let pattern_sources = if pattern_source {
+            self.media_view_data
+                .pattern_sources
+                .iter()
+                .filter(|source| {
+                    self.target
+                        .as_ref()
+                        .is_none_or(|target| source.id != target.node_id)
+                })
+                .cloned()
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let no_pattern_sources = pattern_sources.is_empty();
         let media_source = matches!(
             &paint.payload,
             DesignPaintPayload::Image(_) | DesignPaintPayload::Video(_)
@@ -357,20 +515,7 @@ impl PaintPicker {
                     ),
             )
             .when(pattern_source, |source| {
-                source.child(
-                    crate::atoms::ui_button(SharedString::from(format!(
-                        "{}-replace-source",
-                        self.id
-                    )))
-                    .label("Replace")
-                    .xsmall()
-                    .compact()
-                    .outline()
-                    .disabled(self.source_replacement_disabled())
-                    .on_activate(cx.listener(|this, _, _, cx| {
-                        this.request_source_replace(cx);
-                    })),
-                )
+                source.child(self.render_pattern_source_selector(pattern_sources, cx))
             })
             .when(media_drop_enabled, |source| {
                 source
@@ -396,6 +541,14 @@ impl PaintPicker {
                     }))
             });
         let mut content = v_flex().w_full().gap_2().child(source_card);
+        if pattern_source && no_pattern_sources {
+            content = content.child(
+                div()
+                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    .child("No eligible layers on this page"),
+            );
+        }
         if media_source {
             content = content.child(self.render_media_source_actions(paint, cx));
         }
@@ -860,21 +1013,38 @@ impl PaintPicker {
                         )),
                     )
                     .child(
-                        crate::atoms::ui_button(SharedString::from(format!(
-                            "{}-media-crop-rotate",
-                            self.id
-                        )))
-                        .label("Rotate 15°")
-                        .xsmall()
-                        .compact()
-                        .outline()
-                        .flex_1()
-                        .disabled(disabled)
-                        .on_activate(cx.listener(
-                            move |this, _, _, cx| {
-                                this.request_media_crop_action(rotated_crop_preview(crop_tool), cx);
-                            },
-                        )),
+                        div()
+                            .id(SharedString::from(format!(
+                                "{}-media-crop-rotate-row",
+                                self.id
+                            )))
+                            .debug_selector({
+                                let selector = format!("{}-media-crop-rotate", self.id);
+                                move || selector.clone()
+                            })
+                            .flex_1()
+                            .child(
+                                crate::atoms::ui_button(SharedString::from(format!(
+                                    "{}-media-crop-rotate",
+                                    self.id
+                                )))
+                                .label("Rotate 15°")
+                                .xsmall()
+                                .compact()
+                                .outline()
+                                .w_full()
+                                .disabled(
+                                    disabled || !self.current_media_capabilities().can_rotate_crop,
+                                )
+                                .on_activate(cx.listener(
+                                    move |this, _, _, cx| {
+                                        this.request_media_crop_action(
+                                            rotated_crop_preview(crop_tool),
+                                            cx,
+                                        );
+                                    },
+                                )),
+                            ),
                     )
                     .child(
                         crate::atoms::ui_button(SharedString::from(format!(

@@ -13428,6 +13428,38 @@ fn effect_style_and_variable_intents_remain_controlled(cx: &mut TestAppContext) 
 }
 
 #[gpui::test]
+fn effect_style_capability_hides_browser_and_rejects_style_intents(cx: &mut TestAppContext) {
+    let mut node = DesignPanelNode::new("effects", "Effects", DesignPanelNodeKind::Rectangle);
+    node.effects =
+        vec![super::super::DesignEffect::new(DesignEffectKind::DropShadow).with_id("shadow")];
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    let captured_actions = actions(&host, visual_cx);
+
+    panel.update(visual_cx, |panel, cx| {
+        assert!(panel.effect_style_view_data().enabled);
+        panel.set_effect_style_view_data(
+            DesignEffectStyleViewData::new(
+                [super::super::DesignEffectStyle::new(
+                    "raised",
+                    "Raised",
+                    [DesignEffectKind::DropShadow],
+                )],
+                [],
+            )
+            .with_enabled(false),
+            cx,
+        );
+        panel.open_effect_style_browser(cx);
+        panel.emit_effect_style_apply(DesignEffectStyleSelection::page("raised"), cx);
+        panel.emit_effect_style_create(cx);
+        assert!(!panel.overlays.effect_style_browser_open());
+    });
+    visual_cx.run_until_parked();
+    assert!(captured_actions.borrow().is_empty());
+}
+
+#[gpui::test]
 fn bound_effect_style_cannot_be_recreated_before_detach(cx: &mut TestAppContext) {
     let selection = DesignEffectStyleSelection::page("raised");
     let mut node = DesignPanelNode::new("effects", "Effects", DesignPanelNodeKind::Rectangle);

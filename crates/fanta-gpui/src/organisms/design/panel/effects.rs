@@ -471,7 +471,9 @@ impl DesignEffectsController for DesignPanel {
     }
 
     fn open_effect_style_browser(&mut self, cx: &mut Context<Self>) {
-        if !self.collection_is_supported(DesignPanelCollection::Effect) {
+        if !self.resources.effect_styles.enabled
+            || !self.collection_is_supported(DesignPanelCollection::Effect)
+        {
             return;
         }
         self.features.style_browser.source_filter = self
@@ -495,7 +497,8 @@ impl DesignEffectsController for DesignPanel {
         style: DesignEffectStyleSelection,
         cx: &mut Context<Self>,
     ) {
-        if !self.can_edit()
+        if !self.resources.effect_styles.enabled
+            || !self.can_edit()
             || !self.collection_is_supported(DesignPanelCollection::Effect)
             || self.resources.effect_styles.style(&style).is_none()
         {
@@ -513,7 +516,8 @@ impl DesignEffectsController for DesignPanel {
     }
 
     fn emit_effect_style_create(&mut self, cx: &mut Context<Self>) {
-        if !self.can_edit()
+        if !self.resources.effect_styles.enabled
+            || !self.can_edit()
             || !self.collection_is_supported(DesignPanelCollection::Effect)
             || self.host.inspected_node().effects.is_empty()
             || self.host.inspected_node().effect_style_binding.is_some()
@@ -532,7 +536,10 @@ impl DesignEffectsController for DesignPanel {
     }
 
     fn emit_effect_style_detach(&mut self, cx: &mut Context<Self>) {
-        if !self.can_edit() || !self.collection_is_supported(DesignPanelCollection::Effect) {
+        if !self.resources.effect_styles.enabled
+            || !self.can_edit()
+            || !self.collection_is_supported(DesignPanelCollection::Effect)
+        {
             return;
         }
         let Some(binding) = self
@@ -556,6 +563,9 @@ impl DesignEffectsController for DesignPanel {
     }
 
     fn render_effect_style_button(&self, cx: &mut Context<Self>) -> AnyElement {
+        if !self.resources.effect_styles.enabled {
+            return div().into_any_element();
+        }
         let panel = cx.entity();
         let panel_for_open = panel.clone();
         let panel_for_content = panel;

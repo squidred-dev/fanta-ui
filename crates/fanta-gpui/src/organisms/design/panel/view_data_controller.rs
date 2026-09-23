@@ -1179,6 +1179,9 @@ impl DesignPanelViewDataController for DesignPanel {
         if self.resources.effect_styles == view_data {
             return;
         }
+        if !view_data.enabled {
+            self.overlays.discard(DesignOpenOverlay::EffectStyle);
+        }
         if self.overlays.effect_style_browser_open() {
             self.features.style_browser.source_filter = self
                 .features

@@ -1449,6 +1449,99 @@ fn pattern_image_and_video_tabs_emit_payloads(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn pattern_source_selector_emits_a_typed_edit_for_an_eligible_layer(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target(
+                "destination",
+                DesignPanelCollection::Fill,
+                0,
+                DesignPaint::pattern("").with_id("pattern-fill"),
+                window,
+                cx,
+            );
+            picker.set_media_view_data(
+                DesignMediaPaintViewData::new([]).with_pattern_sources([
+                    DesignPatternSource::new("tile-one", "First tile"),
+                    DesignPatternSource::new("tile-two", "Second tile"),
+                ]),
+                cx,
+            );
+        });
+    });
+    visual_cx.run_until_parked();
+
+    let trigger = visual_cx
+        .debug_bounds("paint-picker-test-pattern-source-trigger")
+        .expect("Pattern source selector should be visible");
+    visual_cx.simulate_click(trigger.center(), gpui::Modifiers::none());
+    visual_cx.run_until_parked();
+    let tile = visual_cx
+        .debug_bounds("paint-picker-test-pattern-source-tile-two")
+        .expect("Host-supplied layer should appear in Pattern source menu");
+    visual_cx.simulate_click(tile.center(), gpui::Modifiers::none());
+    visual_cx.run_until_parked();
+
+    assert!(matches!(
+        events.borrow().as_slice(),
+        [PaintPickerEvent::Edit {
+            target,
+            edit,
+            phase: DesignPanelEditPhase::Commit,
+        }] if target.node_id.as_ref() == "destination"
+            && target.paint_id.as_ref() == "pattern-fill"
+            && edit.property == DesignPaintProperty::PatternSourceNode
+            && edit.value == DesignPaintValue::PatternSourceNode("tile-two".into())
+    ));
+    assert!(visual_cx.read(|app| {
+        !picker
+            .read(app)
+            .nested_overlay_is_open(PaintPickerOverlay::PatternSource)
+    }));
+}
+
+#[gpui::test]
+fn pattern_source_selector_rejects_stale_and_locked_choices(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target(
+                "destination",
+                DesignPanelCollection::Fill,
+                0,
+                DesignPaint::pattern("tile-one").with_id("pattern-fill"),
+                window,
+                cx,
+            );
+            picker.set_media_view_data(
+                DesignMediaPaintViewData::new([]).with_pattern_sources([
+                    DesignPatternSource::new("destination", "Destination"),
+                    DesignPatternSource::new("tile-one", "First tile"),
+                ]),
+                cx,
+            );
+            picker.select_pattern_source("destination".into(), window, cx);
+            picker.select_pattern_source("stale-tile".into(), window, cx);
+            picker.select_pattern_source("tile-one".into(), window, cx);
+            picker.set_disabled(true, cx);
+            picker.set_media_view_data(
+                DesignMediaPaintViewData::new([])
+                    .with_pattern_sources([DesignPatternSource::new("tile-two", "Second tile")]),
+                cx,
+            );
+            picker.select_pattern_source("tile-two".into(), window, cx);
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(events.borrow().is_empty());
+}
+
+#[gpui::test]
 fn media_property_viewer_can_switch_to_another_supported_paint_type(cx: &mut TestAppContext) {
     let (host, visual_cx) = setup_picker(cx);
     let picker = picker(&host, visual_cx);
@@ -1782,6 +1875,66 @@ fn media_drop_emits_current_source_identity_and_allows_cross_kind_file(cx: &mut 
             && expected_source_id.as_ref() == "source-image"
             && file.kind == crate::design::DesignMediaFileKind::Webm
             && file.media_kind() == DesignMediaKind::Video
+    ));
+}
+
+#[gpui::test]
+fn crop_rotation_control_obeys_host_capability(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    let mut paint =
+        DesignPaint::image(DesignPaintSource::new("photo", "Photo")).with_id("image-fill");
+    if let DesignPaintPayload::Image(image) = &mut paint.payload {
+        image.placement = DesignMediaPaintPlacement::Crop {
+            transform: DesignPaintTransform::IDENTITY,
+        };
+    }
+    paint.sync_legacy_projection();
+    let crop_view = DesignMediaPaintView::new(DesignPanelCollection::Fill, "image-fill", 0)
+        .with_crop_tool(DesignMediaCropToolState {
+            active: true,
+            ..DesignMediaCropToolState::default()
+        });
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target("node", DesignPanelCollection::Fill, 0, paint, window, cx);
+            picker.set_media_view_data(
+                DesignMediaPaintViewData::new([crop_view.clone().with_capabilities(
+                    DesignMediaPaintCapabilities::property_editor_only().with_crop_rotation(false),
+                )]),
+                cx,
+            );
+        });
+    });
+    visual_cx.run_until_parked();
+    let rotate = visual_cx
+        .debug_bounds("paint-picker-test-media-crop-rotate")
+        .expect("Rotate crop control should be present");
+    visual_cx.simulate_click(rotate.center(), gpui::Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(events.borrow().is_empty());
+
+    picker.update(visual_cx, |picker, cx| {
+        picker.set_media_view_data(
+            DesignMediaPaintViewData::new([crop_view.with_capabilities(
+                DesignMediaPaintCapabilities::property_editor_only().with_crop_rotation(true),
+            )]),
+            cx,
+        );
+    });
+    visual_cx.run_until_parked();
+    let rotate = visual_cx
+        .debug_bounds("paint-picker-test-media-crop-rotate")
+        .expect("Rotate crop control should remain present");
+    visual_cx.simulate_click(rotate.center(), gpui::Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(matches!(
+        events.borrow().as_slice(),
+        [PaintPickerEvent::MediaCropActionRequested {
+            action: DesignMediaCropAction::Preview { transform, .. },
+            ..
+        }] if (transform.m11 - 1.).abs() > 0.01
     ));
 }
 
