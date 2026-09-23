@@ -171,18 +171,28 @@ impl Render for DrawInspector {
                 LucideIcon::Paintbrush,
                 cx,
             ))
-            .child(
-                section("Brush", cx).child(
-                    body()
-                        .when(self.capabilities.brush_tip, |body| {
-                            body.child(row("Tip", self.tip.clone(), cx))
-                        })
-                        .child(row("Size · px", self.size.clone(), cx))
-                        .when(self.capabilities.hardness, |body| {
-                            body.child(row("Hardness · %", self.hardness.clone(), cx))
-                        }),
-                ),
-            )
+            .when(self.capabilities.brush_settings, |panel| {
+                panel.child(
+                    section("Brush", cx).child(
+                        body()
+                            .when(self.capabilities.brush_tip, |body| {
+                                body.child(row("Tip", self.tip.clone(), cx))
+                            })
+                            .child(row("Size · px", self.size.clone(), cx))
+                            .when(self.capabilities.hardness, |body| {
+                                body.child(row("Hardness · %", self.hardness.clone(), cx))
+                            }),
+                    ),
+                )
+            })
+            .when(!self.capabilities.brush_settings, |panel| {
+                panel.child(empty(
+                    LucideIcon::Paintbrush,
+                    "Brush settings",
+                    "Select Brush, Pencil, or Eraser to edit brush settings.",
+                    cx,
+                ))
+            })
             .when(self.capabilities.paint, |panel| {
                 panel.child(
                     section("Paint", cx).child(

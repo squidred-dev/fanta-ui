@@ -3,6 +3,7 @@ use gpui::SharedString;
 /// Host capabilities for brush controls that are not part of every drawing engine.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DrawBrushCapabilities {
+    pub brush_settings: bool,
     pub brush_tip: bool,
     pub hardness: bool,
     pub paint: bool,
@@ -15,6 +16,7 @@ pub struct DrawBrushCapabilities {
 
 impl DrawBrushCapabilities {
     pub const VECTOR_PENCIL: Self = Self {
+        brush_settings: true,
         brush_tip: false,
         hardness: false,
         paint: true,
@@ -26,6 +28,19 @@ impl DrawBrushCapabilities {
     };
 
     pub const VECTOR_ERASER: Self = Self {
+        brush_settings: true,
+        brush_tip: false,
+        hardness: false,
+        paint: false,
+        flow: false,
+        smoothing: false,
+        pressure: false,
+        anti_alias: false,
+        save_preset: false,
+    };
+
+    pub const NONE: Self = Self {
+        brush_settings: false,
         brush_tip: false,
         hardness: false,
         paint: false,
@@ -40,6 +55,7 @@ impl DrawBrushCapabilities {
 impl Default for DrawBrushCapabilities {
     fn default() -> Self {
         Self {
+            brush_settings: true,
             brush_tip: true,
             hardness: true,
             paint: true,

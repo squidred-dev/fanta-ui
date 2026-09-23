@@ -177,6 +177,25 @@ fn vector_eraser_capabilities_show_only_size(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn nonbrush_draw_tools_hide_brush_settings(cx: &mut TestAppContext) {
+    let (host, _, cx) = mount_component(cx, |_, cx| {
+        DrawInspector::new("draw", DrawInspectorViewData::default(), cx)
+    });
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |view, cx| {
+        view.set_capabilities(crate::toolbar::DrawBrushCapabilities::NONE, cx);
+    });
+    cx.simulate_resize(size(px(360.), px(900.)));
+    cx.run_until_parked();
+    for selector in ["draw-size", "draw-color", "draw-smoothing"] {
+        assert!(
+            cx.debug_bounds(selector).is_none(),
+            "{selector} should be hidden"
+        );
+    }
+}
+
+#[gpui::test]
 fn prototype_operations_keep_connection_identity(cx: &mut TestAppContext) {
     let (_host, actions, cx) = mount_component(cx, |_, cx| {
         PrototypeInspector::new(
