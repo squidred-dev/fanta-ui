@@ -44,6 +44,7 @@ pub struct ControlSize;
 
 impl ControlSize {
     pub const INLINE: f32 = 16.;
+    pub const SWATCH: f32 = 20.;
     pub const CHROME: f32 = 28.;
     pub const TOOL: f32 = 32.;
 }

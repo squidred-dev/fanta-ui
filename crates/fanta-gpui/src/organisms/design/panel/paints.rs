@@ -3909,9 +3909,9 @@ impl DesignPaintController for DesignPanel {
         .gap_2()
         .child(
             div()
-                .size(px(20.))
+                .size(px(tokens::ControlSize::SWATCH))
                 .flex_none()
-                .rounded(px(4.))
+                .rounded(px(tokens::Radius::CONTROL))
                 .border_1()
                 .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                 .bg(color_hsla(current)),
