@@ -11494,6 +11494,22 @@ fn page_background_swatch_opens_one_anchored_color_picker(cx: &mut TestAppContex
     );
     assert!(visual_cx.read(|app| panel.read(app).overlays.page_background_picker_open()));
 
+    let captured_actions = actions(&host, visual_cx);
+    let spectrum = visual_cx
+        .debug_bounds("color-picker-spectrum")
+        .expect("Page background color spectrum should be visible");
+    visual_cx.simulate_click(spectrum.center(), Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(
+        captured_actions.borrow().iter().any(|action| matches!(
+            action,
+            DesignPanelAction::PageBackgroundEditRequested { page_id, .. }
+                if page_id.as_ref() == "page"
+        )),
+        "Clicking the visible spectrum should edit Page background"
+    );
+    assert!(visual_cx.read(|app| panel.read(app).overlays.page_background_picker_open()));
+
     visual_cx.simulate_click(gpui::point(px(5.), px(5.)), Modifiers::none());
     visual_cx.run_until_parked();
     assert!(

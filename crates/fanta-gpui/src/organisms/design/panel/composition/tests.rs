@@ -1,7 +1,8 @@
 use gpui::{TestAppContext, VisualTestContext};
 
 use super::*;
-use crate::design::{DesignPanelEditPhase, DesignPanelNodeCapabilities};
+use crate::design::{DesignPageBackground, DesignPanelEditPhase, DesignPanelNodeCapabilities};
+use crate::properties_inspector::{PropertiesInspector, PropertiesInspectorChildren};
 use crate::test_support::mount_component;
 
 /// Tests keep the controller off the render tree and listen at its single
@@ -10,6 +11,7 @@ struct Harness {
     controller: Entity<DesignPanel>,
     panel: Entity<DesignPropertyPanel>,
     inspector: Option<Entity<DesignInspector>>,
+    properties: Option<Entity<PropertiesInspector>>,
     width: f32,
     _subscription: Subscription,
 }
@@ -49,9 +51,36 @@ impl Harness {
             controller,
             panel,
             inspector,
+            properties: None,
             width: 400.,
             _subscription: subscription,
         }
+    }
+
+    fn new_with_properties(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let mut harness = Self::new(DesignPropertyPanelKind::Page, true, window, cx);
+        let inspector = harness
+            .inspector
+            .as_ref()
+            .expect("composed inspector")
+            .clone();
+        let child: gpui::AnyView = inspector.into();
+        harness.properties = Some(cx.new(|cx| {
+            PropertiesInspector::new(
+                "properties-test",
+                PropertiesInspectorChildren {
+                    design: child.clone(),
+                    motion: child.clone(),
+                    draw: child.clone(),
+                    code: child.clone(),
+                    prototype: child.clone(),
+                    comments: child,
+                },
+                100,
+                cx,
+            )
+        }));
+        harness
     }
 }
 
@@ -62,12 +91,26 @@ impl Render for Harness {
             .debug_selector(|| "panel-viewport".into())
             .w(px(self.width))
             .h_full()
-            .when_some(self.inspector.clone(), |root, inspector| {
-                root.child(inspector)
+            .when_some(self.properties.clone(), |root, properties| {
+                root.child(
+                    div()
+                        .absolute()
+                        .top(px(80.))
+                        .left_0()
+                        .w_full()
+                        .h(px(640.))
+                        .child(properties),
+                )
             })
-            .when(self.inspector.is_none(), |root| {
-                root.child(self.panel.clone())
+            .when(self.properties.is_none(), |root| {
+                root.when_some(self.inspector.clone(), |root, inspector| {
+                    root.child(inspector)
+                })
             })
+            .when(
+                self.inspector.is_none() && self.properties.is_none(),
+                |root| root.child(self.panel.clone()),
+            )
     }
 }
 
@@ -76,6 +119,78 @@ fn controller(
     cx: &VisualTestContext,
 ) -> Entity<DesignPanel> {
     cx.read(|app| host.read(app).component.read(app).controller.clone())
+}
+
+#[gpui::test]
+fn composed_page_background_picker_accepts_spectrum_click(cx: &mut TestAppContext) {
+    let (host, actions, visual_cx) = mount_component(cx, |window, cx| {
+        Harness::new(DesignPropertyPanelKind::Page, true, window, cx)
+    });
+    let controller = controller(&host, visual_cx);
+    controller.update(visual_cx, |panel, cx| {
+        panel.set_inspection_context(
+            DesignPanelInspectionContext::page(DesignPanelPermissions::editor()),
+            cx,
+        );
+        panel.set_page_view_data(
+            DesignPageViewData::canonical("page", DesignPageBackground::new(DesignColor::WHITE)),
+            cx,
+        );
+    });
+    visual_cx.run_until_parked();
+    let row = visual_cx
+        .debug_bounds("design-page-background-row")
+        .unwrap();
+    visual_cx.simulate_click(row.center(), gpui::Modifiers::none());
+    visual_cx.run_until_parked();
+    let popup = visual_cx
+        .debug_bounds("design-page-background-popup")
+        .unwrap();
+    assert!(
+        popup.top() >= row.bottom(),
+        "Page background picker must open below its row inside the Design inspector"
+    );
+    let spectrum = visual_cx.debug_bounds("color-picker-spectrum").unwrap();
+    visual_cx.simulate_click(spectrum.center(), gpui::Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(actions.borrow().iter().any(|action| matches!(
+        action,
+        DesignPanelAction::PageBackgroundEditRequested { .. }
+    )));
+}
+
+#[gpui::test]
+fn page_background_picker_accepts_click_inside_properties_layout(cx: &mut TestAppContext) {
+    let (host, actions, visual_cx) =
+        mount_component(cx, |window, cx| Harness::new_with_properties(window, cx));
+    let controller = controller(&host, visual_cx);
+    controller.update(visual_cx, |panel, cx| {
+        panel.set_inspection_context(
+            DesignPanelInspectionContext::page(DesignPanelPermissions::editor()),
+            cx,
+        );
+        panel.set_page_view_data(
+            DesignPageViewData::canonical("page", DesignPageBackground::new(DesignColor::WHITE)),
+            cx,
+        );
+    });
+    visual_cx.run_until_parked();
+    let row = visual_cx
+        .debug_bounds("design-page-background-row")
+        .unwrap();
+    visual_cx.simulate_click(row.center(), gpui::Modifiers::none());
+    visual_cx.run_until_parked();
+    let popup = visual_cx
+        .debug_bounds("design-page-background-popup")
+        .unwrap();
+    assert!(popup.top() >= row.bottom());
+    let spectrum = visual_cx.debug_bounds("color-picker-spectrum").unwrap();
+    visual_cx.simulate_click(spectrum.center(), gpui::Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(actions.borrow().iter().any(|action| matches!(
+        action,
+        DesignPanelAction::PageBackgroundEditRequested { .. }
+    )));
 }
 
 #[gpui::test]

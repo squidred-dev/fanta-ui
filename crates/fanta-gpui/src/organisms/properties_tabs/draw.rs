@@ -183,80 +183,91 @@ impl Render for DrawInspector {
                         }),
                 ),
             )
-            .child(
-                section("Paint", cx).child(
-                    body()
-                        .child(row("Color", self.color.clone(), cx))
-                        .child(row("Blend mode", self.blend.clone(), cx))
-                        .child(row("Opacity · %", self.opacity.clone(), cx))
-                        .when(self.capabilities.flow, |body| {
-                            body.child(row("Flow · %", self.flow.clone(), cx))
-                        }),
-                ),
-            )
-            .child(
-                section("Stroke", cx).child(
-                    body()
-                        .child(row("Smooth · %", self.smoothing.clone(), cx))
-                        .when(
-                            self.capabilities.pressure || self.capabilities.anti_alias,
-                            |body| {
-                                body.child(
-                                    h_flex()
-                                        .gap(px(tokens::Space::SM))
-                                        .when(self.capabilities.pressure, |row| {
-                                            row.child(
-                                                action(
-                                                    format!("{}-pressure", self.id).into(),
-                                                    "Pen pressure",
-                                                    LucideIcon::PenTool,
-                                                    !disabled,
-                                                    cx,
+            .when(self.capabilities.paint, |panel| {
+                panel.child(
+                    section("Paint", cx).child(
+                        body()
+                            .child(row("Color", self.color.clone(), cx))
+                            .child(row("Blend mode", self.blend.clone(), cx))
+                            .child(row("Opacity · %", self.opacity.clone(), cx))
+                            .when(self.capabilities.flow, |body| {
+                                body.child(row("Flow · %", self.flow.clone(), cx))
+                            }),
+                    ),
+                )
+            })
+            .when(self.capabilities.smoothing, |panel| {
+                panel.child(
+                    section("Stroke", cx).child(
+                        body()
+                            .child(row("Smooth · %", self.smoothing.clone(), cx))
+                            .when(
+                                self.capabilities.pressure || self.capabilities.anti_alias,
+                                |body| {
+                                    body.child(
+                                        h_flex()
+                                            .gap(px(tokens::Space::SM))
+                                            .when(self.capabilities.pressure, |row| {
+                                                row.child(
+                                                    action(
+                                                        format!("{}-pressure", self.id).into(),
+                                                        "Pen pressure",
+                                                        LucideIcon::PenTool,
+                                                        !disabled,
+                                                        cx,
+                                                    )
+                                                    .flex_1()
+                                                    .when(self.data.options.pressure, |v| {
+                                                        v.bg(Color::BackgroundSecondary.resolve(cx))
+                                                    })
+                                                    .on_activate(cx.listener(|this, _, _, cx| {
+                                                        if !this.data.read_only {
+                                                            let mut options =
+                                                                this.data.options.clone();
+                                                            options.pressure = !options.pressure;
+                                                            cx.emit(
+                                                                Action::OptionsChangeRequested {
+                                                                    options,
+                                                                },
+                                                            );
+                                                        }
+                                                    })),
                                                 )
-                                                .flex_1()
-                                                .when(self.data.options.pressure, |v| {
-                                                    v.bg(Color::BackgroundSecondary.resolve(cx))
-                                                })
-                                                .on_activate(cx.listener(|this, _, _, cx| {
-                                                    if !this.data.read_only {
-                                                        let mut options = this.data.options.clone();
-                                                        options.pressure = !options.pressure;
-                                                        cx.emit(Action::OptionsChangeRequested {
-                                                            options,
-                                                        });
-                                                    }
-                                                })),
-                                            )
-                                        })
-                                        .when(self.capabilities.anti_alias, |row| {
-                                            row.child(
-                                                action(
-                                                    format!("{}-antialias", self.id).into(),
-                                                    "Anti-alias",
-                                                    LucideIcon::Spline,
-                                                    !disabled,
-                                                    cx,
+                                            })
+                                            .when(self.capabilities.anti_alias, |row| {
+                                                row.child(
+                                                    action(
+                                                        format!("{}-antialias", self.id).into(),
+                                                        "Anti-alias",
+                                                        LucideIcon::Spline,
+                                                        !disabled,
+                                                        cx,
+                                                    )
+                                                    .flex_1()
+                                                    .when(self.data.options.anti_alias, |v| {
+                                                        v.bg(Color::BackgroundSecondary.resolve(cx))
+                                                    })
+                                                    .on_activate(cx.listener(|this, _, _, cx| {
+                                                        if !this.data.read_only {
+                                                            let mut options =
+                                                                this.data.options.clone();
+                                                            options.anti_alias =
+                                                                !options.anti_alias;
+                                                            cx.emit(
+                                                                Action::OptionsChangeRequested {
+                                                                    options,
+                                                                },
+                                                            );
+                                                        }
+                                                    })),
                                                 )
-                                                .flex_1()
-                                                .when(self.data.options.anti_alias, |v| {
-                                                    v.bg(Color::BackgroundSecondary.resolve(cx))
-                                                })
-                                                .on_activate(cx.listener(|this, _, _, cx| {
-                                                    if !this.data.read_only {
-                                                        let mut options = this.data.options.clone();
-                                                        options.anti_alias = !options.anti_alias;
-                                                        cx.emit(Action::OptionsChangeRequested {
-                                                            options,
-                                                        });
-                                                    }
-                                                })),
-                                            )
-                                        }),
-                                )
-                            },
-                        ),
-                ),
-            )
+                                            }),
+                                    )
+                                },
+                            ),
+                    ),
+                )
+            })
             .when(self.capabilities.save_preset, |panel| {
                 panel.child(
                     div().p(px(tokens::Space::LG)).child(

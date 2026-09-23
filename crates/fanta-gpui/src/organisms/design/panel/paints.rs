@@ -3958,7 +3958,7 @@ impl DesignPaintController for DesignPanel {
                 row.child(
                     div().absolute().top(px(ROW_HEIGHT)).right_0().child(
                         crate::molecules::anchored_popup(
-                            Anchor::BottomRight,
+                            Anchor::TopRight,
                             gpui::point(px(0.), px(0.)),
                             40,
                             div()

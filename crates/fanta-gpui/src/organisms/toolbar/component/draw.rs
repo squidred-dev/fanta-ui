@@ -491,7 +491,9 @@ impl EditorToolbar {
                 ] {
                     let supported = match field {
                         DrawNumber::Hardness => self.draw_brush_capabilities.hardness,
+                        DrawNumber::Opacity => self.draw_brush_capabilities.paint,
                         DrawNumber::Flow => self.draw_brush_capabilities.flow,
+                        DrawNumber::Smoothing => self.draw_brush_capabilities.smoothing,
                         _ => true,
                     };
                     if supported {

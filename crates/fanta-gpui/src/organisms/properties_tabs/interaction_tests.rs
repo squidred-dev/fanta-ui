@@ -146,6 +146,37 @@ fn vector_pencil_capabilities_show_only_supported_draw_controls(cx: &mut TestApp
 }
 
 #[gpui::test]
+fn vector_eraser_capabilities_show_only_size(cx: &mut TestAppContext) {
+    let (host, _, cx) = mount_component(cx, |_, cx| {
+        DrawInspector::new("draw", DrawInspectorViewData::default(), cx)
+    });
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |view, cx| {
+        view.set_capabilities(crate::toolbar::DrawBrushCapabilities::VECTOR_ERASER, cx);
+    });
+    cx.simulate_resize(size(px(360.), px(900.)));
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("draw-size").is_some());
+    for selector in [
+        "draw-tip",
+        "draw-hardness",
+        "draw-color",
+        "draw-blend",
+        "draw-opacity",
+        "draw-flow",
+        "draw-smoothing",
+        "draw-pressure",
+        "draw-antialias",
+        "draw-save-preset",
+    ] {
+        assert!(
+            cx.debug_bounds(selector).is_none(),
+            "{selector} should be hidden"
+        );
+    }
+}
+
+#[gpui::test]
 fn prototype_operations_keep_connection_identity(cx: &mut TestAppContext) {
     let (_host, actions, cx) = mount_component(cx, |_, cx| {
         PrototypeInspector::new(

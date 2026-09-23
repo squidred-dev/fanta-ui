@@ -5,7 +5,9 @@ use gpui::SharedString;
 pub struct DrawBrushCapabilities {
     pub brush_tip: bool,
     pub hardness: bool,
+    pub paint: bool,
     pub flow: bool,
+    pub smoothing: bool,
     pub pressure: bool,
     pub anti_alias: bool,
     pub save_preset: bool,
@@ -15,7 +17,20 @@ impl DrawBrushCapabilities {
     pub const VECTOR_PENCIL: Self = Self {
         brush_tip: false,
         hardness: false,
+        paint: true,
         flow: false,
+        smoothing: true,
+        pressure: false,
+        anti_alias: false,
+        save_preset: false,
+    };
+
+    pub const VECTOR_ERASER: Self = Self {
+        brush_tip: false,
+        hardness: false,
+        paint: false,
+        flow: false,
+        smoothing: false,
         pressure: false,
         anti_alias: false,
         save_preset: false,
@@ -27,7 +42,9 @@ impl Default for DrawBrushCapabilities {
         Self {
             brush_tip: true,
             hardness: true,
+            paint: true,
             flow: true,
+            smoothing: true,
             pressure: true,
             anti_alias: true,
             save_preset: true,
