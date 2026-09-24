@@ -1912,6 +1912,16 @@ impl DesignPropertiesController for DesignPanel {
                 return;
             }
             if let Some(kind) = self.host.inspected_node().first_addable_effect_kind() {
+                self.pending_added_editor = Some(PendingAddedEditor::Effect {
+                    node_id: self.host.inspected_node().id.clone(),
+                    existing_ids: self
+                        .host
+                        .inspected_node()
+                        .effects
+                        .iter()
+                        .map(|effect| effect.id.clone())
+                        .collect(),
+                });
                 cx.emit_design_panel_action(
                     self,
                     DesignPanelAction::EffectAddRequested {
@@ -1921,6 +1931,21 @@ impl DesignPropertiesController for DesignPanel {
                 );
             }
             return;
+        }
+        if matches!(
+            collection,
+            DesignPanelCollection::Fill | DesignPanelCollection::Stroke
+        ) {
+            self.pending_added_editor = Some(PendingAddedEditor::Paint {
+                node_id: self.host.inspected_node().id.clone(),
+                collection,
+                existing_ids: self
+                    .paint_collection(collection)
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|paint| paint.id.clone())
+                    .collect(),
+            });
         }
         cx.emit_design_panel_action(
             self,

@@ -1272,6 +1272,43 @@ fn actions(host: &Entity<TestHost>, cx: &VisualTestContext) -> Rc<RefCell<Vec<De
     cx.read(|app| host.read(app).actions.clone())
 }
 
+#[gpui::test]
+fn adding_fill_and_effect_opens_the_new_item_editor_after_host_echo(cx: &mut TestAppContext) {
+    let mut node = DesignPanelNode::new("shape", "Shape", DesignPanelNodeKind::Rectangle);
+    let (host, visual_cx) = setup(node.clone(), cx);
+    let panel = panel(&host, visual_cx);
+
+    panel.update(visual_cx, |panel, cx| {
+        panel.emit_add(DesignPanelCollection::Fill, cx);
+        assert!(panel.overlays.active_picker().is_none());
+        node.fills
+            .push(DesignPaint::solid(DesignColor::WHITE).with_id("new-fill"));
+        panel.set_node(node.clone(), cx);
+        assert_eq!(
+            panel
+                .overlays
+                .active_picker()
+                .as_ref()
+                .map(|target| target.paint_id.as_ref()),
+            Some("new-fill")
+        );
+
+        panel.emit_add(DesignPanelCollection::Effect, cx);
+        assert!(panel.overlays.active_effect_settings().is_none());
+        node.effects
+            .push(DesignEffect::new(DesignEffectKind::DropShadow).with_id("new-effect"));
+        panel.set_node(node, cx);
+        assert_eq!(
+            panel
+                .overlays
+                .active_effect_settings()
+                .as_ref()
+                .map(|target| target.effect_id.as_ref()),
+            Some("new-effect")
+        );
+    });
+}
+
 fn key_downs(host: &Entity<TestHost>, cx: &VisualTestContext) -> Rc<RefCell<Vec<SharedString>>> {
     cx.read(|app| host.read(app).key_downs.clone())
 }

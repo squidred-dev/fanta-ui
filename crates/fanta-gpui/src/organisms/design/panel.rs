@@ -247,6 +247,19 @@ struct EffectSettingsTarget {
     effect_id: SharedString,
 }
 
+#[derive(Clone, Debug)]
+enum PendingAddedEditor {
+    Paint {
+        node_id: SharedString,
+        collection: DesignPanelCollection,
+        existing_ids: Vec<SharedString>,
+    },
+    Effect {
+        node_id: SharedString,
+        existing_ids: Vec<SharedString>,
+    },
+}
+
 impl EffectSettingsTarget {
     fn matches(&self, effect: &DesignEffect, index: usize) -> bool {
         if self.effect_id.is_empty() || effect.id.is_empty() {
@@ -1328,6 +1341,8 @@ pub struct DesignPanel {
     paint_picker: Entity<PaintPicker>,
     paint_visibility_supported: bool,
     paint_collection_item_actions_disabled: Vec<DesignPanelCollection>,
+    export_advanced_settings_enabled: bool,
+    pending_added_editor: Option<PendingAddedEditor>,
     eyedropper_enabled: bool,
     color_variable_creation_enabled: bool,
     supported_blend_modes: Vec<DesignBlendMode>,
@@ -1403,6 +1418,13 @@ impl DesignPanel {
     pub fn set_paint_visibility_supported(&mut self, supported: bool, cx: &mut Context<Self>) {
         if self.paint_visibility_supported != supported {
             self.paint_visibility_supported = supported;
+            cx.notify();
+        }
+    }
+
+    pub fn set_export_advanced_settings_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.export_advanced_settings_enabled != enabled {
+            self.export_advanced_settings_enabled = enabled;
             cx.notify();
         }
     }

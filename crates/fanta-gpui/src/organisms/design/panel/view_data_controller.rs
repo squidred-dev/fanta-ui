@@ -225,6 +225,59 @@ pub(super) trait DesignPanelViewDataController: Sized {
 }
 
 #[allow(deprecated)]
+impl DesignPanel {
+    fn open_newly_added_editor(&mut self, cx: &mut Context<Self>) {
+        let Some(pending) = self.pending_added_editor.take() else {
+            return;
+        };
+        if self.host.inspection_context.selection().kind() != DesignPanelSelectionKind::Single
+            || !self.can_edit()
+        {
+            return;
+        }
+        let node = self.host.inspected_node();
+        let overlay = match pending {
+            PendingAddedEditor::Paint {
+                node_id,
+                collection,
+                existing_ids,
+            } if node.id == node_id => self.paint_collection(collection).and_then(|paints| {
+                if paints.len() <= existing_ids.len() {
+                    return None;
+                }
+                let index = paints
+                    .iter()
+                    .position(|paint| !existing_ids.contains(&paint.id))
+                    .unwrap_or(paints.len() - 1);
+                Some(DesignOverlayState::PaintPicker(PaintPickerTarget {
+                    collection,
+                    index,
+                    paint_id: paints[index].id.clone(),
+                }))
+            }),
+            PendingAddedEditor::Effect {
+                node_id,
+                existing_ids,
+            } if node.id == node_id && node.effects.len() > existing_ids.len() => {
+                let index = node
+                    .effects
+                    .iter()
+                    .position(|effect| !existing_ids.contains(&effect.id))
+                    .unwrap_or(node.effects.len() - 1);
+                Some(DesignOverlayState::EffectSettings(EffectSettingsTarget {
+                    index,
+                    effect_id: node.effects[index].id.clone(),
+                }))
+            }
+            _ => None,
+        };
+        if let Some(overlay) = overlay {
+            self.overlays.open(overlay);
+            cx.notify();
+        }
+    }
+}
+
 impl DesignPanelViewDataController for DesignPanel {
     fn canonical_view_data(&self) -> DesignPanelViewData {
         DesignPanelViewData {
@@ -609,6 +662,7 @@ impl DesignPanelViewDataController for DesignPanel {
         if self.frame_preset_view_data_for_context().is_none() {
             self.overlays.discard(DesignOpenOverlay::FramePreset);
         }
+        self.open_newly_added_editor(cx);
         cx.notify();
     }
 
@@ -886,6 +940,7 @@ impl DesignPanelViewDataController for DesignPanel {
         if self.frame_preset_view_data_for_context().is_none() {
             self.overlays.discard(DesignOpenOverlay::FramePreset);
         }
+        self.open_newly_added_editor(cx);
         cx.notify();
     }
 

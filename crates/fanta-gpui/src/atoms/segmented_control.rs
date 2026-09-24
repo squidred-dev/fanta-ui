@@ -277,7 +277,8 @@ enum SegmentedControlItems {
 pub struct SegmentedControl {
     id: SharedString,
     items: SegmentedControlItems,
-    selected_index: usize,
+    selected_index: Option<usize>,
+    compact: bool,
     state: SegmentedControlState,
     on_change: Option<ChangeHandler>,
 }
@@ -287,7 +288,8 @@ impl SegmentedControl {
         Self {
             id: id.into(),
             items: SegmentedControlItems::Labels(labels),
-            selected_index: 0,
+            selected_index: Some(0),
+            compact: false,
             state: SegmentedControlState::Default,
             on_change: None,
         }
@@ -297,14 +299,25 @@ impl SegmentedControl {
         Self {
             id: id.into(),
             items: SegmentedControlItems::Icons(icons),
-            selected_index: 0,
+            selected_index: Some(0),
+            compact: false,
             state: SegmentedControlState::Default,
             on_change: None,
         }
     }
 
     pub const fn selected_index(mut self, selected_index: usize) -> Self {
-        self.selected_index = selected_index;
+        self.selected_index = Some(selected_index);
+        self
+    }
+
+    pub const fn unselected(mut self) -> Self {
+        self.selected_index = None;
+        self
+    }
+
+    pub const fn compact(mut self) -> Self {
+        self.compact = true;
         self
     }
 
@@ -349,7 +362,10 @@ impl RenderOnce for SegmentedControl {
             SegmentedControlItems::Icons(items) => items.len(),
             SegmentedControlItems::Labels(items) => items.len(),
         };
-        let selected_index = self.selected_index.min(item_count.saturating_sub(1));
+        let selected_index = self
+            .selected_index
+            .map(|index| index.min(item_count.saturating_sub(1)));
+        let keyboard_anchor = selected_index.unwrap_or(0);
         let children = match self.items {
             SegmentedControlItems::Labels(labels) => labels
                 .into_iter()
@@ -359,7 +375,7 @@ impl RenderOnce for SegmentedControl {
                         SharedString::from(format!("{base_id}-segment-{index}")),
                         label,
                     )
-                    .active(!disabled && index == selected_index)
+                    .active(!disabled && selected_index == Some(index))
                     .preview_state(if disabled {
                         SegmentState::Disabled
                     } else {
@@ -388,7 +404,7 @@ impl RenderOnce for SegmentedControl {
                         SharedString::from(format!("{base_id}-segment-{index}")),
                         option.icon,
                     )
-                    .active(!disabled && index == selected_index)
+                    .active(!disabled && selected_index == Some(index))
                     .preview_state(if disabled {
                         SegmentState::Disabled
                     } else {
@@ -415,7 +431,11 @@ impl RenderOnce for SegmentedControl {
         h_flex()
             .id(self.id)
             .debug_selector(move || selector.clone())
-            .w(px(tokens::SegmentedControlGeometry::WIDTH))
+            .w(px(if self.compact {
+                tokens::RowHeight::FIELD * item_count as f32
+            } else {
+                tokens::SegmentedControlGeometry::WIDTH
+            }))
             .h(px(tokens::RowHeight::FIELD))
             .items_stretch()
             .overflow_hidden()
@@ -426,8 +446,12 @@ impl RenderOnce for SegmentedControl {
                 |control, handler| {
                     control.on_key_down(move |event: &KeyDownEvent, window, cx| {
                         let next_index = match event.keystroke.key.as_str() {
-                            "left" | "up" => (selected_index + item_count - 1) % item_count,
-                            "right" | "down" => (selected_index + 1) % item_count,
+                            "left" | "up" => selected_index
+                                .map(|_| (keyboard_anchor + item_count - 1) % item_count)
+                                .unwrap_or(item_count - 1),
+                            "right" | "down" => selected_index
+                                .map(|_| (keyboard_anchor + 1) % item_count)
+                                .unwrap_or(0),
                             "home" => 0,
                             "end" => item_count - 1,
                             _ => return,

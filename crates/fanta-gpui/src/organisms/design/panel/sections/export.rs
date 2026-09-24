@@ -579,7 +579,13 @@ impl ExportPanelCompat for DesignPanel {
 
     fn render_export(&self, cx: &mut Context<Self>) -> AnyElement {
         let projection = super::super::export::projection(self);
-        render(&projection, self, &ExportEventSink::new(cx.entity()), cx)
+        render(
+            &projection,
+            self,
+            &ExportEventSink::new(cx.entity()),
+            self.export_advanced_settings_enabled,
+            cx,
+        )
     }
 }
 
@@ -821,6 +827,7 @@ struct ExportRenderer<'a, C> {
     event_sink: &'a ExportEventSink,
     id: &'a SharedString,
     node_name: &'a SharedString,
+    advanced_settings_enabled: bool,
 }
 
 impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
@@ -1932,16 +1939,17 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                     )),
             );
             if expanded {
-                row = row
-                    .child(self.render_value_cell(
-                        format!("export-suffix-{index}"),
-                        "S",
-                        suffix,
-                        DesignPanelProperty::ExportSuffix(index),
-                        DesignPanelValue::Text(configuration.common.suffix.clone()),
-                        cx,
-                    ))
-                    .child(self.render_export_advanced(index, configuration, cx));
+                row = row.child(self.render_value_cell(
+                    format!("export-suffix-{index}"),
+                    "S",
+                    suffix,
+                    DesignPanelProperty::ExportSuffix(index),
+                    DesignPanelValue::Text(configuration.common.suffix.clone()),
+                    cx,
+                ));
+                if self.advanced_settings_enabled {
+                    row = row.child(self.render_export_advanced(index, configuration, cx));
+                }
             }
             content = content.child(row);
         }
@@ -2065,6 +2073,7 @@ pub(in super::super) fn render(
     projection: &ExportProjection,
     chrome: &impl ExportInspectorChrome,
     event_sink: &ExportEventSink,
+    advanced_settings_enabled: bool,
     cx: &mut Context<DesignPanel>,
 ) -> AnyElement {
     ExportRenderer {
@@ -2073,6 +2082,7 @@ pub(in super::super) fn render(
         event_sink,
         id: &projection.target.panel_id,
         node_name: &projection.target.node_name,
+        advanced_settings_enabled,
     }
     .render_export(cx)
 }
