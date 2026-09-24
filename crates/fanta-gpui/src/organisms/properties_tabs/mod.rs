@@ -6,6 +6,7 @@ mod draw;
 mod model;
 mod motion;
 mod prototype;
+pub(crate) const PROPERTIES_TABS_KEY_CONTEXT: &str = "FantaPropertiesTabs";
 pub use code::CodeInspector;
 pub use comments::CommentsInspector;
 pub use draw::DrawInspector;

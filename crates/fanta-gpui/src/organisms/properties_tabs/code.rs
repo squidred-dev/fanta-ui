@@ -118,6 +118,7 @@ impl Render for CodeInspector {
         }
         v_flex()
             .id(self.id.clone())
+            .key_context(super::PROPERTIES_TABS_KEY_CONTEXT)
             .track_focus(&self.focus)
             .size_full()
             .min_w_0()

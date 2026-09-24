@@ -13,6 +13,7 @@ use crate::{
     design::{CancelDesignInteraction, DESIGN_PANEL_KEY_CONTEXT},
     layers::{CloseLayersOverlay, LAYERS_PANEL_KEY_CONTEXT},
     pages::{ClosePagesSearch, PAGES_PANEL_KEY_CONTEXT},
+    properties_tabs::PROPERTIES_TABS_KEY_CONTEXT,
     toolbar::{
         CloseToolbarOverlay, NextToolbarCommand, PreviousToolbarCommand,
         TOOLBAR_TEXT_ENTRY_KEY_CONTEXT,
@@ -158,6 +159,7 @@ fn is_fanta_text_input(event: &KeystrokeEvent) -> bool {
             || context.contains(PAGES_PANEL_KEY_CONTEXT)
             || context.contains(DESIGN_PANEL_KEY_CONTEXT)
             || context.contains(LAYERS_PANEL_KEY_CONTEXT)
+            || context.contains(PROPERTIES_TABS_KEY_CONTEXT)
             || context.contains(VARIABLES_SCREEN_KEY_CONTEXT)
     });
     has_input && has_fanta_surface
@@ -441,6 +443,21 @@ mod tests {
 
     fn action(source: &str) -> Option<InputAction> {
         input_action(&Keystroke::parse(source).expect("valid test keystroke"))
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn properties_tab_input_routes_select_all_to_the_input() {
+        let event = KeystrokeEvent {
+            keystroke: Keystroke::parse("cmd-a").expect("valid test keystroke"),
+            action: None,
+            context_stack: vec![
+                KeyContext::parse(PROPERTIES_TABS_KEY_CONTEXT).expect("valid properties context"),
+                KeyContext::parse(INPUT_KEY_CONTEXT).expect("valid input context"),
+            ],
+        };
+        assert!(is_fanta_text_input(&event));
+        assert_eq!(fallback_actions(&event), vec![InputAction::SelectAll]);
     }
 
     #[test]
