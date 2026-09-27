@@ -378,6 +378,30 @@ impl GenerationScreen {
         self.kind
     }
 
+    pub fn draft(&self, cx: &App) -> GenerationDraft {
+        GenerationDraft {
+            prompt: self.prompt.read(cx).value(),
+            negative: self.negative.read(cx).value(),
+            seed: self.seed.read(cx).value(),
+        }
+    }
+
+    pub fn set_draft(
+        &mut self,
+        draft: GenerationDraft,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.prompt
+            .update(cx, |input, cx| input.set_value(draft.prompt, window, cx));
+        self.negative
+            .update(cx, |input, cx| input.set_value(draft.negative, window, cx));
+        self.seed
+            .update(cx, |input, cx| input.set_value(draft.seed, window, cx));
+        self.validation_error = None;
+        cx.notify();
+    }
+
     fn prompt_hint(kind: GenerationKind, recipe: Option<GenerationRecipe>) -> &'static str {
         match recipe {
             Some(GenerationRecipe::ImageVideo) => "Describe how the start frame should move…",

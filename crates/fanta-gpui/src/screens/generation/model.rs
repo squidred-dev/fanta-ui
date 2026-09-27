@@ -490,6 +490,15 @@ pub struct GenerationViewData {
     pub has_more: bool,
 }
 
+/// Transient text owned by the screen. A host may snapshot it before changing
+/// workspaces and restore it when the user returns.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct GenerationDraft {
+    pub prompt: SharedString,
+    pub negative: SharedString,
+    pub seed: SharedString,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GenerationOptionSelection {
     pub key: SharedString,
