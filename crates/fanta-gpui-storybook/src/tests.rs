@@ -6060,6 +6060,43 @@ fn every_zed_baseline_preview_renders_without_editor_services(cx: &mut TestAppCo
             );
         }
     }
+
+    visual_cx.update(|_, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook.baseline_active = Some(<ui_input::InputField as component::Component>::id());
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+    let input_field = visual_cx.update(|window, app| {
+        let window_id = window.window_handle().window_id();
+        let Some((input_field, _)) = storybook.read(app).baseline_input_fields.get(&window_id)
+        else {
+            panic!("Storybook input preview should retain its editor entity");
+        };
+        input_field.clone()
+    });
+    visual_cx.update(|window, app| {
+        let focus_handle = input_field.read(app).focus_handle(app);
+        window.focus(&focus_handle, app);
+    });
+    visual_cx.run_until_parked();
+    visual_cx.simulate_input("persistent preview value");
+    visual_cx.update(|_, app| storybook.update(app, |_, cx| cx.notify()));
+    visual_cx.run_until_parked();
+    visual_cx.update(|window, app| {
+        let window_id = window.window_handle().window_id();
+        let Some((retained_input_field, _)) =
+            storybook.read(app).baseline_input_fields.get(&window_id)
+        else {
+            panic!("Storybook input preview should survive redraws");
+        };
+        assert_eq!(retained_input_field.entity_id(), input_field.entity_id());
+        assert_eq!(
+            retained_input_field.read(app).text(app),
+            "persistent preview value"
+        );
+    });
 }
 
 #[gpui::test]

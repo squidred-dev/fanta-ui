@@ -56,6 +56,8 @@ struct Storybook {
     launch_mode: StorybookLaunchMode,
     story_windows: HashMap<WindowId, StoryKind>,
     baseline_windows: HashMap<WindowId, component::ComponentId>,
+    baseline_input_fields:
+        HashMap<WindowId, (Entity<ui_input::InputField>, Entity<ui_input::InputField>)>,
     baseline_density_index: u8,
     gallery_theme_mode: ThemeMode,
     gallery_theme_index: usize,
@@ -307,6 +309,9 @@ impl Storybook {
                     storybook
                         .baseline_windows
                         .retain(|window_id, _| open_window_ids.contains(window_id));
+                    storybook
+                        .baseline_input_fields
+                        .retain(|window_id, _| open_window_ids.contains(window_id));
                     if storybook.story_windows.len() != previous_count
                         || storybook.baseline_windows.len() != previous_baseline_count
                     {
@@ -339,6 +344,7 @@ impl Storybook {
             launch_mode: launch.mode,
             story_windows: HashMap::new(),
             baseline_windows: HashMap::new(),
+            baseline_input_fields: HashMap::new(),
             baseline_density_index: 1,
             gallery_theme_mode: Theme::global(cx).mode,
             gallery_theme_index,
@@ -434,15 +440,17 @@ impl Render for Storybook {
         if let Some(baseline_id) = self
             .baseline_windows
             .get(&window.window_handle().window_id())
-            && let Some(metadata) = component::components().get(baseline_id)
+            .cloned()
+            && let Some(metadata) = component::components().get(&baseline_id)
         {
+            let preview = self.render_registered_preview(metadata, window, cx);
             return div()
                 .id("storybook-baseline-window")
                 .size_full()
                 .overflow_scroll()
                 .p_4()
                 .bg(theme::GlobalTheme::theme(cx).colors().background)
-                .child((metadata.preview())(window, cx))
+                .child(preview)
                 .into_any_element();
         }
         if let Some(story) = self

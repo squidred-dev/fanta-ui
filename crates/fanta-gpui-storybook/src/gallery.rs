@@ -281,21 +281,64 @@ impl Storybook {
             .into_any_element()
     }
 
-    pub(super) fn render_baseline_shell(
-        &self,
+    pub(super) fn render_registered_preview(
+        &mut self,
+        metadata: &component::ComponentMetadata,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let Some(baseline_id) = self.baseline_active.as_ref() else {
+        if metadata.id() != <ui_input::InputField as component::Component>::id() {
+            return (metadata.preview())(window, cx);
+        }
+
+        // The registered preview constructs editor entities on every render. Keep
+        // this interactive Storybook instance alive across redraws and themes.
+        let window_id = window.window_handle().window_id();
+        let (small, regular) = self
+            .baseline_input_fields
+            .entry(window_id)
+            .or_insert_with(|| {
+                (
+                    cx.new(|cx| {
+                        ui_input::InputField::new(window, cx, "placeholder").label("Small Label")
+                    }),
+                    cx.new(|cx| {
+                        ui_input::InputField::new(window, cx, "placeholder")
+                            .label("Regular Label")
+                            .label_size(ui::LabelSize::Default)
+                    }),
+                )
+            });
+        v_flex()
+            .gap_6()
+            .child(component::example_group(vec![
+                component::single_example(
+                    "Small Label (Default)",
+                    div().child(small.clone()).into_any_element(),
+                ),
+                component::single_example(
+                    "Regular Label",
+                    div().child(regular.clone()).into_any_element(),
+                ),
+            ]))
+            .into_any_element()
+    }
+
+    pub(super) fn render_baseline_shell(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let Some(baseline_id) = self.baseline_active.clone() else {
             return div().into_any_element();
         };
         let registry = component::components();
-        let Some(metadata) = registry.get(baseline_id) else {
+        let Some(metadata) = registry.get(&baseline_id) else {
             return div().into_any_element();
         };
         let title = metadata.scopeless_name();
         let description = metadata.description();
-        let preview = (metadata.preview())(window, cx);
+        let preview = self.render_registered_preview(metadata, window, cx);
         v_flex()
             .id("storybook-baseline-shell")
             .key_context(STORYBOOK_KEY_CONTEXT)
