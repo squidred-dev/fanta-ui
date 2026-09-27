@@ -1,6 +1,140 @@
 use super::*;
+use crate::molecules::sidebar_popup_surface;
+use gpui_component::{
+    WindowExt as _,
+    button::ButtonVariant,
+    dialog::{Dialog, DialogButtonProps},
+};
 
 impl VariablesScreen {
+    pub(super) fn request_delete_variable(
+        &mut self,
+        variable_id: SharedString,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(variable) = self
+            .view_data
+            .variables
+            .iter()
+            .find(|variable| variable.id == variable_id)
+        else {
+            return;
+        };
+        self.open_delete_dialog(
+            VariablesAction::VariableDeleteRequested { variable_id },
+            "Delete variable",
+            format!("Delete “{}”? This cannot be undone.", variable.name).into(),
+            window,
+            cx,
+        );
+    }
+
+    pub(super) fn request_delete_mode(
+        &mut self,
+        mode_id: SharedString,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(mode) = self.view_data.modes.iter().find(|mode| mode.id == mode_id) else {
+            return;
+        };
+        self.open_delete_dialog(
+            VariablesAction::ModeDeleteRequested { mode_id },
+            "Delete mode",
+            format!(
+                "Delete “{}” and its values? This cannot be undone.",
+                mode.name
+            )
+            .into(),
+            window,
+            cx,
+        );
+    }
+
+    fn open_delete_dialog(
+        &mut self,
+        action: VariablesAction,
+        title: &'static str,
+        message: SharedString,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if window.has_active_dialog(cx) {
+            return;
+        }
+        self.commit_edit(cx);
+        self.settings_id = None;
+        self.context_menu = None;
+        self.alias_target = None;
+        self.create_menu_open = false;
+        self.filter_menu_open = false;
+        self.close_color_picker(window, cx);
+        let collection_id = self.view_data.selected_collection_id.clone();
+        let page = cx.entity();
+        window.open_dialog(cx, move |dialog: Dialog, window, cx| {
+            let page = page.clone();
+            let collection_id = collection_id.clone();
+            let action = action.clone();
+            let palette = crate::atoms::sidebar_style(cx);
+            dialog
+                .title(title)
+                .confirm()
+                .footer(|ok, cancel, window, cx| {
+                    vec![
+                        div()
+                            .id("variables-delete-dialog-cancel")
+                            .debug_selector(|| "variables-delete-dialog-cancel".to_owned())
+                            .child(cancel(window, cx)),
+                        div()
+                            .id("variables-delete-dialog-confirm")
+                            .debug_selector(|| "variables-delete-dialog-confirm".to_owned())
+                            .child(ok(window, cx)),
+                    ]
+                })
+                .button_props(
+                    DialogButtonProps::default()
+                        .ok_text("Delete")
+                        .ok_variant(ButtonVariant::Danger),
+                )
+                .w(popup_width(window, 400.))
+                .p_3()
+                .bg(palette.menu_background)
+                .border_color(palette.border)
+                .text_color(palette.text)
+                .text_size(crate::atoms::sidebar_text_size())
+                .on_ok(move |_, _, cx| {
+                    page.update(cx, |this, cx| {
+                        // A host may replace the snapshot while the confirmation is open.
+                        // Only emit for the same collection and a still-present target.
+                        let still_present = this.view_data.selected_collection_id == collection_id
+                            && match &action {
+                                VariablesAction::VariableDeleteRequested { variable_id } => this
+                                    .view_data
+                                    .variables
+                                    .iter()
+                                    .any(|variable| variable.id == *variable_id),
+                                VariablesAction::ModeDeleteRequested { mode_id } => {
+                                    this.view_data.modes.iter().any(|mode| mode.id == *mode_id)
+                                }
+                                _ => false,
+                            };
+                        if still_present {
+                            cx.emit(action.clone());
+                        }
+                    });
+                    true
+                })
+                .child(
+                    div()
+                        .w_full()
+                        .text_color(palette.muted_text)
+                        .child(message.clone()),
+                )
+        });
+        cx.notify();
+    }
+
     pub(super) fn begin_edit(
         &mut self,
         target: EditTarget,
@@ -49,13 +183,13 @@ impl VariablesScreen {
             EditTarget::Name(variable_id) if !value.trim().is_empty() => {
                 Some(VariablesAction::VariableRenameRequested {
                     variable_id,
-                    name: value,
+                    name: value.trim().into(),
                 })
             }
             EditTarget::Mode(mode_id) if !value.trim().is_empty() => {
                 Some(VariablesAction::ModeRenameRequested {
                     mode_id,
-                    name: value,
+                    name: value.trim().into(),
                 })
             }
             EditTarget::Description(variable_id) => Some(VariablesAction::DescriptionChanged {
@@ -88,6 +222,7 @@ impl VariablesScreen {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         if self.edit_target.as_ref() == Some(&target) {
+            let palette = crate::atoms::sidebar_style(cx);
             div()
                 .flex_1()
                 .min_w_0()
@@ -103,13 +238,14 @@ impl VariablesScreen {
                         .bordered(false)
                         .focus_bordered(false)
                         .px_0()
-                        .typography(crate::atoms::TypographyToken::BodyMedium),
+                        .text_size(crate::atoms::sidebar_text_size())
+                        .text_color(palette.text),
                 )
                 .into_any_element()
         } else {
             div()
                 .min_w(px(0.))
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .text_size(crate::atoms::sidebar_text_size())
                 .truncate()
                 .child(text)
                 .into_any_element()
@@ -123,11 +259,10 @@ impl VariablesScreen {
     ) -> Vec<AnyElement> {
         let mut overlays = Vec::new();
         if self.create_menu_open {
-            let mut menu = popup_surface("variables-create-menu", px(tokens::Radius::MENU), cx)
+            let mut menu = sidebar_popup_surface("variables-create-menu", cx)
                 .debug_selector(|| "variables-type-dropdown".to_owned())
                 .w(popup_width(window, tokens::MenuWidth::NARROW))
                 .max_h(popup_max_height(window))
-                .py_1()
                 .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _, cx| {
                     this.create_menu_open = false;
                     cx.notify();
@@ -139,9 +274,10 @@ impl VariablesScreen {
                 (VariableKind::Boolean, "Boolean"),
             ] {
                 menu = menu.child(
-                    menu_item(
+                    sidebar_menu_item(
                         SharedString::from(format!("create-{label}")),
                         px(tokens::RowHeight::FIELD),
+                        true,
                         cx,
                     )
                     .debug_selector(move || format!("variables-create-{label}"))
@@ -166,21 +302,34 @@ impl VariablesScreen {
             .as_ref()
             .and_then(|id| self.view_data.variables.iter().find(|v| v.id == *id))
         {
-            let mut settings =
-                popup_surface("variables-settings-popover", px(tokens::Radius::MENU), cx)
-                    .debug_selector(|| "variables-settings-popover".to_owned())
-                    .w(popup_width(window, tokens::MenuWidth::PICKER_WIDE))
-                    .max_h(popup_max_height(window))
-                    .p_3()
+            let palette = crate::atoms::sidebar_style(cx);
+            let mut settings = sidebar_popup_surface("variables-settings-popover", cx)
+                .debug_selector(|| "variables-settings-popover".to_owned())
+                .w(popup_width(window, tokens::MenuWidth::PICKER_WIDE))
+                .max_h(popup_max_height(window))
+                .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _, cx| {
+                    if this.alias_target.is_none() && this.color_target.is_none() {
+                        this.commit_edit(cx);
+                        this.settings_id = None;
+                        cx.notify();
+                    }
+                }));
+            settings = settings.child(
+                h_flex()
+                    .w_full()
+                    .h(px(tokens::RowHeight::FIELD))
+                    .px_3()
                     .gap_2()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
-                    .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _, cx| {
-                        if this.alias_target.is_none() && this.color_target.is_none() {
-                            this.commit_edit(cx);
-                            this.settings_id = None;
-                            cx.notify();
-                        }
-                    }));
+                    .child(Self::render_kind_glyph(variable.kind, cx))
+                    .child(
+                        div()
+                            .min_w_0()
+                            .truncate()
+                            .font_semibold()
+                            .child(variable.name.clone()),
+                    ),
+            );
+            settings = settings.child(sidebar_menu_separator(cx));
             for (label, target, text) in [
                 (
                     "Name",
@@ -196,30 +345,36 @@ impl VariablesScreen {
                 let draft = text.clone();
                 let edit = target.clone();
                 settings = settings.child(
-                    h_flex()
+                    v_flex()
                         .w_full()
-                        .gap_2()
+                        .px_3()
+                        .py_1()
+                        .gap_1()
                         .child(
                             div()
-                                .w(px(tokens::MenuWidth::NARROW / 2.))
-                                .flex_none()
-                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                                .debug_selector(move || format!("variables-settings-label-{label}"))
+                                .text_color(palette.muted_text)
                                 .child(label),
                         )
                         .child(
                             div()
                                 .id(SharedString::from(format!("settings-{label}")))
-                                .flex_1()
+                                .debug_selector(move || format!("variables-settings-field-{label}"))
+                                .w_full()
                                 .min_w_0()
                                 .h(px(tokens::RowHeight::FIELD))
                                 .px_2()
                                 .rounded(px(tokens::Radius::CONTROL))
-                                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                                .border_1()
+                                .border_color(palette.border)
+                                .bg(palette.background)
+                                .flex()
+                                .items_center()
                                 .cursor_pointer()
                                 .on_click(cx.listener(move |this, _, window, cx| {
                                     this.begin_edit(edit.clone(), draft.clone(), window, cx)
                                 }))
-                                .child(self.render_text(
+                                .child(div().flex_1().min_w_0().child(self.render_text(
                                     target,
                                     if text.is_empty() {
                                         "How to use this variable".into()
@@ -227,21 +382,77 @@ impl VariablesScreen {
                                         text
                                     },
                                     cx,
-                                )),
+                                ))),
                         ),
                 );
             }
-            settings = settings.child("Default value");
+            settings = settings.child(sidebar_menu_separator(cx));
+            settings = settings.child(
+                div()
+                    .px_3()
+                    .py_1()
+                    .text_color(palette.muted_text)
+                    .child("Default value"),
+            );
             if let Some(mode) = self.view_data.modes.first() {
-                settings = settings.child(self.render_value(
+                settings = settings.child(div().px_3().child(self.render_value(
                     variable,
                     mode,
                     tokens::MenuWidth::PICKER_WIDE - 2. * tokens::Space::MD,
                     false,
                     true,
                     cx,
-                ));
+                )));
+            } else {
+                settings = settings.child(
+                    div()
+                        .px_3()
+                        .py_1()
+                        .text_color(palette.muted_text)
+                        .child("Add a mode to set a value"),
+                );
             }
+            settings = settings.child(sidebar_menu_separator(cx));
+            let rename_id = variable.id.clone();
+            let rename_name = variable.name.clone();
+            settings = settings.child(
+                sidebar_menu_item(
+                    "variables-settings-rename-item",
+                    px(tokens::RowHeight::FIELD),
+                    true,
+                    cx,
+                )
+                .debug_selector(|| "variables-settings-rename".to_owned())
+                .on_activate(cx.listener(move |this, _, window, cx| {
+                    this.begin_edit(
+                        EditTarget::Name(rename_id.clone()),
+                        rename_name.clone(),
+                        window,
+                        cx,
+                    );
+                }))
+                .child(render_lucide_icon(LucideIcon::Pencil, palette.icon, 14.))
+                .child("Rename variable"),
+            );
+            let delete_id = variable.id.clone();
+            settings = settings.child(
+                sidebar_menu_item(
+                    "variables-settings-delete-item",
+                    px(tokens::RowHeight::FIELD),
+                    true,
+                    cx,
+                )
+                .debug_selector(|| "variables-settings-delete".to_owned())
+                .on_activate(cx.listener(move |this, _, window, cx| {
+                    this.request_delete_variable(delete_id.clone(), window, cx);
+                }))
+                .child(render_lucide_icon(
+                    LucideIcon::Trash,
+                    crate::atoms::SemanticColor::IconDanger.resolve(cx),
+                    14.,
+                ))
+                .child("Delete variable"),
+            );
             overlays.push(self.place_popup(
                 &format!("settings-{}", variable.id).into(),
                 false,
@@ -250,24 +461,34 @@ impl VariablesScreen {
             ));
         }
         if let Some((variable_id, mode_id)) = &self.alias_target {
-            let mut picker = popup_surface("variables-alias-picker", px(tokens::Radius::MENU), cx)
+            let palette = crate::atoms::sidebar_style(cx);
+            let mut picker = sidebar_popup_surface("variables-alias-picker", cx)
                 .w(popup_width(window, tokens::MenuWidth::POPOVER))
                 .max_h(popup_max_height(window).min(px(tokens::Breakpoint::COMPACT)))
-                .py_1()
                 .gap_1()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
                 .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _, cx| {
                     this.alias_target = None;
                     cx.notify();
                 }))
                 .child(
-                    div().px_2().py_1().child(
-                        Input::new(&self.alias_search)
-                            .xsmall()
-                            .h(px(tokens::RowHeight::FIELD))
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
-                            .prefix(Icon::new(IconName::Search).xsmall()),
-                    ),
+                    div()
+                        .mx_2()
+                        .my_1()
+                        .px_2()
+                        .border_1()
+                        .border_color(palette.border)
+                        .rounded(px(tokens::Radius::CONTROL))
+                        .bg(palette.background)
+                        .child(
+                            Input::new(&self.alias_search)
+                                .xsmall()
+                                .h(px(tokens::RowHeight::FIELD))
+                                .appearance(false)
+                                .bordered(false)
+                                .focus_bordered(false)
+                                .text_size(crate::atoms::sidebar_text_size())
+                                .prefix(Icon::new(IconName::Search).xsmall()),
+                        ),
                 );
             let kind = self
                 .view_data
@@ -290,9 +511,10 @@ impl VariablesScreen {
                 let m = mode_id.clone();
                 let alias = candidate.id.clone();
                 picker = picker.child(
-                    menu_item(
+                    sidebar_menu_item(
                         SharedString::from(format!("alias-{alias}")),
                         px(tokens::RowHeight::FIELD),
+                        true,
                         cx,
                     )
                     .debug_selector({
@@ -317,7 +539,8 @@ impl VariablesScreen {
                     div()
                         .px_2()
                         .py_1()
-                        .text_color(crate::atoms::SemanticColor::TextSecondary.resolve(cx))
+                        .text_size(crate::atoms::sidebar_text_size())
+                        .text_color(palette.muted_text)
                         .child("No compatible variables"),
                 );
             }

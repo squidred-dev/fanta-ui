@@ -13,8 +13,10 @@ use gpui_component::{
     input::{Input, InputEvent, InputState},
     scroll::Scrollbar,
     switch::Switch,
+    tooltip::Tooltip,
     v_flex,
 };
+use ui::StyledTypography as _;
 
 use crate::{
     atoms::{
@@ -23,7 +25,10 @@ use crate::{
     },
     color::{parse_hex_rgba, rgba_channels},
     color_picker::{ColorPicker, ColorPickerAction, ColorPickerPhase, PickerColor},
-    molecules::{anchored_popup, menu_item, popup_max_height, popup_surface, popup_width},
+    molecules::{
+        anchored_popup, popup_max_height, popup_width, sidebar_menu_item, sidebar_menu_separator,
+        sidebar_popup_surface,
+    },
 };
 
 pub(crate) const VARIABLES_SCREEN_KEY_CONTEXT: &str = "FantaVariablesScreen";
@@ -243,9 +248,15 @@ pub enum VariablesAction {
         variable_id: SharedString,
         name: SharedString,
     },
+    VariableDeleteRequested {
+        variable_id: SharedString,
+    },
     ModeRenameRequested {
         mode_id: SharedString,
         name: SharedString,
+    },
+    ModeDeleteRequested {
+        mode_id: SharedString,
     },
     DescriptionChanged {
         variable_id: SharedString,
@@ -475,6 +486,18 @@ impl VariablesScreen {
             .max(VALUE_COLUMN_MIN_WIDTH)
     }
 
+    fn mode_strip_width(&self) -> f32 {
+        let width = self.mode_column_width() * self.view_data.modes.len().max(1) as f32;
+        // With no mode headers, paint the empty strip through the action
+        // column's one-pixel left border so row dividers meet that edge.
+        width
+            + if self.view_data.modes.is_empty() {
+                1.
+            } else {
+                0.
+            }
+    }
+
     /// Virtualize both axes: hidden modes must not create controls or layout nodes.
     fn visible_mode_range(&self) -> std::ops::Range<usize> {
         let width = self.mode_column_width();
@@ -537,6 +560,7 @@ impl VariablesScreen {
         let rename_collection_id = collection.id.clone();
         let rename_collection_name = collection.name.clone();
         let renaming = self.renaming_collection_id.as_ref() == Some(&collection.id);
+        let palette = crate::atoms::sidebar_style(cx);
         h_flex()
             .id(SharedString::from(format!(
                 "{}-collection-{}",
@@ -555,16 +579,15 @@ impl VariablesScreen {
             .rounded(px(5.))
             .cursor_pointer()
             .border_1()
-            .border_color(cx.theme().transparent)
-            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .border_color(palette.border.opacity(0.))
+            .text_size(crate::atoms::sidebar_text_size())
             .when(selected, |row| {
-                row.bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-                    .text_color(crate::atoms::SemanticColor::TextSecondary.resolve(cx))
+                row.bg(palette.selected)
+                    .text_color(palette.text)
+                    .border_color(palette.selected_border)
             })
-            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
-            .focus(|style| {
-                style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
-            })
+            .hover(|style| style.bg(palette.hover))
+            .focus(|style| style.border_color(palette.focused_border))
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(move |this, event: &MouseDownEvent, window, cx| {
@@ -604,7 +627,7 @@ impl VariablesScreen {
                         )))
                         .flex_1()
                         .truncate()
-                        .when(selected, |name| name.font_semibold())
+                        .when(selected, |name| name.font_weight(gpui::FontWeight::MEDIUM))
                         .child(collection.name.clone()),
                 )
             })
@@ -615,17 +638,14 @@ impl VariablesScreen {
                             .appearance(false)
                             .bordered(false)
                             .focus_bordered(false)
-                            .small(),
+                            .small()
+                            .text_size(crate::atoms::sidebar_text_size()),
                     ),
                 )
             })
             .child(
                 div()
-                    .text_color(if selected {
-                        crate::atoms::SemanticColor::TextSecondary.resolve(cx)
-                    } else {
-                        crate::atoms::SemanticColor::TextTertiary.resolve(cx)
-                    })
+                    .text_color(palette.muted_text)
                     .child(collection.variable_count.to_string()),
             )
             .into_any_element()
@@ -634,6 +654,7 @@ impl VariablesScreen {
     fn render_group(&self, group: &VariablesGroup, cx: &mut Context<Self>) -> AnyElement {
         let selected = group.id == self.view_data.selected_group_id;
         let group_id = group.id.clone();
+        let palette = crate::atoms::sidebar_style(cx);
         h_flex()
             .id(SharedString::from(format!(
                 "{}-group-{}",
@@ -652,18 +673,15 @@ impl VariablesScreen {
             .rounded(px(5.))
             .cursor_pointer()
             .border_1()
-            .border_color(cx.theme().transparent)
-            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .border_color(palette.border.opacity(0.))
+            .text_size(crate::atoms::sidebar_text_size())
             .when(selected, |row| {
-                row.bg(crate::atoms::SemanticColor::BackgroundSelected
-                    .resolve(cx)
-                    .opacity(0.2))
-                    .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
+                row.bg(palette.selected)
+                    .text_color(palette.text)
+                    .border_color(palette.selected_border)
             })
-            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
-            .focus(|style| {
-                style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
-            })
+            .hover(|style| style.bg(palette.hover))
+            .focus(|style| style.border_color(palette.focused_border))
             .on_activate(cx.listener(move |_, _, _, cx| {
                 cx.emit(VariablesAction::GroupSelected {
                     group_id: group_id.clone(),
@@ -674,16 +692,12 @@ impl VariablesScreen {
                     .flex_1()
                     .min_w_0()
                     .truncate()
-                    .when(selected, |name| name.font_semibold())
+                    .when(selected, |name| name.font_weight(gpui::FontWeight::MEDIUM))
                     .child(group.name.clone()),
             )
             .child(
                 div()
-                    .text_color(if selected {
-                        crate::atoms::SemanticColor::Text.resolve(cx)
-                    } else {
-                        crate::atoms::SemanticColor::TextTertiary.resolve(cx)
-                    })
+                    .text_color(palette.muted_text)
                     .child(group.variable_count.to_string()),
             )
             .into_any_element()
@@ -691,6 +705,7 @@ impl VariablesScreen {
 
     fn render_sidebar(&self, cx: &mut Context<Self>) -> AnyElement {
         let row_height = tokens::RowHeight::FIELD + 6.;
+        let palette = crate::atoms::sidebar_style(cx);
         let collections = uniform_list(
             SharedString::from(format!("{}-collections-list", self.id)),
             self.view_data.collections.len(),
@@ -735,13 +750,18 @@ impl VariablesScreen {
             .h_full()
             .flex_none()
             .border_r_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .border_color(palette.border)
+            .bg(palette.background)
+            .text_color(palette.text)
+            .text_size(crate::atoms::sidebar_text_size())
+            .child(self.render_mode_scopes(cx))
             .child(
                 v_flex()
+                    .debug_selector(|| "variables-collections-panel".to_owned())
                     .h(px(
                         self.view_data.collections.len() as f32 * row_height + 52.
                     ))
-                    .max_h(gpui::relative(0.45))
+                    .max_h(gpui::relative(0.35))
                     .min_h_0()
                     .flex_none()
                     .px(px(tokens::Space::SM))
@@ -752,8 +772,8 @@ impl VariablesScreen {
                             .h(px(28.))
                             .flex_none()
                             .px_1()
-                            .font_semibold()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .text_color(palette.muted_text)
                             .child("Collections")
                             .child(div().flex_1())
                             .child(
@@ -767,7 +787,11 @@ impl VariablesScreen {
                                 .on_activate(cx.listener(|_, _, _, cx| {
                                     cx.emit(VariablesAction::CreateCollectionRequested);
                                 }))
-                                .child(Icon::new(IconName::Plus).xsmall()),
+                                .child(
+                                    Icon::new(IconName::Plus)
+                                        .xsmall()
+                                        .text_color(palette.muted_icon),
+                                ),
                             ),
                     )
                     .child(
@@ -791,12 +815,12 @@ impl VariablesScreen {
                     .pt(px(tokens::Space::SM))
                     .gap_2()
                     .border_t_1()
-                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                    .border_color(palette.border)
                     .child(
                         div()
                             .px_1()
-                            .font_semibold()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .text_color(palette.muted_text)
                             .flex_none()
                             .child("Groups"),
                     )
@@ -823,11 +847,7 @@ impl VariablesScreen {
             VariableKind::String => LucideIcon::TypeIcon,
             VariableKind::Boolean => LucideIcon::ToggleLeft,
         };
-        render_lucide_icon(
-            icon,
-            crate::atoms::SemanticColor::TextTertiary.resolve(cx),
-            12.,
-        )
+        render_lucide_icon(icon, crate::atoms::sidebar_style(cx).muted_icon, 12.)
     }
 
     fn parse_hex(value: &str) -> Option<gpui::Hsla> {
@@ -861,20 +881,99 @@ impl VariablesScreen {
             })
             .w(px(mode_width))
             .flex_none()
-            .h(px(if in_settings {
+            .h(px(if in_settings && alias.is_none() {
                 tokens::RowHeight::FIELD
             } else {
                 41.
             }))
             .px_3()
             .gap_2()
-            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .text_size(crate::atoms::sidebar_text_size())
             .when(!in_settings, |cell| cell.border_b_1())
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .border_color(crate::atoms::sidebar_style(cx).border)
             .when(draw_right_border, |cell| cell.border_r_1());
         if let Some(alias) = alias {
+            let palette = crate::atoms::sidebar_style(cx);
             let name = self.table_projection.alias_name(alias);
-            cell = cell.child(div().flex_1().truncate().child(name));
+            let resolved = self.table_projection.resolve_alias_value(
+                &self.view_data,
+                alias,
+                &mode.id,
+                variable.kind,
+            );
+            let resolved_text = resolved.map_or_else(
+                || SharedString::from("Value unavailable"),
+                |value| value.value.clone(),
+            );
+            let alias_name_selector = {
+                let variable_id = variable.id.clone();
+                let mode_id = mode.id.clone();
+                move || format!("variables-{surface}-alias-name-{variable_id}-{mode_id}")
+            };
+            let alias_value_selector = {
+                let variable_id = variable.id.clone();
+                let mode_id = mode.id.clone();
+                move || format!("variables-{surface}-alias-value-{variable_id}-{mode_id}")
+            };
+            let mut linked_value = h_flex().flex_1().min_w_0().gap_2();
+            if variable.kind == VariableKind::Color {
+                let color = resolved
+                    .and_then(|value| {
+                        value
+                            .color_hex
+                            .as_deref()
+                            .and_then(Self::parse_hex)
+                            .or_else(|| Self::parse_hex(&value.value))
+                    })
+                    .unwrap_or(palette.background);
+                linked_value = linked_value.child(
+                    div()
+                        .debug_selector({
+                            let variable_id = variable.id.clone();
+                            let mode_id = mode.id.clone();
+                            move || {
+                                format!("variables-{surface}-alias-swatch-{variable_id}-{mode_id}")
+                            }
+                        })
+                        .size(px(tokens::ControlSize::INLINE))
+                        .flex_none()
+                        .rounded(px(tokens::Radius::CONTROL))
+                        .border_1()
+                        .border_color(palette.border)
+                        .bg(color),
+                );
+            }
+            let tooltip_text = format!("{name}: {resolved_text}");
+            cell = cell.child(
+                linked_value
+                    .id(SharedString::from(format!(
+                        "{surface}-alias-content-{}-{}",
+                        variable.id, mode.id
+                    )))
+                    .tooltip(move |window, cx| Tooltip::new(tooltip_text.clone()).build(window, cx))
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .min_w_0()
+                            .justify_center()
+                            .child(
+                                div()
+                                    .debug_selector(alias_name_selector)
+                                    .w_full()
+                                    .truncate()
+                                    .text_color(palette.text)
+                                    .child(name),
+                            )
+                            .child(
+                                div()
+                                    .debug_selector(alias_value_selector)
+                                    .w_full()
+                                    .truncate()
+                                    .text_color(palette.muted_text)
+                                    .child(resolved_text),
+                            ),
+                    ),
+            );
         } else if variable.kind == VariableKind::Color {
             cell = cell.child(self.render_color_trigger(variable, mode, in_settings, cx));
         } else if variable.kind == VariableKind::Boolean {
@@ -898,7 +997,7 @@ impl VariablesScreen {
                 )
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .text_size(crate::atoms::sidebar_text_size())
                         .child(text.clone()),
                 );
         } else {
@@ -981,37 +1080,31 @@ impl VariablesScreen {
                 } else {
                     LucideIcon::Hexagon
                 },
-                crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                crate::atoms::sidebar_style(cx).muted_icon,
                 14.,
             )),
         )
         .into_any_element()
     }
 
-    fn render_filter_menu(&self, cx: &mut Context<Self>) -> AnyElement {
-        let mut menu = v_flex()
+    fn render_filter_menu(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
+        let mut menu = sidebar_popup_surface("variables-filter-menu", cx)
             .debug_selector(|| "variables-filter-menu".to_owned())
             .absolute()
-            .top(px(42.))
+            .top(px(tokens::RowHeight::SECTION_HEADER + 2.))
             .right(px(tokens::Space::SM))
             .w(px(210.))
-            .py_2()
-            .rounded(px(10.))
-            .border_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-            .bg(crate::atoms::SemanticColor::BackgroundMenu.resolve(cx))
-            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
-            .shadow_lg()
-            .occlude()
+            .max_h(popup_max_height(window))
             .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _, cx| {
                 this.filter_menu_open = false;
                 cx.notify();
             }));
         let all_selected = self.visible_kinds.iter().all(|selected| *selected);
         menu = menu.child(
-            menu_item(
+            sidebar_menu_item(
                 SharedString::from(format!("{}-filter-all", self.id)),
-                px(tokens::RowHeight::MENU),
+                px(tokens::RowHeight::LIST),
+                true,
                 cx,
             )
             .debug_selector(|| "variables-filter-all".to_owned())
@@ -1028,6 +1121,7 @@ impl VariablesScreen {
             )
             .child("All"),
         );
+        menu = menu.child(sidebar_menu_separator(cx));
         for (kind, label) in [
             (VariableKind::Color, "Colors"),
             (VariableKind::Number, "Numbers"),
@@ -1037,9 +1131,10 @@ impl VariablesScreen {
             let index = Self::kind_index(kind);
             let selected = self.visible_kinds[index];
             menu = menu.child(
-                menu_item(
+                sidebar_menu_item(
                     SharedString::from(format!("{}-filter-kind-{index}", self.id)),
-                    px(tokens::RowHeight::MENU),
+                    px(tokens::RowHeight::LIST),
+                    true,
                     cx,
                 )
                 .debug_selector(move || format!("variables-filter-kind-{index}"))
@@ -1071,6 +1166,7 @@ impl VariablesScreen {
 
     fn render_empty_state(&self, search_empty: bool, cx: &mut Context<Self>) -> AnyElement {
         let page = cx.entity();
+        let palette = crate::atoms::sidebar_style(cx);
         let mut state = v_flex()
             .debug_selector(|| "variables-empty-state".to_owned())
             .absolute()
@@ -1081,20 +1177,21 @@ impl VariablesScreen {
             .p(px(tokens::ControlSize::INLINE))
             .items_center()
             .justify_center()
-            .gap_4()
-            .bg(crate::atoms::SemanticColor::Background.resolve(cx))
+            .gap_2()
+            .bg(palette.background)
+            .text_color(palette.text)
             .occlude()
             .child(
                 div()
                     .debug_selector(|| "variables-empty-title".to_owned())
                     .max_w_full()
                     .text_center()
-                    .typography(crate::atoms::TypographyToken::HeadingMedium)
-                    .font_semibold()
+                    .text_size(crate::atoms::sidebar_text_size())
+                    .font_weight(gpui::FontWeight::MEDIUM)
                     .child(if search_empty {
-                        "No variables match search"
+                        "No variables found"
                     } else {
-                        "No variables in this collection"
+                        "No variables"
                     }),
             )
             .child(
@@ -1103,13 +1200,12 @@ impl VariablesScreen {
                     .w_full()
                     .max_w(px(330.))
                     .text_center()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
-                    .line_height(px(tokens::ControlSize::INLINE))
-                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    .text_size(crate::atoms::sidebar_text_size())
+                    .text_color(palette.muted_text)
                     .child(if search_empty {
-                        "Variables that don’t match the current search and filters are hidden."
+                        "Try another search or clear the filters."
                     } else {
-                        "Create variables to reuse values across your project."
+                        "Create a variable to get started."
                     }),
             );
         if search_empty {
@@ -1175,8 +1271,11 @@ impl VariablesScreen {
         column: usize,
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
+        let palette = crate::atoms::sidebar_style(cx);
         let mode_width = self.mode_column_width();
-        let modes_width = mode_width * self.view_data.modes.len() as f32;
+        // Keep an empty value column when a collection has no modes so each
+        // row still has a visible bottom edge across the table.
+        let modes_width = self.mode_strip_width();
         let visible_modes = self.visible_mode_range();
         range
             .filter_map(|index| indices.get(index))
@@ -1194,12 +1293,12 @@ impl VariablesScreen {
                     .gap_3()
                     .border_r_1()
                     .border_b_1()
-                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .border_color(palette.border)
+                    .text_size(crate::atoms::sidebar_text_size())
                     .child(
                         div()
                             .w(px(tokens::ControlSize::INLINE))
-                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                            .text_color(palette.muted_icon)
                             .child(Self::render_kind_glyph(variable.kind, cx)),
                     )
                     .id(SharedString::from(format!("name-edit-{}", variable.id)))
@@ -1227,9 +1326,16 @@ impl VariablesScreen {
                     })
                     .into_any_element(),
                 1 => h_flex()
+                    .debug_selector({
+                        let variable_id = variable.id.clone();
+                        move || format!("variables-mode-cells-{variable_id}")
+                    })
                     .w(px(modes_width))
                     .h(px(41.))
                     .flex_none()
+                    .when(self.view_data.modes.is_empty(), |row| {
+                        row.border_b_1().border_color(palette.border)
+                    })
                     .child(
                         div()
                             .w(px(mode_width * visible_modes.start as f32))
@@ -1270,19 +1376,13 @@ impl VariablesScreen {
                         .h(px(41.))
                         .flex_none()
                         .border_b_1()
-                        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                        .bg(crate::atoms::SemanticColor::Background.resolve(cx))
+                        .border_color(palette.border)
+                        .bg(palette.background)
                         .items_center()
                         .justify_center()
                         .cursor_pointer()
-                        .hover(|style| {
-                            style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
-                        })
-                        .focus(|style| {
-                            style.border_1().border_color(
-                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
-                            )
-                        })
+                        .hover(|style| style.bg(palette.hover))
+                        .focus(|style| style.border_1().border_color(palette.focused_border))
                         .relative()
                         .child(track_bounds(cx.entity(), {
                             let key: SharedString = format!("settings-{variable_id}").into();
@@ -1301,7 +1401,11 @@ impl VariablesScreen {
                                 variable_id: variable_id.clone(),
                             });
                         }))
-                        .child(Icon::new(IconName::Settings2).xsmall())
+                        .child(
+                            Icon::new(IconName::Settings2)
+                                .xsmall()
+                                .text_color(palette.muted_icon),
+                        )
                         .into_any_element()
                 }
             })
@@ -1309,9 +1413,10 @@ impl VariablesScreen {
     }
 
     fn render_table(&self, cx: &mut Context<Self>) -> AnyElement {
+        let palette = crate::atoms::sidebar_style(cx);
         let name_width = self.name_column_width();
         let mode_width = self.mode_column_width();
-        let modes_width = mode_width * self.view_data.modes.len() as f32;
+        let modes_width = self.mode_strip_width();
         let name_header = h_flex()
             .debug_selector(|| "variables-name-header".to_owned())
             .w_full()
@@ -1320,11 +1425,17 @@ impl VariablesScreen {
             .px(px(tokens::ControlSize::INLINE))
             .border_r_1()
             .border_b_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-            .font_semibold()
-            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .border_color(palette.border)
+            .font_weight(gpui::FontWeight::MEDIUM)
+            .text_size(crate::atoms::sidebar_text_size())
             .child("Name");
-        let mut mode_headers = h_flex().w(px(modes_width)).h(px(41.)).flex_none();
+        let mut mode_headers = h_flex()
+            .w(px(modes_width))
+            .h(px(41.))
+            .flex_none()
+            .when(self.view_data.modes.is_empty(), |header| {
+                header.border_b_1().border_color(palette.border)
+            });
         let visible_modes = self.visible_mode_range();
         mode_headers = mode_headers.child(
             div()
@@ -1344,12 +1455,12 @@ impl VariablesScreen {
                     .flex_none()
                     .px(px(tokens::ControlSize::INLINE))
                     .border_b_1()
-                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                    .border_color(palette.border)
                     .when(index + 1 < self.view_data.modes.len(), |header| {
                         header.border_r_1()
                     })
-                    .font_semibold()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .text_size(crate::atoms::sidebar_text_size())
                     .id(SharedString::from(format!("mode-edit-{}", mode.id)))
                     .cursor_pointer()
                     .key_context(CONTROL_KEY_CONTEXT)
@@ -1361,11 +1472,35 @@ impl VariablesScreen {
                             this.begin_edit(EditTarget::Mode(id.clone()), name.clone(), window, cx)
                         }
                     }))
-                    .child(self.render_text(
+                    .child(div().flex_1().min_w_0().child(self.render_text(
                         EditTarget::Mode(mode.id.clone()),
                         mode.name.clone(),
                         cx,
-                    )),
+                    )))
+                    .child(
+                        icon_button(
+                            SharedString::from(format!("{}-delete-mode-{}", self.id, mode.id)),
+                            px(tokens::RowHeight::FIELD),
+                            px(tokens::Space::XS),
+                            cx,
+                        )
+                        .debug_selector({
+                            let mode_id = mode.id.clone();
+                            move || format!("variables-delete-mode-{mode_id}")
+                        })
+                        .on_activate(cx.listener({
+                            let mode_id = mode.id.clone();
+                            move |this, _, window, cx| {
+                                cx.stop_propagation();
+                                this.request_delete_mode(mode_id.clone(), window, cx);
+                            }
+                        }))
+                        .child(render_lucide_icon(
+                            LucideIcon::Trash,
+                            palette.muted_icon,
+                            tokens::IconSize::SM,
+                        )),
+                    ),
             );
         }
         mode_headers = mode_headers.child(
@@ -1386,19 +1521,15 @@ impl VariablesScreen {
             .items_center()
             .justify_center()
             .border_b_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-            .bg(crate::atoms::SemanticColor::Background.resolve(cx))
+            .border_color(palette.border)
+            .bg(palette.background)
             .cursor_pointer()
-            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
-            .focus(|style| {
-                style
-                    .border_1()
-                    .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
-            })
+            .hover(|style| style.bg(palette.hover))
+            .focus(|style| style.border_1().border_color(palette.focused_border))
             .on_activate(cx.listener(|_, _, _, cx| {
                 cx.emit(VariablesAction::AddModeRequested);
             }))
-            .child(Icon::new(IconName::Plus).small());
+            .child(Icon::new(IconName::Plus).small().text_color(palette.icon));
 
         let indices = self.table_projection.visible_indices.clone();
         let matching_count = indices.len();
@@ -1487,8 +1618,8 @@ impl VariablesScreen {
                             .h_full()
                             .flex_none()
                             .border_l_1()
-                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                            .bg(crate::atoms::SemanticColor::Background.resolve(cx))
+                            .border_color(palette.border)
+                            .bg(palette.background)
                             .occlude()
                             .child(action_header)
                             .child(
@@ -1514,18 +1645,10 @@ impl VariablesScreen {
                     .flex_none()
                     .w_full()
                     .px(px(tokens::ControlSize::INLINE))
-                    .gap_3()
                     .border_t_1()
-                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                    .border_color(palette.border)
                     .cursor_pointer()
-                    .hover(|style| {
-                        style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
-                    })
-                    .focus(|style| {
-                        style.border_1().border_color(
-                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
-                        )
-                    })
+                    .focus(|style| style.border_1().border_color(palette.focused_border))
                     .relative()
                     .child(track_bounds(cx.entity(), |this, bounds| {
                         this.overlay_bounds.insert("create-footer".into(), bounds);
@@ -1539,10 +1662,19 @@ impl VariablesScreen {
                         this.create_menu_open = true;
                         cx.notify();
                     }))
-                    .child(Icon::new(IconName::Plus).small())
                     .child(
-                        div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                        h_flex()
+                            .h(px(tokens::ControlSize::CHROME))
+                            .px_2()
+                            .gap_2()
+                            .rounded(px(tokens::Radius::CONTROL))
+                            .border_1()
+                            .border_color(palette.border)
+                            .bg(palette.background)
+                            .text_color(palette.text)
+                            .text_size(crate::atoms::sidebar_text_size())
+                            .hover(|style| style.bg(palette.hover))
+                            .child(Icon::new(IconName::Plus).xsmall().text_color(palette.icon))
                             .child("Create variable"),
                     ),
             )
@@ -1581,6 +1713,19 @@ impl Render for VariablesScreen {
             self.visible_kinds,
         );
         let page = cx.entity();
+        let palette = crate::atoms::sidebar_style(cx);
+        let search_focused = self
+            .search_input
+            .read(cx)
+            .focus_handle(cx)
+            .is_focused(window);
+        let search_border = if search_focused {
+            palette.focused_border
+        } else if cx.try_global::<theme::GlobalTheme>().is_some() {
+            theme::GlobalTheme::theme(cx).colors().border
+        } else {
+            palette.border
+        };
         v_flex()
             .id(self.id.clone())
             .key_context(VARIABLES_SCREEN_KEY_CONTEXT)
@@ -1601,8 +1746,12 @@ impl Render for VariablesScreen {
             .relative()
             .size_full()
             .min_h(px(0.))
-            .bg(crate::atoms::SemanticColor::Background.resolve(cx))
-            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
+            .bg(palette.background)
+            .text_color(palette.text)
+            .text_size(crate::atoms::sidebar_text_size())
+            .when(cx.try_global::<theme::GlobalTheme>().is_some(), |page| {
+                page.font_ui(cx)
+            })
             .child(
                 // Measures the page so the header row and the body share the
                 // computed sidebar and name-column widths. The write is
@@ -1630,27 +1779,24 @@ impl Render for VariablesScreen {
                 .top_0()
                 .size_full(),
             )
-            .when(!self.context_data.mode_scopes.is_empty(), |page| {
-                page.child(self.render_mode_scopes(cx))
-            })
             .child(
                 h_flex()
-                    .h(px(50.))
+                    .h(px(tokens::RowHeight::SECTION_HEADER))
                     .w_full()
                     .flex_none()
                     .border_b_1()
-                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                    .border_color(palette.border)
                     .when(self.sidebar_visible, |header| {
                         header.child(
                             h_flex()
                                 .w(px(self.sidebar_width()))
                                 .h_full()
                                 .flex_none()
-                                .px(px(20.))
+                                .px_3()
                                 .border_r_1()
-                                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                                .font_semibold()
-                                .typography(crate::atoms::TypographyToken::BodyLarge)
+                                .border_color(palette.border)
+                                .font_weight(gpui::FontWeight::MEDIUM)
+                                .text_size(crate::atoms::sidebar_text_size())
                                 .child(self.view_data.document_name.clone())
                                 .child(div().flex_1())
                                 .child(
@@ -1672,9 +1818,9 @@ impl Render for VariablesScreen {
                         h_flex()
                             .flex_1()
                             .min_w(px(0.))
-                            .px(px(20.))
-                            .font_semibold()
-                            .typography(crate::atoms::TypographyToken::BodyLarge)
+                            .px_3()
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .text_size(crate::atoms::sidebar_text_size())
                             .gap_2()
                             .when(!self.sidebar_visible, |title| {
                                 title.child(
@@ -1714,74 +1860,48 @@ impl Render for VariablesScreen {
                         h_flex()
                             .relative()
                             .w(px(HEADER_TOOLS_WIDTH))
-                            .pl(px(7.))
-                            .pr(px(tokens::Space::SM))
-                            .gap(px(18.5))
+                            .pl_1()
+                            .pr_2()
+                            .gap_1()
+                            .child(
+                                div().flex_1().min_w(px(0.)).child(
+                                    Input::new(&self.search_input)
+                                        .small()
+                                        .cleanable(true)
+                                        .text_size(crate::atoms::sidebar_text_size())
+                                        .border_1()
+                                        .border_color(search_border)
+                                        .rounded(px(tokens::Radius::CONTROL))
+                                        .prefix(
+                                            Icon::new(IconName::Search)
+                                                .small()
+                                                .text_color(palette.muted_icon),
+                                        ),
+                                ),
+                            )
                             .child(
                                 h_flex()
-                                    .h(px(tokens::RowHeight::FIELD))
-                                    .flex_1()
-                                    .min_w(px(0.))
-                                    .overflow_hidden()
-                                    .rounded(px(6.))
-                                    .border_1()
-                                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                                    .bg(crate::atoms::SemanticColor::BackgroundSecondary
-                                        .resolve(cx))
-                                    .child(
-                                        div().flex_1().min_w(px(0.)).child(
-                                            Input::new(&self.search_input)
-                                                .appearance(false)
-                                                .bordered(false)
-                                                .focus_bordered(false)
-                                                .cleanable(true)
-                                                .small()
-                                                .px(px(6.))
-                                                .typography(
-                                                    crate::atoms::TypographyToken::BodyMedium,
-                                                )
-                                                .prefix(Icon::new(IconName::Search).small()),
-                                        ),
-                                    )
-                                    .child(
-                                        h_flex()
-                                            .id(SharedString::from(format!(
-                                                "{}-search-options",
-                                                self.id
-                                            )))
-                                            .debug_selector(|| {
-                                                "variables-search-options".to_owned()
-                                            })
-                                            .key_context(CONTROL_KEY_CONTEXT)
-                                            .tab_index(0)
-                                            .w(px(26.))
-                                            .h_full()
-                                            .items_center()
-                                            .justify_center()
-                                            .border_l_1()
-                                            .border_color(
-                                                crate::atoms::SemanticColor::Border.resolve(cx),
-                                            )
-                                            .cursor_pointer()
-                                            .hover(|style| {
-                                                style.bg(
-                                                    crate::atoms::SemanticColor::BackgroundHover
-                                                        .resolve(cx),
-                                                )
-                                            })
-                                            .focus(|style| {
-                                                style.border_1().border_color(
-                                                    crate::atoms::SemanticColor::BackgroundSelected
-                                                        .resolve(cx),
-                                                )
-                                            })
-                                            .on_activate(cx.listener(|this, _, _, cx| {
-                                                this.filter_menu_open = !this.filter_menu_open;
-                                                cx.emit(VariablesAction::SearchOptionsRequested);
-                                                cx.notify();
-                                            }))
-                                            .child(Icon::new(IconName::Settings2).xsmall()),
-                                    ),
+                                    .id(SharedString::from(format!("{}-search-options", self.id)))
+                                    .debug_selector(|| "variables-search-options".to_owned())
+                                    .key_context(CONTROL_KEY_CONTEXT)
+                                    .tab_index(0)
+                                    .w(px(tokens::ControlSize::CHROME))
+                                    .h(px(tokens::ControlSize::CHROME))
+                                    .items_center()
+                                    .justify_center()
+                                    .rounded(px(5.))
+                                    .text_color(palette.muted_icon)
+                                    .cursor_pointer()
+                                    .hover(|style| style.bg(palette.hover))
+                                    .focus(|style| {
+                                        style.border_1().border_color(palette.focused_border)
+                                    })
+                                    .on_activate(cx.listener(|this, _, _, cx| {
+                                        this.filter_menu_open = !this.filter_menu_open;
+                                        cx.emit(VariablesAction::SearchOptionsRequested);
+                                        cx.notify();
+                                    }))
+                                    .child(Icon::new(IconName::Settings2).xsmall()),
                             ),
                     ),
             )
@@ -1801,7 +1921,7 @@ impl Render for VariablesScreen {
             .children(self.render_edit_overlays(window, cx))
             .children(self.render_context_menu(window, cx))
             .when(self.filter_menu_open, |page| {
-                page.child(self.render_filter_menu(cx))
+                page.child(self.render_filter_menu(window, cx))
             })
     }
 }

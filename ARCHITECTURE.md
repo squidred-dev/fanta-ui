@@ -400,14 +400,22 @@ Retime, trim, easing, visibility, selection, comment and resize changes emit
 typed requests. Only the Storybook mock host advances playback and applies
 edits to its sample data. See [docs/timeline.md](docs/timeline.md).
 
-The Variables screen also owns the optional mode-scope bar and selected-layer
-binding panel. `VariablesContextData` supplies opaque scope, node, property,
+The Variables screen owns a vertical Modes panel above Collections in the
+sidebar, plus the optional selected-layer binding panel. The Modes panel remains
+visible with a quiet empty state when no scopes are supplied.
+`VariablesContextData` supplies opaque scope, node, property,
 mode and variable identifiers with host-filtered choices. `VariablesContextAction`
 returns mode and binding selections; the host validates and applies them through
 its document operations. Both panels use the shared Dropdown atom and popup
 molecules. The binding panel owns only its left border; the screen header owns
 the horizontal separator. Creating a first variable requests the host to create
 a collection and default mode when none exists.
+
+Variable and mode deletion opens a `gpui-component` `Dialog`. Cancel leaves the
+controlled snapshot untouched; confirmation emits `VariableDeleteRequested` or
+`ModeDeleteRequested`, which the host applies and echoes as fresh view data.
+Hosts using these controls render `Root::render_dialog_layer` in the window's
+element tree, as Storybook does.
 
 `color_picker::ColorPicker` is a reusable organism with an RGBA-only public
 contract (`PickerColor`, `ColorPickerAction`, and `ColorPickerPhase`). It wraps the public `paint_picker::PaintPicker` organism in solid-color mode.

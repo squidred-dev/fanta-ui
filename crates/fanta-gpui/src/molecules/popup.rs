@@ -53,6 +53,15 @@ pub fn popup_surface(id: impl Into<ElementId>, radius: Pixels, cx: &App) -> Stat
         .overflow_y_scroll()
 }
 
+/// Trigger-anchored counterpart to the File Inspector's Zed menu surface.
+/// Keeps popup clamping and placement with the caller while sharing its chrome.
+pub(crate) fn sidebar_popup_surface(id: impl Into<ElementId>, cx: &App) -> Stateful<Div> {
+    super::menu::sidebar_menu_chrome(
+        popup_surface(id, px(crate::atoms::tokens::Radius::MENU), cx),
+        cx,
+    )
+}
+
 /// Renders a popup surface in a deferred layer anchored to its trigger,
 /// snapped inside the window on both axes (§12).
 pub fn anchored_popup(

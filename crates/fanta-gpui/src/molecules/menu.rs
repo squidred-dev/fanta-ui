@@ -860,12 +860,20 @@ pub(crate) fn sidebar_menu_surface(
     cx: &App,
 ) -> Stateful<Div> {
     let surface = menu_surface(id, origin, width, max_height, px(tokens::Radius::MENU), cx);
+    sidebar_menu_chrome(surface, cx)
+}
+
+/// Zed menu elevation and spacing shared by pointer menus and anchored popups.
+pub(crate) fn sidebar_menu_chrome(surface: Stateful<Div>, cx: &App) -> Stateful<Div> {
+    let palette = crate::atoms::sidebar_style(cx);
+    let surface = surface
+        .text_size(crate::atoms::sidebar_text_size())
+        .text_color(palette.text);
     if cx.try_global::<theme::GlobalTheme>().is_some() {
         surface
             .py(ui::DynamicSpacing::Base04.rems(cx))
             .elevation_2(cx)
     } else {
-        let palette = crate::atoms::sidebar_style(cx);
         surface
             .bg(palette.menu_background)
             .border_color(palette.border)

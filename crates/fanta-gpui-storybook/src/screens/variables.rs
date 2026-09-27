@@ -12,16 +12,26 @@ use super::knobs::{self, KnobOption};
 pub(crate) enum VariablesNamedState {
     Default,
     Empty,
+    Aliased,
+    NoModes,
     NoCollection,
 }
 
 impl VariablesNamedState {
-    pub(crate) const ALL: [Self; 3] = [Self::Default, Self::Empty, Self::NoCollection];
+    pub(crate) const ALL: [Self; 5] = [
+        Self::Default,
+        Self::Empty,
+        Self::Aliased,
+        Self::NoModes,
+        Self::NoCollection,
+    ];
 
     pub(crate) const fn label(self) -> &'static str {
         match self {
             Self::Default => "Default",
             Self::Empty => "Empty",
+            Self::Aliased => "Aliased",
+            Self::NoModes => "No modes",
             Self::NoCollection => "No collection",
         }
     }
@@ -131,7 +141,7 @@ impl VariablesStory {
     }
 
     fn context_fixture(data: &VariablesViewData) -> VariablesContextData {
-        let modes = if data.collections.is_empty() {
+        let modes = if data.collections.is_empty() || data.modes.is_empty() {
             Vec::new()
         } else {
             [
@@ -302,6 +312,76 @@ impl VariablesStory {
         match state {
             VariablesNamedState::Default => seed_variables_view_data(),
             VariablesNamedState::Empty => empty_variables_view_data(),
+            VariablesNamedState::Aliased => {
+                fn bound_value(
+                    mode_id: &'static str,
+                    fallback: &'static str,
+                    color_hex: Option<&'static str>,
+                    target: &'static str,
+                ) -> VariableModeValue {
+                    let mut value = VariableModeValue::new(mode_id, fallback);
+                    if let Some(color_hex) = color_hex {
+                        value = value.color(color_hex);
+                    }
+                    value.alias_id = Some(target.into());
+                    value
+                }
+
+                let mut data = seed_variables_view_data();
+                data.variables = vec![
+                    VariableRow::new(
+                        "color-base",
+                        "Brand color",
+                        "all",
+                        VariableKind::Color,
+                        [
+                            VariableModeValue::new("mode-1", "336699").color("336699"),
+                            VariableModeValue::new("mode-2", "CC5500").color("CC5500"),
+                        ],
+                    ),
+                    VariableRow::new(
+                        "color-alias",
+                        "Accent alias",
+                        "all",
+                        VariableKind::Color,
+                        [
+                            bound_value("mode-1", "FFFFFF", Some("FFFFFF"), "color-base"),
+                            bound_value("mode-2", "FFFFFF", Some("FFFFFF"), "color-base"),
+                        ],
+                    ),
+                    VariableRow::new(
+                        "spacing-base",
+                        "Base spacing",
+                        "all",
+                        VariableKind::Number,
+                        [
+                            VariableModeValue::new("mode-1", "8"),
+                            VariableModeValue::new("mode-2", "12"),
+                        ],
+                    ),
+                    VariableRow::new(
+                        "spacing-alias",
+                        "Spacing alias",
+                        "all",
+                        VariableKind::Number,
+                        [
+                            bound_value("mode-1", "0", None, "spacing-base"),
+                            bound_value("mode-2", "0", None, "spacing-base"),
+                        ],
+                    ),
+                ];
+                data.collections[0].variable_count = data.variables.len();
+                data.groups[0].variable_count = data.variables.len();
+                data
+            }
+            VariablesNamedState::NoModes => {
+                let mut data = seed_variables_view_data();
+                data.modes.clear();
+                for variable in &mut data.variables {
+                    variable.values.clear();
+                }
+                data
+            }
             VariablesNamedState::NoCollection => {
                 let mut data = empty_variables_view_data();
                 data.collections.clear();
@@ -412,7 +492,21 @@ impl VariablesStory {
                     VariableKind::String => ("String", "String value"),
                     VariableKind::Boolean => ("Boolean", "False"),
                 };
-                let ordinal = self.view_data.variables.len() + 1;
+                let ordinal = self
+                    .view_data
+                    .variables
+                    .iter()
+                    .filter_map(|variable| {
+                        variable
+                            .id
+                            .as_ref()
+                            .strip_prefix("spacing-")?
+                            .parse::<usize>()
+                            .ok()
+                    })
+                    .max()
+                    .unwrap_or(0)
+                    + 1;
                 let values = self
                     .view_data
                     .modes
@@ -454,7 +548,20 @@ impl VariablesStory {
                     format!("Created variable Spacing {ordinal} through the host adapter").into();
             }
             VariablesAction::AddModeRequested => {
-                let ordinal = self.view_data.modes.len() + 1;
+                let ordinal = self
+                    .view_data
+                    .modes
+                    .iter()
+                    .filter_map(|mode| {
+                        mode.id
+                            .as_ref()
+                            .strip_prefix("mode-")?
+                            .parse::<usize>()
+                            .ok()
+                    })
+                    .max()
+                    .unwrap_or(0)
+                    + 1;
                 let mode_id: SharedString = format!("mode-{ordinal}").into();
                 self.view_data.modes.push(VariablesMode::new(
                     mode_id.clone(),
@@ -483,11 +590,63 @@ impl VariablesStory {
                 {
                     v.name = name.clone();
                 }
+                self.last_action = format!("Renamed variable to {name}").into();
+            }
+            VariablesAction::VariableDeleteRequested { variable_id } => {
+                self.view_data.variables.retain(|v| v.id != *variable_id);
+                for variable in &mut self.view_data.variables {
+                    for value in &mut variable.values {
+                        if value.alias_id.as_ref() == Some(variable_id) {
+                            value.alias_id = None;
+                        }
+                    }
+                }
+                if let Some(bindings) = &mut self.context_data.bindings {
+                    for property in &mut bindings.properties {
+                        if property.selected.as_ref() == Some(variable_id) {
+                            property.selected = None;
+                        }
+                    }
+                }
+                let count = self.view_data.variables.len();
+                if let Some(collection) = self
+                    .view_data
+                    .collections
+                    .iter_mut()
+                    .find(|collection| collection.id == self.view_data.selected_collection_id)
+                {
+                    collection.variable_count = count;
+                }
+                for group in &mut self.view_data.groups {
+                    group.variable_count = if group.is_aggregate {
+                        count
+                    } else {
+                        self.view_data
+                            .variables
+                            .iter()
+                            .filter(|variable| variable.group_id == group.id)
+                            .count()
+                    };
+                }
+                self.last_action = format!("Deleted variable {variable_id}").into();
             }
             VariablesAction::ModeRenameRequested { mode_id, name } => {
                 if let Some(m) = self.view_data.modes.iter_mut().find(|m| m.id == *mode_id) {
                     m.name = name.clone();
                 }
+                self.last_action = format!("Renamed mode to {name}").into();
+            }
+            VariablesAction::ModeDeleteRequested { mode_id } => {
+                self.view_data.modes.retain(|mode| mode.id != *mode_id);
+                for variable in &mut self.view_data.variables {
+                    variable.values.retain(|value| value.mode_id != *mode_id);
+                }
+                for scope in &mut self.context_data.mode_scopes {
+                    if scope.selected.as_ref() == Some(mode_id) {
+                        scope.selected = None;
+                    }
+                }
+                self.last_action = format!("Deleted mode {mode_id}").into();
             }
             VariablesAction::DescriptionChanged {
                 variable_id,
@@ -592,6 +751,53 @@ mod tests {
         assert!(!default.variables.is_empty());
         let empty = VariablesStory::fixture(VariablesNamedState::Empty);
         assert!(empty.variables.is_empty());
+        let aliased = VariablesStory::fixture(VariablesNamedState::Aliased);
+        assert_eq!(aliased.variables.len(), 4);
+        assert_eq!(aliased.collections[0].variable_count, 4);
+        let color_alias = aliased
+            .variables
+            .iter()
+            .find(|variable| variable.id == "color-alias")
+            .unwrap();
+        assert_eq!(color_alias.kind, VariableKind::Color);
+        assert!(
+            color_alias
+                .values
+                .iter()
+                .all(|value| value.alias_id.as_deref() == Some("color-base"))
+        );
+        let color_base = aliased
+            .variables
+            .iter()
+            .find(|variable| variable.id == "color-base")
+            .unwrap();
+        assert_ne!(color_base.values[0].value, color_base.values[1].value);
+        let spacing_alias = aliased
+            .variables
+            .iter()
+            .find(|variable| variable.id == "spacing-alias")
+            .unwrap();
+        assert_eq!(spacing_alias.kind, VariableKind::Number);
+        assert!(
+            spacing_alias
+                .values
+                .iter()
+                .all(|value| value.alias_id.as_deref() == Some("spacing-base"))
+        );
+        let no_modes = VariablesStory::fixture(VariablesNamedState::NoModes);
+        assert!(no_modes.modes.is_empty());
+        assert!(!no_modes.variables.is_empty());
+        assert!(
+            VariablesStory::context_fixture(&no_modes)
+                .mode_scopes
+                .is_empty()
+        );
+        assert!(
+            no_modes
+                .variables
+                .iter()
+                .all(|variable| variable.values.is_empty())
+        );
         assert!(
             empty
                 .collections

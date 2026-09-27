@@ -24,8 +24,11 @@ pub(crate) struct ProbeHost<C: Render, A: 'static> {
 }
 
 impl<C: Render, A: 'static> Render for ProbeHost<C, A> {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div().size_full().child(self.component.clone())
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .size_full()
+            .child(self.component.clone())
+            .children(Root::render_dialog_layer(window, cx))
     }
 }
 
