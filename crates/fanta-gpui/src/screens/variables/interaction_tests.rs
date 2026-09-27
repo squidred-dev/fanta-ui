@@ -4,7 +4,9 @@ use gpui::{
 };
 use gpui_component::WindowExt as _;
 
-use crate::test_support::{assert_pointer_and_keyboard_parity, mount_component};
+use crate::test_support::{
+    assert_pointer_and_keyboard_parity, mount_component, mount_component_without_root,
+};
 
 use super::*;
 
@@ -45,6 +47,14 @@ fn mount(
     cx: &mut TestAppContext,
 ) -> crate::test_support::Mounted<'_, VariablesScreen, VariablesAction> {
     mount_component(cx, |window, cx| {
+        VariablesScreen::new("test-variables", fixture(), window, cx)
+    })
+}
+
+fn mount_unrooted(
+    cx: &mut TestAppContext,
+) -> crate::test_support::Mounted<'_, VariablesScreen, VariablesAction> {
+    mount_component_without_root(cx, |window, cx| {
         VariablesScreen::new("test-variables", fixture(), window, cx)
     })
 }
@@ -1523,4 +1533,72 @@ fn mode_delete_requires_confirmation(cx: &mut TestAppContext) {
             assert!(actions.borrow().is_empty());
         }
     }
+}
+
+#[gpui::test]
+fn unrooted_window_prompts_before_variable_or_mode_delete(cx: &mut TestAppContext) {
+    let (_host, actions, cx) = mount_unrooted(cx);
+
+    for (selector, expected) in [
+        (
+            "variables-settings-delete",
+            VariablesAction::VariableDeleteRequested {
+                variable_id: "color".into(),
+            },
+        ),
+        (
+            "variables-delete-mode-light",
+            VariablesAction::ModeDeleteRequested {
+                mode_id: "light".into(),
+            },
+        ),
+    ] {
+        for (answer, confirmed) in [("Cancel", false), ("Delete", true)] {
+            if selector == "variables-settings-delete" {
+                let settings = cx
+                    .debug_bounds("variables-variable-settings-color")
+                    .unwrap();
+                cx.simulate_click(settings.center(), Modifiers::none());
+                cx.run_until_parked();
+            }
+            let delete = cx.debug_bounds(selector).unwrap();
+            actions.borrow_mut().clear();
+            cx.simulate_click(delete.center(), Modifiers::none());
+            cx.run_until_parked();
+            assert!(cx.has_pending_prompt());
+            cx.update(|window, app| assert!(!window.has_active_dialog(app)));
+            assert!(
+                actions.borrow().is_empty(),
+                "opening the prompt cannot delete"
+            );
+
+            cx.simulate_prompt_answer(answer);
+            cx.run_until_parked();
+            assert!(!cx.has_pending_prompt());
+            if confirmed {
+                assert_eq!(actions.borrow().as_slice(), std::slice::from_ref(&expected));
+            } else {
+                assert!(actions.borrow().is_empty());
+            }
+        }
+    }
+}
+
+#[gpui::test]
+fn unrooted_delete_prompt_ignores_stale_target(cx: &mut TestAppContext) {
+    let (host, actions, cx) = mount_unrooted(cx);
+    let delete = cx.debug_bounds("variables-delete-mode-light").unwrap();
+    cx.simulate_click(delete.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(cx.has_pending_prompt());
+
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |screen, cx| {
+        let mut data = fixture();
+        data.modes.clear();
+        screen.set_view_data(data, cx);
+    });
+    cx.simulate_prompt_answer("Delete");
+    cx.run_until_parked();
+    assert!(actions.borrow().is_empty());
 }

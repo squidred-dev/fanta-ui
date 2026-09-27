@@ -1,7 +1,8 @@
 use super::*;
 use crate::molecules::sidebar_popup_surface;
+use gpui::{PromptButton, PromptLevel};
 use gpui_component::{
-    WindowExt as _,
+    Root, WindowExt as _,
     button::ButtonVariant,
     dialog::{Dialog, DialogButtonProps},
 };
@@ -24,7 +25,7 @@ impl VariablesScreen {
         self.open_delete_dialog(
             VariablesAction::VariableDeleteRequested { variable_id },
             "Delete variable",
-            format!("Delete “{}”? This cannot be undone.", variable.name).into(),
+            format!("Delete “{}”?", variable.name).into(),
             window,
             cx,
         );
@@ -42,11 +43,7 @@ impl VariablesScreen {
         self.open_delete_dialog(
             VariablesAction::ModeDeleteRequested { mode_id },
             "Delete mode",
-            format!(
-                "Delete “{}” and its values? This cannot be undone.",
-                mode.name
-            )
-            .into(),
+            format!("Delete “{}” and its values?", mode.name).into(),
             window,
             cx,
         );
@@ -60,7 +57,7 @@ impl VariablesScreen {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if window.has_active_dialog(cx) {
+        if self.delete_prompt_open || window.has_active_dialog(cx) {
             return;
         }
         self.commit_edit(cx);
@@ -71,6 +68,31 @@ impl VariablesScreen {
         self.filter_menu_open = false;
         self.close_color_picker(window, cx);
         let collection_id = self.view_data.selected_collection_id.clone();
+        if Root::try_read(window, cx).is_none() {
+            // Zed-style windows use MultiWorkspace as their root. Their prompt
+            // builder paints a themed modal without changing the window root.
+            self.delete_prompt_open = true;
+            let answer = window.prompt(
+                PromptLevel::Warning,
+                title,
+                Some(message.as_ref()),
+                &[PromptButton::cancel("Cancel"), PromptButton::ok("Delete")],
+                cx,
+            );
+            cx.spawn_in(window, async move |page, cx| {
+                let confirmed = answer.await == Ok(1);
+                _ = page.update(cx, |this, cx| {
+                    this.delete_prompt_open = false;
+                    if confirmed {
+                        this.emit_confirmed_delete(&action, &collection_id, cx);
+                    }
+                    cx.notify();
+                });
+            })
+            .detach();
+            cx.notify();
+            return;
+        }
         let page = cx.entity();
         window.open_dialog(cx, move |dialog: Dialog, window, cx| {
             let page = page.clone();
@@ -105,23 +127,7 @@ impl VariablesScreen {
                 .text_size(crate::atoms::sidebar_text_size())
                 .on_ok(move |_, _, cx| {
                     page.update(cx, |this, cx| {
-                        // A host may replace the snapshot while the confirmation is open.
-                        // Only emit for the same collection and a still-present target.
-                        let still_present = this.view_data.selected_collection_id == collection_id
-                            && match &action {
-                                VariablesAction::VariableDeleteRequested { variable_id } => this
-                                    .view_data
-                                    .variables
-                                    .iter()
-                                    .any(|variable| variable.id == *variable_id),
-                                VariablesAction::ModeDeleteRequested { mode_id } => {
-                                    this.view_data.modes.iter().any(|mode| mode.id == *mode_id)
-                                }
-                                _ => false,
-                            };
-                        if still_present {
-                            cx.emit(action.clone());
-                        }
+                        this.emit_confirmed_delete(&action, &collection_id, cx);
                     });
                     true
                 })
@@ -133,6 +139,30 @@ impl VariablesScreen {
                 )
         });
         cx.notify();
+    }
+
+    fn emit_confirmed_delete(
+        &self,
+        action: &VariablesAction,
+        collection_id: &SharedString,
+        cx: &mut Context<Self>,
+    ) {
+        // A host may replace the snapshot while confirmation is open.
+        let still_present = self.view_data.selected_collection_id == *collection_id
+            && match action {
+                VariablesAction::VariableDeleteRequested { variable_id } => self
+                    .view_data
+                    .variables
+                    .iter()
+                    .any(|variable| variable.id == *variable_id),
+                VariablesAction::ModeDeleteRequested { mode_id } => {
+                    self.view_data.modes.iter().any(|mode| mode.id == *mode_id)
+                }
+                _ => false,
+            };
+        if still_present {
+            cx.emit(action.clone());
+        }
     }
 
     pub(super) fn begin_edit(

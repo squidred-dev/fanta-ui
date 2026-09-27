@@ -411,11 +411,12 @@ molecules. The binding panel owns only its left border; the screen header owns
 the horizontal separator. Creating a first variable requests the host to create
 a collection and default mode when none exists.
 
-Variable and mode deletion opens a `gpui-component` `Dialog`. Cancel leaves the
+Variable and mode deletion opens a `gpui-component` `Dialog` in Root-owned
+windows, or a GPUI window prompt in other hosts such as Zed. Cancel leaves the
 controlled snapshot untouched; confirmation emits `VariableDeleteRequested` or
 `ModeDeleteRequested`, which the host applies and echoes as fresh view data.
-Hosts using these controls render `Root::render_dialog_layer` in the window's
-element tree, as Storybook does.
+Root-owned hosts render `Root::render_dialog_layer` in the window's element
+tree, as Storybook does.
 
 `color_picker::ColorPicker` is a reusable organism with an RGBA-only public
 contract (`PickerColor`, `ColorPickerAction`, and `ColorPickerPhase`). It wraps the public `paint_picker::PaintPicker` organism in solid-color mode.

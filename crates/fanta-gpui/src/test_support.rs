@@ -81,6 +81,44 @@ where
     (host, actions, cx)
 }
 
+/// Mounts a component in a host window without `gpui_component::Root`.
+/// This matches applications whose window root is owned by another UI shell.
+pub(crate) fn mount_component_without_root<C, A>(
+    cx: &mut TestAppContext,
+    build: impl FnOnce(&mut Window, &mut Context<C>) -> C + 'static,
+) -> Mounted<'_, C, A>
+where
+    C: Render + EventEmitter<A>,
+    A: Clone + 'static,
+{
+    cx.update(|cx| {
+        gpui_component::init(cx);
+        crate::init(cx);
+    });
+    let host_slot = Rc::new(RefCell::new(None));
+    let captured_host = host_slot.clone();
+    let (_, cx) = cx.add_window_view(move |window, cx| {
+        let component = cx.new(|cx| build(window, cx));
+        let actions: Rc<RefCell<Vec<A>>> = Rc::new(RefCell::new(Vec::new()));
+        let captured_actions = actions.clone();
+        let subscription = cx.subscribe(&component, move |_, _, action: &A, _| {
+            captured_actions.borrow_mut().push(action.clone());
+        });
+        *captured_host.borrow_mut() = Some(cx.entity());
+        ProbeHost {
+            component,
+            actions,
+            _subscription: subscription,
+        }
+    });
+    let host = host_slot
+        .borrow_mut()
+        .take()
+        .expect("probe host should be installed");
+    let actions = cx.read(|app| host.read(app).actions.clone());
+    (host, actions, cx)
+}
+
 /// Asserts the §9 activation contract for one control: a pointer click, Enter,
 /// and Space each emit exactly `expected` once.
 ///
