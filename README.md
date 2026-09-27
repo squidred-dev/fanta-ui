@@ -21,8 +21,11 @@ The visual layer is built on
 - `crates/fanta-gpui-storybook` — a small desktop gallery for developing
   components in isolation.
 - `crates/gpui*` — the forked framework, platforms, components, and assets.
+- `crates/{component,file_icons,icons,menu,syntax_theme,theme,ui,ui_input,ui_macros}`
+  — separately versioned Zed baseline UI crates with their original Rust imports.
+- `crates/zed_ui_assets` — shared Zed icons, fonts, themes, vector images, and licenses.
 - Supporting crates and `tooling/perf` — the framework's dependency closure.
-- `crates/gpui-examples` and `crates/gpui-macro-tests` — unpublished hosts that
+- `crates/gpui-examples`, `crates/gpui-macro-tests`, and `crates/ui-macro-tests` — unpublished hosts that
   keep development dependencies out of the publication graph.
 
 See [release and integration instructions](docs/releasing.md) and the
@@ -60,6 +63,12 @@ fades) beside the searchable Lucide icon catalog. Fanta-owned controls render
 the same pinned upstream Lucide geometry. Use **Open window** on any story to keep the
 Gallery and its mock data in place while opening that component in its own
 maximized, full-window surface.
+
+The same sidebar includes a searchable **Zed baseline** catalog from the
+`component` inventory, grouped by functional scope and readiness status.
+These previews use the bundled Zed themes and assets. Storybook supplies local
+theme settings and an input editor adapter, so `InputField` and the other
+baseline previews run without a Fanta Edit checkout.
 
 ## Validate the workspace
 

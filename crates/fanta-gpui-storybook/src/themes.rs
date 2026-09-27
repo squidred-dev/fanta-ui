@@ -57,6 +57,11 @@ pub(super) fn initial_zed_theme_index(mode: ThemeMode) -> usize {
 
 pub(super) fn apply_zed_theme(theme: &Rc<ThemeConfig>, cx: &mut App) {
     Theme::global_mut(cx).apply_config(theme);
+    if let Some(registry) = theme::ThemeRegistry::try_global(cx)
+        && let Ok(baseline_theme) = registry.get(theme.name.as_ref())
+    {
+        theme::GlobalTheme::update_theme(cx, baseline_theme);
+    }
     cx.refresh_windows();
 }
 

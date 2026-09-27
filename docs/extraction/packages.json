@@ -178,5 +178,55 @@
       "repository": "https://github.com/proptest-rs/proptest",
       "revision": "3dca198a8fef1b32e3a66f1e1897c955b4dc5b5b"
     }
+  },
+  {
+    "source_path": "crates/component",
+    "original_name": "component",
+    "package": "fanta-gpui-component"
+  },
+  {
+    "source_path": "crates/file_icons",
+    "original_name": "file_icons",
+    "package": "fanta-gpui-file-icons"
+  },
+  {
+    "source_path": "crates/icons",
+    "original_name": "icons",
+    "package": "fanta-gpui-icons"
+  },
+  {
+    "source_path": "crates/menu",
+    "original_name": "menu",
+    "package": "fanta-gpui-menu"
+  },
+  {
+    "source_path": "crates/syntax_theme",
+    "original_name": "syntax_theme",
+    "package": "fanta-gpui-syntax-theme"
+  },
+  {
+    "source_path": "crates/theme",
+    "original_name": "theme",
+    "package": "fanta-gpui-theme"
+  },
+  {
+    "source_path": "crates/ui",
+    "original_name": "ui",
+    "package": "fanta-gpui-ui"
+  },
+  {
+    "source_path": "crates/ui_input",
+    "original_name": "ui_input",
+    "package": "fanta-gpui-ui-input"
+  },
+  {
+    "source_path": "crates/ui_macros",
+    "original_name": "ui_macros",
+    "package": "fanta-gpui-ui-macros"
+  },
+  {
+    "source_path": "crates/zed_ui_assets",
+    "original_name": "zed_ui_assets",
+    "package": "fanta-gpui-zed-ui-assets"
   }
 ]

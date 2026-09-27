@@ -614,6 +614,14 @@ policies. The component and storybook unsafe-code prohibition remains intact.
 The imported libraries retain their per-crate licenses; the workspace license
 is not imposed on Apache-licensed framework code.
 
+The Zed baseline UI crates are separately published alongside the Fanta
+components. They retain GPUI theme, focus, and local interaction state while
+remaining independent of editor services. Fanta Edit owns settings observation,
+theme overrides, and its single-line editor adapter; Storybook supplies its own
+theme settings and input adapter. Bundled theme decoding and UI-only assets
+live here. Shared Zed assets take precedence over colliding gpui-component
+icons in Storybook, matching the editor's canonical visual baseline.
+
 The unpublished framework-example and macro-test hosts break development-only
 publication cycles while retaining example and macro coverage. The standalone
 registry consumer verifies actual archives independently of workspace feature

@@ -301,6 +301,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
+name = "approx"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cab112f0a86d568ea0e627cc1d6be74a1e9cd55214684db5561995f6dad897c6"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "ar_archive_writer"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1115,6 +1124,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
 
 [[package]]
+name = "by_address"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64fa3c856b712db6612c019f14756e64e4bcea13337a6b33b696333a9eaa2d06"
+
+[[package]]
 name = "bytemuck"
 version = "1.25.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1619,6 +1634,15 @@ name = "convert_case"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
+
+[[package]]
+name = "convert_case"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "baaaa0ecca5b51987b9423ccdc971514dd8b0bb7b4060b983d3664dad3f1f89f"
+dependencies = [
+ "unicode-segmentation",
+]
 
 [[package]]
 name = "convert_case"
@@ -2298,6 +2322,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "documented"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed6b3e31251e87acd1b74911aed84071c8364fc9087972748ade2f1094ccce34"
+dependencies = [
+ "documented-macros",
+ "phf 0.12.1",
+ "thiserror 2.0.19",
+]
+
+[[package]]
+name = "documented-macros"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1149cf7462e5e79e17a3c05fd5b1f9055092bbfa95e04c319395c3beacc9370f"
+dependencies = [
+ "convert_case 0.8.0",
+ "itertools 0.14.0",
+ "optfield",
+ "proc-macro2",
+ "quote",
+ "strum",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "downcast-rs"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2571,7 +2621,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "fanta-gpui-components",
  "fanta-gpui-core",
@@ -2583,7 +2633,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-async-process"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "async-channel 2.5.0",
  "async-executor",
@@ -2602,7 +2652,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-collections"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "fanta-gpui-gpui-util",
  "indexmap",
@@ -2610,8 +2660,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "fanta-gpui-component"
+version = "0.5.0"
+dependencies = [
+ "documented",
+ "fanta-gpui-collections",
+ "fanta-gpui-core",
+ "fanta-gpui-theme",
+ "inventory",
+ "parking_lot",
+ "strum",
+]
+
+[[package]]
 name = "fanta-gpui-component-assets"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "fanta-gpui-core",
@@ -2620,7 +2683,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-components"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "aho-corasick",
  "anyhow",
@@ -2689,7 +2752,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-core"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "accesskit",
  "anyhow",
@@ -2780,7 +2843,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-derive-refineable"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2789,7 +2852,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-examples"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "accesskit",
  "anyhow",
@@ -2859,8 +2922,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fanta-gpui-file-icons"
+version = "0.5.0"
+dependencies = [
+ "fanta-gpui-core",
+ "fanta-gpui-theme",
+ "fanta-gpui-util",
+ "serde",
+]
+
+[[package]]
 name = "fanta-gpui-gpui-linux"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "accesskit",
  "accesskit_unix",
@@ -2910,7 +2983,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-gpui-macos"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "accesskit",
  "accesskit_macos",
@@ -2956,7 +3029,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-gpui-macros"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -2966,7 +3039,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-gpui-platform"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "console_error_panic_hook",
  "fanta-gpui-core",
@@ -2978,7 +3051,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-gpui-shared-string"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "schemars",
  "serde",
@@ -2987,7 +3060,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-gpui-tokio"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "fanta-gpui-core",
@@ -2997,7 +3070,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-gpui-util"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "log",
@@ -3006,7 +3079,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-gpui-web"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",
@@ -3029,7 +3102,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-gpui-wgpu"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -3058,7 +3131,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-gpui-windows"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "accesskit",
  "accesskit_windows",
@@ -3086,7 +3159,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-http-client"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "async-compression",
@@ -3110,15 +3183,23 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-http-client-tls"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "rustls",
  "rustls-platform-verifier",
 ]
 
 [[package]]
+name = "fanta-gpui-icons"
+version = "0.5.0"
+dependencies = [
+ "serde",
+ "strum",
+]
+
+[[package]]
 name = "fanta-gpui-macro-tests"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "fanta-gpui-core",
  "fanta-gpui-gpui-macros",
@@ -3126,7 +3207,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-media"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -3143,8 +3224,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fanta-gpui-menu"
+version = "0.5.0"
+dependencies = [
+ "fanta-gpui-core",
+]
+
+[[package]]
 name = "fanta-gpui-perf"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "fanta-gpui-collections",
  "serde",
@@ -3153,7 +3241,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-proptest"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "bit-set 0.8.0",
  "bit-vec 0.8.0",
@@ -3174,7 +3262,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-proptest-macro"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "convert_case 0.11.0",
  "insta",
@@ -3186,14 +3274,14 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-refineable"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "fanta-gpui-derive-refineable",
 ]
 
 [[package]]
 name = "fanta-gpui-reqwest-client"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -3210,7 +3298,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-scheduler"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "async-task",
  "backtrace",
@@ -3224,7 +3312,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-smol"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "async-channel 2.5.0",
@@ -3265,19 +3353,25 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-storybook"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
+ "anyhow",
  "fanta-gpui",
+ "fanta-gpui-component",
  "fanta-gpui-component-assets",
  "fanta-gpui-components",
  "fanta-gpui-core",
  "fanta-gpui-gpui-platform",
+ "fanta-gpui-theme",
+ "fanta-gpui-ui",
+ "fanta-gpui-ui-input",
+ "fanta-gpui-zed-ui-assets",
  "serde_json",
 ]
 
 [[package]]
 name = "fanta-gpui-sum-tree"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "ctor",
  "fanta-gpui-proptest",
@@ -3291,8 +3385,90 @@ dependencies = [
 ]
 
 [[package]]
+name = "fanta-gpui-syntax-theme"
+version = "0.5.0"
+dependencies = [
+ "fanta-gpui-core",
+ "fanta-gpui-zed-ui-assets",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "fanta-gpui-theme"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "fanta-gpui-collections",
+ "fanta-gpui-core",
+ "fanta-gpui-refineable",
+ "fanta-gpui-syntax-theme",
+ "fanta-gpui-zed-ui-assets",
+ "palette",
+ "parking_lot",
+ "schemars",
+ "serde",
+ "serde_json",
+ "serde_json_lenient",
+ "strum",
+ "thiserror 2.0.19",
+ "uuid",
+]
+
+[[package]]
+name = "fanta-gpui-ui"
+version = "0.5.0"
+dependencies = [
+ "chrono",
+ "documented",
+ "fanta-gpui-component",
+ "fanta-gpui-core",
+ "fanta-gpui-gpui-macros",
+ "fanta-gpui-gpui-util",
+ "fanta-gpui-icons",
+ "fanta-gpui-menu",
+ "fanta-gpui-theme",
+ "fanta-gpui-ui-macros",
+ "itertools 0.14.0",
+ "log",
+ "num-format",
+ "schemars",
+ "serde",
+ "smallvec",
+ "strum",
+ "windows 0.61.3",
+]
+
+[[package]]
+name = "fanta-gpui-ui-input"
+version = "0.5.0"
+dependencies = [
+ "fanta-gpui-component",
+ "fanta-gpui-core",
+ "fanta-gpui-ui",
+]
+
+[[package]]
+name = "fanta-gpui-ui-macro-tests"
+version = "0.5.0"
+dependencies = [
+ "fanta-gpui-component",
+ "fanta-gpui-core",
+ "fanta-gpui-ui",
+ "fanta-gpui-ui-macros",
+]
+
+[[package]]
+name = "fanta-gpui-ui-macros"
+version = "0.5.0"
+dependencies = [
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "fanta-gpui-util"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "async-fs",
@@ -3334,7 +3510,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-util-macros"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "fanta-gpui-perf",
  "quote",
@@ -3342,8 +3518,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "fanta-gpui-zed-ui-assets"
+version = "0.5.0"
+dependencies = [
+ "fanta-gpui-core",
+ "rust-embed",
+]
+
+[[package]]
 name = "fanta-gpui-zlog"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3354,7 +3538,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-ztracing"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "fanta-gpui-zlog",
  "fanta-gpui-ztracing-macro",
@@ -3366,7 +3550,7 @@ dependencies = [
 
 [[package]]
 name = "fanta-gpui-ztracing-macro"
-version = "0.4.1"
+version = "0.5.0"
 
 [[package]]
 name = "fastrand"
@@ -6037,6 +6221,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-format"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a652d9771a63711fd3c3deb670acfbe5c30a4072e664d7a3bf5a9e1056ac72c3"
+dependencies = [
+ "arrayvec 0.7.8",
+ "itoa",
+]
+
+[[package]]
 name = "num-integer"
 version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6475,6 +6669,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "optfield"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "969ccca8ffc4fb105bd131a228107d5c9dd89d9d627edf3295cbe979156f9712"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6498,6 +6703,35 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
 ]
+
+[[package]]
+name = "palette"
+version = "0.7.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ddeed8580d347d2abf3dcf06a5f0b3dc020258338526b277847cd4248a70fc64"
+dependencies = [
+ "approx",
+ "palette_derive",
+ "palette_math",
+]
+
+[[package]]
+name = "palette_derive"
+version = "0.7.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88537020289b719d81be994ccf1bbf4990f477e2f69ee52fe3e45f43a02e56be"
+dependencies = [
+ "by_address",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
+name = "palette_math"
+version = "0.7.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e6eb142958d64335fb0e345c5b9ead2ecd6fc438c307e9d7d3c4fd428dbaf12"
 
 [[package]]
 name = "pango"
@@ -6644,6 +6878,16 @@ dependencies = [
 
 [[package]]
 name = "phf"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "913273894cec178f401a31ec4b656318d95473527be05c0752cc41cdc32be8b7"
+dependencies = [
+ "phf_macros 0.12.1",
+ "phf_shared 0.12.1",
+]
+
+[[package]]
+name = "phf"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1562dc717473dbaa4c1f85a36410e03c047b2e7df7f45ee938fbef64ae7fadf"
@@ -6715,6 +6959,16 @@ dependencies = [
 
 [[package]]
 name = "phf_generator"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cbb1126afed61dd6368748dae63b1ee7dc480191c6262a3b4ff1e29d86a6c5b"
+dependencies = [
+ "fastrand 2.5.0",
+ "phf_shared 0.12.1",
+]
+
+[[package]]
+name = "phf_generator"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "135ace3a761e564ec88c03a77317a7c6b80bb7f7135ef2544dbe054243b89737"
@@ -6745,6 +6999,19 @@ checksum = "f84ac04429c13a7ff43785d75ad27569f2951ce0ffd30a3321230db2fc727216"
 dependencies = [
  "phf_generator 0.11.3",
  "phf_shared 0.11.3",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
+name = "phf_macros"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d713258393a82f091ead52047ca779d37e5766226d009de21696c4e667044368"
+dependencies = [
+ "phf_generator 0.12.1",
+ "phf_shared 0.12.1",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -6786,6 +7053,15 @@ name = "phf_shared"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67eabc2ef2a60eb7faa00097bd1ffdb5bd28e62bf39990626a582201b7a754e5"
+dependencies = [
+ "siphasher 1.0.3",
+]
+
+[[package]]
+name = "phf_shared"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06005508882fb681fd97892ecff4b7fd0fee13ef1aa569f8695dae7ab9099981"
 dependencies = [
  "siphasher 1.0.3",
 ]

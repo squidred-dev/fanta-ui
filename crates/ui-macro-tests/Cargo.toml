@@ -1,0 +1,18 @@
+[package]
+name = "fanta-gpui-ui-macro-tests"
+description = "Unpublished compile and inventory tests for Zed UI procedural macros."
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[lib]
+path = "src/ui_macro_tests.rs"
+
+[dependencies]
+component.workspace = true
+gpui.workspace = true
+ui.workspace = true
+ui_macros.workspace = true
+
+[lints]
+workspace = true
