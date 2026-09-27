@@ -2103,8 +2103,6 @@ fn geometry_constants_resolve_to_shared_tokens() {
         ("organisms/toolbar/component/rows.rs", "ROW_FADE_WIDTH"),
         ("organisms/pages/panel.rs", "PAGE_ROW_GAP"),
         ("organisms/pages/panel.rs", "MAX_PAGE_LIST_HEIGHT"),
-        ("organisms/pages/panel.rs", "PAGE_MENU_HEIGHT"),
-        ("organisms/pages/panel.rs", "SCOPE_MENU_HEIGHT"),
         ("screens/variables/mod.rs", "SIDEBAR_WIDTH"),
         ("screens/variables/mod.rs", "HEADER_TOOLS_WIDTH"),
         ("screens/variables/mod.rs", "NAME_COLUMN_WIDTH"),

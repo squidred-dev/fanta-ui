@@ -2625,6 +2625,8 @@ version = "0.5.0"
 dependencies = [
  "fanta-gpui-components",
  "fanta-gpui-core",
+ "fanta-gpui-theme",
+ "fanta-gpui-ui",
  "lucide-static-svg",
  "lyon",
  "roxmltree 0.20.0",

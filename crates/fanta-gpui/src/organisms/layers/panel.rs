@@ -1,4 +1,3 @@
-use crate::atoms::TypographyExt as _;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
@@ -44,7 +43,7 @@ pub const LAYERS_PANEL_MIN_WIDTH: f32 = 240.;
 /// Shortest height the expanded panel stays useful at; the tree scrolls.
 pub const LAYERS_PANEL_MIN_HEIGHT: f32 = 400.;
 
-const HEADER_HEIGHT: f32 = tokens::RowHeight::SECTION_HEADER;
+const HEADER_HEIGHT: f32 = tokens::RowHeight::LIST;
 /// Every tree row — plain, editing, or dragging preview — is this tall. The
 /// tree is virtualized with `uniform_list`, which measures the first row and
 /// positions the rest arithmetically, so the height must be uniform.
@@ -436,6 +435,7 @@ impl LayersPanel {
 
     fn render_header(&self, cx: &mut Context<Self>) -> AnyElement {
         let expanded = self.panel_expanded;
+        let palette = crate::atoms::sidebar_style(cx);
         h_flex()
             .id(SharedString::from(format!("{}-header", self.id)))
             .debug_selector(|| "layers-header".to_owned())
@@ -447,16 +447,8 @@ impl LayersPanel {
             .px_3()
             .justify_between()
             .cursor_pointer()
-            .hover(|style| {
-                style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
-                    .resolve(cx)
-                    .opacity(0.55))
-            })
-            .focus(|style| {
-                style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
-                    .resolve(cx)
-                    .opacity(0.75))
-            })
+            .hover(|style| style.bg(palette.hover))
+            .focus(|style| style.bg(palette.hover))
             .on_activate(cx.listener(|this, _, _, cx| {
                 this.toggle_panel_expanded(cx);
             }))
@@ -466,11 +458,16 @@ impl LayersPanel {
                     .min_w(px(0.))
                     .gap_1()
                     .when(!expanded, |title| {
-                        title.child(Icon::new(IconName::ChevronRight).xsmall())
+                        title.child(
+                            Icon::new(IconName::ChevronRight)
+                                .with_size(px(14.))
+                                .text_color(palette.muted_icon),
+                        )
                     })
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMediumStrong)
+                            .text_size(crate::atoms::sidebar_text_size())
+                            .text_color(palette.muted_text)
                             .child("Layers"),
                     ),
             )
@@ -487,7 +484,11 @@ impl LayersPanel {
                     cx.stop_propagation();
                     this.collapse_all(cx);
                 }))
-                .child(Icon::new(IconName::ChevronUp).xsmall()),
+                .child(
+                    Icon::new(IconName::ChevronUp)
+                        .with_size(px(14.))
+                        .text_color(palette.muted_icon),
+                ),
             )
             .into_any_element()
     }
@@ -501,6 +502,7 @@ impl Focusable for LayersPanel {
 
 impl Render for LayersPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let palette = crate::atoms::sidebar_style(cx);
         if self.select_editor_after_render {
             self.select_editor_after_render = false;
             window.on_next_frame(|window, cx| {
@@ -531,10 +533,10 @@ impl Render for LayersPanel {
             .when(!self.panel_expanded, |panel| {
                 panel.h(px(HEADER_HEIGHT)).flex_none()
             })
-            .bg(crate::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
-            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
+            .bg(palette.background)
+            .text_color(palette.text)
             .when(self.bordered, |panel| panel.border_1())
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .border_color(palette.border)
             .child(track_bounds(cx.entity(), |this, bounds| {
                 this.panel_bounds = Some(bounds);
             }))

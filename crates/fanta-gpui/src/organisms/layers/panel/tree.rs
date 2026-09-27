@@ -1,4 +1,3 @@
-use crate::atoms::TypographyExt as _;
 use std::ops::Range;
 
 use gpui::{ClickEvent, Hsla, InteractiveElement as _, MouseButton, MouseDownEvent, uniform_list};
@@ -9,7 +8,7 @@ use super::icons::{layer_kind_icon, render_lock_icon};
 
 use super::*;
 
-const LAYER_KIND_ICON_SIZE: f32 = tokens::IconSize::XS;
+const LAYER_KIND_ICON_SIZE: f32 = tokens::IconSize::SM;
 
 struct LayerDragPreview {
     drag: LayerDrag,
@@ -17,6 +16,7 @@ struct LayerDragPreview {
 
 impl Render for LayerDragPreview {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let palette = crate::atoms::sidebar_style(cx);
         h_flex()
             .h(px(LAYER_ROW_HEIGHT))
             .w(px(220.))
@@ -24,11 +24,9 @@ impl Render for LayerDragPreview {
             .gap_2()
             .rounded(px(6.))
             .border_1()
-            .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
-            .bg(crate::atoms::SemanticColor::BackgroundMenu
-                .resolve(cx)
-                .opacity(0.96))
-            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
+            .border_color(palette.selected_border)
+            .bg(palette.menu_background.opacity(0.96))
+            .text_color(palette.text)
             .shadow_lg()
             .child(
                 div()
@@ -46,7 +44,7 @@ impl Render for LayerDragPreview {
                 div()
                     .flex_1()
                     .truncate()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .text_size(crate::atoms::sidebar_text_size())
                     .child(self.drag.title.clone()),
             )
     }
@@ -227,7 +225,7 @@ impl LayersPanel {
             .h(px(LAYER_ROW_HEIGHT))
             .w_full()
             .flex_none()
-            .pl(self.row_indent(node.depth) + px(LAYER_ICON_SLOT * 2.))
+            .pl(self.row_indent(node.depth) + px(4. + LAYER_ICON_SLOT * 2. + tokens::Space::XS))
             .pr_1()
             .child(
                 div()
@@ -249,6 +247,7 @@ impl LayersPanel {
         within_hovered_group: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let palette = crate::atoms::sidebar_style(cx);
         let has_children = self.arena.has_children(arena_index);
         let selected = self.selected_node_ids.contains(&node.id);
         let expanded = self.expanded_node_ids.contains(&node.id);
@@ -270,10 +269,8 @@ impl LayersPanel {
             title: node.title.clone(),
             kind: node.kind,
         };
-        let drop_background = crate::atoms::SemanticColor::BackgroundSelected
-            .resolve(cx)
-            .opacity(0.22);
-        let drop_border = crate::atoms::SemanticColor::BackgroundSelected.resolve(cx);
+        let drop_background = palette.selected.opacity(0.45);
+        let drop_border = palette.selected_border;
         let row_focus_handle = self
             .row_focus_handles
             .entry(node.id.clone())
@@ -290,39 +287,26 @@ impl LayersPanel {
         .debug_selector(move || row_selector)
         .group(group_name.clone())
         .track_focus(&row_focus_handle)
-        .border_0()
+        .border_color(palette.background.opacity(0.))
         .pl(self.row_indent(node.depth) + px(4.))
         .pr_1()
-        .typography(crate::atoms::TypographyToken::BodyMedium)
+        .text_size(crate::atoms::sidebar_text_size())
+        .text_color(palette.muted_text)
         .cursor_move()
-        .hover(|style| {
-            style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
-                .resolve(cx)
-                .opacity(0.7))
-        })
-        .focus(|style| {
-            style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
-                .resolve(cx)
-                .opacity(0.82))
-        })
+        .hover(|style| style.bg(palette.hover))
+        .focus(|style| style.bg(palette.hover).border_color(palette.focused_border))
         .when(within_hovered_group, |row| {
-            row.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
-                .resolve(cx)
-                .opacity(0.32))
+            row.bg(palette.hover.opacity(0.5))
         })
         .when(within_selected_group, |row| {
-            row.bg(crate::atoms::SemanticColor::BackgroundSelected
-                .resolve(cx)
-                .opacity(0.16))
-                .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
+            row.bg(palette.selected.opacity(0.5))
         })
         .when(selected, |row| {
-            row.bg(crate::atoms::SemanticColor::BackgroundSelected
-                .resolve(cx)
-                .opacity(0.32))
-                .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
+            row.bg(palette.selected)
+                .border_color(palette.selected_border)
+                .text_color(palette.text)
         })
-        .when(!node.visible, |row| row.opacity(0.5));
+        .when(!node.visible, |row| row.text_color(palette.disabled_text));
 
         let hovered_id = node.id.clone();
         let row_element = row_element.on_hover(cx.listener(move |this, hovered, _, cx| {
@@ -446,10 +430,7 @@ impl LayersPanel {
                                 .size_full()
                                 .justify_center()
                                 .rounded(px(3.))
-                                .hover(|style| {
-                                    style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
-                                        .resolve(cx))
-                                })
+                                .hover(|style| style.bg(palette.hover))
                                 .tooltip(move |window, cx| {
                                     Tooltip::new(if expanded { "Collapse" } else { "Expand" })
                                         .build(window, cx)
@@ -470,7 +451,8 @@ impl LayersPanel {
                                     } else {
                                         IconName::ChevronRight
                                     })
-                                    .xsmall(),
+                                    .with_size(px(LAYER_KIND_ICON_SIZE))
+                                    .text_color(palette.muted_icon),
                                 ),
                         )
                     }),
@@ -483,9 +465,14 @@ impl LayersPanel {
                     .flex()
                     .items_center()
                     .justify_center()
+                    .mr_1()
                     .child(layer_kind_icon(
                         node.kind,
-                        layer_kind_color(node.kind, cx),
+                        if node.visible {
+                            layer_kind_color(node.kind, cx)
+                        } else {
+                            palette.disabled_text
+                        },
                         LAYER_KIND_ICON_SIZE,
                     )),
             )
@@ -505,6 +492,7 @@ impl LayersPanel {
         group_name: SharedString,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let palette = crate::atoms::sidebar_style(cx);
         let locked = node.locked;
         let node = node.clone();
         h_flex()
@@ -523,9 +511,7 @@ impl LayersPanel {
                     .invisible()
                     .group_hover(group_name, |control| control.visible())
             })
-            .hover(|style| {
-                style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
-            })
+            .hover(|style| style.bg(palette.hover))
             .tooltip(move |window, cx| {
                 Tooltip::new(if locked { "Unlock" } else { "Lock" })
                     .action(&ToggleLayerLock, Some(LAYERS_PANEL_KEY_CONTEXT))
@@ -544,9 +530,9 @@ impl LayersPanel {
             .child(render_lock_icon(
                 locked,
                 if locked {
-                    crate::atoms::SemanticColor::Text.resolve(cx)
+                    palette.icon
                 } else {
-                    crate::atoms::SemanticColor::TextTertiary.resolve(cx)
+                    palette.muted_icon
                 },
                 LAYER_KIND_ICON_SIZE,
             ))
@@ -560,6 +546,7 @@ impl LayersPanel {
         group_name: SharedString,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let palette = crate::atoms::sidebar_style(cx);
         let visible = node.visible;
         let node = node.clone();
         h_flex()
@@ -578,9 +565,7 @@ impl LayersPanel {
                     .invisible()
                     .group_hover(group_name, |control| control.visible())
             })
-            .hover(|style| {
-                style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
-            })
+            .hover(|style| style.bg(palette.hover))
             .tooltip(move |window, cx| {
                 Tooltip::new(if visible { "Hide" } else { "Show" })
                     .action(&ToggleLayerVisibility, Some(LAYERS_PANEL_KEY_CONTEXT))
@@ -603,21 +588,30 @@ impl LayersPanel {
                     IconName::EyeOff
                 })
                 .with_size(px(LAYER_KIND_ICON_SIZE))
-                .text_color(crate::atoms::SemanticColor::Text.resolve(cx)),
+                .text_color(if visible {
+                    palette.muted_icon
+                } else {
+                    palette.icon
+                }),
             )
             .into_any_element()
     }
 }
 
 fn layer_kind_color(kind: LayersPanelNodeKind, cx: &App) -> Hsla {
+    let palette = crate::atoms::sidebar_style(cx);
     if matches!(
         kind,
         LayersPanelNodeKind::Component
             | LayersPanelNodeKind::ComponentSet
             | LayersPanelNodeKind::Instance
     ) {
-        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
+        if cx.try_global::<theme::GlobalTheme>().is_some() {
+            theme::GlobalTheme::theme(cx).colors().icon_accent
+        } else {
+            gpui_component::Theme::global(cx).blue
+        }
     } else {
-        crate::atoms::SemanticColor::TextTertiary.resolve(cx)
+        palette.muted_icon
     }
 }

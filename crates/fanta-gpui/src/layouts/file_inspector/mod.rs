@@ -9,8 +9,8 @@ use gpui_component::{h_flex, v_flex};
 
 use crate::{
     atoms::{
-        ControlExt as _, LucideIcon, SemanticColor, TypographyExt as _, TypographyToken,
-        icon_button, render_fanta_logo, render_lucide_icon, tokens,
+        ControlExt as _, LucideIcon, icon_button, render_fanta_logo, render_lucide_icon,
+        sidebar_style, tokens,
     },
     layers::LayersPanel,
     pages::PagesPanel,
@@ -77,21 +77,24 @@ impl FileInspectorSidebar {
     }
 
     fn header(&self, cx: &mut Context<Self>) -> AnyElement {
+        let style = sidebar_style(cx);
         h_flex()
             .debug_selector(|| "file-inspector-project-header".to_owned())
             .w_full()
             .min_w_0()
             .flex_none()
-            .p_3()
-            .gap_3()
+            .h(px(tokens::RowHeight::SECTION_HEADER))
+            .px_2()
+            .gap_2()
             .items_center()
-            .typography(TypographyToken::BodyMedium)
-            .text_color(SemanticColor::Text.resolve(cx))
+            .text_size(crate::atoms::sidebar_text_size())
+            .text_color(style.text)
             .when(self.collapsed, |header| {
-                header.child(div().flex_none().child(render_fanta_logo(
-                    SemanticColor::Text.resolve(cx),
-                    tokens::RowHeight::FIELD,
-                )))
+                header.child(
+                    div()
+                        .flex_none()
+                        .child(render_fanta_logo(style.icon, tokens::IconSize::MD)),
+                )
             })
             .child(
                 div()
@@ -115,7 +118,7 @@ impl FileInspectorSidebar {
                 }))
                 .child(render_lucide_icon(
                     LucideIcon::PanelLeft,
-                    SemanticColor::Text.resolve(cx),
+                    style.muted_icon,
                     tokens::IconSize::MD,
                 )),
             )
@@ -131,6 +134,8 @@ impl Focusable for FileInspectorSidebar {
 
 impl Render for FileInspectorSidebar {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let style = sidebar_style(cx);
+        let zed_theme = cx.try_global::<theme::GlobalTheme>().is_some();
         if self.collapsed {
             return div()
                 .id(self.id.clone())
@@ -145,8 +150,10 @@ impl Render for FileInspectorSidebar {
                         .max_w_full()
                         .min_w_0()
                         .rounded(px(tokens::Radius::MENU))
+                        .border_1()
+                        .border_color(style.border)
                         .shadow_md()
-                        .bg(SemanticColor::BackgroundToolbar.resolve(cx))
+                        .bg(style.background)
                         .child(self.header(cx)),
                 )
                 .into_any_element();
@@ -159,15 +166,14 @@ impl Render for FileInspectorSidebar {
             .min_w_0()
             .min_h_0()
             .overflow_hidden()
-            .bg(SemanticColor::BackgroundToolbar.resolve(cx))
-            .child(
-                div()
-                    .w_full()
-                    .flex_none()
-                    .border_b_1()
-                    .border_color(SemanticColor::Border.resolve(cx))
-                    .child(self.header(cx)),
-            )
+            .bg(style.background)
+            .text_color(style.text)
+            .child(self.header(cx))
+            .child(if zed_theme {
+                ui::Divider::horizontal().into_any_element()
+            } else {
+                div().w_full().h_px().bg(style.border).into_any_element()
+            })
             .child(
                 div()
                     .debug_selector(|| "file-inspector-pages".to_owned())
@@ -175,11 +181,14 @@ impl Render for FileInspectorSidebar {
                     .flex_none()
                     .child(self.pages.clone()),
             )
+            .child(if zed_theme {
+                ui::Divider::horizontal().into_any_element()
+            } else {
+                div().w_full().h_px().bg(style.border).into_any_element()
+            })
             .child(
                 div()
                     .debug_selector(|| "file-inspector-layers".to_owned())
-                    .border_t_1()
-                    .border_color(SemanticColor::Border.resolve(cx))
                     .w_full()
                     .flex_1()
                     .min_h_0()

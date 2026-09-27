@@ -1,12 +1,14 @@
 use gpui::{InteractiveElement as _, MouseDownEvent, deferred, size};
 
 use crate::atoms::tokens;
-use crate::molecules::{clamp_menu_origin, context_menu_item, menu_surface};
+use crate::molecules::{
+    SIDEBAR_MENU_ITEM_HEIGHT, clamp_menu_origin, sidebar_menu_height, sidebar_menu_item,
+    sidebar_menu_separator, sidebar_menu_surface,
+};
 
 use super::*;
 
 const MENU_WIDTH: f32 = tokens::MenuWidth::STANDARD;
-const MENU_ITEM_HEIGHT: f32 = tokens::RowHeight::LIST;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) struct MenuEntry {
@@ -25,14 +27,14 @@ impl LayersPanel {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let palette = crate::atoms::sidebar_style(cx);
         let (Some(panel_bounds), Some(menu)) = (self.panel_bounds, self.menu.as_ref()) else {
             return div().into_any_element();
         };
         let sections = menu_sections_for_node(&menu.node);
         let row_count = sections.iter().map(Vec::len).sum::<usize>();
         let separator_count = sections.len().saturating_sub(1);
-        let estimated_height =
-            px(row_count as f32 * MENU_ITEM_HEIGHT + separator_count as f32 * 9. + 16.);
+        let estimated_height = sidebar_menu_height(row_count, separator_count, cx);
         // Menus clamp against the window like other Fanta popups (§12), not
         // against the anchoring panel: the deferred surface may extend past a
         // narrow rail but must stay fully on screen.
@@ -42,15 +44,15 @@ impl LayersPanel {
             clamp_menu_origin(menu.anchor, window_size, size(px(MENU_WIDTH), menu_height));
         let origin = clamped - panel_bounds.origin;
 
-        let mut surface = menu_surface(
+        let mut surface = sidebar_menu_surface(
             SharedString::from(format!("{}-context-menu", self.id)),
             origin,
             px(MENU_WIDTH),
             menu_height,
-            px(10.),
             cx,
         )
         .debug_selector(|| "layers-context-menu".to_owned())
+        .text_color(palette.text)
         .track_scroll(&self.menu_scroll_handle)
         .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _, cx| {
             if this.menu.take().is_some() {
@@ -61,14 +63,7 @@ impl LayersPanel {
         let mut first = true;
         for (section_index, section) in sections.into_iter().enumerate() {
             if section_index > 0 {
-                surface = surface.child(
-                    div()
-                        .h(px(1.))
-                        .w_full()
-                        .my_1()
-                        .flex_none()
-                        .bg(crate::atoms::SemanticColor::Border.resolve(cx)),
-                );
+                surface = surface.child(sidebar_menu_separator(cx));
             }
             for entry in section {
                 surface = surface.child(self.render_menu_item(entry, first, cx));
@@ -101,11 +96,12 @@ impl LayersPanel {
         first: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let palette = crate::atoms::sidebar_style(cx);
         let action = entry.action;
         let selector = format!("layers-menu-{}", action.selector_slug());
-        context_menu_item(
+        sidebar_menu_item(
             SharedString::from(format!("{}-menu-{}", self.id, action.selector_slug())),
-            px(MENU_ITEM_HEIGHT),
+            px(SIDEBAR_MENU_ITEM_HEIGHT),
             true,
             cx,
         )
@@ -140,14 +136,14 @@ impl LayersPanel {
             _ => action.label(),
         }))
         .when_some(action.shortcut(), |row, shortcut| {
-            row.child(
-                div()
-                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
-                    .child(shortcut),
-            )
+            row.child(div().text_color(palette.muted_text).child(shortcut))
         })
         .when(action.has_submenu(), |row| {
-            row.child(Icon::new(IconName::ChevronRight).xsmall())
+            row.child(
+                Icon::new(IconName::ChevronRight)
+                    .with_size(px(14.))
+                    .text_color(palette.muted_icon),
+            )
         })
         .into_any_element()
     }

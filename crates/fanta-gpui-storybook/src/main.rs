@@ -520,8 +520,17 @@ fn main() {
                     apply_zed_theme(&themes[index], cx);
                 }
                 StorybookLaunchMode::ReferenceFixture => {
-                    Theme::change(ThemeMode::Dark, None, cx);
-                    apply_figma_ui3_storybook_theme(cx);
+                    if matches!(
+                        launch.story,
+                        StoryKind::FileInspector | StoryKind::Pages | StoryKind::Layers
+                    ) {
+                        // All File Inspector surfaces exercise the same Zed
+                        // palette in both theme systems as the gallery.
+                        apply_zed_theme(&zed_themes()[1], cx);
+                    } else {
+                        Theme::change(ThemeMode::Dark, None, cx);
+                        apply_figma_ui3_storybook_theme(cx);
+                    }
                 }
             }
             cx.set_menus(vec![

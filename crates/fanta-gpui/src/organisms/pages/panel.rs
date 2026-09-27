@@ -36,7 +36,10 @@ use crate::atoms::{
     ActivateControl, ActivateEvent, CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon,
     render_lucide_icon, tokens, track_bounds, truncating_label,
 };
-use crate::molecules::{clamp_menu_origin, list_row, menu_item, menu_surface};
+use crate::molecules::{
+    SIDEBAR_MENU_ITEM_HEIGHT, clamp_menu_origin, list_row, sidebar_menu_height, sidebar_menu_item,
+    sidebar_menu_separator, sidebar_menu_surface,
+};
 use crate::toolbar::{ToolbarTool, render_tool_icon};
 
 mod events;
@@ -55,7 +58,9 @@ pub const PAGES_PANEL_MIN_WIDTH: f32 = 240.;
 /// useful slice of the page list or search results; both lists scroll.
 pub const PAGES_PANEL_MIN_HEIGHT: f32 = 400.;
 
-const HEADER_HEIGHT: f32 = tokens::RowHeight::SECTION_HEADER;
+// Zed's default-density list header is 28px; the compact action buttons fit
+// inside it while Pages keeps its own controlled reveal height.
+const HEADER_HEIGHT: f32 = tokens::RowHeight::LIST;
 const PAGE_ROW_HEIGHT: f32 = tokens::RowHeight::PAGE;
 const PAGE_ROW_GAP: f32 = 0.;
 const PAGE_PADDING: f32 = tokens::Space::SM;
@@ -65,13 +70,8 @@ const DOUBLE_ENTER_INTERVAL: Duration = Duration::from_millis(500);
 const REVEAL_DURATION: f64 = 0.18;
 const ELEMENT_ICON_SIZE: f32 = tokens::IconSize::SM;
 const PAGE_MENU_WIDTH: f32 = tokens::MenuWidth::STANDARD;
-/// Four 36px rows, two separators, and the surface padding/border.
-const PAGE_MENU_HEIGHT: f32 = 357.;
 const FILTER_MENU_WIDTH: f32 = tokens::MenuWidth::STANDARD;
 const SCOPE_MENU_WIDTH: f32 = tokens::MenuWidth::NARROW;
-/// Two 36px rows plus the surface padding/border.
-const SCOPE_MENU_HEIGHT: f32 = 90.;
-const MENU_RADIUS: f32 = tokens::Radius::MENU;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum PageEditorTarget {
@@ -412,10 +412,10 @@ impl Render for PagesPanel {
             .relative()
             .w_full()
             .max_h_full()
-            .bg(crate::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
-            .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
+            .bg(crate::atoms::sidebar_style(cx).background)
+            .text_color(crate::atoms::sidebar_style(cx).text)
             .when(self.bordered, |panel| panel.border_1())
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .border_color(crate::atoms::sidebar_style(cx).border)
             .child(track_bounds(cx.entity(), |this, bounds| {
                 this.panel_bounds = Some(bounds);
             }));
