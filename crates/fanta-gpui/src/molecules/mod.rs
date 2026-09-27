@@ -28,6 +28,7 @@ pub(crate) use menu::{
     SIDEBAR_MENU_ITEM_HEIGHT, sidebar_menu_height, sidebar_menu_item, sidebar_menu_separator,
     sidebar_menu_surface,
 };
+pub(crate) use popup::sidebar_popup_surface;
 pub use popup::{
     POPUP_SAFE_MARGIN, anchored_popup, popup_height, popup_max_height, popup_surface, popup_width,
 };

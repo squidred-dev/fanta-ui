@@ -10,7 +10,8 @@ use gpui_component::h_flex;
 
 use super::{
     ActivateEvent, CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, SemanticColor,
-    TypographyExt as _, TypographyToken, render_lucide_icon, tokens,
+    TypographyExt as _, TypographyToken, render_lucide_icon, sidebar_style, sidebar_text_size,
+    tokens,
 };
 
 type ActivateHandler = Rc<dyn Fn(&ActivateEvent, &mut Window, &mut App)>;
@@ -62,6 +63,7 @@ pub struct Dropdown {
     disabled: bool,
     stroke: bool,
     full_width: bool,
+    sidebar_style: bool,
     leading_icon: Option<LucideIcon>,
     on_activate: Option<ActivateHandler>,
 }
@@ -76,6 +78,7 @@ impl Dropdown {
             disabled: false,
             stroke: true,
             full_width: false,
+            sidebar_style: false,
             leading_icon: None,
             on_activate: None,
         }
@@ -83,6 +86,12 @@ impl Dropdown {
 
     pub const fn full_width(mut self, full_width: bool) -> Self {
         self.full_width = full_width;
+        self
+    }
+
+    /// Uses Zed's sidebar palette and text size when its theme is installed.
+    pub const fn sidebar_style(mut self, sidebar_style: bool) -> Self {
+        self.sidebar_style = sidebar_style;
         self
     }
 
@@ -124,18 +133,68 @@ impl RenderOnce for Dropdown {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let disabled = self.disabled;
         let focused = matches!(self.state, DropdownState::Focused | DropdownState::Active);
-        let foreground = if disabled {
+        let sidebar = (self.sidebar_style && cx.try_global::<theme::GlobalTheme>().is_some())
+            .then(|| sidebar_style(cx));
+        let foreground = if let Some(palette) = sidebar {
+            if disabled {
+                palette.disabled_text
+            } else {
+                palette.text
+            }
+        } else if disabled {
             SemanticColor::TextDisabled.resolve(cx)
         } else {
             SemanticColor::Text.resolve(cx)
         };
-        let border = if focused {
+        let border = if let Some(palette) = sidebar {
+            if !self.stroke {
+                palette.border.opacity(0.)
+            } else if focused {
+                palette.focused_border
+            } else {
+                palette.border
+            }
+        } else if focused {
             SemanticColor::BorderSelected.resolve(cx)
         } else if self.stroke {
             SemanticColor::Border.resolve(cx)
         } else {
             SemanticColor::Background.resolve(cx).opacity(0.)
         };
+        let background = sidebar.map_or_else(
+            || {
+                if disabled {
+                    SemanticColor::BackgroundDisabled.resolve(cx)
+                } else {
+                    SemanticColor::Background.resolve(cx)
+                }
+            },
+            |palette| palette.background,
+        );
+        let hover_background = sidebar.map_or_else(
+            || SemanticColor::BackgroundHover.resolve(cx),
+            |palette| palette.hover,
+        );
+        let focused_border = sidebar.map_or_else(
+            || SemanticColor::BorderSelected.resolve(cx),
+            |palette| palette.focused_border,
+        );
+        let icon_foreground = sidebar.map_or_else(
+            || {
+                if disabled {
+                    SemanticColor::IconDisabled.resolve(cx)
+                } else {
+                    SemanticColor::IconSecondary.resolve(cx)
+                }
+            },
+            |palette| {
+                if disabled {
+                    palette.disabled_text
+                } else {
+                    palette.muted_icon
+                }
+            },
+        );
         let icon = self.leading_icon;
         let handler = self.on_activate;
 
@@ -151,16 +210,12 @@ impl RenderOnce for Dropdown {
             .rounded(px(tokens::ButtonGeometry::RADIUS))
             .border_1()
             .border_color(border)
-            .bg(if disabled {
-                SemanticColor::BackgroundDisabled.resolve(cx)
-            } else {
-                SemanticColor::Background.resolve(cx)
-            })
+            .bg(background)
             .when(!disabled, |dropdown| {
                 dropdown
                     .cursor_pointer()
-                    .hover(|style| style.bg(SemanticColor::BackgroundHover.resolve(cx)))
-                    .focus(|style| style.border_color(SemanticColor::BorderSelected.resolve(cx)))
+                    .hover(|style| style.bg(hover_background))
+                    .focus(|style| style.border_color(focused_border))
             })
             .when_some(icon, |dropdown, icon| {
                 dropdown.child(
@@ -171,7 +226,10 @@ impl RenderOnce for Dropdown {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .bg(SemanticColor::BackgroundSecondary.resolve(cx))
+                        .bg(sidebar.map_or_else(
+                            || SemanticColor::BackgroundSecondary.resolve(cx),
+                            |palette| palette.hover,
+                        ))
                         .child(render_lucide_icon(icon, foreground, 14.)),
                 )
             })
@@ -180,13 +238,21 @@ impl RenderOnce for Dropdown {
                     .min_w_0()
                     .flex_1()
                     .px_2()
-                    .typography(TypographyToken::BodyMedium)
+                    .when(sidebar.is_some(), |label| {
+                        label.text_size(sidebar_text_size())
+                    })
+                    .when(sidebar.is_none(), |label| {
+                        label.typography(TypographyToken::BodyMedium)
+                    })
                     .text_color(foreground)
                     .truncate()
                     .child(
                         div()
                             .when(self.state == DropdownState::Active, |label| {
-                                label.bg(SemanticColor::BackgroundSelected.resolve(cx))
+                                label.bg(sidebar.map_or_else(
+                                    || SemanticColor::BackgroundSelected.resolve(cx),
+                                    |palette| palette.selected,
+                                ))
                             })
                             .child(self.value),
                     ),
@@ -201,11 +267,7 @@ impl RenderOnce for Dropdown {
                     .justify_center()
                     .child(render_lucide_icon(
                         LucideIcon::ChevronDown,
-                        if disabled {
-                            SemanticColor::IconDisabled.resolve(cx)
-                        } else {
-                            SemanticColor::IconSecondary.resolve(cx)
-                        },
+                        icon_foreground,
                         12.,
                     )),
             )

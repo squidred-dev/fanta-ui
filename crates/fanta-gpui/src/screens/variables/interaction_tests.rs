@@ -2,6 +2,7 @@ use gpui::{
     Focusable as _, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent, TestAppContext, point,
     px, size,
 };
+use gpui_component::WindowExt as _;
 
 use crate::test_support::{assert_pointer_and_keyboard_parity, mount_component};
 
@@ -105,6 +106,61 @@ fn sidebar_and_name_column_compress_on_narrow_pages(cx: &mut TestAppContext) {
         f32::from(cell.size.width),
         "header and body must share one name-column width"
     );
+}
+
+#[gpui::test]
+fn mode_scopes_stack_above_collections_in_the_sidebar(cx: &mut TestAppContext) {
+    let (host, _actions, cx) = mount(cx);
+    cx.simulate_resize(size(px(900.), px(700.)));
+    cx.run_until_parked();
+
+    let modes = cx
+        .debug_bounds("variables-mode-scopes")
+        .expect("empty Modes panel should remain visible");
+    let collections = cx
+        .debug_bounds("variables-collections-panel")
+        .expect("Collections panel should remain visible");
+    assert!(modes.bottom() <= collections.origin.y + px(1.));
+
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |page, cx| {
+        page.set_context_data(
+            VariablesContextData {
+                mode_scopes: vec![
+                    VariablesModeScope {
+                        id: "project".into(),
+                        label: "Project".into(),
+                        selected: None,
+                        choices: vec![VariablesChoice {
+                            id: None,
+                            label: "Collection default".into(),
+                        }],
+                    },
+                    VariablesModeScope {
+                        id: "page".into(),
+                        label: "Page: Page 1".into(),
+                        selected: None,
+                        choices: vec![VariablesChoice {
+                            id: None,
+                            label: "Inherit parent".into(),
+                        }],
+                    },
+                ],
+                bindings: None,
+            },
+            cx,
+        );
+    });
+    cx.run_until_parked();
+
+    let modes = cx.debug_bounds("variables-mode-scopes").unwrap();
+    let collections = cx.debug_bounds("variables-collections-panel").unwrap();
+    let project = cx.debug_bounds("variables-mode-scope-project").unwrap();
+    let page = cx.debug_bounds("variables-mode-scope-page").unwrap();
+    assert!(modes.bottom() <= collections.origin.y + px(1.));
+    assert!(project.bottom() <= page.origin.y);
+    assert_eq!(project.origin.x, page.origin.x);
+    assert_eq!(project.size.width, page.size.width);
 }
 
 #[gpui::test]
@@ -224,7 +280,7 @@ fn empty_and_no_match_states_offer_recovery_actions(cx: &mut TestAppContext) {
     let description = cx.debug_bounds("variables-empty-description").unwrap();
     let clear = cx.debug_bounds("variables-clear-empty-search").unwrap();
     assert_eq!(clear.size.height, px(24.));
-    assert!(clear.top() >= description.bottom() + px(20.));
+    assert!(clear.top() >= description.bottom() + px(tokens::Space::SM));
     cx.simulate_click(clear.center(), Modifiers::none());
     cx.run_until_parked();
     assert!(cx.debug_bounds("variables-value-color-light").is_some());
@@ -379,6 +435,32 @@ fn variable_cells_keep_a_uniform_fixed_height(cx: &mut TestAppContext) {
         .unwrap();
     assert_eq!(name.size.height, value.size.height);
     assert_eq!(name.size.height, action.size.height);
+}
+
+#[gpui::test]
+fn rows_without_modes_keep_a_full_width_empty_cell(cx: &mut TestAppContext) {
+    let (host, _actions, cx) = mount(cx);
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |page, cx| {
+        let mut data = page.view_data.clone();
+        data.modes.clear();
+        for variable in &mut data.variables {
+            variable.values.clear();
+        }
+        page.set_view_data(data, cx);
+    });
+    cx.run_until_parked();
+
+    let name = cx.debug_bounds("variables-name-cell-color").unwrap();
+    let empty = cx.debug_bounds("variables-mode-cells-color").unwrap();
+    let actions = cx
+        .debug_bounds("variables-variable-settings-color")
+        .unwrap();
+    assert!(cx.debug_bounds("variables-mode-header-light").is_none());
+    assert_eq!(empty.top(), name.top());
+    assert_eq!(empty.size.height, name.size.height);
+    assert!(empty.size.width > px(0.));
+    assert_eq!(empty.right(), actions.left());
 }
 
 #[gpui::test]
@@ -641,6 +723,188 @@ fn aliases_reject_cycles_and_collection_changes_clear_editors(cx: &mut TestAppCo
         assert!(page.settings_id.is_none());
         assert!(page.alias_target.is_none());
     });
+}
+
+#[test]
+fn aliases_resolve_same_mode_chains_and_reject_invalid_targets() {
+    let mut data = fixture();
+    let mut middle = VariableModeValue::new("light", "1");
+    middle.alias_id = Some("base".into());
+    data.variables.push(VariableRow::new(
+        "middle",
+        "Middle",
+        "all",
+        VariableKind::Number,
+        [middle],
+    ));
+    data.variables.push(VariableRow::new(
+        "base",
+        "Base",
+        "all",
+        VariableKind::Number,
+        [VariableModeValue::new("light", "24")],
+    ));
+    let projection = table_projection::TableProjection::new(&data);
+    assert_eq!(
+        projection
+            .resolve_alias_value(
+                &data,
+                &"middle".into(),
+                &"light".into(),
+                VariableKind::Number
+            )
+            .map(|value| value.value.as_ref()),
+        Some("24")
+    );
+    assert!(
+        projection
+            .resolve_alias_value(
+                &data,
+                &"missing".into(),
+                &"light".into(),
+                VariableKind::Number
+            )
+            .is_none()
+    );
+    assert!(
+        projection
+            .resolve_alias_value(
+                &data,
+                &"middle".into(),
+                &"dark".into(),
+                VariableKind::Number
+            )
+            .is_none()
+    );
+    assert!(
+        projection
+            .resolve_alias_value(
+                &data,
+                &"color".into(),
+                &"light".into(),
+                VariableKind::Number
+            )
+            .is_none()
+    );
+
+    data.variables[3].values[0].alias_id = Some("middle".into());
+    let projection = table_projection::TableProjection::new(&data);
+    assert!(
+        projection
+            .resolve_alias_value(
+                &data,
+                &"middle".into(),
+                &"light".into(),
+                VariableKind::Number
+            )
+            .is_none(),
+        "a host-provided cycle must not loop or show a stale fallback"
+    );
+}
+
+#[gpui::test]
+fn linked_numeric_cell_shows_target_name_and_resolved_value_with_unlink(cx: &mut TestAppContext) {
+    let (host, actions, cx) = mount(cx);
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |page, cx| {
+        let mut data = fixture();
+        let mut middle = VariableModeValue::new("light", "1");
+        middle.alias_id = Some("base".into());
+        data.variables.push(VariableRow::new(
+            "middle",
+            "Middle",
+            "all",
+            VariableKind::Number,
+            [middle],
+        ));
+        data.variables.push(VariableRow::new(
+            "base",
+            "Base",
+            "all",
+            VariableKind::Number,
+            [VariableModeValue::new("light", "24")],
+        ));
+        data.variables[1].values[0].alias_id = Some("middle".into());
+        page.set_view_data(data, cx);
+    });
+    cx.run_until_parked();
+
+    let cell = cx.debug_bounds("variables-value-radius-light").unwrap();
+    let name = cx
+        .debug_bounds("variables-table-alias-name-radius-light")
+        .expect("direct target name should render");
+    let value = cx
+        .debug_bounds("variables-table-alias-value-radius-light")
+        .expect("resolved terminal value should render");
+    assert!(name.size.height > px(0.) && value.size.height > px(0.));
+    assert!(name.bottom_left().y <= value.origin.y);
+    assert!(name.origin.x >= cell.origin.x && value.right() <= cell.right());
+
+    let unlink = cx
+        .debug_bounds("variables-table-assign-radius-light")
+        .expect("linked cell should retain its unlink control");
+    cx.simulate_click(unlink.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(
+        actions.borrow().as_slice(),
+        &[VariablesAction::AliasChanged {
+            variable_id: "radius".into(),
+            mode_id: "light".into(),
+            alias_id: None,
+        }]
+    );
+}
+
+#[gpui::test]
+fn linked_color_cell_shows_resolved_swatch_in_table_and_settings(cx: &mut TestAppContext) {
+    let (host, _actions, cx) = mount(cx);
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |page, cx| {
+        let mut data = fixture();
+        data.variables.push(VariableRow::new(
+            "brand",
+            "Brand",
+            "all",
+            VariableKind::Color,
+            [VariableModeValue::new("light", "#112233").color("112233")],
+        ));
+        data.variables[0].values[0].alias_id = Some("brand".into());
+        let resolved = table_projection::TableProjection::new(&data)
+            .resolve_alias_value(&data, &"brand".into(), &"light".into(), VariableKind::Color)
+            .expect("color alias should resolve");
+        assert_eq!(
+            parse_hex_rgba(resolved.color_hex.as_deref().unwrap_or(&resolved.value)),
+            Some(0x112233ff)
+        );
+        page.set_view_data(data, cx);
+    });
+    cx.run_until_parked();
+
+    for selector in [
+        "variables-table-alias-name-color-light",
+        "variables-table-alias-value-color-light",
+        "variables-table-alias-swatch-color-light",
+    ] {
+        assert!(
+            cx.debug_bounds(selector).is_some(),
+            "{selector} should render"
+        );
+    }
+    let settings = cx
+        .debug_bounds("variables-variable-settings-color")
+        .unwrap();
+    cx.simulate_click(settings.center(), Modifiers::none());
+    cx.run_until_parked();
+    for selector in [
+        "variables-settings-alias-name-color-light",
+        "variables-settings-alias-value-color-light",
+        "variables-settings-alias-swatch-color-light",
+    ] {
+        assert!(
+            cx.debug_bounds(selector).is_some(),
+            "{selector} should render"
+        );
+    }
 }
 
 #[gpui::test]
@@ -1114,4 +1378,149 @@ fn profile_large_color_table_scroll(cx: &mut TestAppContext) {
         "string scroll frame: p50={:?}, p95={:?}, max={:?}",
         durations[100], durations[190], durations[199]
     );
+}
+
+#[gpui::test]
+fn variable_delete_requires_confirmation(cx: &mut TestAppContext) {
+    let (_host, actions, cx) = mount(cx);
+
+    for confirm in [false, true] {
+        let settings = cx
+            .debug_bounds("variables-variable-settings-color")
+            .unwrap();
+        cx.simulate_click(settings.center(), Modifiers::none());
+        cx.run_until_parked();
+        let delete = cx.debug_bounds("variables-settings-delete").unwrap();
+        actions.borrow_mut().clear();
+        cx.simulate_click(delete.center(), Modifiers::none());
+        cx.run_until_parked();
+        cx.update(|window, app| assert!(window.has_active_dialog(app)));
+        assert!(
+            actions.borrow().is_empty(),
+            "opening the dialog cannot delete"
+        );
+
+        let button = cx
+            .debug_bounds(if confirm {
+                "variables-delete-dialog-confirm"
+            } else {
+                "variables-delete-dialog-cancel"
+            })
+            .expect("confirmation button should render");
+        cx.simulate_click(button.center(), Modifiers::none());
+        cx.run_until_parked();
+        cx.update(|window, app| assert!(!window.has_active_dialog(app)));
+        if confirm {
+            assert_eq!(
+                actions.borrow().as_slice(),
+                &[VariablesAction::VariableDeleteRequested {
+                    variable_id: "color".into(),
+                }]
+            );
+        } else {
+            assert!(actions.borrow().is_empty());
+        }
+    }
+}
+
+#[gpui::test]
+fn variable_settings_rename_opens_the_name_input(cx: &mut TestAppContext) {
+    let (_host, actions, cx) = mount(cx);
+    let settings = cx
+        .debug_bounds("variables-variable-settings-color")
+        .unwrap();
+    cx.simulate_click(settings.center(), Modifiers::none());
+    cx.run_until_parked();
+    let rename = cx.debug_bounds("variables-settings-rename").unwrap();
+    actions.borrow_mut().clear();
+    cx.simulate_click(rename.center(), Modifiers::none());
+    cx.run_until_parked();
+    cx.simulate_keystrokes("cmd-a N e w enter");
+    cx.run_until_parked();
+    assert_eq!(
+        actions.borrow().as_slice(),
+        &[VariablesAction::VariableRenameRequested {
+            variable_id: "color".into(),
+            name: "New".into(),
+        }]
+    );
+}
+
+#[gpui::test]
+fn variable_settings_show_name_and_description_labels_above_inputs(cx: &mut TestAppContext) {
+    let (_host, _actions, cx) = mount(cx);
+    let settings = cx
+        .debug_bounds("variables-variable-settings-color")
+        .unwrap();
+    cx.simulate_click(settings.center(), Modifiers::none());
+    cx.run_until_parked();
+
+    for (label, label_selector, field_selector) in [
+        (
+            "Name",
+            "variables-settings-label-Name",
+            "variables-settings-field-Name",
+        ),
+        (
+            "Description",
+            "variables-settings-label-Description",
+            "variables-settings-field-Description",
+        ),
+    ] {
+        let label_bounds = cx
+            .debug_bounds(label_selector)
+            .expect("field label should render");
+        let field_bounds = cx
+            .debug_bounds(field_selector)
+            .expect("field input should render");
+        assert!(
+            label_bounds.size.height > px(0.),
+            "{label} label has height"
+        );
+        assert!(
+            field_bounds.size.height > px(0.),
+            "{label} input has height"
+        );
+        assert!(
+            label_bounds.bottom_left().y <= field_bounds.origin.y,
+            "{label} label sits above its input"
+        );
+    }
+}
+
+#[gpui::test]
+fn mode_delete_requires_confirmation(cx: &mut TestAppContext) {
+    let (_host, actions, cx) = mount(cx);
+
+    for confirm in [false, true] {
+        let delete = cx.debug_bounds("variables-delete-mode-light").unwrap();
+        cx.simulate_click(delete.center(), Modifiers::none());
+        cx.run_until_parked();
+        cx.update(|window, app| assert!(window.has_active_dialog(app)));
+        assert!(
+            actions.borrow().is_empty(),
+            "opening the dialog cannot delete"
+        );
+
+        let button = cx
+            .debug_bounds(if confirm {
+                "variables-delete-dialog-confirm"
+            } else {
+                "variables-delete-dialog-cancel"
+            })
+            .expect("confirmation button should render");
+        cx.simulate_click(button.center(), Modifiers::none());
+        cx.run_until_parked();
+        cx.update(|window, app| assert!(!window.has_active_dialog(app)));
+        if confirm {
+            assert_eq!(
+                actions.borrow().as_slice(),
+                &[VariablesAction::ModeDeleteRequested {
+                    mode_id: "light".into(),
+                }]
+            );
+        } else {
+            assert!(actions.borrow().is_empty());
+        }
+    }
 }

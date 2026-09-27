@@ -437,38 +437,43 @@ impl Storybook {
 
 impl Render for Storybook {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        if let Some(baseline_id) = self
+        let content = if let Some(baseline_id) = self
             .baseline_windows
             .get(&window.window_handle().window_id())
             .cloned()
             && let Some(metadata) = component::components().get(&baseline_id)
         {
             let preview = self.render_registered_preview(metadata, window, cx);
-            return div()
+            div()
                 .id("storybook-baseline-window")
                 .size_full()
                 .overflow_scroll()
                 .p_4()
                 .bg(theme::GlobalTheme::theme(cx).colors().background)
                 .child(preview)
-                .into_any_element();
-        }
-        if let Some(story) = self
+                .into_any_element()
+        } else if let Some(story) = self
             .story_windows
             .get(&window.window_handle().window_id())
             .copied()
         {
-            return self.render_story_window(story, cx);
-        }
-
-        if self.launch_mode == StorybookLaunchMode::Gallery {
+            self.render_story_window(story, cx)
+        } else if self.launch_mode == StorybookLaunchMode::Gallery {
             if self.baseline_active.is_some() {
-                return self.render_baseline_shell(window, cx);
+                self.render_baseline_shell(window, cx)
+            } else {
+                self.render_gallery_shell(window, cx)
             }
-            return self.render_gallery_shell(window, cx);
-        }
+        } else {
+            (self.active_story.descriptor().render_reference)(self, cx)
+        };
 
-        (self.active_story.descriptor().render_reference)(self, cx)
+        div()
+            .relative()
+            .size_full()
+            .child(content)
+            .children(Root::render_dialog_layer(window, cx))
+            .into_any_element()
     }
 }
 
@@ -522,10 +527,13 @@ fn main() {
                 StorybookLaunchMode::ReferenceFixture => {
                     if matches!(
                         launch.story,
-                        StoryKind::FileInspector | StoryKind::Pages | StoryKind::Layers
+                        StoryKind::FileInspector
+                            | StoryKind::Pages
+                            | StoryKind::Layers
+                            | StoryKind::Variables
                     ) {
-                        // All File Inspector surfaces exercise the same Zed
-                        // palette in both theme systems as the gallery.
+                        // Sidebar and Variables surfaces exercise the Zed
+                        // palette in reference windows as well as the gallery.
                         apply_zed_theme(&zed_themes()[1], cx);
                     } else {
                         Theme::change(ThemeMode::Dark, None, cx);

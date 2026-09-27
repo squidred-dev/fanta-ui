@@ -1,5 +1,6 @@
 use super::*;
-use crate::atoms::{Dropdown, SemanticColor, TypographyToken};
+use crate::atoms::{Dropdown, sidebar_style, sidebar_text_size};
+use crate::molecules::sidebar_popup_surface;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VariablesChoice {
@@ -88,6 +89,7 @@ impl VariablesScreen {
             .child(
                 Dropdown::new(id.clone(), label)
                     .full_width(true)
+                    .sidebar_style(true)
                     .disabled(disabled)
                     .on_activate(cx.listener(move |this, _, _, cx| {
                         this.context_menu = if this
@@ -106,19 +108,40 @@ impl VariablesScreen {
     }
 
     pub(super) fn render_mode_scopes(&self, cx: &mut Context<Self>) -> AnyElement {
-        h_flex()
+        let palette = sidebar_style(cx);
+        v_flex()
             .id("variables-mode-scopes")
+            .debug_selector(|| "variables-mode-scopes".to_owned())
             .w_full()
             .flex_none()
-            .flex_wrap()
-            .px_3()
-            .py_2()
-            .gap_3()
-            .items_center()
+            .min_h_0()
+            .max_h(gpui::relative(0.5))
+            .overflow_y_scroll()
+            .px(px(tokens::Space::SM))
+            .py(px(10.))
+            .gap_2()
             .border_b_1()
-            .border_color(SemanticColor::Border.resolve(cx))
-            .typography(TypographyToken::BodyMedium)
-            .child(div().font_semibold().child("Modes"))
+            .border_color(palette.border)
+            .bg(palette.background)
+            .text_color(palette.text)
+            .text_size(sidebar_text_size())
+            .child(
+                div()
+                    .h(px(28.))
+                    .flex_none()
+                    .px_1()
+                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .text_color(palette.muted_text)
+                    .child("Modes"),
+            )
+            .when(self.context_data.mode_scopes.is_empty(), |panel| {
+                panel.child(
+                    div()
+                        .px_1()
+                        .text_color(palette.muted_text)
+                        .child("No mode overrides"),
+                )
+            })
             .children(self.context_data.mode_scopes.iter().map(|scope| {
                 let label = scope
                     .choices
@@ -126,25 +149,22 @@ impl VariablesScreen {
                     .find(|choice| choice.id == scope.selected)
                     .map(|choice| choice.label.clone())
                     .unwrap_or_else(|| "Inherit".into());
-                h_flex()
-                    .gap_2()
-                    .items_center()
+                v_flex()
+                    .w_full()
+                    .gap_1()
                     .child(
                         div()
-                            .text_color(SemanticColor::TextSecondary.resolve(cx))
+                            .px_1()
+                            .text_color(palette.muted_text)
                             .child(scope.label.clone()),
                     )
-                    .child(
-                        div()
-                            .w(px(tokens::VariablesGeometry::MODE_DROPDOWN_WIDTH))
-                            .child(self.context_dropdown(
-                                format!("variables-mode-scope-{}", scope.id).into(),
-                                label,
-                                scope.choices.is_empty(),
-                                ContextMenuTarget::Mode(scope.id.clone()),
-                                cx,
-                            )),
-                    )
+                    .child(self.context_dropdown(
+                        format!("variables-mode-scope-{}", scope.id).into(),
+                        label,
+                        scope.choices.is_empty(),
+                        ContextMenuTarget::Mode(scope.id.clone()),
+                        cx,
+                    ))
             }))
             .into_any_element()
     }
@@ -153,6 +173,7 @@ impl VariablesScreen {
         let Some(bindings) = &self.context_data.bindings else {
             return div().into_any_element();
         };
+        let palette = sidebar_style(cx);
         v_flex()
             .id("variables-layer-bindings")
             .debug_selector(|| "variables-layer-bindings".to_owned())
@@ -163,16 +184,26 @@ impl VariablesScreen {
             .overflow_y_scroll()
             // The screen's header owns the horizontal separator. This panel owns only its left edge.
             .border_l_1()
-            .border_color(SemanticColor::Border.resolve(cx))
-            .bg(SemanticColor::Background.resolve(cx))
-            .typography(TypographyToken::BodyMedium)
+            .border_color(palette.border)
+            .bg(palette.background)
+            .text_color(palette.text)
+            .text_size(sidebar_text_size())
             .child(
                 v_flex()
                     .px_3()
                     .py_3()
                     .gap_2()
-                    .child(div().font_semibold().child("Bind selected layer"))
-                    .child(div().truncate().child(bindings.name.clone())),
+                    .child(
+                        div()
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .child("Bind selected layer"),
+                    )
+                    .child(
+                        div()
+                            .truncate()
+                            .text_color(palette.muted_text)
+                            .child(bindings.name.clone()),
+                    ),
             )
             .children(bindings.properties.iter().map(|property| {
                 let label = property
@@ -193,7 +224,7 @@ impl VariablesScreen {
                     .gap_1()
                     .child(
                         div()
-                            .text_color(SemanticColor::TextSecondary.resolve(cx))
+                            .text_color(palette.muted_text)
                             .child(property.label.clone()),
                     )
                     .child(self.context_dropdown(
@@ -234,10 +265,9 @@ impl VariablesScreen {
             }
         };
         let bounds = self.overlay_bounds.get(trigger)?;
-        let mut menu = popup_surface("variables-context-menu", px(tokens::Radius::MENU), cx)
+        let mut menu = sidebar_popup_surface("variables-context-menu", cx)
             .w(popup_width(window, 240.))
             .max_h(popup_max_height(window))
-            .py_1()
             .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _, cx| {
                 this.context_menu = None;
                 cx.notify();
@@ -246,9 +276,10 @@ impl VariablesScreen {
             let target = target.clone();
             let choice = choice.clone();
             menu = menu.child(
-                menu_item(
+                sidebar_menu_item(
                     ("variables-context-choice", index),
                     px(tokens::RowHeight::FIELD),
+                    true,
                     cx,
                 )
                 .debug_selector(move || format!("variables-context-choice-{index}"))
