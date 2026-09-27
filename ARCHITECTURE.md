@@ -691,3 +691,23 @@ contained. Color, gradient, media, resource, shader, and contrast editors live
 in separate modules. `ColorPicker` is its smaller RGBA-only adapter, not a
 second implementation. The `paint-picker` story supplies a standalone mock
 host, paint fixtures, read-only and open knobs.
+
+## §21 AI generation screens
+
+`fanta_gpui::generation::GenerationScreen` presents Image, Video, Audio, and
+SVG vector creation from host-controlled `GenerationViewData`. It emits typed
+`GenerationAction` intents and never calls a model, owns authentication or
+job history, or changes a Fanta document. The host maps `GenerationSubmission`
+to its backend, supplies available `GenerationModel` choices and model-specific
+options, provider marks, current prices, and optional owned media players, and
+echoes job state and gallery outputs. Only transient draft and
+focus state, searchable catalog filtering, and lightbox visibility live in the
+component.
+
+The screen uses the active Zed GPUI theme, `gpui-component` inputs, and shared
+keyboard activation. Storybook is a mock host with in-memory models,
+templates, results, a gallery, and native playback of local fixture clips;
+it performs no generation. Design, Masks,
+and edit operations are outside this screen. The API mapping, model controls,
+and output-preview contract are in
+[docs/generation.md](docs/generation.md).

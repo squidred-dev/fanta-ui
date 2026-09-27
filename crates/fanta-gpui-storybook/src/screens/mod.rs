@@ -14,6 +14,8 @@ pub(crate) mod design;
 pub(crate) mod dropdown;
 pub(crate) mod fields;
 pub(crate) mod file_inspector;
+pub(crate) mod generation;
+pub(crate) mod generation_media;
 pub(crate) mod harness;
 pub(crate) mod icons;
 pub(crate) mod inputs;
@@ -55,6 +57,7 @@ pub(crate) use design::DesignScreen;
 pub(crate) use dropdown::DropdownStory;
 pub(crate) use fields::FieldsScreen;
 pub(crate) use file_inspector::FileInspectorScreen;
+pub(crate) use generation::GenerationStories;
 pub(crate) use icons::IconsScreen;
 pub(crate) use inputs::InputsStory;
 pub(crate) use labels::LabelsScreen;
@@ -229,7 +232,7 @@ impl StoryKind {
     }
 }
 
-static REGISTRY: [StoryDescriptor; 50] = [
+static REGISTRY: [StoryDescriptor; 54] = [
     StoryDescriptor {
         kind: StoryKind::Typography,
         id: "typography",
@@ -1292,6 +1295,202 @@ static REGISTRY: [StoryDescriptor; 50] = [
         last_action: |story| story.variables_screen.last_action.clone(),
     },
     StoryDescriptor {
+        kind: StoryKind::GenerationImage,
+        id: "generate-image",
+        aliases: &["image-generation"],
+        title: "Generate images",
+        nav_label: "Image generation",
+        description: "Host-controlled image creation with model settings, prompt templates, and a creations gallery.",
+        section: StorySection::Screens,
+        reference_window_size: (1440., 900.),
+        gallery_surface_size: (1160., 760.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Minimum", 720., 520.),
+            ViewportPreset::new("Compact", 920., 640.),
+            ViewportPreset::new("Default", 1160., 760.),
+        ],
+        keyboard_hints: &[],
+        render_story: |story, _| {
+            story
+                .generation_stories
+                .image
+                .screen
+                .clone()
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.spec_reference(
+                "storybook-reference-generation-image",
+                story
+                    .generation_stories
+                    .image
+                    .screen
+                    .clone()
+                    .into_any_element(),
+                cx,
+            )
+        },
+        render_knobs: None,
+        focus: |story, window, cx| {
+            story
+                .generation_stories
+                .image
+                .screen
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.generation_stories.image.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::GenerationVideo,
+        id: "generate-video",
+        aliases: &["video-generation"],
+        title: "Generate videos",
+        nav_label: "Video generation",
+        description: "Text-to-video and image animation with model-specific controls, templates, and a creations gallery.",
+        section: StorySection::Screens,
+        reference_window_size: (1440., 900.),
+        gallery_surface_size: (1160., 760.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Minimum", 720., 520.),
+            ViewportPreset::new("Compact", 920., 640.),
+            ViewportPreset::new("Default", 1160., 760.),
+        ],
+        keyboard_hints: &[],
+        render_story: |story, _| {
+            story
+                .generation_stories
+                .video
+                .screen
+                .clone()
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.spec_reference(
+                "storybook-reference-generation-video",
+                story
+                    .generation_stories
+                    .video
+                    .screen
+                    .clone()
+                    .into_any_element(),
+                cx,
+            )
+        },
+        render_knobs: None,
+        focus: |story, window, cx| {
+            story
+                .generation_stories
+                .video
+                .screen
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.generation_stories.video.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::GenerationAudio,
+        id: "generate-audio",
+        aliases: &["audio-generation"],
+        title: "Generate audio",
+        nav_label: "Audio generation",
+        description: "Speech and music creation with relevant model choices, templates, and a creations gallery.",
+        section: StorySection::Screens,
+        reference_window_size: (1440., 900.),
+        gallery_surface_size: (1160., 760.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Minimum", 720., 520.),
+            ViewportPreset::new("Compact", 920., 640.),
+            ViewportPreset::new("Default", 1160., 760.),
+        ],
+        keyboard_hints: &[],
+        render_story: |story, _| {
+            story
+                .generation_stories
+                .audio
+                .screen
+                .clone()
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.spec_reference(
+                "storybook-reference-generation-audio",
+                story
+                    .generation_stories
+                    .audio
+                    .screen
+                    .clone()
+                    .into_any_element(),
+                cx,
+            )
+        },
+        render_knobs: None,
+        focus: |story, window, cx| {
+            story
+                .generation_stories
+                .audio
+                .screen
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.generation_stories.audio.last_action.clone(),
+    },
+    StoryDescriptor {
+        kind: StoryKind::GenerationSvg,
+        id: "generate-svg",
+        aliases: &["svg-generation", "generate-vector"],
+        title: "Generate SVG vectors",
+        nav_label: "SVG generation",
+        description: "Prompt-to-SVG, image-to-SVG, and vector tracing with templates and a creations gallery.",
+        section: StorySection::Screens,
+        reference_window_size: (1440., 900.),
+        gallery_surface_size: (1160., 760.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Minimum", 720., 520.),
+            ViewportPreset::new("Compact", 920., 640.),
+            ViewportPreset::new("Default", 1160., 760.),
+        ],
+        keyboard_hints: &[],
+        render_story: |story, _| {
+            story
+                .generation_stories
+                .svg
+                .screen
+                .clone()
+                .into_any_element()
+        },
+        render_gallery: None,
+        render_reference: |story, cx| {
+            story.spec_reference(
+                "storybook-reference-generation-svg",
+                story
+                    .generation_stories
+                    .svg
+                    .screen
+                    .clone()
+                    .into_any_element(),
+                cx,
+            )
+        },
+        render_knobs: None,
+        focus: |story, window, cx| {
+            story
+                .generation_stories
+                .svg
+                .screen
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.generation_stories.svg.last_action.clone(),
+    },
+    StoryDescriptor {
         kind: StoryKind::PropertiesInspector,
         id: "properties-inspector",
         aliases: &[],
@@ -2097,7 +2296,7 @@ mod tests {
                 );
             }
         }
-        assert_eq!(registry().len(), 50);
+        assert_eq!(registry().len(), 54);
         assert_eq!(
             story_from_name("color-picker"),
             Some(StoryKind::ColorPicker)
@@ -2148,6 +2347,10 @@ mod tests {
             (StoryKind::Toolbar, StorySection::Organisms),
             (StoryKind::FileInspector, StorySection::Layouts),
             (StoryKind::Variables, StorySection::Screens),
+            (StoryKind::GenerationImage, StorySection::Screens),
+            (StoryKind::GenerationVideo, StorySection::Screens),
+            (StoryKind::GenerationAudio, StorySection::Screens),
+            (StoryKind::GenerationSvg, StorySection::Screens),
             (StoryKind::PseudoEditor, StorySection::Layouts),
             (StoryKind::Icons, StorySection::Atoms),
             (StoryKind::Tokens, StorySection::Atoms),

@@ -3358,12 +3358,14 @@ name = "fanta-gpui-storybook"
 version = "0.5.0"
 dependencies = [
  "anyhow",
+ "core-video",
  "fanta-gpui",
  "fanta-gpui-component",
  "fanta-gpui-component-assets",
  "fanta-gpui-components",
  "fanta-gpui-core",
  "fanta-gpui-gpui-platform",
+ "fanta-gpui-media",
  "fanta-gpui-theme",
  "fanta-gpui-ui",
  "fanta-gpui-ui-input",

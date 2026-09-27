@@ -333,6 +333,22 @@ fn every_reference_fixture_renders_through_the_registry(cx: &mut TestAppContext)
             "reference-property-typography",
         ),
         (StoryKind::Variables, "storybook-reference-variables"),
+        (
+            StoryKind::GenerationImage,
+            "storybook-reference-generation-image",
+        ),
+        (
+            StoryKind::GenerationVideo,
+            "storybook-reference-generation-video",
+        ),
+        (
+            StoryKind::GenerationAudio,
+            "storybook-reference-generation-audio",
+        ),
+        (
+            StoryKind::GenerationSvg,
+            "storybook-reference-generation-svg",
+        ),
         (StoryKind::Prototype, "storybook-reference-prototype"),
         (StoryKind::Timeline, "storybook-reference-timeline"),
         (StoryKind::PseudoEditor, "storybook-reference-pseudo-editor"),
@@ -362,6 +378,137 @@ fn every_reference_fixture_renders_through_the_registry(cx: &mut TestAppContext)
             story.title()
         );
     }
+}
+
+#[gpui::test]
+fn image_generation_model_dropdown_and_gallery_lightbox_work_in_ayu_dark(cx: &mut TestAppContext) {
+    cx.update(|cx| {
+        gpui_component::init(cx);
+        fanta_gpui::init(cx);
+        baseline_host::init(cx);
+        Theme::change(ThemeMode::Dark, None, cx);
+    });
+    let storybook_slot = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let captured_storybook = storybook_slot.clone();
+    let (_, visual_cx) = cx.add_window_view(move |window, cx| {
+        let storybook = cx.new(|cx| Storybook::new(window, cx));
+        *captured_storybook.borrow_mut() = Some(storybook.clone());
+        Root::new(storybook, window, cx)
+    });
+    let storybook = storybook_slot
+        .borrow_mut()
+        .take()
+        .expect("test Storybook should be installed");
+    let ayu_dark = zed_themes()
+        .into_iter()
+        .find(|theme| theme.name.as_ref() == "Ayu Dark")
+        .expect("the bundled Ayu Dark theme should be available");
+    visual_cx.update(|_, app| apply_zed_theme(&ayu_dark, app));
+    visual_cx.update(|_, app| {
+        storybook.update(app, |storybook, cx| {
+            storybook.active_story = StoryKind::GenerationImage;
+            storybook.launch_mode = StorybookLaunchMode::ReferenceFixture;
+            cx.notify();
+        });
+    });
+    visual_cx.simulate_resize(size(px(1440.), px(1200.)));
+    visual_cx.run_until_parked();
+
+    assert_eq!(
+        visual_cx.read(|app| theme::GlobalTheme::theme(app).name.to_string()),
+        "Ayu Dark"
+    );
+    assert!(
+        visual_cx
+            .debug_bounds("storybook-reference-generation-image")
+            .is_some(),
+        "the Image generation workspace should render"
+    );
+    assert!(
+        visual_cx
+            .debug_bounds("generation-lightbox-dialog")
+            .is_none()
+    );
+
+    let model_select = visual_cx
+        .debug_bounds("generation-model-select")
+        .expect("the searchable model select should render");
+    visual_cx.simulate_click(model_select.center(), Modifiers::none());
+    visual_cx.run_until_parked();
+    visual_cx.simulate_keystrokes("down");
+    visual_cx.run_until_parked();
+    visual_cx.simulate_keystrokes("enter");
+    visual_cx.run_until_parked();
+    assert_eq!(
+        visual_cx.read(|app| {
+            storybook
+                .read(app)
+                .generation_stories
+                .image
+                .view_data
+                .selected_model_id
+                .clone()
+        }),
+        Some("fanta-image-fast-1".into()),
+        "choosing the next model in the dropdown should select that catalog entry"
+    );
+
+    let creation = visual_cx
+        .debug_bounds("generation-output-image-result-2")
+        .expect("the gallery should render an image creation card");
+    visual_cx.simulate_click(creation.center(), Modifiers::none());
+    visual_cx.run_until_parked();
+    assert_eq!(
+        visual_cx.read(|app| {
+            storybook
+                .read(app)
+                .generation_stories
+                .image
+                .view_data
+                .selected_output_id
+                .clone()
+        }),
+        Some("image-result-2".into()),
+        "the gallery card should select its own creation"
+    );
+    assert!(
+        visual_cx
+            .debug_bounds("generation-lightbox-dialog")
+            .is_some(),
+        "activating a gallery card should open its lightbox"
+    );
+    assert!(
+        visual_cx
+            .debug_bounds("generation-lightbox-stage")
+            .is_some()
+    );
+
+    visual_cx.simulate_keystrokes("escape");
+    visual_cx.run_until_parked();
+    assert!(
+        visual_cx
+            .debug_bounds("generation-lightbox-dialog")
+            .is_none()
+    );
+    assert!(
+        visual_cx
+            .debug_bounds("storybook-reference-generation-image")
+            .is_some(),
+        "Escape should return to the generation workspace"
+    );
+    assert!(
+        visual_cx.update(|window, app| {
+            storybook
+                .read(app)
+                .generation_stories
+                .image
+                .screen
+                .read(app)
+                .focus_handle(app)
+                .is_focused(window)
+        }),
+        "closing the lightbox should restore focus to the generation workspace"
+    );
 }
 
 #[gpui::test]

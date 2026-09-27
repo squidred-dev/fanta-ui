@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500">
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#243342"/><stop offset="1" stop-color="#899e9a"/></linearGradient>
+    <linearGradient id="coat" x2="1" y2="1"><stop stop-color="#1d2b32"/><stop offset="1" stop-color="#40525c"/></linearGradient>
+    <linearGradient id="skin" x2="1" y2="1"><stop stop-color="#eed1b2"/><stop offset="1" stop-color="#c69077"/></linearGradient>
+    <linearGradient id="light" x2="1"><stop stop-color="#fff6dd" stop-opacity=".62"/><stop offset="1" stop-color="#fff6dd" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <path d="M0 0h260L88 500H0z" fill="url(#light)"/>
+  <path d="M547 0h253v500H610c-62-94-73-234-63-500z" fill="#1c2b34" opacity=".3"/>
+  <circle cx="601" cy="119" r="62" fill="#d9cfb1" opacity=".25"/>
+  <path d="M129 500c51-132 169-181 270-181 134 0 225 63 266 181z" fill="url(#coat)"/>
+  <path d="M344 365l53 62 59-63-8-70H354z" fill="url(#skin)"/>
+  <path d="M297 178c11-85 62-124 120-120 80 5 121 57 106 141l-13 83c-11 77-62 124-119 117-67-8-112-67-108-142z" fill="#252b2d"/>
+  <path d="M324 167c13-61 48-85 98-82 57 3 87 33 86 93l-8 107c-4 53-40 100-91 103-51 3-88-35-92-92z" fill="url(#skin)"/>
+  <path d="M316 194c-13-112 38-151 101-151 86 0 119 64 99 172-5-42-19-77-44-89-24 30-83 46-156 40z" fill="#202426"/>
+  <path d="M339 235c17-8 35-8 51-1m47 0c18-9 34-9 52-2" fill="none" stroke="#664d43" stroke-width="5" stroke-linecap="round"/>
+  <path d="M352 242c10 8 21 8 31 0m64 0c11 8 23 8 33-1" fill="none" stroke="#343438" stroke-width="4" stroke-linecap="round"/>
+  <path d="M413 245l-9 52 18 2" fill="none" stroke="#a96f60" stroke-width="4" stroke-linecap="round"/>
+  <path d="M378 332c23 14 49 13 69-2" fill="none" stroke="#8c514d" stroke-width="5" stroke-linecap="round"/>
+  <path d="M298 135c-28 50-27 144 9 209l-27-14c-25-72-25-153 18-195zm218 1c38 56 39 129 8 194l-23 14c20-67 23-144 15-208z" fill="#202426"/>
+  <path d="M163 500c40-39 80-79 115-121m385 121c-40-47-79-87-128-126" fill="none" stroke="#718884" stroke-width="2" opacity=".5"/>
+  <path d="M650 500c13-100 36-182 78-242m-55 171c-41-22-57-52-52-89m65 46c31-14 50-36 58-71" fill="none" stroke="#203c37" stroke-width="9" stroke-linecap="round"/>
+  <ellipse cx="625" cy="332" rx="16" ry="39" transform="rotate(-42 625 332)" fill="#315448"/>
+  <ellipse cx="734" cy="317" rx="16" ry="38" transform="rotate(42 734 317)" fill="#315448"/>
+</svg>

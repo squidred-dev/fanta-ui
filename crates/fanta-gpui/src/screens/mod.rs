@@ -4,4 +4,5 @@
 //! domain data host-controlled and emitting typed intents through the engine
 //! seam (§2–§4).
 
+pub mod generation;
 pub mod variables;

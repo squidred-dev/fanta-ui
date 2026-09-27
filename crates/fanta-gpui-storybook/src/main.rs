@@ -38,11 +38,11 @@ use gpui_component::{
 };
 use screens::{
     ButtonsScreen, CheckboxStory, DesignScreen, DropdownStory, FieldsScreen, FileInspectorScreen,
-    IconsScreen, InputsStory, LabelsScreen, LayersScreen, ListRowsScreen, MenusScreen,
-    OverlaysScreen, PagesScreen, PopupsScreen, PropertiesInspectorScreen, PropertiesTabsScreen,
-    PrototypeScreen, PseudoEditorScreen, RadioButtonStory, SegmentedControlStory, StructureScreen,
-    TabsStory, TimelineScreen, TokensScreen, ToolbarScreen, TooltipsStory, VariablesStory,
-    WelcomeScreen, ZoomBarScreen, viewport::StoryViewport,
+    GenerationStories, IconsScreen, InputsStory, LabelsScreen, LayersScreen, ListRowsScreen,
+    MenusScreen, OverlaysScreen, PagesScreen, PopupsScreen, PropertiesInspectorScreen,
+    PropertiesTabsScreen, PrototypeScreen, PseudoEditorScreen, RadioButtonStory,
+    SegmentedControlStory, StructureScreen, TabsStory, TimelineScreen, TokensScreen, ToolbarScreen,
+    TooltipsStory, VariablesStory, WelcomeScreen, ZoomBarScreen, viewport::StoryViewport,
 };
 use themes::{apply_zed_theme, initial_zed_theme_index, zed_themes};
 
@@ -91,6 +91,7 @@ struct Storybook {
     structure_screen: StructureScreen,
     overlays_screen: OverlaysScreen,
     variables_screen: VariablesStory,
+    generation_stories: GenerationStories,
     sliders_screen: screens::sliders::SlidersStory,
     paint_picker_screen: screens::paint_picker::PaintPickerStory,
     color_picker_screen: screens::color_picker::ColorPickerStory,
@@ -135,6 +136,7 @@ impl Storybook {
         let structure_screen = StructureScreen::new(cx);
         let overlays_screen = OverlaysScreen::new(cx);
         let variables_screen = VariablesStory::new(window, cx);
+        let generation_stories = GenerationStories::new(window, cx);
         let sliders_screen = screens::sliders::SlidersStory::new(cx);
         let paint_picker_screen = screens::paint_picker::PaintPickerStory::new(window, cx);
         let color_picker_screen = screens::color_picker::ColorPickerStory::new(window, cx);
@@ -238,6 +240,54 @@ impl Storybook {
                 &variables_screen.screen,
                 |story, screen, action: &VariablesAction, cx| {
                     story.variables_screen.handle_action(screen, action, cx);
+                },
+            ),
+            cx.subscribe_in(
+                &generation_stories.image.screen,
+                window,
+                |story, _, action: &fanta_gpui::generation::GenerationAction, window, cx| {
+                    story.handle_generation_action(
+                        fanta_gpui::generation::GenerationKind::Image,
+                        action,
+                        window,
+                        cx,
+                    );
+                },
+            ),
+            cx.subscribe_in(
+                &generation_stories.video.screen,
+                window,
+                |story, _, action: &fanta_gpui::generation::GenerationAction, window, cx| {
+                    story.handle_generation_action(
+                        fanta_gpui::generation::GenerationKind::Video,
+                        action,
+                        window,
+                        cx,
+                    );
+                },
+            ),
+            cx.subscribe_in(
+                &generation_stories.audio.screen,
+                window,
+                |story, _, action: &fanta_gpui::generation::GenerationAction, window, cx| {
+                    story.handle_generation_action(
+                        fanta_gpui::generation::GenerationKind::Audio,
+                        action,
+                        window,
+                        cx,
+                    );
+                },
+            ),
+            cx.subscribe_in(
+                &generation_stories.svg.screen,
+                window,
+                |story, _, action: &fanta_gpui::generation::GenerationAction, window, cx| {
+                    story.handle_generation_action(
+                        fanta_gpui::generation::GenerationKind::Svg,
+                        action,
+                        window,
+                        cx,
+                    );
                 },
             ),
             cx.subscribe(
@@ -375,6 +425,7 @@ impl Storybook {
             structure_screen,
             overlays_screen,
             variables_screen,
+            generation_stories,
             sliders_screen,
             paint_picker_screen,
             color_picker_screen,
@@ -527,13 +578,24 @@ fn main() {
                 StorybookLaunchMode::ReferenceFixture => {
                     if matches!(
                         launch.story,
+                        StoryKind::GenerationImage
+                            | StoryKind::GenerationVideo
+                            | StoryKind::GenerationAudio
+                            | StoryKind::GenerationSvg
+                    ) {
+                        // Ayu Dark has the darkest editor canvas in the
+                        // bundled Zed themes (#0d1016). Keep the generation
+                        // reference fixtures on that native Zed palette.
+                        apply_zed_theme(&zed_themes()[4], cx);
+                    } else if matches!(
+                        launch.story,
                         StoryKind::FileInspector
                             | StoryKind::Pages
                             | StoryKind::Layers
                             | StoryKind::Variables
                     ) {
-                        // Sidebar and Variables surfaces exercise the Zed
-                        // palette in reference windows as well as the gallery.
+                        // Sidebar and Variables surfaces exercise the One Dark
+                        // Zed palette in reference windows as well.
                         apply_zed_theme(&zed_themes()[1], cx);
                     } else {
                         Theme::change(ThemeMode::Dark, None, cx);
