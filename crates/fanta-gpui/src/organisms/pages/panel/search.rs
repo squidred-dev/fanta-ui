@@ -1,5 +1,4 @@
 use super::*;
-use crate::atoms::TypographyExt as _;
 
 impl PagesPanel {
     /// Node-kind icon shared with the Layers iconography. Every glyph comes
@@ -7,9 +6,9 @@ impl PagesPanel {
     pub(super) fn element_icon(kind: PagesPanelElementKind, cx: &App) -> AnyElement {
         let color = match kind {
             PagesPanelElementKind::Component | PagesPanelElementKind::Instance => {
-                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
+                crate::atoms::sidebar_style(cx).icon
             }
-            _ => crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+            _ => crate::atoms::sidebar_style(cx).muted_icon,
         };
         let icon = match kind {
             PagesPanelElementKind::All => {
@@ -59,7 +58,7 @@ impl PagesPanel {
             .gap_2()
             .p_3()
             .border_b_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .border_color(crate::atoms::sidebar_style(cx).border)
             .child(
                 h_flex()
                     .w_full()
@@ -89,7 +88,7 @@ impl PagesPanel {
                             .track_focus(&settings_focus_handle)
                             .focus(|style| {
                                 style
-                                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                                    .bg(crate::atoms::sidebar_style(cx).hover)
                                     .rounded(px(5.))
                             })
                             .on_activate(cx.listener(|this, event: &ActivateEvent, window, cx| {
@@ -134,7 +133,7 @@ impl PagesPanel {
                             .track_focus(&close_search_focus_handle)
                             .focus(|style| {
                                 style
-                                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                                    .bg(crate::atoms::sidebar_style(cx).hover)
                                     .rounded(px(5.))
                             })
                             .on_activate(cx.listener(|this, _, window, cx| {
@@ -193,8 +192,7 @@ impl PagesPanel {
                                     })
                                     .focus(|style| {
                                         style
-                                            .bg(crate::atoms::SemanticColor::BackgroundHover
-                                                .resolve(cx))
+                                            .bg(crate::atoms::sidebar_style(cx).hover)
                                             .rounded(px(5.))
                                     })
                                     .on_activate(cx.listener(move |this, _, _, cx| {
@@ -238,8 +236,7 @@ impl PagesPanel {
                                     })
                                     .focus(|style| {
                                         style
-                                            .bg(crate::atoms::SemanticColor::BackgroundHover
-                                                .resolve(cx))
+                                            .bg(crate::atoms::sidebar_style(cx).hover)
                                             .rounded(px(5.))
                                     })
                                     .on_activate(cx.listener(move |this, _, _, cx| {
@@ -283,22 +280,18 @@ impl PagesPanel {
                             )))
                             .key_context(CONTROL_KEY_CONTEXT)
                             .tab_index(0)
-                            .h(px(28.))
+                            .h(px(tokens::RowHeight::LIST))
                             .gap_1()
                             .px_2()
                             .rounded(px(6.))
                             .border_1()
-                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                            .border_color(crate::atoms::sidebar_style(cx).border)
                             .cursor_pointer()
-                            .hover(|style| {
-                                style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
-                            })
+                            .hover(|style| style.bg(crate::atoms::sidebar_style(cx).hover))
                             .focus(|style| {
                                 style
-                                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
-                                    .border_color(
-                                        crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
-                                    )
+                                    .bg(crate::atoms::sidebar_style(cx).hover)
+                                    .border_color(crate::atoms::sidebar_style(cx).focused_border)
                             })
                             .on_activate(cx.listener(move |this, _, _, cx| {
                                 this.toggle_filter(kind, cx);
@@ -337,19 +330,19 @@ impl PagesPanel {
             .px_3()
             .gap_2()
             .border_b_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .border_color(crate::atoms::sidebar_style(cx).border)
             .child(
                 div()
                     .debug_selector(|| "pages-result-count".to_owned())
                     .flex_none()
                     .whitespace_nowrap()
-                    .typography(crate::atoms::TypographyToken::BodyLarge)
+                    .text_size(crate::atoms::sidebar_text_size())
                     .child(result_label),
             )
             .child(
                 div()
                     .flex_none()
-                    .typography(crate::atoms::TypographyToken::BodyLarge)
+                    .text_size(crate::atoms::sidebar_text_size())
                     .child("·"),
             )
             .child(
@@ -364,14 +357,12 @@ impl PagesPanel {
                     .key_context(CONTROL_KEY_CONTEXT)
                     .track_focus(&scope_trigger_focus_handle)
                     .gap_1()
-                    .typography(crate::atoms::TypographyToken::BodyLarge)
+                    .text_size(crate::atoms::sidebar_text_size())
                     .cursor_pointer()
                     .focus(|style| {
                         style
-                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
-                            .border_color(
-                                crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
-                            )
+                            .bg(crate::atoms::sidebar_style(cx).hover)
+                            .border_color(crate::atoms::sidebar_style(cx).focused_border)
                     })
                     .on_activate(cx.listener(|this, event: &ActivateEvent, window, cx| {
                         cx.stop_propagation();
@@ -404,7 +395,7 @@ impl PagesPanel {
                     })
                     .focus(|style| {
                         style
-                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .bg(crate::atoms::sidebar_style(cx).hover)
                             .rounded(px(5.))
                     })
                     .on_activate(cx.listener(move |this, _, _, cx| {
@@ -444,7 +435,7 @@ impl PagesPanel {
                     })
                     .focus(|style| {
                         style
-                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .bg(crate::atoms::sidebar_style(cx).hover)
                             .rounded(px(5.))
                     })
                     .on_activate(cx.listener(move |this, _, _, cx| {
@@ -488,8 +479,8 @@ impl PagesPanel {
                         .debug_selector(|| "pages-results-empty".to_owned())
                         .w_full()
                         .p_4()
-                        .typography(crate::atoms::TypographyToken::BodyLarge)
-                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                        .text_size(crate::atoms::sidebar_text_size())
+                        .text_color(crate::atoms::sidebar_style(cx).muted_text)
                         .child(empty_results_label(self.search_scope)),
                 )
             })
@@ -513,18 +504,20 @@ impl PagesPanel {
                             .gap_2()
                             .px_4()
                             .py_2()
+                            .border_1()
+                            .border_color(crate::atoms::sidebar_style(cx).border.opacity(0.))
                             .cursor_pointer()
-                            .when(is_hovered && !is_active, |row| row.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+                            .when(is_hovered && !is_active, |row| {
+                                row.bg(crate::atoms::sidebar_style(cx).hover)
+                            })
                             .focus(|style| {
                                 style
-                                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
-                                    .border_l_2()
-                                    .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+                                    .bg(crate::atoms::sidebar_style(cx).hover)
+                                    .border_color(crate::atoms::sidebar_style(cx).focused_border)
                             })
                             .when(is_active, |row| {
-                                row.bg(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
-                                    .border_l_2()
-                                    .border_color(crate::atoms::SemanticColor::BorderSelected.resolve(cx))
+                                row.bg(crate::atoms::sidebar_style(cx).selected)
+                                    .border_color(crate::atoms::sidebar_style(cx).selected_border)
                             })
                             .on_hover(cx.listener(move |this, hovered, _, cx| {
                                 let changed = if *hovered {
@@ -556,12 +549,13 @@ impl PagesPanel {
                                             .gap_1()
                                             .child(
                                                 div()
-                                                    .typography(crate::atoms::TypographyToken::BodyLarge)
+                                                    .text_size(crate::atoms::sidebar_text_size())
                                                     .when(
                                                         replace_mode && !replacement.is_empty(),
                                                         |text| {
                                                             text.text_color(
-                                                                crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                                                crate::atoms::sidebar_style(cx)
+                                                                    .muted_text,
                                                             )
                                                             .line_through()
                                                         },
@@ -576,8 +570,10 @@ impl PagesPanel {
                                     .when_some(result.parent, |column, parent| {
                                         column.child(
                                             div()
-                                                .typography(crate::atoms::TypographyToken::BodyLarge)
-                                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                                                .text_size(crate::atoms::sidebar_text_size())
+                                                .text_color(
+                                                    crate::atoms::sidebar_style(cx).muted_text,
+                                                )
                                                 .child(parent),
                                         )
                                     }),
@@ -593,7 +589,7 @@ impl PagesPanel {
             .relative()
             .size_full()
             .min_h(px(280.))
-            .bg(crate::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
+            .bg(crate::atoms::sidebar_style(cx).background)
             .child(track_bounds(cx.entity(), |this, bounds| {
                 this.search_panel_bounds = Some(bounds);
             }))

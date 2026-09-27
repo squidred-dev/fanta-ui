@@ -436,6 +436,12 @@ hosts continue subscribing to the original Pages and Layers entities. Dedicated
 child panel entities render borderless, and the layout draws internal separators
 only. The containing host owns the sidebar's outer edge.
 
+File Inspector chrome, including Pages and Layers presentation, follows Zed's
+panel background, muted text, selection, focus, menu elevation, and UI type
+scale when a host installs the Zed theme. Standalone hosts that initialize only
+`gpui-component` use its corresponding sidebar colors. This visual bridge does
+not change the controlled data or intent contracts of either child panel.
+
 `PseudoEditor` is a presentation-only integration shell. A host constructs and
 subscribes to each child component, then passes those entities through
 `PseudoEditorChildren`. The shell owns simulated surface tabs and variables

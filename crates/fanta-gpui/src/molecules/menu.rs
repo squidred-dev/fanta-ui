@@ -23,8 +23,14 @@ use crate::atoms::{
     ActivateEvent, CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, SemanticColor,
     TypographyToken, render_lucide_icon, tokens,
 };
+use ui::StyledExt as _;
 
 type ActivateHandler = Rc<dyn Fn(&ActivateEvent, &mut Window, &mut App)>;
+
+/// The fixed row height keeps Fanta's focusable menu rows close to Zed's
+/// default-density `ListItem` line height.
+pub(crate) const SIDEBAR_MENU_ITEM_HEIGHT: f32 = 24.;
+const SIDEBAR_MENU_FALLBACK_SEPARATOR_MARGIN: f32 = 6.;
 
 /// Visual states in Figma's menu-row component sets.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
@@ -843,6 +849,70 @@ pub fn menu_surface(
         .rounded(radius)
 }
 
+/// A File Inspector popup with Zed's elevated-surface treatment when the
+/// host has installed the Zed theme. Its placement, scrolling, and dismissal
+/// remain with the caller, as for `menu_surface`.
+pub(crate) fn sidebar_menu_surface(
+    id: impl Into<ElementId>,
+    origin: Point<Pixels>,
+    width: Pixels,
+    max_height: Pixels,
+    cx: &App,
+) -> Stateful<Div> {
+    let surface = menu_surface(id, origin, width, max_height, px(tokens::Radius::MENU), cx);
+    if cx.try_global::<theme::GlobalTheme>().is_some() {
+        surface
+            .py(ui::DynamicSpacing::Base04.rems(cx))
+            .elevation_2(cx)
+    } else {
+        let palette = crate::atoms::sidebar_style(cx);
+        surface
+            .bg(palette.menu_background)
+            .border_color(palette.border)
+    }
+}
+
+/// Height of the rows, separators, padding, and border used by the sidebar
+/// menu helpers. Callers use it to clamp a popup before positioning it.
+pub(crate) fn sidebar_menu_height(rows: usize, separators: usize, cx: &App) -> Pixels {
+    let zed_theme = cx.try_global::<theme::GlobalTheme>().is_some();
+    let vertical_padding = if zed_theme {
+        f32::from(ui::DynamicSpacing::Base04.px(cx))
+    } else {
+        tokens::Space::SM
+    };
+    let separator_margin = if zed_theme {
+        f32::from(ui::DynamicSpacing::Base06.px(cx))
+    } else {
+        SIDEBAR_MENU_FALLBACK_SEPARATOR_MARGIN
+    };
+    px(rows as f32 * SIDEBAR_MENU_ITEM_HEIGHT
+        + separators as f32 * (1. + 2. * separator_margin)
+        + 2. * vertical_padding
+        + 2.)
+}
+
+pub(crate) fn sidebar_menu_separator(cx: &App) -> AnyElement {
+    if cx.try_global::<theme::GlobalTheme>().is_some() {
+        // The inspector menu is a height-capped flex column. Unlike its rows,
+        // Zed's ListSeparator can shrink to zero when the menu overflows, so
+        // keep the Zed component in a nonshrinking wrapper.
+        div()
+            .w_full()
+            .flex_none()
+            .child(ui::ListSeparator)
+            .into_any_element()
+    } else {
+        div()
+            .h_px()
+            .w_full()
+            .my(px(SIDEBAR_MENU_FALLBACK_SEPARATOR_MARGIN))
+            .flex_none()
+            .bg(crate::atoms::sidebar_style(cx).border)
+            .into_any_element()
+    }
+}
+
 /// Menu-row baseline.
 ///
 /// Menus keep the accent-fill focus treatment (no focus ring) so keyboard
@@ -881,6 +951,30 @@ pub fn menu_item(id: impl Into<ElementId>, height: Pixels, cx: &App) -> Stateful
     menu_item_base(id, height)
         .hover(|style| style.bg(SemanticColor::BackgroundHover.resolve(cx)))
         .focus(|style| style.bg(SemanticColor::BackgroundHover.resolve(cx)))
+}
+
+/// Zed panel menu row used by the File Inspector's Pages and Layers menus.
+/// The enabled and disabled variants share the existing menu activation
+/// contract while taking their text and highlight roles from the panel theme.
+pub(crate) fn sidebar_menu_item(
+    id: impl Into<ElementId>,
+    height: Pixels,
+    enabled: bool,
+    cx: &App,
+) -> Stateful<Div> {
+    let palette = crate::atoms::sidebar_style(cx);
+    menu_item_base(id, height)
+        .text_size(crate::atoms::sidebar_text_size())
+        .text_color(if enabled {
+            palette.text
+        } else {
+            palette.disabled_text
+        })
+        .when(enabled, |row| {
+            row.hover(|style| style.bg(palette.hover))
+                .focus(|style| style.bg(palette.hover))
+        })
+        .when(!enabled, |row| row.tab_index(-1).cursor_default())
 }
 
 fn menu_item_base(id: impl Into<ElementId>, height: Pixels) -> Stateful<Div> {

@@ -1,5 +1,4 @@
 use super::*;
-use crate::atoms::TypographyExt as _;
 
 impl PagesPanel {
     fn collapsed_title(&self) -> SharedString {
@@ -29,15 +28,9 @@ impl PagesPanel {
             .cursor_pointer()
             .occlude()
             .when(self.header_hovered, |header| {
-                header.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
-                    .resolve(cx)
-                    .opacity(0.55))
+                header.bg(crate::atoms::sidebar_style(cx).hover)
             })
-            .focus(|style| {
-                style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
-                    .resolve(cx)
-                    .opacity(0.75))
-            })
+            .focus(|style| style.bg(crate::atoms::sidebar_style(cx).hover))
             .on_hover(cx.listener(|this, hovered, _, cx| {
                 if this.header_hovered != *hovered {
                     this.header_hovered = *hovered;
@@ -62,11 +55,17 @@ impl PagesPanel {
                     .gap_1()
                     .px_3()
                     .when(!expanded, |title| {
-                        title.child(Icon::new(IconName::ChevronRight).xsmall())
+                        title.child(
+                            Icon::new(IconName::ChevronRight)
+                                .xsmall()
+                                .text_color(crate::atoms::sidebar_style(cx).muted_icon),
+                        )
                     })
                     .child(
                         truncating_label(title)
-                            .typography(crate::atoms::TypographyToken::BodyMediumStrong)
+                            .text_size(crate::atoms::sidebar_text_size())
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .text_color(crate::atoms::sidebar_style(cx).muted_text)
                             .debug_selector(|| "pages-header-title".to_owned()),
                     ),
             )
@@ -80,7 +79,7 @@ impl PagesPanel {
                     .track_focus(&self.find_focus_handle.clone().tab_index(0).tab_stop(true))
                     .focus(|style| {
                         style
-                            .bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
+                            .bg(crate::atoms::sidebar_style(cx).hover)
                             .rounded(px(5.))
                     })
                     .occlude()
@@ -119,7 +118,7 @@ impl PagesPanel {
                     )
                     .focus(|style| {
                         style
-                            .bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
+                            .bg(crate::atoms::sidebar_style(cx).hover)
                             .rounded(px(5.))
                     })
                     .occlude()

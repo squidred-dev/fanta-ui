@@ -1,5 +1,4 @@
 use super::*;
-use crate::atoms::TypographyExt as _;
 
 impl PagesPanel {
     pub(super) fn control_bounds_tracker(
@@ -22,9 +21,9 @@ impl PagesPanel {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let enabled = self.page_menu_action_enabled(action);
-        crate::molecules::context_menu_item(
+        sidebar_menu_item(
             SharedString::from(format!("{}-{selector}", self.id)),
-            px(36.),
+            px(SIDEBAR_MENU_ITEM_HEIGHT),
             enabled,
             cx,
         )
@@ -63,19 +62,18 @@ impl PagesPanel {
             window_size,
             size(
                 px(PAGE_MENU_WIDTH),
-                px(PAGE_MENU_HEIGHT).min(window_size.height),
+                sidebar_menu_height(8, 3, cx).min(window_size.height),
             ),
         );
         let max_height = window_size.height - clamped.y;
         let origin = clamped - panel_bounds.origin;
 
         deferred(
-            menu_surface(
+            sidebar_menu_surface(
                 SharedString::from(format!("{}-page-menu", self.id)),
                 origin,
                 px(PAGE_MENU_WIDTH),
                 max_height,
-                px(MENU_RADIUS),
                 cx,
             )
             .debug_selector(|| "pages-page-menu".to_owned())
@@ -89,7 +87,7 @@ impl PagesPanel {
                 true,
                 cx,
             ))
-            .child(menu_separator(cx))
+            .child(sidebar_menu_separator(cx))
             .child(self.render_page_menu_item(
                 "Rename page",
                 "pages-page-menu-rename",
@@ -104,7 +102,7 @@ impl PagesPanel {
                 false,
                 cx,
             ))
-            .child(menu_separator(cx))
+            .child(sidebar_menu_separator(cx))
             .child(self.render_page_menu_item(
                 "Move up",
                 "pages-page-menu-move-up",
@@ -133,7 +131,7 @@ impl PagesPanel {
                 false,
                 cx,
             ))
-            .child(menu_separator(cx))
+            .child(sidebar_menu_separator(cx))
             .child(self.render_page_menu_item(
                 "Delete page",
                 "pages-page-menu-delete",
@@ -228,7 +226,7 @@ impl PagesPanel {
         let all_active = self.active_filters.is_empty();
         let mode = self.mode;
         let estimated_height =
-            px((PagesPanelElementKind::FILTER_ORDER.len() as f32 + 4.) * 32. + 50.);
+            sidebar_menu_height(PagesPanelElementKind::FILTER_ORDER.len() + 4, 2, cx);
         let window_size = window.viewport_size();
         let clamped = clamp_menu_origin(
             anchor_bounds.bottom_left() + point(px(0.), px(4.)),
@@ -242,12 +240,11 @@ impl PagesPanel {
         let origin = clamped - panel_bounds.origin;
 
         deferred(
-            menu_surface(
+            sidebar_menu_surface(
                 SharedString::from(format!("{}-filter-menu", self.id)),
                 origin,
                 px(FILTER_MENU_WIDTH),
                 max_height,
-                px(MENU_RADIUS),
                 cx,
             )
             .debug_selector(|| "pages-filter-menu".to_owned())
@@ -255,7 +252,7 @@ impl PagesPanel {
             .track_scroll(&self.filter_menu_scroll_handle)
             .child(self.render_mode_item(PanelMode::Find, "Find", mode, cx))
             .child(self.render_mode_item(PanelMode::Replace, "Replace", mode, cx))
-            .child(menu_separator(cx))
+            .child(sidebar_menu_separator(cx))
             .children(PagesPanelElementKind::FILTER_ORDER.into_iter().map(|kind| {
                 let active = if kind == PagesPanelElementKind::All {
                     all_active
@@ -266,9 +263,10 @@ impl PagesPanel {
                     .iter()
                     .find(|item| item.kind == kind)
                     .map(|item| item.count);
-                menu_item(
+                sidebar_menu_item(
                     SharedString::from(format!("{}-filter-{}", self.id, kind.label())),
-                    px(32.),
+                    px(SIDEBAR_MENU_ITEM_HEIGHT),
+                    true,
                     cx,
                 )
                 .on_activate(cx.listener(move |this, _, _, cx| {
@@ -281,19 +279,19 @@ impl PagesPanel {
                 .child(
                     div()
                         .flex_1()
-                        .typography(crate::atoms::TypographyToken::BodyLarge)
+                        .text_size(crate::atoms::sidebar_text_size())
                         .child(kind.label()),
                 )
                 .when_some(count, |row, count| {
                     row.child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyLarge)
-                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                            .text_size(crate::atoms::sidebar_text_size())
+                            .text_color(crate::atoms::sidebar_style(cx).muted_text)
                             .child(count.to_string()),
                     )
                 })
             }))
-            .child(menu_separator(cx))
+            .child(sidebar_menu_separator(cx))
             .child(self.render_option_item("Match case", self.match_case, true, cx))
             .child(self.render_option_item("Whole words", self.whole_words, false, cx))
             .child(
@@ -321,9 +319,10 @@ impl PagesPanel {
     ) -> AnyElement {
         let selector = format!("pages-mode-{}", label.to_lowercase());
         let menu_focus_handle = self.filter_menu_focus_handle.clone();
-        menu_item(
+        sidebar_menu_item(
             SharedString::from(format!("{}-mode-{label}", self.id)),
-            px(32.),
+            px(SIDEBAR_MENU_ITEM_HEIGHT),
+            true,
             cx,
         )
         .debug_selector(move || selector)
@@ -331,7 +330,7 @@ impl PagesPanel {
             row.track_focus(&menu_focus_handle)
         })
         .when(item_mode == active_mode, |row| {
-            row.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+            row.bg(crate::atoms::sidebar_style(cx).hover)
         })
         .on_activate(cx.listener(move |this, _, window, cx| {
             this.set_panel_mode(item_mode, window, cx);
@@ -350,9 +349,10 @@ impl PagesPanel {
         match_case: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        menu_item(
+        sidebar_menu_item(
             SharedString::from(format!("{}-option-{label}", self.id)),
-            px(32.),
+            px(SIDEBAR_MENU_ITEM_HEIGHT),
+            true,
             cx,
         )
         .on_activate(cx.listener(move |this, _, _, cx| {
@@ -385,7 +385,7 @@ impl PagesPanel {
             window_size,
             size(
                 px(SCOPE_MENU_WIDTH),
-                px(SCOPE_MENU_HEIGHT).min(window_size.height),
+                sidebar_menu_height(2, 0, cx).min(window_size.height),
             ),
         );
         let max_height = window_size.height - clamped.y;
@@ -393,12 +393,11 @@ impl PagesPanel {
         let menu_focus_handle = self.scope_menu_focus_handle.clone();
 
         deferred(
-            menu_surface(
+            sidebar_menu_surface(
                 SharedString::from(format!("{}-scope-menu", self.id)),
                 origin,
                 px(SCOPE_MENU_WIDTH),
                 max_height,
-                px(MENU_RADIUS),
                 cx,
             )
             .debug_selector(|| "pages-scope-menu".to_owned())
@@ -415,9 +414,10 @@ impl PagesPanel {
                         PagesPanelSearchScope::CurrentPage => "pages-scope-current-page",
                         PagesPanelSearchScope::AllPages => "pages-scope-all-pages",
                     };
-                    menu_item(
+                    sidebar_menu_item(
                         SharedString::from(format!("{}-scope-{}", self.id, scope.label())),
-                        px(36.),
+                        px(SIDEBAR_MENU_ITEM_HEIGHT),
+                        true,
                         cx,
                     )
                     .debug_selector(move || selector.to_owned())
@@ -437,13 +437,4 @@ impl PagesPanel {
         .with_priority(2)
         .into_any_element()
     }
-}
-
-fn menu_separator(cx: &App) -> gpui::Div {
-    div()
-        .h(px(1.))
-        .w_full()
-        .my_2()
-        .flex_none()
-        .bg(crate::atoms::SemanticColor::Border.resolve(cx))
 }

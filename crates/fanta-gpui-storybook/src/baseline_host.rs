@@ -184,6 +184,12 @@ pub(super) fn init(cx: &mut App) {
             Err(error) => eprintln!("failed to read bundled theme {path}: {error}"),
         }
     }
+    // This gallery-only theme is also offered by `zed_themes()`. Register it
+    // with the baseline so selecting it updates both theme systems together.
+    match theme::decode_bundled_theme(include_bytes!("../assets/themes/figma-ui3.json")) {
+        Ok(family) => registry.insert_theme_families([family]),
+        Err(error) => eprintln!("failed to decode bundled Figma UI3 theme: {error}"),
+    }
 }
 
 fn asset_paths(prefix: &str) -> Vec<SharedString> {

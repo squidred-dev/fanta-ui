@@ -11,6 +11,8 @@ repository.workspace = true
 [dependencies]
 gpui.workspace = true
 gpui-component.workspace = true
+theme.workspace = true
+ui.workspace = true
 # Official Lucide release and SVG path parser. Fanta renders this pinned
 # catalog directly instead of maintaining a second, hand-drawn icon set.
 lucide-static-svg = { version = "=1.45.0", default-features = false, features = ["svg"] }

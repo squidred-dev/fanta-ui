@@ -1,5 +1,4 @@
 use super::*;
-use crate::atoms::TypographyExt as _;
 
 impl PagesPanel {
     fn page_reveal_height(&self) -> f32 {
@@ -139,23 +138,22 @@ impl PagesPanel {
         )
         .debug_selector(move || row_selector)
         .track_focus(&row_focus_handle.tab_index(0).tab_stop(true))
-        .border_0()
+        .border_color(crate::atoms::sidebar_style(cx).border.opacity(0.))
         .px_2()
-        .typography(crate::atoms::TypographyToken::BodyMedium)
+        .text_size(crate::atoms::sidebar_text_size())
         .focus(|style| {
-            style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
-                .resolve(cx)
-                .opacity(0.8))
+            style
+                .bg(crate::atoms::sidebar_style(cx).hover)
+                .border_color(crate::atoms::sidebar_style(cx).focused_border)
         })
         .when(is_hovered && !is_selected, |row| {
-            row.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
-                .resolve(cx)
-                .opacity(0.65))
+            row.bg(crate::atoms::sidebar_style(cx).hover)
         })
         .when(is_selected, |row| {
-            row.bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
-                .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
-                .typography(crate::atoms::TypographyToken::BodyMediumStrong)
+            row.bg(crate::atoms::sidebar_style(cx).selected)
+                .text_color(crate::atoms::sidebar_style(cx).text)
+                .border_color(crate::atoms::sidebar_style(cx).selected_border)
+                .font_weight(gpui::FontWeight::MEDIUM)
         })
         .on_hover(cx.listener({
             let hovered_page_id = page.id.clone();

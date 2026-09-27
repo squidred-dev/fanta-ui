@@ -26,6 +26,7 @@ mod lucide;
 mod radio_button;
 mod segmented_control;
 mod semantic_button;
+mod sidebar_style;
 mod slider;
 mod tabs;
 pub mod tokens;
@@ -59,6 +60,7 @@ pub use semantic_button::{
     SemanticButtonVariant, SemanticIconButton, SemanticIconButtonKind, SemanticSplitButtonState,
     semantic_button, semantic_icon_button, ui_button,
 };
+pub(crate) use sidebar_style::{sidebar_style, sidebar_text_size};
 pub use tabs::{Tab, TabSelection, TabState, Tabs};
 pub use tooltip::{Tooltip, TooltipDirection, TooltipLink, TooltipLinkAction, TooltipLinkVariant};
 pub use truncate::truncating_label;

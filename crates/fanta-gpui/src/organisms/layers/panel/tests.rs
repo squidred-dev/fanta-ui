@@ -739,7 +739,7 @@ fn long_context_menu_repositions_to_stay_inside_the_panel_height(cx: &mut TestAp
 
     assert!(menu.top() >= panel.top());
     assert!(menu.bottom() <= panel.bottom());
-    assert_eq!(bounds(cx, "layers-menu-copy").size.height, px(28.));
+    assert_eq!(bounds(cx, "layers-menu-copy").size.height, px(24.));
     assert!(bounds(cx, "layers-context-menu-scrollbar").size.height > px(0.));
 }
 
