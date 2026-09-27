@@ -206,6 +206,20 @@ pub struct GenerationScreen {
 impl EventEmitter<GenerationAction> for GenerationScreen {}
 
 impl GenerationScreen {
+    fn selected_model_for(
+        kind: GenerationKind,
+        data: &GenerationViewData,
+    ) -> Option<&GenerationModel> {
+        let selected_id = data.selected_model_id.as_ref()?;
+        data.models.iter().find(|model| {
+            &model.id == selected_id
+                && model.recipe.kind() == kind
+                && data
+                    .selected_recipe
+                    .is_none_or(|recipe| model.recipe == recipe)
+        })
+    }
+
     pub fn new(
         id: impl Into<SharedString>,
         kind: GenerationKind,
@@ -312,11 +326,7 @@ impl GenerationScreen {
         let model_picker_changed = self.data.models != data.models
             || self.data.selected_model_id != data.selected_model_id
             || self.data.selected_recipe != data.selected_recipe;
-        let selected_model = data
-            .selected_model_id
-            .as_ref()
-            .and_then(|id| data.models.iter().find(|model| &model.id == id))
-            .filter(|model| model.recipe.kind() == self.kind);
+        let selected_model = Self::selected_model_for(self.kind, &data);
         let draft_context_changed = self.data.selected_model_id != data.selected_model_id
             || self.selected_model() != selected_model
             || self.data.source.as_ref().map(|source| &source.id)
@@ -384,16 +394,7 @@ impl GenerationScreen {
     }
 
     fn selected_model(&self) -> Option<&GenerationModel> {
-        self.data
-            .selected_model_id
-            .as_ref()
-            .and_then(|id| self.data.models.iter().find(|model| &model.id == id))
-            .filter(|model| model.recipe.kind() == self.kind)
-            .filter(|model| {
-                self.data
-                    .selected_recipe
-                    .is_none_or(|recipe| model.recipe == recipe)
-            })
+        Self::selected_model_for(self.kind, &self.data)
     }
 
     fn selected_output(&self) -> Option<&GenerationOutput> {
@@ -1972,5 +1973,30 @@ impl Render for GenerationScreen {
         } else {
             root
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn selected_model_matches_recipe_when_id_is_shared() {
+        let data = GenerationViewData {
+            models: vec![
+                GenerationModel::new("ltx-video", "LTX", GenerationRecipe::TextVideo),
+                GenerationModel::new("ltx-video", "LTX", GenerationRecipe::ImageVideo),
+            ],
+            selected_recipe: Some(GenerationRecipe::ImageVideo),
+            selected_model_id: Some("ltx-video".into()),
+            ..Default::default()
+        };
+
+        let selected = GenerationScreen::selected_model_for(GenerationKind::Video, &data);
+        assert_eq!(
+            selected.map(|model| model.recipe),
+            Some(GenerationRecipe::ImageVideo)
+        );
+        assert!(GenerationScreen::selected_model_for(GenerationKind::Audio, &data).is_none());
     }
 }
