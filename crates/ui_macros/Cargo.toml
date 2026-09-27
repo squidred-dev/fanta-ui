@@ -1,0 +1,21 @@
+[package]
+name = "fanta-gpui-ui-macros"
+description = "Procedural macros for Zed baseline GPUI components."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = true
+license = "GPL-3.0-or-later"
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/ui_macros.rs"
+proc-macro = true
+doctest = false
+
+[dependencies]
+quote.workspace = true
+syn.workspace = true

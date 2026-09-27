@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod baseline_host;
 mod configuration;
 mod design_host;
 mod fixtures;
@@ -51,8 +52,11 @@ const STORYBOOK_KEY_CONTEXT: &str = "FantaStorybook";
 
 struct Storybook {
     active_story: StoryKind,
+    baseline_active: Option<component::ComponentId>,
     launch_mode: StorybookLaunchMode,
     story_windows: HashMap<WindowId, StoryKind>,
+    baseline_windows: HashMap<WindowId, component::ComponentId>,
+    baseline_density_index: u8,
     gallery_theme_mode: ThemeMode,
     gallery_theme_index: usize,
     gallery_themes: Vec<Rc<ThemeConfig>>,
@@ -299,7 +303,13 @@ impl Storybook {
                     storybook
                         .story_windows
                         .retain(|window_id, _| open_window_ids.contains(window_id));
-                    if storybook.story_windows.len() != previous_count {
+                    let previous_baseline_count = storybook.baseline_windows.len();
+                    storybook
+                        .baseline_windows
+                        .retain(|window_id, _| open_window_ids.contains(window_id));
+                    if storybook.story_windows.len() != previous_count
+                        || storybook.baseline_windows.len() != previous_baseline_count
+                    {
                         cx.notify();
                     }
                 });
@@ -325,8 +335,11 @@ impl Storybook {
         }
         let storybook = Self {
             active_story: launch.story,
+            baseline_active: None,
             launch_mode: launch.mode,
             story_windows: HashMap::new(),
+            baseline_windows: HashMap::new(),
+            baseline_density_index: 1,
             gallery_theme_mode: Theme::global(cx).mode,
             gallery_theme_index,
             gallery_themes,
@@ -387,6 +400,7 @@ impl Storybook {
         cx: &mut Context<Self>,
     ) {
         self.active_story = kind;
+        self.baseline_active = None;
         // Carry the measured story area across the switch so a fluid
         // story lays out correctly on its first frame.
         let available = self.story_viewport.available;
@@ -417,6 +431,20 @@ impl Storybook {
 
 impl Render for Storybook {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if let Some(baseline_id) = self
+            .baseline_windows
+            .get(&window.window_handle().window_id())
+            && let Some(metadata) = component::components().get(baseline_id)
+        {
+            return div()
+                .id("storybook-baseline-window")
+                .size_full()
+                .overflow_scroll()
+                .p_4()
+                .bg(theme::GlobalTheme::theme(cx).colors().background)
+                .child((metadata.preview())(window, cx))
+                .into_any_element();
+        }
         if let Some(story) = self
             .story_windows
             .get(&window.window_handle().window_id())
@@ -426,6 +454,9 @@ impl Render for Storybook {
         }
 
         if self.launch_mode == StorybookLaunchMode::Gallery {
+            if self.baseline_active.is_some() {
+                return self.render_baseline_shell(window, cx);
+            }
             return self.render_gallery_shell(window, cx);
         }
 
@@ -473,6 +504,7 @@ fn main() {
         .run(move |cx: &mut App| {
             gpui_component::init(cx);
             fanta_gpui::init(cx);
+            baseline_host::init(cx);
             match launch.mode {
                 StorybookLaunchMode::Gallery => {
                     let index = initial_zed_theme_index(storybook_theme_from_env());

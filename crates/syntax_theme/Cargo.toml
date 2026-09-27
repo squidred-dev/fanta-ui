@@ -1,0 +1,30 @@
+[package]
+name = "fanta-gpui-syntax-theme"
+description = "Zed syntax theme primitives for GPUI."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = true
+license = "GPL-3.0-or-later"
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = []
+test-support = ["gpui/test-support"]
+bundled-themes = ["dep:serde", "dep:serde_json", "dep:zed_ui_assets"]
+
+[lib]
+path = "src/syntax_theme.rs"
+doctest = false
+
+[dependencies]
+gpui.workspace = true
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+zed_ui_assets = { workspace = true, optional = true }
+
+[dev-dependencies]
+gpui = { workspace = true, features = ["test-support"] }

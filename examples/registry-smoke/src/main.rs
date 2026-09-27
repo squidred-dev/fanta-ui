@@ -50,3 +50,39 @@ fn framework_alias_supports_test_macro(cx: &mut gpui::TestAppContext) {
 fn property_macro_uses_reexported_proptest(value: u16) {
     assert_eq!(value, value.saturating_add(0));
 }
+
+#[cfg(test)]
+#[derive(ui_macros::RegisterComponent)]
+struct SmokeComponent;
+
+#[cfg(test)]
+impl component::Component for SmokeComponent {
+    fn description() -> &'static str {
+        "Registry alias smoke test"
+    }
+
+    fn preview(_: &mut Window, _: &mut App) -> gpui::AnyElement {
+        div().into_any_element()
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn extracted_zed_baseline_aliases_link() -> Result<(), Box<dyn std::error::Error>> {
+    use std::any::TypeId;
+
+    menu::init();
+    let _icon = icons::IconName::Check;
+    let _component = component::ComponentId("smoke");
+    let _ = TypeId::of::<file_icons::FileIcons>();
+    let _ = TypeId::of::<syntax_theme::SyntaxTheme>();
+    let _ = TypeId::of::<theme::Theme>();
+    let _ = TypeId::of::<ui::Button>();
+    let _ = TypeId::of::<ui_input::InputField>();
+    let _ = TypeId::of::<SmokeComponent>();
+    let bytes = zed_ui_assets::bundled_asset("themes/one/one.json")
+        .ok_or("missing bundled One theme")?;
+    let family = theme::decode_bundled_theme(&bytes)?;
+    assert!(family.themes.iter().any(|theme| theme.name == "One Light"));
+    Ok(())
+}

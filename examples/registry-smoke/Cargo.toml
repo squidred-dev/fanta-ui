@@ -7,11 +7,21 @@ edition = "2024"
 publish = false
 
 [dependencies]
-fanta-gpui = "=0.4.1"
-gpui = { package = "fanta-gpui-core", version = "=0.4.1" }
-gpui_component = { package = "fanta-gpui-components", version = "=0.4.1" }
-gpui_component_assets = { package = "fanta-gpui-component-assets", version = "=0.4.1" }
-gpui_platform = { package = "fanta-gpui-gpui-platform", version = "=0.4.1" }
+fanta-gpui = "=0.5.0"
+gpui = { package = "fanta-gpui-core", version = "=0.5.0" }
+gpui_component = { package = "fanta-gpui-components", version = "=0.5.0" }
+gpui_component_assets = { package = "fanta-gpui-component-assets", version = "=0.5.0" }
+gpui_platform = { package = "fanta-gpui-gpui-platform", version = "=0.5.0" }
+component = { package = "fanta-gpui-component", version = "=0.5.0" }
+file_icons = { package = "fanta-gpui-file-icons", version = "=0.5.0" }
+icons = { package = "fanta-gpui-icons", version = "=0.5.0" }
+menu = { package = "fanta-gpui-menu", version = "=0.5.0" }
+syntax_theme = { package = "fanta-gpui-syntax-theme", version = "=0.5.0" }
+theme = { package = "fanta-gpui-theme", version = "=0.5.0" }
+ui = { package = "fanta-gpui-ui", version = "=0.5.0" }
+ui_input = { package = "fanta-gpui-ui-input", version = "=0.5.0" }
+ui_macros = { package = "fanta-gpui-ui-macros", version = "=0.5.0" }
+zed_ui_assets = { package = "fanta-gpui-zed-ui-assets", version = "=0.5.0" }
 
 [dev-dependencies]
-gpui = { package = "fanta-gpui-core", version = "=0.4.1", features = ["test-support"] }
+gpui = { package = "fanta-gpui-core", version = "=0.5.0", features = ["test-support"] }

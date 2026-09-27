@@ -3,8 +3,10 @@ resolver = "2"
 members = [
     "crates/async_process",
     "crates/collections",
+    "crates/component",
     "crates/fanta-gpui",
     "crates/fanta-gpui-storybook",
+    "crates/file_icons",
     "crates/gpui",
     "crates/gpui-examples",
     "crates/gpui-macro-tests",
@@ -22,7 +24,9 @@ members = [
     "crates/gpui_windows",
     "crates/http_client",
     "crates/http_client_tls",
+    "crates/icons",
     "crates/media",
+    "crates/menu",
     "crates/proptest",
     "crates/proptest-macro",
     "crates/refineable",
@@ -31,9 +35,16 @@ members = [
     "crates/scheduler",
     "crates/smol",
     "crates/sum_tree",
+    "crates/syntax_theme",
+    "crates/theme",
+    "crates/ui",
+    "crates/ui_input",
+    "crates/ui_macros",
+    "crates/ui-macro-tests",
     "crates/util",
     "crates/util_macros",
     "crates/zlog",
+    "crates/zed_ui_assets",
     "crates/ztracing",
     "crates/ztracing_macro",
     "tooling/perf",
@@ -41,7 +52,7 @@ members = [
 default-members = ["crates/fanta-gpui"]
 
 [workspace.package]
-version = "0.4.1"
+version = "0.5.0"
 edition = "2024"
 rust-version = "1.95"
 publish = false
@@ -49,12 +60,46 @@ license = "GPL-3.0"
 repository = "https://github.com/squidred-dev/fanta-ui"
 
 [workspace.dependencies]
-fanta-gpui = { path = "crates/fanta-gpui", version = "=0.4.1" }
-gpui = { package = "fanta-gpui-core", path = "crates/gpui", version = "=0.4.1" }
-gpui-component = { package = "fanta-gpui-components", path = "crates/gpui_component", version = "=0.4.1" }
-gpui-component-assets = { package = "fanta-gpui-component-assets", path = "crates/gpui_component_assets", version = "=0.4.1" }
-gpui_platform = { package = "fanta-gpui-gpui-platform", path = "crates/gpui_platform", version = "=0.4.1", default-features = false, features = ["font-kit", "wayland", "x11"] }
+fanta-gpui = { path = "crates/fanta-gpui", version = "=0.5.0" }
+gpui = { package = "fanta-gpui-core", path = "crates/gpui", version = "=0.5.0" }
+gpui-component = { package = "fanta-gpui-components", path = "crates/gpui_component", version = "=0.5.0" }
+gpui-component-assets = { package = "fanta-gpui-component-assets", path = "crates/gpui_component_assets", version = "=0.5.0" }
+gpui_platform = { package = "fanta-gpui-gpui-platform", path = "crates/gpui_platform", version = "=0.5.0", default-features = false, features = ["font-kit", "wayland", "x11"] }
+component = { package = "fanta-gpui-component", path = "crates/component", version = "=0.5.0" }
+file_icons = { package = "fanta-gpui-file-icons", path = "crates/file_icons", version = "=0.5.0" }
+icons = { package = "fanta-gpui-icons", path = "crates/icons", version = "=0.5.0" }
+menu = { package = "fanta-gpui-menu", path = "crates/menu", version = "=0.5.0" }
+syntax_theme = { package = "fanta-gpui-syntax-theme", path = "crates/syntax_theme", version = "=0.5.0" }
+theme = { package = "fanta-gpui-theme", path = "crates/theme", version = "=0.5.0" }
+ui = { package = "fanta-gpui-ui", path = "crates/ui", version = "=0.5.0" }
+ui_input = { package = "fanta-gpui-ui-input", path = "crates/ui_input", version = "=0.5.0" }
+ui_macros = { package = "fanta-gpui-ui-macros", path = "crates/ui_macros", version = "=0.5.0" }
+zed_ui_assets = { package = "fanta-gpui-zed-ui-assets", path = "crates/zed_ui_assets", version = "=0.5.0" }
+collections = { package = "fanta-gpui-collections", path = "crates/collections", version = "=0.5.0" }
+gpui_util = { package = "fanta-gpui-gpui-util", path = "crates/gpui_util", version = "=0.5.0" }
+gpui_macros = { package = "fanta-gpui-gpui-macros", path = "crates/gpui_macros", version = "=0.5.0" }
+refineable = { package = "fanta-gpui-refineable", path = "crates/refineable", version = "=0.5.0" }
+util = { package = "fanta-gpui-util", path = "crates/util", version = "=0.5.0" }
+anyhow = "1.0.86"
+chrono = { version = "0.4", features = ["serde"] }
+documented = "0.9.1"
+inventory = "0.3.19"
+itertools = "0.14.0"
+log = { version = "0.4.16", features = ["kv_unstable_serde", "serde"] }
+num-format = "0.4.4"
+palette = { version = "0.7.5", default-features = false, features = ["std"] }
+parking_lot = "0.12.1"
+quote = "1.0.9"
+schemars = { version = "1.0", features = ["indexmap2"] }
+serde = { version = "1.0.221", features = ["derive", "rc"] }
 serde_json = "1"
+serde_json_lenient = { version = "0.2", features = ["preserve_order", "raw_value"] }
+smallvec = { version = "1.6", features = ["union", "const_new"] }
+strum = { version = "0.27.2", features = ["derive"] }
+syn = { version = "2.0.101", features = ["full", "extra-traits", "visit-mut"] }
+thiserror = "2.0.12"
+uuid = { version = "1.1.2", features = ["v4", "v5", "v7", "serde"] }
+windows = { version = "0.61", features = ["Win32_UI_HiDpi"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

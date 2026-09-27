@@ -1,0 +1,22 @@
+[package]
+name = "fanta-gpui-file-icons"
+description = "Zed baseline file icon lookup for GPUI."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = true
+license = "GPL-3.0-or-later"
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/file_icons.rs"
+doctest = false
+
+[dependencies]
+gpui.workspace = true
+serde.workspace = true
+theme.workspace = true
+util.workspace = true

@@ -6,7 +6,7 @@ the first release gate; Linux, Windows, and web are preserved but unverified.
 
 ## Package identity
 
-All published packages use the coordinated version `0.4.1` and use exact internal dependencies.
+All published packages use the coordinated version `0.5.0` and use exact internal dependencies.
 `fanta-gpui` remains the component facade. GPUI is `fanta-gpui-core`, and the
 component fork is `fanta-gpui-components`. Other names prefix the complete old
 name with `fanta-gpui-`, replacing underscores with hyphens. Keeping the complete
@@ -17,10 +17,13 @@ Consumers preserve Rust imports through aliases:
 
 ```toml
 [dependencies]
-fanta-gpui = "=0.4.1"
-gpui = { package = "fanta-gpui-core", version = "=0.4.1" }
-gpui-component = { package = "fanta-gpui-components", version = "=0.4.1" }
-gpui_platform = { package = "fanta-gpui-gpui-platform", version = "=0.4.1" }
+fanta-gpui = "=0.5.0"
+gpui = { package = "fanta-gpui-core", version = "=0.5.0" }
+gpui-component = { package = "fanta-gpui-components", version = "=0.5.0" }
+gpui_platform = { package = "fanta-gpui-gpui-platform", version = "=0.5.0" }
+ui = { package = "fanta-gpui-ui", version = "=0.5.0" }
+theme = { package = "fanta-gpui-theme", version = "=0.5.0" }
+zed_ui_assets = { package = "fanta-gpui-zed-ui-assets", version = "=0.5.0" }
 ```
 
 Every crate exchanging GPUI or supporting-library types must resolve to the
@@ -54,7 +57,8 @@ environments it also needs access to the native compiler cache.
 
 The storybook and the GPUI example/macro harnesses are unpublished. Framework
 examples live in their own host to avoid a `core -> platform -> core` publication
-cycle. Macro doctests run from the macro harness for the same reason. Upstream
+cycle. The `ui_macros` derive test lives in the unpublished `ui-macro-tests`
+host to avoid a `ui -> ui_macros -> ui` publication cycle. Upstream
 forks retain explicit lint policies; Fanta components and storybook still
 forbid unsafe code.
 
@@ -70,7 +74,7 @@ cancelled by newer CI or release requests.
 The repository remote is `squidred-dev/fanta-ui`. Its
 [`Publish crates` workflow](../.github/workflows/release.yml) runs when a `v*`
 tag is pushed, or manually against an existing tag. The tag must match the
-workspace version (`v0.4.1` for this release).
+workspace version (`v0.5.0` for this release).
 
 One-time setup: create a crates.io API token permitted to publish new packages
 and updates for this workspace, and save it as the repository Actions secret
@@ -84,8 +88,8 @@ gh secret set CRATES_IO_TOKEN --repo squidred-dev/fanta-ui
 Commit and push the reviewed extraction and workflow before creating the tag:
 
 ```sh
-git tag v0.4.1
-git push origin v0.4.1
+git tag v0.5.0
+git push origin v0.5.0
 ```
 
 Actions checks formatting, builds, tests, Clippy, native feature compilation,
@@ -101,7 +105,7 @@ published version with different contents stops the release. Concurrent releases
 are serialized. For subsequent releases, update the coordinated package version,
 exact internal requirements, and consumer versions before tagging.
 
-The first release creates 33 crate names. The publisher waits ten minutes and
+The publisher waits ten minutes and
 retries explicit HTTP 429 responses; other publication errors stop immediately.
 The workflow allows six hours for the initial publication to accommodate
 [crates.io's new-crate rate limit](https://github.com/rust-lang/crates.io/blob/main/src/rate_limiter.rs).

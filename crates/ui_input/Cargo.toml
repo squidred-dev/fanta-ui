@@ -1,0 +1,23 @@
+[package]
+name = "fanta-gpui-ui-input"
+description = "Zed baseline input components for GPUI."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = true
+license = "GPL-3.0-or-later"
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/ui_input.rs"
+
+[dependencies]
+component.workspace = true
+gpui.workspace = true
+ui.workspace = true
+
+[features]
+default = []

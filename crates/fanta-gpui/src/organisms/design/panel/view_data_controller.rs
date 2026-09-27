@@ -7,6 +7,8 @@
 use super::*;
 
 pub(super) trait DesignPanelViewDataController: Sized {
+    fn open_newly_added_editor(&mut self, cx: &mut Context<Self>);
+
     fn canonical_view_data(&self) -> DesignPanelViewData;
 
     fn apply_view_data(&mut self, view_data: DesignPanelViewData, cx: &mut Context<Self>);
@@ -224,8 +226,8 @@ pub(super) trait DesignPanelViewDataController: Sized {
     );
 }
 
-#[allow(deprecated)]
-impl DesignPanel {
+impl DesignPanelViewDataController for DesignPanel {
+    #[allow(deprecated)]
     fn open_newly_added_editor(&mut self, cx: &mut Context<Self>) {
         let Some(pending) = self.pending_added_editor.take() else {
             return;
@@ -276,9 +278,7 @@ impl DesignPanel {
             cx.notify();
         }
     }
-}
 
-impl DesignPanelViewDataController for DesignPanel {
     fn canonical_view_data(&self) -> DesignPanelViewData {
         DesignPanelViewData {
             inspection_context: self.host.inspection_context.clone(),

@@ -161,8 +161,7 @@ fn composed_page_background_picker_accepts_spectrum_click(cx: &mut TestAppContex
 
 #[gpui::test]
 fn page_background_picker_accepts_click_inside_properties_layout(cx: &mut TestAppContext) {
-    let (host, actions, visual_cx) =
-        mount_component(cx, |window, cx| Harness::new_with_properties(window, cx));
+    let (host, actions, visual_cx) = mount_component(cx, Harness::new_with_properties);
     let controller = controller(&host, visual_cx);
     controller.update(visual_cx, |panel, cx| {
         panel.set_inspection_context(

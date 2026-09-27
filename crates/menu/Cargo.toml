@@ -1,0 +1,19 @@
+[package]
+name = "fanta-gpui-menu"
+description = "Zed baseline menu model for GPUI."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = true
+license = "GPL-3.0-or-later"
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/menu.rs"
+doctest = false
+
+[dependencies]
+gpui.workspace = true

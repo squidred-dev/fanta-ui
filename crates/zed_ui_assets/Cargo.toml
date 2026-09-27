@@ -1,0 +1,20 @@
+[package]
+name = "fanta-gpui-zed-ui-assets"
+description = "Bundled Zed UI icons, fonts, themes, images, and asset licenses for GPUI."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = true
+license = "GPL-3.0-or-later"
+repository.workspace = true
+
+[lib]
+name = "zed_ui_assets"
+path = "src/zed_ui_assets.rs"
+
+[dependencies]
+gpui.workspace = true
+rust-embed = { version = "8.7.2", features = ["include-exclude"] }
+
+[lints]
+workspace = true

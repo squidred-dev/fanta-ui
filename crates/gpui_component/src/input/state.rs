@@ -422,6 +422,32 @@ impl InputState {
         self
     }
 
+    /// Switch between single-line and auto-growing input at runtime.
+    pub fn set_multiline(&mut self, max_lines: Option<usize>, cx: &mut Context<Self>) {
+        self.mode = match max_lines {
+            Some(max_lines) => InputMode::auto_grow(1, max_lines.max(1)),
+            None => InputMode::default(),
+        };
+        cx.notify();
+    }
+
+    /// Prevent or allow editing while keeping the input visible.
+    pub fn set_read_only(&mut self, read_only: bool, cx: &mut Context<Self>) {
+        self.disabled = read_only;
+        cx.notify();
+    }
+
+    /// Move the caret to the end of the text.
+    pub fn move_selection_to_end(&mut self, cx: &mut Context<Self>) {
+        self.move_to(self.text.len(), None, cx);
+    }
+
+    /// Select all text in the input.
+    pub fn select_all_text(&mut self, cx: &mut Context<Self>) {
+        self.selected_range = (0..self.text.len()).into();
+        cx.notify();
+    }
+
     /// Set Input to use [`InputMode::AutoGrow`] mode with min, max rows limit.
     pub fn auto_grow(mut self, min_rows: usize, max_rows: usize) -> Self {
         self.mode = InputMode::auto_grow(min_rows, max_rows);

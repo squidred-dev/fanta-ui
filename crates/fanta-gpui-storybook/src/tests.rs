@@ -5973,6 +5973,96 @@ fn setup_gallery_storybook(cx: &mut TestAppContext) -> (Entity<Storybook>, &mut 
 }
 
 #[gpui::test]
+fn every_zed_baseline_preview_renders_without_editor_services(cx: &mut TestAppContext) {
+    cx.update(|cx| {
+        gpui_component::init(cx);
+        fanta_gpui::init(cx);
+        baseline_host::init(cx);
+        Theme::change(ThemeMode::Light, None, cx);
+    });
+    let previews = component::components().sorted_previews();
+    assert!(
+        previews.len() >= 50,
+        "the Zed baseline inventory must be linked"
+    );
+    assert!(
+        previews
+            .iter()
+            .any(|preview| preview.scopeless_name() == "InputField"),
+        "the independent input editor must be represented"
+    );
+    let storybook_slot = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let captured_storybook = storybook_slot.clone();
+    let (_, visual_cx) = cx.add_window_view(move |window, cx| {
+        let storybook = cx.new(|cx| Storybook::new(window, cx));
+        *captured_storybook.borrow_mut() = Some(storybook.clone());
+        Root::new(storybook, window, cx)
+    });
+    let Some(storybook) = storybook_slot.borrow_mut().take() else {
+        panic!("test Storybook should be installed");
+    };
+    visual_cx.simulate_resize(size(px(1240.), px(820.)));
+    let themes = zed_themes();
+    for theme_index in [0, 1] {
+        visual_cx.update(|_, app| apply_zed_theme(&themes[theme_index], app));
+        assert_eq!(
+            visual_cx.read(|app| theme::GlobalTheme::theme(app).name.to_string()),
+            themes[theme_index].name.to_string()
+        );
+        for preview in &previews {
+            visual_cx.update(|_, app| {
+                storybook.update(app, |storybook, cx| {
+                    storybook.launch_mode = StorybookLaunchMode::Gallery;
+                    storybook.baseline_active = Some(preview.id());
+                    cx.notify();
+                });
+            });
+            visual_cx.run_until_parked();
+            assert!(
+                visual_cx
+                    .debug_bounds("storybook-baseline-canvas")
+                    .is_some(),
+                "baseline preview did not render: {} in {}",
+                preview.name(),
+                themes[theme_index].name
+            );
+        }
+    }
+    for density_index in 0..3 {
+        baseline_host::set_density(density_index);
+        let density = visual_cx.read(|app| theme::theme_settings(app).ui_density(app));
+        assert_eq!(
+            density,
+            match density_index {
+                0 => theme::UiDensity::Compact,
+                2 => theme::UiDensity::Comfortable,
+                _ => theme::UiDensity::Default,
+            }
+        );
+        for preview in previews.iter().filter(|preview| {
+            matches!(
+                preview.scopeless_name().as_ref(),
+                "Button" | "InputField" | "Label"
+            )
+        }) {
+            visual_cx.update(|_, app| {
+                storybook.update(app, |storybook, cx| {
+                    storybook.baseline_active = Some(preview.id());
+                    cx.notify();
+                });
+                app.refresh_windows();
+            });
+            visual_cx.run_until_parked();
+            assert!(
+                visual_cx
+                    .debug_bounds("storybook-baseline-canvas")
+                    .is_some()
+            );
+        }
+    }
+}
+
+#[gpui::test]
 fn gallery_viewport_harness_presets_and_scrubs_resize_the_surface(cx: &mut TestAppContext) {
     let (storybook, cx) = setup_gallery_storybook(cx);
     cx.update(|window, app| {

@@ -1,5 +1,6 @@
 use super::*;
 use fanta_gpui::atoms::TypographyExt as _;
+use std::collections::BTreeMap;
 
 /// Below this window width the gallery runs its narrow layout: the
 /// sidebar auto-collapses and story knobs default to collapsed.
@@ -54,6 +55,39 @@ pub(crate) fn knobs_expanded(narrow: bool, user_choice: Option<bool>) -> bool {
 impl Storybook {
     pub(super) fn open_story_window(&mut self, cx: &mut Context<Self>) {
         if self.launch_mode != StorybookLaunchMode::Gallery {
+            return;
+        }
+
+        if let Some(baseline_id) = self.baseline_active.clone() {
+            let registry = component::components();
+            let Some(metadata) = registry.get(&baseline_id) else {
+                return;
+            };
+            let title = metadata.scopeless_name();
+            let storybook = cx.entity();
+            cx.defer(move |cx| {
+                let bounds = Bounds::centered(None, size(px(1100.), px(800.)), cx);
+                let options = WindowOptions {
+                    window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    window_min_size: Some(size(px(320.), px(240.))),
+                    titlebar: Some(TitlebarOptions {
+                        title: Some(format!("{title} — Zed baseline").into()),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                };
+                if let Err(error) = cx.open_window(options, move |window, cx| {
+                    let window_id = window.window_handle().window_id();
+                    storybook.update(cx, |storybook, cx| {
+                        storybook.baseline_windows.insert(window_id, baseline_id);
+                        cx.notify();
+                    });
+                    window.activate_window();
+                    cx.new(|cx| Root::new(storybook.clone(), window, cx))
+                }) {
+                    eprintln!("failed to open Zed baseline window: {error}");
+                }
+            });
             return;
         }
 
@@ -122,7 +156,7 @@ impl Storybook {
                 .map(|descriptor| {
                     let story = descriptor.kind;
                     SidebarMenuItem::new(descriptor.title)
-                        .active(self.active_story == story)
+                        .active(self.baseline_active.is_none() && self.active_story == story)
                         .on_click(cx.listener(move |this, _, window, cx| {
                             this.activate_gallery_story(story, window, cx);
                         }))
@@ -133,6 +167,37 @@ impl Storybook {
                     SidebarGroup::new(section.label()).child(SidebarMenu::new().children(items)),
                 );
             }
+        }
+        let mut baseline_groups = BTreeMap::<String, Vec<_>>::new();
+        for metadata in component::components().sorted_previews() {
+            let group = format!(
+                "Zed baseline · {} · {}",
+                metadata.scope(),
+                metadata.status()
+            );
+            let name = metadata.scopeless_name();
+            if !query.is_empty()
+                && !name.to_ascii_lowercase().contains(&query)
+                && !metadata.description().to_ascii_lowercase().contains(&query)
+                && !group.to_ascii_lowercase().contains(&query)
+            {
+                continue;
+            }
+            let id = metadata.id();
+            let active = self.baseline_active.as_ref() == Some(&id);
+            baseline_groups.entry(group).or_default().push(
+                SidebarMenuItem::new(name)
+                    .active(active)
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.baseline_active = Some(id.clone());
+                        this.gallery_story_scroll_handle
+                            .set_offset(Default::default());
+                        cx.notify();
+                    })),
+            );
+        }
+        for (group, items) in baseline_groups {
+            groups.push(SidebarGroup::new(group).child(SidebarMenu::new().children(items)));
         }
         if groups.is_empty() {
             groups.push(SidebarGroup::new("Components").child(
@@ -213,6 +278,125 @@ impl Storybook {
                     ),
             )
             .children(groups)
+            .into_any_element()
+    }
+
+    pub(super) fn render_baseline_shell(
+        &self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let Some(baseline_id) = self.baseline_active.as_ref() else {
+            return div().into_any_element();
+        };
+        let registry = component::components();
+        let Some(metadata) = registry.get(baseline_id) else {
+            return div().into_any_element();
+        };
+        let title = metadata.scopeless_name();
+        let description = metadata.description();
+        let preview = (metadata.preview())(window, cx);
+        v_flex()
+            .id("storybook-baseline-shell")
+            .key_context(STORYBOOK_KEY_CONTEXT)
+            .on_action(cx.listener(|this, _: &OpenStoryWindow, _, cx| {
+                this.open_story_window(cx);
+            }))
+            .on_action(cx.listener(|this, _: &ToggleGalleryTheme, _, cx| {
+                this.toggle_gallery_theme(cx);
+            }))
+            .size_full()
+            .bg(fanta_gpui::atoms::SemanticColor::Background.resolve(cx))
+            .child(
+                h_flex()
+                    .h(px(42.))
+                    .w_full()
+                    .flex_none()
+                    .px_3()
+                    .justify_between()
+                    .border_b_1()
+                    .border_color(fanta_gpui::atoms::SemanticColor::Border.resolve(cx))
+                    .child(format!("Zed baseline · {title}"))
+                    .child(
+                        h_flex()
+                            .gap_2()
+                            .child(
+                                fanta_gpui::atoms::ui_button("baseline-toggle-theme")
+                                    .ghost()
+                                    .small()
+                                    .label(
+                                        self.gallery_themes[self.gallery_theme_index].name.clone(),
+                                    )
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.toggle_gallery_theme(cx);
+                                    })),
+                            )
+                            .child(
+                                fanta_gpui::atoms::ui_button("baseline-toggle-density")
+                                    .ghost()
+                                    .small()
+                                    .label(match self.baseline_density_index {
+                                        0 => "Compact",
+                                        2 => "Comfortable",
+                                        _ => "Default",
+                                    })
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.baseline_density_index =
+                                            (this.baseline_density_index + 1) % 3;
+                                        baseline_host::set_density(this.baseline_density_index);
+                                        cx.refresh_windows();
+                                        cx.notify();
+                                    })),
+                            )
+                            .child(
+                                fanta_gpui::atoms::ui_button("baseline-open-window")
+                                    .outline()
+                                    .small()
+                                    .label("Open window")
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.open_story_window(cx);
+                                    })),
+                            ),
+                    ),
+            )
+            .child(
+                h_flex()
+                    .flex_1()
+                    .min_h(px(0.))
+                    .child(
+                        div()
+                            .w(px(255.))
+                            .h_full()
+                            .flex_none()
+                            .child(self.render_gallery_sidebar(cx)),
+                    )
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .h_full()
+                            .min_w(px(0.))
+                            .child(
+                                div()
+                                    .p_4()
+                                    .border_b_1()
+                                    .border_color(
+                                        fanta_gpui::atoms::SemanticColor::Border.resolve(cx),
+                                    )
+                                    .child(format!("{} · {}", metadata.scope(), metadata.status()))
+                                    .child(description),
+                            )
+                            .child(
+                                div()
+                                    .id("storybook-baseline-canvas")
+                                    .debug_selector(|| "storybook-baseline-canvas".to_owned())
+                                    .flex_1()
+                                    .overflow_scroll()
+                                    .p_4()
+                                    .bg(theme::GlobalTheme::theme(cx).colors().background)
+                                    .child(preview),
+                            ),
+                    ),
+            )
             .into_any_element()
     }
 
