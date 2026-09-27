@@ -669,6 +669,7 @@ pub enum ToolbarCommand {
     RemoveBackground,
     GenerateImage,
     GenerateVideo,
+    GenerateAudio,
     GenerateVector,
     GenerateMasks,
     MakePrototype,
@@ -686,15 +687,13 @@ pub enum ToolbarCommand {
 
 impl ToolbarCommand {
     pub const ALL: &'static [Self] = &[
-        Self::GenerateDesign,
         Self::ReplaceContent,
         Self::GenerateImage,
         Self::GenerateVideo,
+        Self::GenerateAudio,
         Self::GenerateVector,
-        Self::GenerateMasks,
         Self::MakePrototype,
         Self::RenameLayers,
-        Self::RemoveBackground,
         Self::RewriteText,
         Self::TranslateText,
         Self::FindAndReplace,
@@ -778,6 +777,7 @@ impl ToolbarCommand {
             Self::RemoveBackground => "Remove background",
             Self::GenerateImage => "Generate an image",
             Self::GenerateVideo => "Generate a video",
+            Self::GenerateAudio => "Generate audio",
             Self::GenerateVector => "Generate vectors",
             Self::GenerateMasks => "Generate masks",
             Self::MakePrototype => "Make a prototype",
@@ -804,6 +804,7 @@ impl ToolbarCommand {
             | Self::RemoveBackground
             | Self::GenerateImage
             | Self::GenerateVideo
+            | Self::GenerateAudio
             | Self::GenerateVector
             | Self::GenerateMasks
             | Self::MakePrototype => "AI",
@@ -838,9 +839,10 @@ impl ToolbarCommand {
         match self {
             Self::GenerateDesign => "Create editable frames, text, and shapes with Fanta",
             Self::ReplaceContent => "Generate replacement copy for selected layers",
-            Self::GenerateImage => "Create and refine images in a generation tab",
+            Self::GenerateImage => "Create images from prompts in a generation tab",
             Self::GenerateVideo => "Create a video or animate a source image",
-            Self::GenerateVector => "Create SVG artwork or vectorize an image",
+            Self::GenerateAudio => "Create speech or music in a generation tab",
+            Self::GenerateVector => "Create SVG vector artwork in a generation tab",
             Self::GenerateMasks => "Select objects and edit masked areas of an image",
             Self::MakePrototype => "Connect selected frames into a prototype",
             Self::OpenPlugins => "Run a plugin from the Community",
@@ -975,6 +977,25 @@ mod tests {
                 .len(),
             ToolbarCommand::ALL.len()
         );
+    }
+
+    #[test]
+    fn generation_commands_expose_only_supported_media() {
+        for command in [
+            ToolbarCommand::GenerateImage,
+            ToolbarCommand::GenerateVideo,
+            ToolbarCommand::GenerateAudio,
+            ToolbarCommand::GenerateVector,
+        ] {
+            assert!(ToolbarCommand::ALL.contains(&command));
+        }
+        for command in [
+            ToolbarCommand::GenerateDesign,
+            ToolbarCommand::GenerateMasks,
+            ToolbarCommand::RemoveBackground,
+        ] {
+            assert!(!ToolbarCommand::ALL.contains(&command));
+        }
     }
 
     #[test]

@@ -126,6 +126,7 @@ pub(crate) const fn command_icon(command: ToolbarCommand) -> LucideIcon {
         ToolbarCommand::RemoveBackground => LucideIcon::ImageMinus,
         ToolbarCommand::GenerateImage => LucideIcon::Image,
         ToolbarCommand::GenerateVideo => LucideIcon::Video,
+        ToolbarCommand::GenerateAudio => LucideIcon::AudioLines,
         ToolbarCommand::GenerateVector => LucideIcon::PenTool,
         ToolbarCommand::GenerateMasks => LucideIcon::VenetianMask,
         ToolbarCommand::MakePrototype => LucideIcon::Workflow,
