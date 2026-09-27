@@ -251,6 +251,7 @@ impl GenerationScreen {
                 cx.subscribe(&input, |this, _, event: &InputEvent, cx| {
                     if matches!(event, InputEvent::Change) {
                         this.validation_error = None;
+                        cx.emit(GenerationAction::DraftChanged);
                         cx.notify();
                     }
                 })

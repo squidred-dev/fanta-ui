@@ -708,6 +708,7 @@ impl GenerationSubmission {
 pub enum GenerationAction {
     KindSelected(GenerationKind),
     RecipeSelected(GenerationRecipe),
+    DraftChanged,
     ModelSelected {
         id: SharedString,
     },
