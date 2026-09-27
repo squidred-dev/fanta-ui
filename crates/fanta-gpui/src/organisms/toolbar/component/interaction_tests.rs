@@ -466,7 +466,7 @@ fn tall_popups_scroll_and_remain_inside_a_short_window(cx: &mut TestAppContext) 
         "short windows must shrink the results without covering the dock"
     );
     assert_eq!(
-        cx.debug_bounds("toolbar-command-generate-a-design")
+        cx.debug_bounds("toolbar-command-generate-an-image")
             .expect("command row should render")
             .size
             .height,
