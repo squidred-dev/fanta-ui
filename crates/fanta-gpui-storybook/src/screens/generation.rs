@@ -785,16 +785,14 @@ fn fixture(kind: GenerationKind) -> GenerationViewData {
                     kind,
                     "An editorial portrait with directional window light and quiet natural tones",
                 )
-                .description("Portrait · soft directional light")
-                .preview(photo_preview(EDITORIAL_PORTRAIT)),
+                .description("Portrait · soft directional light"),
                 GenerationTemplate::new(
                     "image-product",
                     "Product study",
                     kind,
                     "A refined product still life with soft studio lighting and clear material detail",
                 )
-                .description("Product · refined material study")
-                .preview(photo_preview(PRODUCT_STUDY)),
+                .description("Product · refined material study"),
                 GenerationTemplate::new(
                     "image-landscape",
                     "Atmospheric landscape",
