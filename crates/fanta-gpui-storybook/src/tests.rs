@@ -430,6 +430,38 @@ fn image_generation_model_dropdown_and_gallery_lightbox_work_in_ayu_dark(cx: &mu
             .is_none()
     );
 
+    assert!(
+        visual_cx
+            .debug_bounds("generation-option-fanta-image-1-steps-10")
+            .is_some(),
+        "model-specific advanced controls should be visible on first selection"
+    );
+    let size_select = visual_cx
+        .debug_bounds("generation-option-select")
+        .expect("four image sizes should render as a dropdown");
+    visual_cx.simulate_click(size_select.center(), Modifiers::none());
+    visual_cx.run_until_parked();
+    visual_cx.simulate_keystrokes("down");
+    visual_cx.run_until_parked();
+    visual_cx.simulate_keystrokes("enter");
+    visual_cx.run_until_parked();
+    assert_eq!(
+        visual_cx.read(|app| {
+            storybook
+                .read(app)
+                .generation_stories
+                .image
+                .view_data
+                .models
+                .iter()
+                .find(|model| model.id == "fanta-image-1")
+                .and_then(|model| model.option_groups.iter().find(|group| group.key == "size"))
+                .map(|group| group.selected.clone())
+        }),
+        Some("1280x768".into()),
+        "the selected size should return to the mock host"
+    );
+
     let model_select = visual_cx
         .debug_bounds("generation-model-select")
         .expect("the searchable model select should render");

@@ -176,7 +176,7 @@ pub struct GenerationModel {
     pub recipe: GenerationRecipe,
     /// Current authenticated catalog price. The backend charges per output.
     pub credits_per_output: Option<u32>,
-    /// Optional host-supplied text for a variable-price model such as chat.
+    /// Optional host-supplied text when output cost varies with selected inputs.
     pub credit_hint: Option<SharedString>,
     pub requires_source: bool,
     /// Reserved for models whose backend worker accepts an explicit end image.
