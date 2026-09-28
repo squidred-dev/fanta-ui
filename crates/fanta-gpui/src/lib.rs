@@ -40,6 +40,7 @@ pub use screens::{billing, generation, settings, variables};
 pub fn init(cx: &mut gpui::App) {
     text_input_fallback::init(cx);
     atoms::init(cx);
+    assets::init(cx);
     design::init(cx);
     layers::init(cx);
     pages::init(cx);

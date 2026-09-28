@@ -1,8 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
 use gpui::{
-    AppContext as _, Context, Entity, IntoElement, Modifiers, ParentElement as _, Render,
-    Subscription, TestAppContext, Window, div, px, size,
+    AppContext as _, Context, Entity, Focusable as _, IntoElement, Modifiers, ParentElement as _,
+    Render, Subscription, TestAppContext, VisualTestContext, Window, div, px, size,
 };
 use gpui_component::Root;
 
@@ -21,11 +21,13 @@ impl Host {
         let mut video = AssetRow::new("video", "Product Reveal", AssetKind::Video);
         video.can_place = false;
         video.disabled_reason = Some("Open Motion or Prototype".into());
+        let image_two = AssetRow::new("image-two", "Coastal Sunset", AssetKind::Image);
+        let svg = AssetRow::new("svg", "Vector Monogram", AssetKind::Svg);
         let panel = cx.new(|cx| {
             AssetsPanel::new(
                 "test-assets",
                 AssetsViewData {
-                    assets: vec![image, video],
+                    assets: vec![image, video, image_two, svg],
                     pages: vec![
                         AssetPageTarget::new("page-a", "Home"),
                         AssetPageTarget::new("page-b", "Campaign"),
@@ -55,8 +57,7 @@ impl Render for Host {
     }
 }
 
-#[gpui::test]
-fn placement_uses_host_selected_page_and_disables_unavailable_media(cx: &mut TestAppContext) {
+fn setup(cx: &mut TestAppContext) -> (Entity<Host>, &mut VisualTestContext) {
     cx.update(|cx| {
         gpui_component::init(cx);
         crate::init(cx);
@@ -69,7 +70,13 @@ fn placement_uses_host_selected_page_and_disables_unavailable_media(cx: &mut Tes
         Root::new(host, window, cx)
     });
     cx.simulate_resize(size(px(280.), px(520.)));
-    let host = slot.borrow().clone().unwrap();
+    let host = slot.borrow_mut().take().unwrap();
+    (host, cx)
+}
+
+#[gpui::test]
+fn placement_uses_host_selected_page_and_disables_unavailable_media(cx: &mut TestAppContext) {
+    let (host, cx) = setup(cx);
     let (panel, actions) = cx.read(|cx| {
         let host = host.read(cx);
         (host.panel.clone(), host.actions.clone())
@@ -126,4 +133,98 @@ fn placement_uses_host_selected_page_and_disables_unavailable_media(cx: &mut Tes
             .count(),
         2
     );
+}
+
+#[gpui::test]
+fn find_shortcut_searches_assets_and_navigates_selected_results(cx: &mut TestAppContext) {
+    let (host, cx) = setup(cx);
+    let panel = cx.read(|app| host.read(app).panel.clone());
+    assert!(cx.debug_bounds("assets-search-toolbar").is_none());
+
+    cx.update(|window, app| panel.focus_handle(app).focus(window, app));
+    cx.simulate_keystrokes("secondary-f");
+    cx.run_until_parked();
+    assert!(cx.read(|app| panel.read(app).is_search_open()));
+    assert!(cx.debug_bounds("assets-search-toolbar").is_some());
+
+    cx.simulate_keystrokes("c o a s t a l");
+    cx.run_until_parked();
+    assert_eq!(cx.read(|app| panel.read(app).visible_assets(app).len()), 2);
+    assert!(cx.debug_bounds("asset-row-image").is_some());
+    assert!(cx.debug_bounds("asset-row-image-two").is_some());
+    assert!(cx.debug_bounds("asset-row-video").is_none());
+
+    cx.simulate_keystrokes("enter");
+    assert_eq!(
+        cx.read(|app| panel.read(app).active_result.clone()),
+        Some("image".into())
+    );
+    cx.simulate_keystrokes("enter");
+    assert_eq!(
+        cx.read(|app| panel.read(app).active_result.clone()),
+        Some("image-two".into())
+    );
+    cx.simulate_keystrokes("shift-enter");
+    assert_eq!(
+        cx.read(|app| panel.read(app).active_result.clone()),
+        Some("image".into())
+    );
+    let next = cx.debug_bounds("assets-next-result").unwrap();
+    cx.simulate_click(next.center(), Modifiers::none());
+    assert_eq!(
+        cx.read(|app| panel.read(app).active_result.clone()),
+        Some("image-two".into())
+    );
+    let previous = cx.debug_bounds("assets-previous-result").unwrap();
+    cx.simulate_click(previous.center(), Modifiers::none());
+    assert_eq!(
+        cx.read(|app| panel.read(app).active_result.clone()),
+        Some("image".into())
+    );
+    assert_eq!(
+        cx.read(|app| panel.read(app).search.read(app).value()),
+        "coastal"
+    );
+
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    assert!(!cx.read(|app| panel.read(app).is_search_open()));
+    assert_eq!(cx.read(|app| panel.read(app).visible_assets(app).len()), 4);
+    assert!(cx.debug_bounds("assets-search-toolbar").is_none());
+}
+
+#[gpui::test]
+fn type_menu_filters_search_and_details_are_searchable(cx: &mut TestAppContext) {
+    let (host, cx) = setup(cx);
+    let panel = cx.read(|app| host.read(app).panel.clone());
+    cx.update(|window, app| panel.focus_handle(app).focus(window, app));
+    cx.simulate_keystrokes("secondary-f");
+    cx.run_until_parked();
+
+    cx.simulate_keystrokes("2 0 4 8");
+    assert_eq!(
+        cx.read(|app| panel.read(app).visible_assets(app)[0].id.clone()),
+        "image"
+    );
+    cx.simulate_keystrokes("secondary-a delete");
+    assert_eq!(cx.read(|app| panel.read(app).visible_assets(app).len()), 4);
+
+    let trigger = cx.debug_bounds("assets-filter-trigger").unwrap();
+    cx.simulate_click(trigger.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("assets-filter-menu").is_some());
+    let svg = cx.debug_bounds("assets-filter-SVG").unwrap();
+    cx.simulate_click(svg.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(cx.read(|app| panel.read(app).visible_assets(app).len()), 1);
+    assert!(cx.debug_bounds("asset-row-svg").is_some());
+    assert!(cx.debug_bounds("asset-row-image").is_none());
+    assert!(cx.debug_bounds("assets-filter-menu").is_none());
+
+    let trigger = cx.debug_bounds("assets-filter-trigger").unwrap();
+    cx.simulate_click(trigger.center(), Modifiers::none());
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    assert!(cx.read(|app| panel.read(app).is_search_open()));
+    assert!(cx.debug_bounds("assets-filter-menu").is_none());
 }

@@ -162,12 +162,25 @@ fn assets_expand_below_layers_without_replacing_them(cx: &mut TestAppContext) {
     assert!(cx.debug_bounds("file-inspector-layers").is_some());
     assert!(cx.debug_bounds("file-inspector-assets").is_none());
 
-    let header = cx.debug_bounds("file-inspector-assets-header").unwrap();
-    cx.simulate_click(header.center(), Modifiers::none());
+    let find = cx.debug_bounds("assets-search-trigger").unwrap();
+    cx.simulate_click(find.center(), Modifiers::none());
     cx.run_until_parked();
     assert!(cx.read(|app| entity.read(app).assets_expanded()));
     assert!(cx.debug_bounds("file-inspector-layers").is_some());
     assert!(cx.debug_bounds("file-inspector-assets").is_some());
+    assert!(cx.debug_bounds("assets-search-toolbar").is_some());
+    let assets = cx.read(|app| entity.read(app).assets.clone().unwrap());
+    assert!(cx.read(|app| assets.read(app).is_search_open()));
+    let find = cx.debug_bounds("assets-search-trigger").unwrap();
+    cx.simulate_click(find.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(cx.read(|app| entity.read(app).assets_expanded()));
+
+    let close = cx.debug_bounds("assets-close-search").unwrap();
+    cx.simulate_click(close.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(!cx.read(|app| assets.read(app).is_search_open()));
+    assert!(cx.read(|app| entity.read(app).assets_expanded()));
 
     let layers_header = cx.debug_bounds("layers-header").unwrap();
     cx.simulate_click(layers_header.center(), Modifiers::none());

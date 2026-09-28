@@ -6,13 +6,13 @@ use gpui::{
     StatefulInteractiveElement as _, Styled as _, Subscription, Window, div,
     prelude::FluentBuilder as _, px,
 };
-use gpui_component::{h_flex, v_flex};
+use gpui_component::{Sizable as _, button::ButtonVariants as _, h_flex, v_flex};
 
 use crate::{
-    assets::AssetsPanel,
+    assets::{ASSETS_PANEL_KEY_CONTEXT, AssetsPanel, FindInAssets},
     atoms::{
         CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_fanta_logo,
-        render_lucide_icon, sidebar_style, tokens,
+        render_lucide_icon, sidebar_style, tokens, ui_button,
     },
     layers::{LayersPanel, LayersPanelAction},
     pages::PagesPanel,
@@ -31,6 +31,7 @@ pub enum FileInspectorAction {
 pub struct FileInspectorSidebar {
     id: SharedString,
     focus_handle: FocusHandle,
+    assets_find_focus_handle: FocusHandle,
     pages: Entity<PagesPanel>,
     layers: Entity<LayersPanel>,
     _layer_expansion_subscription: Subscription,
@@ -60,6 +61,7 @@ impl FileInspectorSidebar {
         Self {
             id: id.into(),
             focus_handle: cx.focus_handle(),
+            assets_find_focus_handle: cx.focus_handle(),
             pages,
             layers,
             _layer_expansion_subscription: layer_expansion_subscription,
@@ -272,6 +274,7 @@ impl Render for FileInspectorSidebar {
                             .gap_1()
                             .items_center()
                             .cursor_pointer()
+                            .occlude()
                             .hover(|header| header.bg(style.hover))
                             .focus(|header| header.bg(style.hover))
                             .when(!self.assets_expanded, |header| {
@@ -293,6 +296,50 @@ impl Render for FileInspectorSidebar {
                                     .text_size(px(10.))
                                     .text_color(style.muted_text)
                                     .child(count.to_string()),
+                            )
+                            .child(
+                                div()
+                                    .id(SharedString::from(format!(
+                                        "{}-assets-find-control",
+                                        self.id
+                                    )))
+                                    .flex_none()
+                                    .debug_selector(|| "assets-search-trigger".to_owned())
+                                    .key_context(CONTROL_KEY_CONTEXT)
+                                    .track_focus(
+                                        &self
+                                            .assets_find_focus_handle
+                                            .clone()
+                                            .tab_index(0)
+                                            .tab_stop(true),
+                                    )
+                                    .focus(|control| control.bg(style.hover).rounded(px(5.)))
+                                    .occlude()
+                                    .on_activate(cx.listener(|this, _, window, cx| {
+                                        cx.stop_propagation();
+                                        if let Some(assets) = this.assets.clone() {
+                                            this.expand_assets(cx);
+                                            assets.update(cx, |panel, cx| {
+                                                panel.open_search(window, cx);
+                                            });
+                                        }
+                                    }))
+                                    .child(
+                                        ui_button(SharedString::from(format!(
+                                            "{}-assets-find",
+                                            self.id
+                                        )))
+                                        .ghost()
+                                        .xsmall()
+                                        .compact()
+                                        .tab_stop(false)
+                                        .icon(gpui_component::IconName::Search)
+                                        .tooltip_with_action(
+                                            "Find assets",
+                                            &FindInAssets,
+                                            Some(ASSETS_PANEL_KEY_CONTEXT),
+                                        ),
+                                    ),
                             )
                             .on_activate(cx.listener(|this, _, _, cx| {
                                 if this.assets_expanded {

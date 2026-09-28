@@ -10,7 +10,7 @@ use gpui_component::input::{
 };
 
 use crate::{
-    assets::ASSETS_PANEL_KEY_CONTEXT,
+    assets::{ASSETS_PANEL_KEY_CONTEXT, CloseAssetsSearch},
     design::{CancelDesignInteraction, DESIGN_PANEL_KEY_CONTEXT},
     generation::GENERATION_SCREEN_KEY_CONTEXT,
     layers::{CloseLayersOverlay, LAYERS_PANEL_KEY_CONTEXT},
@@ -65,6 +65,7 @@ enum InputAction {
     NextToolbarCommand,
     CloseToolbarOverlay,
     ClosePagesSearch,
+    CloseAssetsSearch,
     CancelDesignInteraction,
     CloseLayersOverlay,
 }
@@ -114,6 +115,7 @@ impl InputAction {
             Self::NextToolbarCommand => Box::new(NextToolbarCommand),
             Self::CloseToolbarOverlay => Box::new(CloseToolbarOverlay),
             Self::ClosePagesSearch => Box::new(ClosePagesSearch),
+            Self::CloseAssetsSearch => Box::new(CloseAssetsSearch),
             Self::CancelDesignInteraction => Box::new(CancelDesignInteraction),
             Self::CloseLayersOverlay => Box::new(CloseLayersOverlay),
         }
@@ -298,6 +300,10 @@ fn fallback_actions(event: &KeystrokeEvent) -> Vec<InputAction> {
         .context_stack
         .iter()
         .any(|context| context.contains(PAGES_PANEL_KEY_CONTEXT));
+    let in_assets = event
+        .context_stack
+        .iter()
+        .any(|context| context.contains(ASSETS_PANEL_KEY_CONTEXT));
     let in_design = event
         .context_stack
         .iter()
@@ -316,6 +322,8 @@ fn fallback_actions(event: &KeystrokeEvent) -> Vec<InputAction> {
         }
     } else if in_pages && unmodified && event.keystroke.key == "escape" {
         actions.push(InputAction::ClosePagesSearch);
+    } else if in_assets && unmodified && event.keystroke.key == "escape" {
+        actions.push(InputAction::CloseAssetsSearch);
     } else if in_design && unmodified && event.keystroke.key == "escape" {
         actions.push(InputAction::CancelDesignInteraction);
     } else if in_layers && unmodified && event.keystroke.key == "escape" {

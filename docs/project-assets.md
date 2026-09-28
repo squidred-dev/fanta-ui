@@ -6,6 +6,16 @@ The File Inspector stacks Pages, Layers, and a collapsible Assets section.
 not mutate a project. The host may call `expand_assets` after an import, and
 the user can expand or collapse the section without hiding Layers.
 
+The Assets disclosure header has its own Find control. Click it, or press
+`⌘F`/`Ctrl+F` while Assets has focus, to open the same compact search pattern
+used by Pages: a focused cleanable query, type settings in a popup, a result
+count, and previous/next controls. Search matches each asset's semantic name,
+type, and host-supplied detail, and never queries page or layer content.
+Enter moves to the next matching asset; Shift+Enter moves to the previous one.
+Escape dismisses the type menu first, then closes search. The active result is
+highlighted and scrolled into view. Closing search returns to the full asset
+list; the chosen type and query remain available for the next Find session.
+
 The host lists its persisted project assets, including media that cannot be
 placed in the current editor space. Each `AssetRow` has an opaque ID, semantic
 name, type, optional thumbnail and detail, and `can_place`. Set
