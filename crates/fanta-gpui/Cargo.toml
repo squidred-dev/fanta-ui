@@ -19,6 +19,7 @@ lucide-static-svg = { version = "=1.45.0", default-features = false, features = 
 lyon = "1.0"
 roxmltree = "0.20"
 svgtypes = "0.16.1"
+url = "2.5.8"
 
 [dev-dependencies]
 gpui = { workspace = true, features = ["test-support"] }

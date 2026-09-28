@@ -333,6 +333,7 @@ fn every_reference_fixture_renders_through_the_registry(cx: &mut TestAppContext)
             "reference-property-typography",
         ),
         (StoryKind::Variables, "storybook-reference-variables"),
+        (StoryKind::Settings, "storybook-reference-settings"),
         (
             StoryKind::GenerationImage,
             "storybook-reference-generation-image",

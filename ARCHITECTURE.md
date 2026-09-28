@@ -711,3 +711,34 @@ it performs no generation. Design, Masks,
 and edit operations are outside this screen. The API mapping, model controls,
 and output-preview contract are in
 [docs/generation.md](docs/generation.md).
+
+## §22 Settings with embedded billing
+
+`fanta_gpui::settings::SettingsScreen` is one settings window based on Zed's
+settings UI layout and tree navigation, with a persistent vertical sidebar.
+It presents Fanta preferences, AI and MCP configuration, account, credits and
+billing, AI usage, plans, and activity in the same content pane. The host
+supplies page groups, setting values, account and usage summaries, MCP server
+status, and an optional workspace billing snapshot through `SettingsViewData`.
+Preference changes, page navigation, billing operations, and MCP management
+are typed `SettingsAction` intents. The component owns only transient search,
+focus, expanded navigation, active section, and in-progress MCP form state;
+it does not persist settings or start servers. The host treats executable
+arguments and URLs as potentially sensitive, stores authentication secrets
+in its own secure store, and echoes accepted changes through `set_view_data`.
+
+The embedded `fanta_gpui::billing::BillingScreen` receives a workspace-scoped
+`BillingViewData` snapshot: balance, subscription, localized prices, purchase
+availability, usage, plans, and activity. Its four destinations are controlled
+by the Settings sidebar. It emits typed `BillingAction` intents that Settings
+forwards to the host for range changes, receipts, CSV export, refresh, and
+purchase-related requests. It has no separate header, tabs, or outer scroll
+when embedded. It never modifies a credit balance or starts checkout. The host
+owns entitlement checks, purchase flows, receipts, and error/loading
+transitions.
+
+The single Settings Storybook story provides an in-memory mock host and
+exercises navigation, editing, usage ranges, and MCP configuration. It does
+not contact Fanta's web dashboard or billing services. See
+[docs/settings-billing.md](docs/settings-billing.md) for the host contract and
+the later Fanta Edit integration points.

@@ -2631,6 +2631,7 @@ dependencies = [
  "lyon",
  "roxmltree 0.20.0",
  "svgtypes",
+ "url",
 ]
 
 [[package]]

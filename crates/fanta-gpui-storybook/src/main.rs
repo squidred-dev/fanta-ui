@@ -22,8 +22,8 @@ use gpui::{
     InteractiveElement as _, IntoElement, KeyDownEvent, Menu, MenuItem, MouseButton,
     MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _, Render, ScrollHandle,
     SharedString, StatefulInteractiveElement as _, Styled as _, Subscription, TitlebarOptions,
-    Window, WindowBounds, WindowId, WindowOptions, canvas, div, prelude::FluentBuilder as _, px,
-    rgba, size,
+    Window, WindowBounds, WindowId, WindowOptions, canvas, div, point, prelude::FluentBuilder as _,
+    px, rgba, size,
 };
 use gpui_component::{
     ActiveTheme as _, Icon, IconName, Root, Selectable as _, Sizable as _, StyledExt as _, Theme,
@@ -41,8 +41,9 @@ use screens::{
     GenerationStories, IconsScreen, InputsStory, LabelsScreen, LayersScreen, ListRowsScreen,
     MenusScreen, OverlaysScreen, PagesScreen, PopupsScreen, PropertiesInspectorScreen,
     PropertiesTabsScreen, PrototypeScreen, PseudoEditorScreen, RadioButtonStory,
-    SegmentedControlStory, StructureScreen, TabsStory, TimelineScreen, TokensScreen, ToolbarScreen,
-    TooltipsStory, VariablesStory, WelcomeScreen, ZoomBarScreen, viewport::StoryViewport,
+    SegmentedControlStory, SettingsStory, StructureScreen, TabsStory, TimelineScreen, TokensScreen,
+    ToolbarScreen, TooltipsStory, VariablesStory, WelcomeScreen, ZoomBarScreen,
+    viewport::StoryViewport,
 };
 use themes::{apply_zed_theme, initial_zed_theme_index, zed_themes};
 
@@ -91,6 +92,7 @@ struct Storybook {
     structure_screen: StructureScreen,
     overlays_screen: OverlaysScreen,
     variables_screen: VariablesStory,
+    settings_story: SettingsStory,
     generation_stories: GenerationStories,
     sliders_screen: screens::sliders::SlidersStory,
     paint_picker_screen: screens::paint_picker::PaintPickerStory,
@@ -136,6 +138,7 @@ impl Storybook {
         let structure_screen = StructureScreen::new(cx);
         let overlays_screen = OverlaysScreen::new(cx);
         let variables_screen = VariablesStory::new(window, cx);
+        let settings_story = SettingsStory::new(window, cx);
         let generation_stories = GenerationStories::new(window, cx);
         let sliders_screen = screens::sliders::SlidersStory::new(cx);
         let paint_picker_screen = screens::paint_picker::PaintPickerStory::new(window, cx);
@@ -240,6 +243,13 @@ impl Storybook {
                 &variables_screen.screen,
                 |story, screen, action: &VariablesAction, cx| {
                     story.variables_screen.handle_action(screen, action, cx);
+                },
+            ),
+            cx.subscribe_in(
+                &settings_story.screen,
+                window,
+                |story, _, action: &fanta_gpui::settings::SettingsAction, window, cx| {
+                    story.handle_settings_action(action, window, cx);
                 },
             ),
             cx.subscribe_in(
@@ -425,6 +435,7 @@ impl Storybook {
             structure_screen,
             overlays_screen,
             variables_screen,
+            settings_story,
             generation_stories,
             sliders_screen,
             paint_picker_screen,
@@ -582,10 +593,11 @@ fn main() {
                             | StoryKind::GenerationVideo
                             | StoryKind::GenerationAudio
                             | StoryKind::GenerationSvg
+                            | StoryKind::Settings
                     ) {
                         // Ayu Dark has the darkest editor canvas in the
-                        // bundled Zed themes (#0d1016). Keep the generation
-                        // reference fixtures on that native Zed palette.
+                        // bundled Zed themes (#0d1016). Use it for these
+                        // full-screen native references.
                         apply_zed_theme(&zed_themes()[4], cx);
                     } else if matches!(
                         launch.story,
@@ -623,15 +635,41 @@ fn main() {
             let window_height =
                 storybook_window_dimension("FANTA_STORYBOOK_HEIGHT", reference_height);
             let bounds = Bounds::centered(None, size(px(window_width), px(window_height)), cx);
+            let window_title = if launch.mode == StorybookLaunchMode::ReferenceFixture
+                && initial_story == StoryKind::Settings
+            {
+                "Fanta Settings · Storybook"
+            } else {
+                "Fanta GPUI Storybook"
+            };
+            let (minimum_width, minimum_height) = if launch.mode
+                == StorybookLaunchMode::ReferenceFixture
+                && initial_story == StoryKind::Settings
+            {
+                (fanta_gpui::settings::SETTINGS_SCREEN_MIN_WIDTH, 640.)
+            } else {
+                (320., 240.)
+            };
+            let settings_reference = launch.mode == StorybookLaunchMode::ReferenceFixture
+                && initial_story == StoryKind::Settings;
+            let titlebar = if settings_reference {
+                TitlebarOptions {
+                    title: Some(window_title.into()),
+                    appears_transparent: true,
+                    traffic_light_position: Some(point(px(9.), px(9.))),
+                }
+            } else {
+                TitlebarOptions {
+                    title: Some(window_title.into()),
+                    ..Default::default()
+                }
+            };
             let options = WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
-                // The registered window minimum: the gallery shell reflows
-                // (collapsing its sidebar and knobs) instead of clipping.
-                window_min_size: Some(size(px(320.), px(240.))),
-                titlebar: Some(TitlebarOptions {
-                    title: Some("Fanta GPUI Storybook".into()),
-                    ..Default::default()
-                }),
+                // Keep the native Settings reference above its pane minimum.
+                // The gallery shell can still reflow down to its own minimum.
+                window_min_size: Some(size(px(minimum_width), px(minimum_height))),
+                titlebar: Some(titlebar),
                 ..Default::default()
             };
 

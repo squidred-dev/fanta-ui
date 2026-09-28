@@ -31,7 +31,7 @@ pub use organisms::properties_tabs;
 pub use organisms::{
     color_picker, design, layers, pages, paint_picker, prototype, timeline, toolbar, zoom_bar,
 };
-pub use screens::{generation, variables};
+pub use screens::{billing, generation, settings, variables};
 
 /// Registers Fanta GPUI commands and their default key bindings.
 ///

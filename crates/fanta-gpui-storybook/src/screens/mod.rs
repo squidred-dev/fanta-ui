@@ -6,6 +6,7 @@
 //! source for sidebar grouping, render/focus dispatch, env-name parsing,
 //! and window sizing; nothing else may hold a per-story match.
 
+pub(crate) mod billing;
 pub(crate) mod buttons;
 pub(crate) mod checkbox;
 pub(crate) mod color_picker;
@@ -35,6 +36,7 @@ pub(crate) mod prototype;
 pub(crate) mod pseudo_editor;
 pub(crate) mod radio_button;
 pub(crate) mod segmented_control;
+pub(crate) mod settings;
 pub(crate) mod sliders;
 pub(crate) mod spec;
 pub(crate) mod specimen;
@@ -73,6 +75,7 @@ pub(crate) use prototype::PrototypeScreen;
 pub(crate) use pseudo_editor::PseudoEditorScreen;
 pub(crate) use radio_button::RadioButtonStory;
 pub(crate) use segmented_control::SegmentedControlStory;
+pub(crate) use settings::SettingsStory;
 pub(crate) use structure::StructureScreen;
 pub(crate) use tabs::TabsStory;
 pub(crate) use timeline::TimelineScreen;
@@ -232,7 +235,7 @@ impl StoryKind {
     }
 }
 
-static REGISTRY: [StoryDescriptor; 54] = [
+static REGISTRY: [StoryDescriptor; 55] = [
     StoryDescriptor {
         kind: StoryKind::Typography,
         id: "typography",
@@ -1295,6 +1298,47 @@ static REGISTRY: [StoryDescriptor; 54] = [
         last_action: |story| story.variables_screen.last_action.clone(),
     },
     StoryDescriptor {
+        kind: StoryKind::Settings,
+        id: "settings",
+        aliases: &["preferences", "settings-window"],
+        title: "Settings",
+        nav_label: "Settings",
+        description: "One native Settings window for Fanta preferences, AI, MCP, workspace credits, billing, and usage.",
+        section: StorySection::Screens,
+        reference_window_size: (1120., 780.),
+        gallery_surface_size: (1120., 750.),
+        gallery_fluid_width: true,
+        viewport_presets: &[
+            ViewportPreset::new("Minimum", 900., 640.),
+            ViewportPreset::new("Laptop", 1000., 700.),
+            ViewportPreset::new("Desktop", 1120., 780.),
+        ],
+        keyboard_hints: &[
+            KeyboardHint::new("Tab / Shift-Tab", "Navigate settings and controls"),
+            KeyboardHint::new("Esc", "Clear settings search"),
+        ],
+        render_story: |story, _| story.settings_story.screen.clone().into_any_element(),
+        render_gallery: None,
+        render_reference: |story, _| {
+            div()
+                .id("storybook-reference-settings")
+                .debug_selector(|| "storybook-reference-settings".to_owned())
+                .size_full()
+                .overflow_hidden()
+                .child(story.settings_story.screen.clone())
+                .into_any_element()
+        },
+        render_knobs: Some(|story, cx| story.render_settings_knobs(cx)),
+        focus: |story, window, cx| {
+            story
+                .settings_story
+                .screen
+                .focus_handle(cx)
+                .focus(window, cx)
+        },
+        last_action: |story| story.settings_story.last_action.clone(),
+    },
+    StoryDescriptor {
         kind: StoryKind::GenerationImage,
         id: "generate-image",
         aliases: &["image-generation"],
@@ -2296,7 +2340,7 @@ mod tests {
                 );
             }
         }
-        assert_eq!(registry().len(), 54);
+        assert_eq!(registry().len(), 55);
         assert_eq!(
             story_from_name("color-picker"),
             Some(StoryKind::ColorPicker)
@@ -2307,6 +2351,11 @@ mod tests {
         assert_eq!(story_from_name("foundations"), Some(StoryKind::Icons));
         assert_eq!(story_from_name("atoms"), Some(StoryKind::Icons));
         assert_eq!(story_from_name("molecules"), Some(StoryKind::Menus));
+        assert_eq!(
+            story_from_name("billing"),
+            None,
+            "credits and billing are destinations inside Settings, not a second story"
+        );
         assert_eq!(story_from_name("not-a-story"), None);
     }
 
@@ -2347,6 +2396,7 @@ mod tests {
             (StoryKind::Toolbar, StorySection::Organisms),
             (StoryKind::FileInspector, StorySection::Layouts),
             (StoryKind::Variables, StorySection::Screens),
+            (StoryKind::Settings, StorySection::Screens),
             (StoryKind::GenerationImage, StorySection::Screens),
             (StoryKind::GenerationVideo, StorySection::Screens),
             (StoryKind::GenerationAudio, StorySection::Screens),

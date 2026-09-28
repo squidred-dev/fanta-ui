@@ -31,6 +31,7 @@ pub(super) enum StoryKind {
     Layers,
     Design,
     Variables,
+    Settings,
     GenerationImage,
     GenerationVideo,
     GenerationAudio,
