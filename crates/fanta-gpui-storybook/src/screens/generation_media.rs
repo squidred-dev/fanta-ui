@@ -18,7 +18,11 @@ use gpui::{
     ObjectFit, ParentElement as _, Pixels, Point, Render, SharedString, Styled as _,
     StyledImage as _, Window, canvas, div, fill, img, point, prelude::FluentBuilder as _, px, size,
 };
-use gpui_component::{ActiveTheme as _, button::Button, h_flex, v_flex};
+use gpui_component::{
+    ActiveTheme as _,
+    button::{Button, ButtonVariants as _},
+    h_flex, v_flex,
+};
 
 #[cfg(target_os = "macos")]
 use core_video::pixel_buffer::CVPixelBuffer;
@@ -116,6 +120,7 @@ pub(crate) struct GenerationMediaView {
     audio_started_at: Option<Instant>,
     audio_elapsed: Duration,
     playing: bool,
+    muted: bool,
     frame_scheduled: bool,
     seek_bounds: Option<Bounds<Pixels>>,
     error: Option<SharedString>,
@@ -142,6 +147,7 @@ impl GenerationMediaView {
             audio_started_at: None,
             audio_elapsed: Duration::ZERO,
             playing: false,
+            muted: false,
             frame_scheduled: false,
             seek_bounds: None,
             error: None,
@@ -167,7 +173,9 @@ impl GenerationMediaView {
                 this.preparation = None;
                 match result.and_then(VideoPlayback::new) {
                     Ok(mut player) => {
-                        if let Err(error) = player.set_audio(true, 0.).and_then(|()| player.seek(0))
+                        if let Err(error) = player
+                            .set_audio(this.muted, 0.8)
+                            .and_then(|()| player.seek(0))
                         {
                             this.error = Some(format!("{error:#}").into());
                         } else {
@@ -307,6 +315,22 @@ impl GenerationMediaView {
         cx.notify();
     }
 
+    fn restart(&mut self, cx: &mut Context<Self>) {
+        self.stop(cx);
+        self.play(cx);
+    }
+
+    fn toggle_mute(&mut self, cx: &mut Context<Self>) {
+        self.muted = !self.muted;
+        #[cfg(target_os = "macos")]
+        if let Some(player) = &mut self.video
+            && let Err(error) = player.set_audio(self.muted, 0.8)
+        {
+            self.error = Some(format!("Could not change sound: {error:#}").into());
+        }
+        cx.notify();
+    }
+
     fn elapsed(&self) -> Duration {
         match self.clip {
             GenerationMediaClip::NatureVideo | GenerationMediaClip::ProductVideo => {
@@ -355,6 +379,28 @@ impl GenerationMediaView {
         #[cfg(not(target_os = "macos"))]
         {
             let _ = (position, cx);
+        }
+    }
+
+    fn seek_by(&mut self, seconds: i64, cx: &mut Context<Self>) {
+        #[cfg(target_os = "macos")]
+        if let Some(player) = &mut self.video {
+            let current = self.video_status.current_time_us as i64;
+            let duration = self.video_status.duration_us as i64;
+            let target = current
+                .saturating_add(seconds.saturating_mul(1_000_000))
+                .clamp(0, duration) as u64;
+            match player.seek(target) {
+                Ok(()) => {
+                    self.video_status.current_time_us = target;
+                    cx.notify();
+                }
+                Err(error) => self.error = Some(format!("Could not seek: {error:#}").into()),
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = (seconds, cx);
         }
     }
 
@@ -475,6 +521,24 @@ impl Render for GenerationMediaView {
         let border = colors.border;
         let progress = colors.primary;
         let is_video = self.clip.is_video();
+        let mut waveform = h_flex()
+            .items_center()
+            .justify_center()
+            .gap(px(3.))
+            .h(px(54.));
+        for index in 0..56 {
+            let wave = ((index as f32 * 0.41).sin().abs() * 23.
+                + (index as f32 * 0.17).cos().abs() * 15.
+                + 6.)
+                .min(50.);
+            waveform = waveform.child(div().w(px(3.)).h(px(wave)).rounded_full().bg(
+                if index as f32 / 56. <= ratio {
+                    progress
+                } else {
+                    muted.opacity(0.42)
+                },
+            ));
+        }
         let artwork = div()
             .flex_1()
             .min_h_0()
@@ -497,10 +561,25 @@ impl Render for GenerationMediaView {
             })
             .when(!is_video, |element| {
                 element.child(
-                    img(self.poster.clone())
+                    v_flex()
                         .w_full()
-                        .h_full()
-                        .object_fit(ObjectFit::Contain),
+                        .items_center()
+                        .justify_center()
+                        .gap(px(20.))
+                        .p(px(24.))
+                        .child(
+                            img(self.poster.clone())
+                                .w(px(220.))
+                                .h(px(220.))
+                                .object_fit(ObjectFit::Contain),
+                        )
+                        .child(waveform)
+                        .child(
+                            div()
+                                .text_size(px(11.))
+                                .text_color(muted)
+                                .child("AUDIO PREVIEW"),
+                        ),
                 )
             });
         let seek_view = cx.entity().downgrade();
@@ -544,56 +623,101 @@ impl Render for GenerationMediaView {
                 )
                 .size_full(),
             );
-        let transport =
-            v_flex()
-                .w_full()
-                .p(px(16.))
-                .gap(px(10.))
-                .bg(background)
-                .border_t_1()
-                .border_color(border)
-                .child(seek_bar)
+        let mut controls = h_flex()
+            .items_center()
+            .gap(px(8.))
+            .child(
+                Button::new("generation-media-play-toggle")
+                    .label(if self.playing { "Pause" } else { "Play" })
+                    .primary()
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        if this.playing {
+                            this.pause(cx);
+                        } else {
+                            this.play(cx);
+                        }
+                    })),
+            )
+            .child(
+                Button::new("generation-media-restart")
+                    .label("Restart")
+                    .ghost()
+                    .compact()
+                    .on_click(cx.listener(|this, _, _, cx| this.restart(cx))),
+            );
+        if is_video {
+            controls = controls
                 .child(
-                    h_flex()
-                        .w_full()
-                        .justify_between()
-                        .child(
-                            h_flex()
-                                .gap(px(10.))
-                                .child(
-                                    Button::new("generation-media-play-toggle")
-                                        .label(if self.playing { "Pause" } else { "Play" })
-                                        .on_click(cx.listener(|this, _, _, cx| {
-                                            if this.playing {
-                                                this.pause(cx);
-                                            } else {
-                                                this.play(cx);
-                                            }
-                                        })),
-                                )
-                                .child(div().text_size(px(12.)).text_color(foreground).child(
-                                    format!("{} / {}", time_label(elapsed), time_label(duration)),
-                                )),
-                        )
-                        .child(
-                            div()
-                                .text_size(px(11.))
-                                .text_color(muted)
-                                .child(if is_video {
-                                    "MP4 PREVIEW"
-                                } else {
-                                    "WAV PREVIEW"
-                                }),
-                        ),
+                    Button::new("generation-media-backward")
+                        .label("−5 s")
+                        .ghost()
+                        .compact()
+                        .on_click(cx.listener(|this, _, _, cx| this.seek_by(-5, cx))),
                 )
-                .when_some(self.error.clone(), |element, error| {
-                    element.child(
+                .child(
+                    Button::new("generation-media-forward")
+                        .label("+5 s")
+                        .ghost()
+                        .compact()
+                        .on_click(cx.listener(|this, _, _, cx| this.seek_by(5, cx))),
+                );
+        }
+        let transport = v_flex()
+            .w_full()
+            .p(px(16.))
+            .gap(px(8.))
+            .bg(background)
+            .border_t_1()
+            .border_color(border)
+            .child(
+                h_flex()
+                    .w_full()
+                    .justify_between()
+                    .child(
                         div()
-                            .text_size(px(11.))
-                            .text_color(colors.danger)
-                            .child(error),
+                            .text_size(px(10.))
+                            .text_color(muted)
+                            .child(if is_video {
+                                "VIDEO PREVIEW"
+                            } else {
+                                "AUDIO PREVIEW"
+                            }),
                     )
-                });
+                    .child(
+                        div()
+                            .text_size(px(12.))
+                            .text_color(foreground)
+                            .child(format!(
+                                "{} / {}",
+                                time_label(elapsed),
+                                time_label(duration)
+                            )),
+                    ),
+            )
+            .child(seek_bar)
+            .child(
+                h_flex()
+                    .w_full()
+                    .justify_between()
+                    .child(controls)
+                    .when(is_video, |row| {
+                        row.child(
+                            Button::new("generation-media-sound")
+                                .label(if self.muted { "Unmute" } else { "Mute" })
+                                .ghost()
+                                .compact()
+                                .on_click(cx.listener(|this, _, _, cx| this.toggle_mute(cx))),
+                        )
+                    }),
+            )
+            .when_some(self.error.clone(), |element, error| {
+                element.child(
+                    div()
+                        .text_size(px(11.))
+                        .text_color(colors.danger)
+                        .child(error),
+                )
+            });
 
         v_flex()
             .size_full()

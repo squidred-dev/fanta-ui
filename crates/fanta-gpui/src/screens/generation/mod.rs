@@ -27,6 +27,7 @@ use ui::StyledTypography as _;
 /// Width at which the composer and gallery sit side by side.
 pub const GENERATION_SCREEN_MIN_WIDTH: f32 = 540.;
 pub const GENERATION_SCREEN_MIN_HEIGHT: f32 = 480.;
+pub(crate) const GENERATION_SCREEN_KEY_CONTEXT: &str = "FantaGenerationScreen";
 
 #[derive(Clone, Copy)]
 struct GenerationStyle {
@@ -836,12 +837,14 @@ impl GenerationScreen {
 
     fn field(
         &self,
+        selector: &'static str,
         label: impl Into<SharedString>,
         state: &Entity<InputState>,
         height: f32,
         colors: GenerationStyle,
     ) -> AnyElement {
         div()
+            .debug_selector(move || selector.to_owned())
             .flex()
             .flex_col()
             .gap(px(6.))
@@ -1559,7 +1562,13 @@ impl GenerationScreen {
                     })
                     .to_owned()
                 };
-                stack = stack.child(self.field(prompt_label, &self.prompt, 96., colors));
+                stack = stack.child(self.field(
+                    "generation-prompt-field",
+                    prompt_label,
+                    &self.prompt,
+                    96.,
+                    colors,
+                ));
             }
             if model.recipe == GenerationRecipe::ImageVideo {
                 stack = stack.child(self.render_video_frames(model, colors, cx));
@@ -1615,11 +1624,22 @@ impl GenerationScreen {
                         ));
                     }
                     if model.supports_negative {
-                        stack =
-                            stack.child(self.field("NEGATIVE PROMPT", &self.negative, 72., colors));
+                        stack = stack.child(self.field(
+                            "generation-negative-field",
+                            "NEGATIVE PROMPT",
+                            &self.negative,
+                            72.,
+                            colors,
+                        ));
                     }
                     if model.supports_seed {
-                        stack = stack.child(self.field("SEED", &self.seed, 32., colors));
+                        stack = stack.child(self.field(
+                            "generation-seed-field",
+                            "SEED",
+                            &self.seed,
+                            32.,
+                            colors,
+                        ));
                     }
                 }
             }
@@ -1881,10 +1901,12 @@ impl GenerationScreen {
             .map(|model| model.label.clone())
             .unwrap_or_else(|| output.model_id.clone());
         let id_for_download = output.id.clone();
+        let id_for_add = output.id.clone();
         let id_for_play = output.id.clone();
         let id_for_prompt = output.id.clone();
         let id_for_open = output.id.clone();
         let screen_for_download = cx.entity();
+        let screen_for_add = cx.entity();
         let screen_for_play = cx.entity();
         let screen_for_prompt = cx.entity();
         let screen_for_open = cx.entity();
@@ -1892,7 +1914,11 @@ impl GenerationScreen {
         actions = actions.child(self.control(
             "open-selected",
             "Open preview",
-            ControlAppearance::Prominent,
+            if output.can_add_to_project {
+                ControlAppearance::Normal
+            } else {
+                ControlAppearance::Prominent
+            },
             colors,
             move |window, cx| {
                 screen_for_open.update(cx, |this, cx| {
@@ -1901,6 +1927,21 @@ impl GenerationScreen {
             },
         ));
         if output.status == GenerationOutputStatus::Succeeded {
+            if output.can_add_to_project {
+                actions = actions.child(self.control(
+                    "add-selected-to-project",
+                    "Add to project",
+                    ControlAppearance::Prominent,
+                    colors,
+                    move |_, cx| {
+                        screen_for_add.update(cx, |_, cx| {
+                            cx.emit(GenerationAction::AddToProjectRequested {
+                                id: id_for_add.clone(),
+                            })
+                        });
+                    },
+                ));
+            }
             if matches!(output.kind, GenerationKind::Audio | GenerationKind::Video) {
                 actions = actions.child(self.control(
                     "play-selected",
@@ -2165,7 +2206,7 @@ impl Render for GenerationScreen {
         let root = div()
             .id(self.id.clone())
             .relative()
-            .key_context("FantaGenerationScreen")
+            .key_context(GENERATION_SCREEN_KEY_CONTEXT)
             .track_focus(&self.focus_handle)
             .size_full()
             .min_w(px(GENERATION_SCREEN_MIN_WIDTH))

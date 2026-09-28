@@ -422,6 +422,9 @@ pub struct GenerationOutput {
     pub preview: Option<Arc<Image>>,
     /// Optional host-owned inline audio/video player mounted in the lightbox.
     pub playback_view: Option<AnyView>,
+    /// Host-confirmed eligibility for adding this output to the project. A
+    /// preview alone is not proof that the original media can be imported.
+    pub can_add_to_project: bool,
 }
 
 impl GenerationOutput {
@@ -443,6 +446,7 @@ impl GenerationOutput {
             detail: SharedString::default(),
             preview: None,
             playback_view: None,
+            can_add_to_project: false,
         }
     }
 
@@ -468,6 +472,11 @@ impl GenerationOutput {
 
     pub fn playback_view(mut self, view: impl Into<AnyView>) -> Self {
         self.playback_view = Some(view.into());
+        self
+    }
+
+    pub fn can_add_to_project(mut self, value: bool) -> Self {
+        self.can_add_to_project = value;
         self
     }
 }
@@ -735,6 +744,11 @@ pub enum GenerationAction {
         id: SharedString,
     },
     DownloadRequested {
+        id: SharedString,
+    },
+    /// Ask the host to save this ready generation as a project asset. The host
+    /// resolves the opaque generation ID and applies document changes.
+    AddToProjectRequested {
         id: SharedString,
     },
     PlayRequested {

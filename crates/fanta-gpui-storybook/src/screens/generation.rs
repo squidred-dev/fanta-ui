@@ -541,7 +541,8 @@ impl GenerationStory {
                 )
                 .prompt(submission.prompt.clone())
                 .created_at("Just now")
-                .detail(submission.recipe.label());
+                .detail(submission.recipe.label())
+                .can_add_to_project(true);
                 output.preview = match submission.kind {
                     GenerationKind::Image => Some(photo_preview(EDITORIAL_PORTRAIT)),
                     GenerationKind::Video => Some(photo_preview(VIDEO_NATURE)),
@@ -577,6 +578,7 @@ impl GenerationStory {
             GenerationAction::KindSelected(_)
             | GenerationAction::DraftChanged
             | GenerationAction::DownloadRequested { .. }
+            | GenerationAction::AddToProjectRequested { .. }
             | GenerationAction::ReusePromptRequested { .. } => {}
         }
         self.screen.update(cx, |screen, cx| {
@@ -684,7 +686,7 @@ impl Storybook {
 }
 
 fn fixture(kind: GenerationKind) -> GenerationViewData {
-    let (models, templates, outputs, selected_model_id) = match kind {
+    let (models, templates, mut outputs, selected_model_id) = match kind {
         GenerationKind::Image => (
             vec![
                 brand(GenerationModel::new("fanta-image-1", "Fanta Image", GenerationRecipe::TextImage)
@@ -785,14 +787,16 @@ fn fixture(kind: GenerationKind) -> GenerationViewData {
                     kind,
                     "An editorial portrait with directional window light and quiet natural tones",
                 )
-                .description("Portrait · soft directional light"),
+                .description("Portrait · soft directional light")
+                .preview(photo_preview(EDITORIAL_PORTRAIT)),
                 GenerationTemplate::new(
                     "image-product",
                     "Product study",
                     kind,
                     "A refined product still life with soft studio lighting and clear material detail",
                 )
-                .description("Product · refined material study"),
+                .description("Product · refined material study")
+                .preview(photo_preview(PRODUCT_STUDY)),
                 GenerationTemplate::new(
                     "image-landscape",
                     "Atmospheric landscape",
@@ -1165,17 +1169,19 @@ fn fixture(kind: GenerationKind) -> GenerationViewData {
         GenerationKind::Svg => (
             vec![
                 brand(GenerationModel::new(
-                    "claude-sonnet-5",
+                    "svg-claude-sonnet-5",
                     "Claude Sonnet 5",
                     GenerationRecipe::PromptSvg,
                 )
-                .description("SVG artwork from a prompt"), "Anthropic", "claude", ImageFormat::Png, CLAUDE_LOGO, None),
+                .description("SVG artwork from a prompt")
+                .credit_hint("Up to 9 credits"), "Anthropic", "claude", ImageFormat::Png, CLAUDE_LOGO, None),
                 brand(GenerationModel::new(
-                    "claude-haiku-4-5",
+                    "svg-claude-haiku-4-5",
                     "Claude Haiku 4.5",
                     GenerationRecipe::PromptSvg,
                 )
-                .description("Fast SVG concepts"), "Anthropic", "claude", ImageFormat::Png, CLAUDE_LOGO, None),
+                .description("Fast SVG concepts")
+                .credit_hint("Up to 5 credits"), "Anthropic", "claude", ImageFormat::Png, CLAUDE_LOGO, None),
                 brand(GenerationModel::new("gateway-arrow-1.1-svg", "Arrow 1.1 SVG", GenerationRecipe::PromptSvg)
                     .description("Vector artwork from a prompt"),
                     "QuiverAI", "quiverai", ImageFormat::Png, QUIVERAI_LOGO, None),
@@ -1201,29 +1207,16 @@ fn fixture(kind: GenerationKind) -> GenerationViewData {
                         GenerationChoice::new("3:2", "3:2"),
                     ], "Not set")]),
                     "Recraft", "recraft", ImageFormat::Png, RECRAFT_LOGO, None),
+                brand(GenerationModel::new(
+                    "replicate-recraft-vectorize",
+                    "Recraft Vectorize",
+                    GenerationRecipe::ImageSvg,
+                )
+                .description("Convert a source image into editable SVG")
+                .requires_source(true), "Recraft", "recraft", ImageFormat::Png, RECRAFT_LOGO, Some(2)),
                 brand(GenerationModel::new("fanta-svg-1", "Fanta SVG", GenerationRecipe::ImageSvg)
                     .description("Create SVG from an image")
                     .requires_source(true), "StarVector", "starvector", ImageFormat::Jpeg, STARVECTOR_LOGO, Some(1)),
-                brand(GenerationModel::new(
-                    "fanta-vectorize-1",
-                    "Fanta Vectorize",
-                    GenerationRecipe::Vectorize,
-                )
-                .description("Trace source artwork as SVG")
-                .requires_source(true)
-                .supports_prompt(true)
-                .option_groups([
-                    GenerationOptionGroup::new(
-                        "mode",
-                        "Vector style",
-                        [
-                            GenerationChoice::new("line_art", "Line art"),
-                            GenerationChoice::new("flat_color", "Flat color"),
-                            GenerationChoice::new("trace", "Trace"),
-                        ],
-                        "line_art",
-                    ),
-                ]), "Black Forest Labs", "bfl", ImageFormat::Png, BFL_LOGO, Some(1)),
             ],
             vec![
                 GenerationTemplate::new(
@@ -1232,7 +1225,7 @@ fn fixture(kind: GenerationKind) -> GenerationViewData {
                     kind,
                     "A clean geometric compass icon with balanced strokes and simple SVG paths",
                 )
-                .model("claude-sonnet-5")
+                .model("svg-claude-sonnet-5")
                 .description("Prompt to SVG · interface icon")
                 .preview(preview(SVG_COMPASS)),
                 GenerationTemplate::new(
@@ -1241,7 +1234,7 @@ fn fixture(kind: GenerationKind) -> GenerationViewData {
                     kind,
                     "A distinctive abstract monogram made of a few precise vector shapes",
                 )
-                .model("claude-sonnet-5")
+                .model("svg-claude-sonnet-5")
                 .description("Prompt to SVG · identity mark")
                 .preview(preview(SVG_MONOGRAM)),
                 GenerationTemplate::new(
@@ -1250,7 +1243,7 @@ fn fixture(kind: GenerationKind) -> GenerationViewData {
                     kind,
                     "A restrained repeating geometric pattern in an editable SVG",
                 )
-                .model("claude-sonnet-5")
+                .model("svg-claude-sonnet-5")
                 .description("Prompt to SVG · graphic pattern")
                 .preview(preview(SVG_COMPASS)),
                 GenerationTemplate::new(
@@ -1259,17 +1252,17 @@ fn fixture(kind: GenerationKind) -> GenerationViewData {
                     kind,
                     "",
                 )
-                .model("fanta-svg-1")
+                .model("replicate-recraft-vectorize")
                 .description("Image to SVG · choose a source")
                 .preview(preview(SVG_COMPASS)),
                 GenerationTemplate::new(
                     "svg-line-art",
                     "Expressive line art",
                     kind,
-                    "Clean continuous black line art with confident, deliberate strokes",
+                    "",
                 )
-                .model("fanta-vectorize-1")
-                .description("Vectorize · line art")
+                .model("replicate-recraft-vectorize")
+                .description("Image to SVG · line art source")
                 .preview(preview(SVG_MONOGRAM)),
             ],
             vec![
@@ -1277,7 +1270,7 @@ fn fixture(kind: GenerationKind) -> GenerationViewData {
                     "svg-result-1",
                     kind,
                     "Compass icon exploration",
-                    "claude-sonnet-5",
+                    "svg-claude-sonnet-5",
                     GenerationOutputStatus::Succeeded,
                 )
                 .prompt("A clean geometric compass icon with balanced strokes")
@@ -1288,7 +1281,7 @@ fn fixture(kind: GenerationKind) -> GenerationViewData {
                     "svg-result-2",
                     kind,
                     "Geometric monogram",
-                    "claude-haiku-4-5",
+                    "svg-claude-haiku-4-5",
                     GenerationOutputStatus::Succeeded,
                 )
                 .prompt("A distinctive abstract monogram made of precise shapes")
@@ -1296,9 +1289,13 @@ fn fixture(kind: GenerationKind) -> GenerationViewData {
                 .detail("Editable SVG · Claude Haiku 4.5")
                 .preview(preview(SVG_MONOGRAM)),
             ],
-            "claude-sonnet-5",
+            "svg-claude-sonnet-5",
         ),
     };
+    for output in &mut outputs {
+        output.can_add_to_project =
+            output.status == GenerationOutputStatus::Succeeded && output.preview.is_some();
+    }
     let selected_output_id = outputs.first().map(|output| output.id.clone());
     let selected_recipe = models
         .iter()
@@ -1345,6 +1342,12 @@ mod tests {
                     .any(|model| { data.selected_model_id.as_ref() == Some(&model.id) })
             );
             assert!(data.templates.iter().all(|template| template.kind == kind));
+            assert!(
+                data.templates
+                    .iter()
+                    .all(|template| template.preview.is_some()),
+                "every Storybook template should show a visual preview"
+            );
             for template in &data.templates {
                 if let Some(model_id) = &template.model_id {
                     assert!(data.models.iter().any(|model| {
