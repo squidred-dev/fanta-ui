@@ -1802,7 +1802,7 @@ impl BillingScreen {
             .child(Self::overline("APP STORE", colors))
             .child(Self::heading("Apple purchases", colors))
             .child(Self::detail(
-                "Manage your subscription through Apple. If a purchase is missing, restore or sync it with this workspace.",
+                "Manage your subscription through Apple. If a purchase is missing, restore or sync it with your Fanta account.",
                 colors,
             ))
             .child(
@@ -1870,7 +1870,7 @@ impl BillingScreen {
             .gap(px(8.))
             .child(Self::overline("APPLE PURCHASES", colors))
             .child(Self::detail(
-                "If an Apple purchase is missing, restore or sync it with this workspace.",
+                "If an Apple purchase is missing, restore or sync it with your Fanta account.",
                 colors,
             ))
             .child(
