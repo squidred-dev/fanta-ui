@@ -11,6 +11,7 @@ use gpui_component::input::{
 
 use crate::{
     design::{CancelDesignInteraction, DESIGN_PANEL_KEY_CONTEXT},
+    generation::GENERATION_SCREEN_KEY_CONTEXT,
     layers::{CloseLayersOverlay, LAYERS_PANEL_KEY_CONTEXT},
     pages::{ClosePagesSearch, PAGES_PANEL_KEY_CONTEXT},
     properties_tabs::PROPERTIES_TABS_KEY_CONTEXT,
@@ -161,6 +162,7 @@ fn is_fanta_text_input(event: &KeystrokeEvent) -> bool {
             || context.contains(LAYERS_PANEL_KEY_CONTEXT)
             || context.contains(PROPERTIES_TABS_KEY_CONTEXT)
             || context.contains(VARIABLES_SCREEN_KEY_CONTEXT)
+            || context.contains(GENERATION_SCREEN_KEY_CONTEXT)
     });
     has_input && has_fanta_surface
 }
@@ -440,6 +442,20 @@ fn input_action(keystroke: &Keystroke) -> Option<InputAction> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn generation_prompt_receives_backspace_and_selection_fallbacks() {
+        let event = KeystrokeEvent {
+            keystroke: Keystroke::parse("backspace").expect("valid test keystroke"),
+            action: None,
+            context_stack: vec![
+                KeyContext::parse(GENERATION_SCREEN_KEY_CONTEXT).expect("valid generation context"),
+                KeyContext::parse(INPUT_KEY_CONTEXT).expect("valid input context"),
+            ],
+        };
+        assert!(is_fanta_text_input(&event));
+        assert_eq!(fallback_actions(&event), vec![InputAction::Backspace]);
+    }
 
     fn action(source: &str) -> Option<InputAction> {
         input_action(&Keystroke::parse(source).expect("valid test keystroke"))

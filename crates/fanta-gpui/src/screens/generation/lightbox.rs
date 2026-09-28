@@ -229,6 +229,21 @@ impl GenerationScreen {
         let mut actions = div().flex().flex_wrap().gap(px(8.));
         let screen = cx.entity();
         if output.status == GenerationOutputStatus::Succeeded {
+            if output.can_add_to_project {
+                let id = output.id.clone();
+                let screen = screen.clone();
+                actions = actions.child(self.lightbox_button(
+                    "add-to-project",
+                    "Add to project",
+                    true,
+                    colors,
+                    move |_, cx| {
+                        screen.update(cx, |_, cx| {
+                            cx.emit(GenerationAction::AddToProjectRequested { id: id.clone() });
+                        });
+                    },
+                ));
+            }
             if matches!(output.kind, GenerationKind::Video | GenerationKind::Audio)
                 && output.playback_view.is_none()
             {

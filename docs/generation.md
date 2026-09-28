@@ -69,7 +69,11 @@ are decoded by the host. For audio and video, the host can mount an owned
 AVFoundation MP4 playback with a seek bar and WAV transport for its local
 fixtures; production resolves fresh authenticated media and owns playback
 life cycle. `PlayRequested` and `PreviewClosed` let the host start and stop the
-session; `DownloadRequested` remains a host intent. A missing preview remains a valid state. Gallery
+session; `DownloadRequested` remains a host intent. A ready output can set
+`can_add_to_project` only after the host confirms it has an importable media
+location. The selected-result and lightbox buttons then emit
+`AddToProjectRequested { id }`; the host resolves the opaque generation ID,
+stores the asset, and decides where to place it. A missing preview remains a valid state. Gallery
 selection, refresh, and pagination are also intents; the host echoes the
 authoritative gallery and `has_more` flag. The backend's history response does
 not include original prompt text, so the host must omit that field or obtain

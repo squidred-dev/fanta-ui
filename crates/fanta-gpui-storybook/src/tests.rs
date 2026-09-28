@@ -436,6 +436,26 @@ fn image_generation_model_dropdown_and_gallery_lightbox_work_in_ayu_dark(cx: &mu
             .is_some(),
         "model-specific advanced controls should be visible on first selection"
     );
+    let prompt = visual_cx
+        .debug_bounds("generation-prompt-field")
+        .expect("the generation prompt should render");
+    visual_cx.simulate_click(prompt.center(), Modifiers::none());
+    visual_cx.simulate_keystrokes("a b c backspace");
+    visual_cx.run_until_parked();
+    assert_eq!(
+        visual_cx.read(|app| {
+            storybook
+                .read(app)
+                .generation_stories
+                .image
+                .screen
+                .read(app)
+                .draft(app)
+                .prompt
+        }),
+        "ab",
+        "Backspace should erase the last character in the prompt"
+    );
     let size_select = visual_cx
         .debug_bounds("generation-option-select")
         .expect("four image sizes should render as a dropdown");
@@ -513,6 +533,22 @@ fn image_generation_model_dropdown_and_gallery_lightbox_work_in_ayu_dark(cx: &mu
         visual_cx
             .debug_bounds("generation-lightbox-stage")
             .is_some()
+    );
+    let add_to_project = visual_cx
+        .debug_bounds("generation-lightbox-add-to-project")
+        .expect("a ready gallery result should offer project import");
+    visual_cx.simulate_click(add_to_project.center(), Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(
+        visual_cx
+            .read(|app| storybook
+                .read(app)
+                .generation_stories
+                .image
+                .last_action
+                .to_string())
+            .contains("AddToProjectRequested { id: \"image-result-2\" }"),
+        "project import should emit the selected generation ID"
     );
 
     visual_cx.simulate_keystrokes("escape");
