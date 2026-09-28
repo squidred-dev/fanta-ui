@@ -742,3 +742,19 @@ exercises navigation, editing, usage ranges, and MCP configuration. It does
 not contact Fanta's web dashboard or billing services. See
 [docs/settings-billing.md](docs/settings-billing.md) for the host contract and
 the later Fanta Edit integration points.
+
+## §23 Project assets in the File Inspector
+
+`fanta_gpui::assets::AssetsPanel` presents a project-scoped asset library. The
+host supplies stable asset IDs, display names, kind, optional decoded thumbnail,
+placement availability, and target pages through `AssetsViewData`. A page
+choice emits `TargetPageSelected`; the host echoes the selected page. The Place
+button emits `PlaceRequested { asset_id, page_id }`. The component does not
+store media, insert document nodes, or choose a page implicitly.
+
+The File Inspector optionally mounts Assets as a collapsible section below
+Layers; the existing Pages/Layers constructor remains usable without an asset
+host. Only search, kind filtering, scrolling, focus, and section expansion are
+local presentation state. A host can expand Assets after a generation is added
+to the project. The host determines which kinds can be placed in its current
+workspace. Playback policy and persisted media ownership remain in the host.

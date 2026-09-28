@@ -1,18 +1,20 @@
-//! A collapsible project sidebar composing the Pages and Layers panels.
+//! A collapsible project sidebar composing Pages, Layers, and project Assets.
 
 use gpui::{
     AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
-    Window, div, prelude::FluentBuilder as _, px,
+    InteractiveElement as _, IntoElement, ParentElement as _, Render, Role, SharedString,
+    StatefulInteractiveElement as _, Styled as _, Subscription, Window, div,
+    prelude::FluentBuilder as _, px,
 };
-use gpui_component::{h_flex, v_flex};
+use gpui_component::{Sizable as _, button::ButtonVariants as _, h_flex, v_flex};
 
 use crate::{
+    assets::{ASSETS_PANEL_KEY_CONTEXT, AssetsPanel, FindInAssets},
     atoms::{
-        ControlExt as _, LucideIcon, icon_button, render_fanta_logo, render_lucide_icon,
-        sidebar_style, tokens,
+        CONTROL_KEY_CONTEXT, ControlExt as _, LucideIcon, icon_button, render_fanta_logo,
+        render_lucide_icon, sidebar_style, tokens, ui_button,
     },
-    layers::LayersPanel,
+    layers::{LayersPanel, LayersPanelAction},
     pages::PagesPanel,
 };
 
@@ -29,8 +31,12 @@ pub enum FileInspectorAction {
 pub struct FileInspectorSidebar {
     id: SharedString,
     focus_handle: FocusHandle,
+    assets_find_focus_handle: FocusHandle,
     pages: Entity<PagesPanel>,
     layers: Entity<LayersPanel>,
+    _layer_expansion_subscription: Subscription,
+    assets: Option<Entity<AssetsPanel>>,
+    assets_expanded: bool,
     project_name: SharedString,
     collapsed: bool,
 }
@@ -47,11 +53,20 @@ impl FileInspectorSidebar {
     ) -> Self {
         pages.update(cx, |panel, cx| panel.set_bordered(false, cx));
         layers.update(cx, |panel, cx| panel.set_bordered(false, cx));
+        let layer_expansion_subscription = cx.subscribe(&layers, |_, _, event, cx| {
+            if matches!(event, LayersPanelAction::PanelExpansionChanged { .. }) {
+                cx.notify();
+            }
+        });
         Self {
             id: id.into(),
             focus_handle: cx.focus_handle(),
+            assets_find_focus_handle: cx.focus_handle(),
             pages,
             layers,
+            _layer_expansion_subscription: layer_expansion_subscription,
+            assets: None,
+            assets_expanded: false,
             project_name: "Untitled".into(),
             collapsed: false,
         }
@@ -74,6 +89,42 @@ impl FileInspectorSidebar {
 
     pub fn is_collapsed(&self) -> bool {
         self.collapsed
+    }
+
+    /// Adds the host-controlled asset browser without changing the existing
+    /// Pages/Layers constructor contract. The child emits its own intents.
+    pub fn set_assets_panel(
+        &mut self,
+        assets: Option<Entity<AssetsPanel>>,
+        cx: &mut Context<Self>,
+    ) {
+        let previously_available = self.assets.is_some();
+        self.assets = assets;
+        if self.assets.is_none() {
+            self.assets_expanded = false;
+        } else if !previously_available {
+            self.assets_expanded = true;
+        }
+        cx.notify();
+    }
+
+    /// Reveals Assets after a gallery import or a user opening the section.
+    pub fn expand_assets(&mut self, cx: &mut Context<Self>) {
+        if self.assets.is_some() && !self.assets_expanded {
+            self.assets_expanded = true;
+            cx.notify();
+        }
+    }
+
+    pub fn collapse_assets(&mut self, cx: &mut Context<Self>) {
+        if self.assets_expanded {
+            self.assets_expanded = false;
+            cx.notify();
+        }
+    }
+
+    pub fn assets_expanded(&self) -> bool {
+        self.assets_expanded && self.assets.is_some()
     }
 
     fn header(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -136,6 +187,11 @@ impl Render for FileInspectorSidebar {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let style = sidebar_style(cx);
         let zed_theme = cx.try_global::<theme::GlobalTheme>().is_some();
+        let layers_expanded = self.layers.read(cx).is_expanded();
+        let asset_count = self
+            .assets
+            .as_ref()
+            .map(|panel| panel.read(cx).view_data().assets.len());
         if self.collapsed {
             return div()
                 .id(self.id.clone())
@@ -190,9 +246,122 @@ impl Render for FileInspectorSidebar {
                 div()
                     .debug_selector(|| "file-inspector-layers".to_owned())
                     .w_full()
-                    .flex_1()
+                    .when(layers_expanded, |section| section.flex_1())
+                    .when(!layers_expanded, |section| section.flex_none())
                     .min_h_0()
                     .child(self.layers.clone()),
+            )
+            .when_some(asset_count, |sidebar, count| {
+                sidebar
+                    .child(if zed_theme {
+                        ui::Divider::horizontal().into_any_element()
+                    } else {
+                        div().w_full().h_px().bg(style.border).into_any_element()
+                    })
+                    .child(
+                        h_flex()
+                            .id(SharedString::from(format!("{}-assets-section", self.id)))
+                            .debug_selector(|| "file-inspector-assets-header".to_owned())
+                            .key_context(CONTROL_KEY_CONTEXT)
+                            .role(Role::Button)
+                            .aria_label("Project assets")
+                            .aria_expanded(self.assets_expanded)
+                            .tab_index(0)
+                            .w_full()
+                            .flex_none()
+                            .h(px(tokens::RowHeight::SECTION_HEADER))
+                            .px_3()
+                            .gap_1()
+                            .items_center()
+                            .cursor_pointer()
+                            .occlude()
+                            .hover(|header| header.bg(style.hover))
+                            .focus(|header| header.bg(style.hover))
+                            .when(!self.assets_expanded, |header| {
+                                header.child(render_lucide_icon(
+                                    LucideIcon::ChevronRight,
+                                    style.muted_icon,
+                                    tokens::IconSize::SM,
+                                ))
+                            })
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .text_size(crate::atoms::sidebar_text_size())
+                                    .text_color(style.muted_text)
+                                    .child("Assets"),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(10.))
+                                    .text_color(style.muted_text)
+                                    .child(count.to_string()),
+                            )
+                            .child(
+                                div()
+                                    .id(SharedString::from(format!(
+                                        "{}-assets-find-control",
+                                        self.id
+                                    )))
+                                    .flex_none()
+                                    .debug_selector(|| "assets-search-trigger".to_owned())
+                                    .key_context(CONTROL_KEY_CONTEXT)
+                                    .track_focus(
+                                        &self
+                                            .assets_find_focus_handle
+                                            .clone()
+                                            .tab_index(0)
+                                            .tab_stop(true),
+                                    )
+                                    .focus(|control| control.bg(style.hover).rounded(px(5.)))
+                                    .occlude()
+                                    .on_activate(cx.listener(|this, _, window, cx| {
+                                        cx.stop_propagation();
+                                        if let Some(assets) = this.assets.clone() {
+                                            this.expand_assets(cx);
+                                            assets.update(cx, |panel, cx| {
+                                                panel.open_search(window, cx);
+                                            });
+                                        }
+                                    }))
+                                    .child(
+                                        ui_button(SharedString::from(format!(
+                                            "{}-assets-find",
+                                            self.id
+                                        )))
+                                        .ghost()
+                                        .xsmall()
+                                        .compact()
+                                        .tab_stop(false)
+                                        .icon(gpui_component::IconName::Search)
+                                        .tooltip_with_action(
+                                            "Find assets",
+                                            &FindInAssets,
+                                            Some(ASSETS_PANEL_KEY_CONTEXT),
+                                        ),
+                                    ),
+                            )
+                            .on_activate(cx.listener(|this, _, _, cx| {
+                                if this.assets_expanded {
+                                    this.collapse_assets(cx);
+                                } else {
+                                    this.expand_assets(cx);
+                                }
+                            })),
+                    )
+            })
+            .when_some(
+                self.assets.clone().filter(|_| self.assets_expanded),
+                |sidebar, assets| {
+                    sidebar.child(
+                        div()
+                            .debug_selector(|| "file-inspector-assets".to_owned())
+                            .w_full()
+                            .flex_1()
+                            .min_h_0()
+                            .child(assets),
+                    )
+                },
             )
             .into_any_element()
     }
