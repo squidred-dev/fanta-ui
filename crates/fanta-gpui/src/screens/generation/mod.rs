@@ -4,6 +4,7 @@
 
 mod lightbox;
 mod model;
+mod template_art;
 pub use model::*;
 
 use std::collections::HashMap;
@@ -1067,6 +1068,22 @@ impl GenerationScreen {
         } else {
             "Choose a model to see its generation settings.".to_owned()
         };
+        let advanced_hint = self.selected_model().and_then(|model| {
+            let count = model
+                .option_groups
+                .iter()
+                .filter(|group| group.advanced)
+                .count()
+                + usize::from(model.supports_negative)
+                + usize::from(model.supports_seed);
+            (count > 0).then(|| {
+                if self.show_advanced {
+                    format!("{count} advanced controls open below")
+                } else {
+                    format!("{count} advanced controls available below")
+                }
+            })
+        });
         div()
             .flex()
             .flex_col()
@@ -1104,6 +1121,14 @@ impl GenerationScreen {
                     .text_color(colors.muted)
                     .child(detail),
             )
+            .when_some(advanced_hint, |picker, hint| {
+                picker.child(
+                    div()
+                        .text_size(px(10.))
+                        .text_color(colors.accent)
+                        .child(hint),
+                )
+            })
             .into_any_element()
     }
 
@@ -1508,7 +1533,7 @@ impl GenerationScreen {
     }
 
     fn render_composer(&self, colors: GenerationStyle, cx: &mut Context<Self>) -> AnyElement {
-        let mut stack = div().flex().flex_col().gap(px(20.)).p(px(22.));
+        let mut stack = div().flex().flex_col().gap(px(14.)).p(px(18.));
         if let Some(operation) = self.render_operation_picker(colors, cx) {
             stack = stack.child(operation);
         }
@@ -1534,7 +1559,7 @@ impl GenerationScreen {
                     })
                     .to_owned()
                 };
-                stack = stack.child(self.field(prompt_label, &self.prompt, 116., colors));
+                stack = stack.child(self.field(prompt_label, &self.prompt, 96., colors));
             }
             if model.recipe == GenerationRecipe::ImageVideo {
                 stack = stack.child(self.render_video_frames(model, colors, cx));
@@ -1567,7 +1592,11 @@ impl GenerationScreen {
                     } else {
                         format!("Advanced settings · {advanced_count}  ▾")
                     },
-                    ControlAppearance::Normal,
+                    if expanded {
+                        ControlAppearance::Selected
+                    } else {
+                        ControlAppearance::Normal
+                    },
                     colors,
                     move |_, cx| {
                         screen.update(cx, |this, cx| {
@@ -1722,6 +1751,10 @@ impl GenerationScreen {
         let screen = cx.entity();
         let id = template.id.clone();
         let selected = self.data.selected_template_id.as_ref() == Some(&id);
+        let preview = template
+            .preview
+            .clone()
+            .unwrap_or_else(|| template_art::for_template(template));
         div()
             .id(SharedString::from(format!("{}-template-{}", self.id, id)))
             .role(Role::Button)
@@ -1730,7 +1763,7 @@ impl GenerationScreen {
             .debug_selector(|| format!("generation-template-{}", id))
             .key_context(CONTROL_KEY_CONTEXT)
             .tab_index(0)
-            .w(px(166.))
+            .w(px(190.))
             .flex_none()
             .flex()
             .flex_col()
@@ -1747,13 +1780,7 @@ impl GenerationScreen {
             .cursor_pointer()
             .hover(|style| style.bg(colors.hover))
             .focus(|style| style.border_color(colors.focus))
-            .child(self.preview(
-                &template.preview,
-                template.kind,
-                78.,
-                ObjectFit::Cover,
-                colors,
-            ))
+            .child(self.preview(&Some(preview), template.kind, 96., ObjectFit::Cover, colors))
             .child(
                 div()
                     .text_size(px(12.))
@@ -1816,27 +1843,23 @@ impl GenerationScreen {
             .child(self.preview(&output.preview, output.kind, 144., ObjectFit::Cover, colors))
             .child(
                 div()
-                    .flex()
-                    .justify_between()
-                    .gap(px(6.))
-                    .child(
-                        div()
-                            .text_size(px(12.))
-                            .text_color(colors.text)
-                            .child(output.title.clone()),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(10.))
-                            .text_color(colors.muted)
-                            .child(output.status.label()),
-                    ),
+                    .w_full()
+                    .min_w_0()
+                    .truncate()
+                    .text_size(px(12.))
+                    .text_color(colors.text)
+                    .child(output.title.clone()),
             )
             .child(
                 div()
-                    .text_size(px(11.))
+                    .w_full()
+                    .flex()
+                    .justify_between()
+                    .gap(px(6.))
+                    .text_size(px(10.))
                     .text_color(colors.muted)
-                    .child(model_label),
+                    .child(div().flex_1().min_w_0().truncate().child(model_label))
+                    .child(div().flex_none().child(output.status.label())),
             )
             .on_activate(move |_, window, cx| {
                 screen.update(cx, |this, cx| this.open_lightbox(id.clone(), window, cx));

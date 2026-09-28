@@ -32,12 +32,17 @@ usage can supply a variable-price hint instead. The bundled Storybook values
 illustrate current seed-catalog prices; production must read the authenticated
 catalog so prices reflect organization overrides and later changes.
 The screen opens model-specific advanced settings when a model is selected.
+The model picker calls out how many advanced controls are available, and the
+composer keeps its first controls in view at a normal desktop window height.
 Choice groups with more than three values use a searchable dropdown instead
 of a long row of chips; the host still owns the selected value and receives
 the same `OptionSelected` intent.
 
 `GenerationTemplate` is a host-provided prompt preset. Its optional `model_id`
 lets the host switch to the intended recipe when it handles `TemplateSelected`.
+The host can supply a decoded preview image. If it does not, the component
+uses bundled sample artwork for image, video, audio, and SVG templates; the
+sample artwork never substitutes for a generated output preview.
 Selecting it fills a draft; generating requires a separate `GenerateRequested` intent carrying a
 `GenerationSubmission`. `GenerationSource` is an opaque source ID and optional
 host-decoded preview. The source is required only for image-to-video,
