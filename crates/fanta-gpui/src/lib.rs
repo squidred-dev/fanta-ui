@@ -29,7 +29,8 @@ pub use atoms::ActivateControl;
 pub use layouts::{file_inspector, properties_inspector, pseudo_editor};
 pub use organisms::properties_tabs;
 pub use organisms::{
-    color_picker, design, layers, pages, paint_picker, prototype, timeline, toolbar, zoom_bar,
+    assets, color_picker, design, layers, pages, paint_picker, prototype, timeline, toolbar,
+    zoom_bar,
 };
 pub use screens::{billing, generation, settings, variables};
 
@@ -77,6 +78,10 @@ pub mod prelude {
     };
     pub use crate::zoom_bar::{ZoomBar, ZoomBarAction};
     // Shared control atoms (ARCHITECTURE.md §16).
+    pub use crate::assets::{
+        AssetKind, AssetPageTarget, AssetRow, AssetThumbnail, AssetsPanel, AssetsPanelAction,
+        AssetsViewData,
+    };
     pub use crate::atoms::{
         ActivateEvent, ButtonControlExt, CONTROL_KEY_CONTEXT, ControlExt, LucideIcon, icon_button,
         render_lucide_icon, track_bounds, truncating_label,

@@ -10,6 +10,7 @@ use gpui_component::input::{
 };
 
 use crate::{
+    assets::ASSETS_PANEL_KEY_CONTEXT,
     design::{CancelDesignInteraction, DESIGN_PANEL_KEY_CONTEXT},
     generation::GENERATION_SCREEN_KEY_CONTEXT,
     layers::{CloseLayersOverlay, LAYERS_PANEL_KEY_CONTEXT},
@@ -163,6 +164,7 @@ fn is_fanta_text_input(event: &KeystrokeEvent) -> bool {
             || context.contains(PROPERTIES_TABS_KEY_CONTEXT)
             || context.contains(VARIABLES_SCREEN_KEY_CONTEXT)
             || context.contains(GENERATION_SCREEN_KEY_CONTEXT)
+            || context.contains(ASSETS_PANEL_KEY_CONTEXT)
     });
     has_input && has_fanta_surface
 }
