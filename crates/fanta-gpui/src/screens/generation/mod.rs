@@ -6,6 +6,8 @@ mod lightbox;
 mod model;
 pub use model::*;
 
+use std::collections::HashMap;
+
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable, Hsla,
     Image, InteractiveElement as _, IntoElement, ObjectFit, ParentElement as _, Render, Role,
@@ -176,6 +178,24 @@ impl SelectItem for ModelSelectItem {
     }
 }
 
+impl SelectItem for GenerationChoice {
+    type Value = SharedString;
+
+    fn title(&self) -> SharedString {
+        self.label.clone()
+    }
+
+    fn value(&self) -> &Self::Value {
+        &self.value
+    }
+}
+
+struct OptionSelectState {
+    state: Entity<SelectState<SearchableVec<GenerationChoice>>>,
+    snapshot: GenerationOptionGroup,
+    _subscription: Subscription,
+}
+
 #[derive(Clone, Copy)]
 enum ControlAppearance {
     Normal,
@@ -193,6 +213,7 @@ pub struct GenerationScreen {
     negative: Entity<InputState>,
     seed: Entity<InputState>,
     model_select: Entity<SelectState<SearchableVec<ModelSelectItem>>>,
+    option_selects: HashMap<(SharedString, SharedString), OptionSelectState>,
     validation_error: Option<SharedString>,
     show_advanced: bool,
     focus_handle: FocusHandle,
@@ -278,7 +299,7 @@ impl GenerationScreen {
                 });
             },
         ));
-        Self {
+        let mut screen = Self {
             id: id.into(),
             kind,
             data,
@@ -286,14 +307,118 @@ impl GenerationScreen {
             negative,
             seed,
             model_select,
+            option_selects: HashMap::new(),
             validation_error: None,
-            show_advanced: kind == GenerationKind::Video,
+            show_advanced: true,
             focus_handle: cx.focus_handle(),
             lightbox_focus_handle: cx.focus_handle(),
             lightbox_output_id: None,
             composer_scroll: ScrollHandle::new(),
             gallery_scroll: ScrollHandle::new(),
             _subscriptions: subscriptions,
+        };
+        screen.sync_option_selects(window, cx);
+        screen
+    }
+
+    fn sync_option_selects(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let selected_model = self.selected_model().cloned();
+        let Some(model) = selected_model else {
+            self.option_selects.clear();
+            return;
+        };
+        self.option_selects.retain(|(model_id, key), _| {
+            model_id == &model.id
+                && model
+                    .option_groups
+                    .iter()
+                    .any(|group| &group.key == key && group.choices.len() > 3)
+        });
+        for group in model
+            .option_groups
+            .into_iter()
+            .filter(|group| group.choices.len() > 3)
+        {
+            let key = (model.id.clone(), group.key.clone());
+            if let Some(existing) = self.option_selects.get_mut(&key) {
+                if existing.snapshot != group {
+                    let selected_index = group
+                        .choices
+                        .iter()
+                        .position(|choice| choice.value == group.selected)
+                        .map(|index| IndexPath::default().row(index));
+                    existing.state.update(cx, |state, cx| {
+                        state.set_items(SearchableVec::new(group.choices.clone()), window, cx);
+                        state.set_selected_index(selected_index, window, cx);
+                    });
+                    existing.snapshot = group;
+                }
+                continue;
+            }
+            let selected_index = group
+                .choices
+                .iter()
+                .position(|choice| choice.value == group.selected)
+                .map(|index| IndexPath::default().row(index));
+            let state = cx.new(|cx| {
+                SelectState::new(
+                    SearchableVec::new(group.choices.clone()),
+                    selected_index,
+                    window,
+                    cx,
+                )
+                .searchable(group.choices.len() > 8)
+            });
+            let model_id = model.id.clone();
+            let option_key = group.key.clone();
+            let subscription = cx.subscribe_in(
+                &state,
+                window,
+                move |_,
+                      state,
+                      event: &SelectEvent<SearchableVec<GenerationChoice>>,
+                      window,
+                      cx| {
+                    let SelectEvent::Confirm(Some(value)) = event else {
+                        return;
+                    };
+                    cx.emit(GenerationAction::OptionSelected {
+                        model_id: model_id.clone(),
+                        key: option_key.clone(),
+                        value: value.clone(),
+                    });
+                    let state = state.clone();
+                    let model_id = model_id.clone();
+                    let option_key = option_key.clone();
+                    cx.defer_in(window, move |this, window, cx| {
+                        let controlled = this
+                            .selected_model()
+                            .filter(|model| model.id == model_id)
+                            .and_then(|model| {
+                                model
+                                    .option_groups
+                                    .iter()
+                                    .find(|group| group.key == option_key)
+                            })
+                            .map(|group| group.selected.clone());
+                        state.update(cx, |state, cx| {
+                            if let Some(value) = controlled.as_ref() {
+                                state.set_selected_value(value, window, cx);
+                            } else {
+                                state.set_selected_index(None, window, cx);
+                            }
+                        });
+                    });
+                },
+            );
+            self.option_selects.insert(
+                key,
+                OptionSelectState {
+                    state,
+                    snapshot: group,
+                    _subscription: subscription,
+                },
+            );
         }
     }
 
@@ -324,6 +449,8 @@ impl GenerationScreen {
         cx: &mut Context<Self>,
     ) {
         let recipe_changed = self.data.selected_recipe != data.selected_recipe;
+        let selection_changed =
+            recipe_changed || self.data.selected_model_id != data.selected_model_id;
         let model_picker_changed = self.data.models != data.models
             || self.data.selected_model_id != data.selected_model_id
             || self.data.selected_recipe != data.selected_recipe;
@@ -342,6 +469,10 @@ impl GenerationScreen {
                 != data.voice_reference.as_ref().map(|reference| &reference.id)
             || self.data.voice_consent_granted != data.voice_consent_granted;
         self.data = data;
+        if selection_changed {
+            self.show_advanced = true;
+        }
+        self.sync_option_selects(window, cx);
         if recipe_changed {
             let placeholder = Self::prompt_hint(self.kind, self.data.selected_recipe);
             self.prompt.update(cx, |input, cx| {
@@ -1221,6 +1352,40 @@ impl GenerationScreen {
         colors: GenerationStyle,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        if group.choices.len() > 3
+            && let Some(select) = self
+                .option_selects
+                .get(&(model_id.clone(), group.key.clone()))
+        {
+            return div()
+                .flex()
+                .flex_col()
+                .gap(px(7.))
+                .child(
+                    div()
+                        .text_size(px(11.))
+                        .text_color(colors.muted)
+                        .child(group.label.clone()),
+                )
+                .child(
+                    div()
+                        .id(SharedString::from(format!(
+                            "{}-option-select-{}-{}",
+                            self.id, model_id, group.key
+                        )))
+                        .debug_selector(|| "generation-option-select".to_owned())
+                        .w_full()
+                        .child(
+                            Select::new(&select.state)
+                                .w_full()
+                                .h(px(36.))
+                                .menu_width(px(312.))
+                                .placeholder("Choose an option")
+                                .search_placeholder("Search options…"),
+                        ),
+                )
+                .into_any_element();
+        }
         let mut choices = div().flex().flex_wrap().gap(px(6.));
         for choice in &group.choices {
             let screen = cx.entity();
@@ -1388,12 +1553,19 @@ impl GenerationScreen {
             {
                 let screen = cx.entity();
                 let expanded = self.show_advanced;
+                let advanced_count = model
+                    .option_groups
+                    .iter()
+                    .filter(|group| group.advanced)
+                    .count()
+                    + usize::from(model.supports_negative)
+                    + usize::from(model.supports_seed);
                 stack = stack.child(self.control(
                     "advanced-settings",
                     if expanded {
-                        "Advanced settings  ▴"
+                        format!("Advanced settings · {advanced_count}  ▴")
                     } else {
-                        "Advanced settings  ▾"
+                        format!("Advanced settings · {advanced_count}  ▾")
                     },
                     ControlAppearance::Normal,
                     colors,

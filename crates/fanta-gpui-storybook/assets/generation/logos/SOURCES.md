@@ -22,3 +22,19 @@ particular model version. Retrieved 2026-09-27.
 The workspace's Zed asset bundle also provides `icons/ai_claude.svg`, but that
 monochrome dark path disappears on Ayu Dark surfaces. The official orange icon
 above is the dark-background Storybook variant.
+
+## Hosted provider marks
+
+These identify the creators of the hosted models in the expanded Storybook
+catalog. Retrieved 2026-09-28.
+
+| File | Official source |
+| --- | --- |
+| `recraft.png` | [Recraft GitHub organization](https://github.com/recraft-ai) avatar |
+| `bytedance-seed.png` | [ByteDance Seed GitHub organization](https://github.com/ByteDance-Seed) avatar |
+| `xai.png` | [xAI GitHub organization](https://github.com/xai-org) avatar |
+| `kling.png` | [Kling AI Research GitHub organization](https://github.com/KlingAIResearch) avatar; JPEG bytes |
+| `google.png` | [Google GitHub organization](https://github.com/google) avatar |
+| `minimax.png` | [MiniMax GitHub organization](https://github.com/MiniMax-AI) avatar; JPEG bytes |
+| `quiverai.png` | [QuiverAI GitHub organization](https://github.com/quiverai) avatar |
+| `openai.svg` | OpenAI glyph from this workspace's pinned Zed UI asset bundle, `icons/ai_open_ai.svg` |

@@ -33,6 +33,15 @@ const HEXGRAD_LOGO: &[u8] = include_bytes!("../../assets/generation/logos/hexgra
 const ACE_LOGO: &[u8] = include_bytes!("../../assets/generation/logos/ace-step.jpg");
 const STARVECTOR_LOGO: &[u8] = include_bytes!("../../assets/generation/logos/starvector.jpg");
 const CLAUDE_LOGO: &[u8] = include_bytes!("../../assets/generation/logos/claude.png");
+const RECRAFT_LOGO: &[u8] = include_bytes!("../../assets/generation/logos/recraft.png");
+const XAI_LOGO: &[u8] = include_bytes!("../../assets/generation/logos/xai.png");
+const SEED_LOGO: &[u8] = include_bytes!("../../assets/generation/logos/bytedance-seed.png");
+const KLING_LOGO: &[u8] = include_bytes!("../../assets/generation/logos/kling.png");
+const GOOGLE_LOGO: &[u8] = include_bytes!("../../assets/generation/logos/google.png");
+const MINIMAX_LOGO: &[u8] = include_bytes!("../../assets/generation/logos/minimax.png");
+const OPENAI_LOGO: &[u8] = include_bytes!("../../assets/generation/logos/openai.svg");
+const QUIVERAI_LOGO: &[u8] = include_bytes!("../../assets/generation/logos/quiverai.png");
+const ELEVENLABS_LOGO: &[u8] = include_bytes!("../../assets/generation/logos/elevenlabs.png");
 
 fn brand(
     model: GenerationModel,
@@ -108,6 +117,248 @@ fn video_controls(hd: bool) -> [GenerationOptionGroup; 3] {
     ]
 }
 
+fn gateway_image_controls() -> [GenerationOptionGroup; 1] {
+    [GenerationOptionGroup::new(
+        "size",
+        "Canvas size",
+        [
+            GenerationChoice::new("1024x1024", "Square · 1024 × 1024"),
+            GenerationChoice::new("1536x1024", "Landscape · 1536 × 1024"),
+            GenerationChoice::new("1024x1536", "Portrait · 1024 × 1536"),
+        ],
+        "1024x1024",
+    )]
+}
+
+fn replicate_image_controls() -> [GenerationOptionGroup; 2] {
+    [
+        GenerationOptionGroup::new(
+            "size",
+            "Image size",
+            [
+                GenerationChoice::new("2K", "2K"),
+                GenerationChoice::new("3K", "3K"),
+            ],
+            "2K",
+        ),
+        GenerationOptionGroup::new(
+            "aspect_ratio",
+            "Aspect ratio",
+            [
+                GenerationChoice::new("1:1", "Square · 1:1"),
+                GenerationChoice::new("16:9", "Landscape · 16:9"),
+                GenerationChoice::new("9:16", "Portrait · 9:16"),
+                GenerationChoice::new("4:3", "Classic · 4:3"),
+                GenerationChoice::new("3:2", "Photo · 3:2"),
+            ],
+            "1:1",
+        )
+        .advanced(true),
+    ]
+}
+
+fn gateway_video_controls(
+    durations: &[u32],
+    resolutions: &[&str],
+    aspect_ratios: &[&str],
+    audio: bool,
+    mode: bool,
+) -> Vec<GenerationOptionGroup> {
+    let mut groups = vec![
+        GenerationOptionGroup::new(
+            "duration",
+            "Duration",
+            durations
+                .iter()
+                .map(|seconds| GenerationChoice::new(seconds.to_string(), format!("{seconds} s"))),
+            durations[0].to_string(),
+        ),
+        GenerationOptionGroup::new(
+            "resolution",
+            "Resolution",
+            resolutions
+                .iter()
+                .map(|resolution| GenerationChoice::new(*resolution, *resolution)),
+            resolutions[0],
+        ),
+        GenerationOptionGroup::new(
+            "aspect_ratio",
+            "Aspect ratio",
+            aspect_ratios
+                .iter()
+                .map(|ratio| GenerationChoice::new(*ratio, *ratio)),
+            aspect_ratios[0],
+        )
+        .advanced(true),
+    ];
+    if audio {
+        groups.push(
+            GenerationOptionGroup::new(
+                "generate_audio",
+                "Generate audio",
+                [
+                    GenerationChoice::new("false", "Off"),
+                    GenerationChoice::new("true", "On"),
+                ],
+                "false",
+            )
+            .advanced(true),
+        );
+    }
+    if mode {
+        groups.push(
+            GenerationOptionGroup::new(
+                "mode",
+                "Quality mode",
+                [
+                    GenerationChoice::new("std", "Standard"),
+                    GenerationChoice::new("pro", "Pro"),
+                ],
+                "std",
+            )
+            .advanced(true),
+        );
+    }
+    groups
+}
+
+fn gateway_speech_controls(voices: &[&str]) -> [GenerationOptionGroup; 3] {
+    [
+        GenerationOptionGroup::new(
+            "voice",
+            "Voice",
+            voices
+                .iter()
+                .map(|voice| GenerationChoice::new(*voice, *voice)),
+            voices[0],
+        ),
+        GenerationOptionGroup::new(
+            "output_format",
+            "Audio format",
+            [
+                GenerationChoice::new("mp3", "MP3"),
+                GenerationChoice::new("wav", "WAV"),
+            ],
+            "mp3",
+        )
+        .advanced(true),
+        GenerationOptionGroup::new(
+            "speed",
+            "Pace",
+            [
+                GenerationChoice::new("0.75", "Relaxed"),
+                GenerationChoice::new("1", "Natural"),
+                GenerationChoice::new("1.25", "Brisk"),
+                GenerationChoice::new("1.5", "Fast"),
+            ],
+            "1",
+        )
+        .advanced(true),
+    ]
+}
+
+fn replicate_ltx_controls() -> Vec<GenerationOptionGroup> {
+    let mut groups = vec![
+        GenerationOptionGroup::new(
+            "duration",
+            "Duration",
+            [
+                GenerationChoice::new("6", "6 s"),
+                GenerationChoice::new("8", "8 s"),
+                GenerationChoice::new("10", "10 s"),
+            ],
+            "6",
+        ),
+        GenerationOptionGroup::new(
+            "aspect_ratio",
+            "Aspect ratio",
+            [
+                GenerationChoice::new("16:9", "Landscape · 16:9"),
+                GenerationChoice::new("9:16", "Portrait · 9:16"),
+            ],
+            "16:9",
+        ),
+        GenerationOptionGroup::new(
+            "fps",
+            "Frame rate",
+            [
+                GenerationChoice::new("24", "24 fps"),
+                GenerationChoice::new("25", "25 fps"),
+                GenerationChoice::new("48", "48 fps"),
+                GenerationChoice::new("50", "50 fps"),
+            ],
+            "25",
+        )
+        .advanced(true),
+        GenerationOptionGroup::new(
+            "camera_motion",
+            "Camera motion",
+            [
+                GenerationChoice::new("none", "Automatic"),
+                GenerationChoice::new("static", "Static"),
+                GenerationChoice::new("dolly_in", "Dolly in"),
+                GenerationChoice::new("dolly_out", "Dolly out"),
+                GenerationChoice::new("dolly_left", "Dolly left"),
+                GenerationChoice::new("dolly_right", "Dolly right"),
+                GenerationChoice::new("jib_up", "Jib up"),
+                GenerationChoice::new("jib_down", "Jib down"),
+                GenerationChoice::new("focus_shift", "Focus shift"),
+            ],
+            "none",
+        )
+        .advanced(true),
+    ];
+    groups.push(
+        GenerationOptionGroup::new(
+            "generate_audio",
+            "Generate audio",
+            [
+                GenerationChoice::new("true", "On"),
+                GenerationChoice::new("false", "Off"),
+            ],
+            "true",
+        )
+        .advanced(true),
+    );
+    groups
+}
+
+fn replicate_seedance_controls() -> Vec<GenerationOptionGroup> {
+    vec![
+        GenerationOptionGroup::new(
+            "duration",
+            "Duration",
+            [
+                GenerationChoice::new("5", "5 s"),
+                GenerationChoice::new("10", "10 s"),
+                GenerationChoice::new("15", "15 s"),
+                GenerationChoice::new("30", "30 s"),
+            ],
+            "5",
+        ),
+        GenerationOptionGroup::new(
+            "aspect_ratio",
+            "Aspect ratio",
+            [
+                GenerationChoice::new("16:9", "Landscape · 16:9"),
+                GenerationChoice::new("9:16", "Portrait · 9:16"),
+                GenerationChoice::new("adaptive", "Adapt to source"),
+            ],
+            "16:9",
+        ),
+        GenerationOptionGroup::new(
+            "generate_audio",
+            "Generate audio",
+            [
+                GenerationChoice::new("true", "On"),
+                GenerationChoice::new("false", "Off"),
+            ],
+            "true",
+        )
+        .advanced(true),
+    ]
+}
+
 pub(crate) struct GenerationStory {
     pub(crate) screen: Entity<GenerationScreen>,
     pub(crate) view_data: GenerationViewData,
@@ -160,7 +411,10 @@ impl GenerationStory {
                     .view_data
                     .models
                     .iter()
-                    .find(|model| model.id == *id)
+                    .find(|model| {
+                        model.id == *id && Some(model.recipe) == self.view_data.selected_recipe
+                    })
+                    .or_else(|| self.view_data.models.iter().find(|model| model.id == *id))
                     .map(|model| model.recipe);
                 self.view_data.selected_template_id = None;
             }
@@ -224,11 +478,22 @@ impl GenerationStory {
                 key,
                 value,
             } => {
-                if let Some(model) = self
+                let model_index = self
                     .view_data
                     .models
-                    .iter_mut()
-                    .find(|model| model.id == *model_id)
+                    .iter()
+                    .position(|model| {
+                        model.id == *model_id
+                            && Some(model.recipe) == self.view_data.selected_recipe
+                    })
+                    .or_else(|| {
+                        self.view_data
+                            .models
+                            .iter()
+                            .position(|model| model.id == *model_id)
+                    });
+                if let Some(model) =
+                    model_index.and_then(|index| self.view_data.models.get_mut(index))
                 {
                     if let Some(group) = model
                         .option_groups
@@ -310,6 +575,7 @@ impl GenerationStory {
                 self.view_data.has_more = false;
             }
             GenerationAction::KindSelected(_)
+            | GenerationAction::DraftChanged
             | GenerationAction::DownloadRequested { .. }
             | GenerationAction::ReusePromptRequested { .. } => {}
         }
@@ -475,6 +741,42 @@ fn fixture(kind: GenerationKind) -> GenerationViewData {
                 .description("Fast image concepts"), "Tongyi-MAI", "z-image", ImageFormat::Jpeg, Z_IMAGE_LOGO, Some(1)),
                 brand(GenerationModel::new("flux-schnell", "FLUX Schnell", GenerationRecipe::TextImage)
                     .description("Rapid image drafts"), "Black Forest Labs", "bfl", ImageFormat::Png, BFL_LOGO, Some(1)),
+                brand(GenerationModel::new("gateway-recraft-v4.1-utility", "Recraft V4.1 Utility", GenerationRecipe::TextImage)
+                    .description("Fast design concepts").option_groups(gateway_image_controls()), "Recraft", "recraft", ImageFormat::Png, RECRAFT_LOGO, None),
+                brand(GenerationModel::new("gateway-recraft-v4.1-pro", "Recraft V4.1 Pro", GenerationRecipe::TextImage)
+                    .description("High fidelity design images").option_groups(gateway_image_controls()), "Recraft", "recraft", ImageFormat::Png, RECRAFT_LOGO, None),
+                brand(GenerationModel::new("gateway-grok-imagine-image", "Grok Imagine Image", GenerationRecipe::TextImage)
+                    .description("Expressive image generation").option_groups(gateway_image_controls()), "SpaceXAI", "xai", ImageFormat::Png, XAI_LOGO, None),
+                brand(GenerationModel::new("gateway-seedream-4.5", "Seedream 4.5", GenerationRecipe::TextImage)
+                    .description("Detailed visual compositions").option_groups(gateway_image_controls()), "ByteDance", "seed", ImageFormat::Png, SEED_LOGO, None),
+                brand(GenerationModel::new("gateway-flux-pro-1.1", "FLUX 1.1 Pro", GenerationRecipe::TextImage)
+                    .description("Photorealistic image generation").option_groups(gateway_image_controls()), "Black Forest Labs", "bfl", ImageFormat::Png, BFL_LOGO, None),
+                brand(GenerationModel::new("replicate-seedream-5-lite", "Seedream 5 Lite", GenerationRecipe::TextImage)
+                    .description("Flexible high-resolution imagery")
+                    .option_groups(replicate_image_controls()),
+                    "ByteDance", "seed", ImageFormat::Png, SEED_LOGO, None),
+                brand(GenerationModel::new("replicate-recraft-v4.1", "Recraft V4.1", GenerationRecipe::TextImage)
+                    .description("Design-focused image generation")
+                    .option_groups([GenerationOptionGroup::new("aspect_ratio", "Aspect ratio", [
+                        GenerationChoice::new("Not set", "Automatic"),
+                        GenerationChoice::new("1:1", "1:1"),
+                        GenerationChoice::new("16:9", "16:9"),
+                        GenerationChoice::new("9:16", "9:16"),
+                        GenerationChoice::new("4:3", "4:3"),
+                        GenerationChoice::new("3:2", "3:2"),
+                    ], "Not set")]),
+                    "Recraft", "recraft", ImageFormat::Png, RECRAFT_LOGO, None),
+                brand(GenerationModel::new("replicate-recraft-v4.1-pro", "Recraft V4.1 Pro", GenerationRecipe::TextImage)
+                    .description("Large-format design imagery")
+                    .option_groups([GenerationOptionGroup::new("aspect_ratio", "Aspect ratio", [
+                        GenerationChoice::new("Not set", "Automatic"),
+                        GenerationChoice::new("1:1", "1:1"),
+                        GenerationChoice::new("16:9", "16:9"),
+                        GenerationChoice::new("9:16", "9:16"),
+                        GenerationChoice::new("4:3", "4:3"),
+                        GenerationChoice::new("3:2", "3:2"),
+                    ], "Not set")]),
+                    "Recraft", "recraft", ImageFormat::Png, RECRAFT_LOGO, None),
             ],
             vec![
                 GenerationTemplate::new(
@@ -548,6 +850,99 @@ fn fixture(kind: GenerationKind) -> GenerationViewData {
                 .description("Animate a source image")
                 .requires_source(true)
                 .option_groups(video_controls(true)), "Wan", "wan", ImageFormat::Png, WAN_LOGO, Some(126)),
+                brand(GenerationModel::new("gateway-wan-3-video", "Wan 3.0 Video", GenerationRecipe::TextVideo)
+                    .description("Flexible cinematic video")
+                    .option_groups(gateway_video_controls(&[5, 10, 15], &["854x480", "1280x720", "1920x1080"], &["16:9", "9:16", "1:1"], false, false)),
+                    "Alibaba", "wan", ImageFormat::Png, WAN_LOGO, None),
+                brand(GenerationModel::new("gateway-wan-3-prime", "Wan 3.0 Prime", GenerationRecipe::TextVideo)
+                    .description("High fidelity Wan motion")
+                    .option_groups(gateway_video_controls(&[5, 10, 15], &["854x480", "1280x720", "1920x1080"], &["16:9", "9:16", "1:1"], false, false)),
+                    "Alibaba", "wan", ImageFormat::Png, WAN_LOGO, None),
+                brand(GenerationModel::new("gateway-kling-3-t2v", "Kling 3.0 Text to Video", GenerationRecipe::TextVideo)
+                    .description("Cinematic motion with optional sound")
+                    .option_groups(gateway_video_controls(&[5, 10, 15], &["1280x720", "1920x1080"], &["16:9", "9:16", "1:1"], true, true)),
+                    "Kling AI", "kling", ImageFormat::Jpeg, KLING_LOGO, None),
+                brand(GenerationModel::new("gateway-kling-3-i2v", "Kling 3.0 Image to Video", GenerationRecipe::ImageVideo)
+                    .description("Animate start and end frames")
+                    .requires_source(true)
+                    .supports_end_frame(true)
+                    .option_groups(gateway_video_controls(&[5, 10, 15], &["1280x720", "1920x1080"], &["16:9", "9:16", "1:1"], true, true)),
+                    "Kling AI", "kling", ImageFormat::Jpeg, KLING_LOGO, None),
+                brand(GenerationModel::new("gateway-veo-3.1-fast-studio", "Veo 3.1 Fast", GenerationRecipe::TextVideo)
+                    .description("Fast cinematic video with sound")
+                    .option_groups(gateway_video_controls(&[4, 6, 8], &["1280x720", "1920x1080", "3840x2160"], &["16:9", "9:16"], true, false)),
+                    "Google", "google", ImageFormat::Png, GOOGLE_LOGO, None),
+                brand(GenerationModel::new("gateway-minimax-h3-max", "MiniMax H3 Max", GenerationRecipe::TextVideo)
+                    .description("Detailed cinematic storytelling")
+                    .option_groups(gateway_video_controls(&[5, 10, 15], &["480p", "768p"], &["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"], false, false)),
+                    "MiniMax", "minimax", ImageFormat::Jpeg, MINIMAX_LOGO, None),
+                brand(GenerationModel::new("gateway-grok-video-1.5", "Grok Imagine Video 1.5", GenerationRecipe::TextVideo)
+                    .description("Stylized motion from a prompt")
+                    .option_groups(gateway_video_controls(&[5, 10, 15], &["854x480", "1280x720", "1920x1080"], &["16:9", "9:16", "1:1", "4:3", "3:4"], false, false)),
+                    "SpaceXAI", "xai", ImageFormat::Png, XAI_LOGO, None),
+                brand(GenerationModel::new("gateway-wan-3-video", "Wan 3.0 Video", GenerationRecipe::ImageVideo)
+                    .description("Animate a source image")
+                    .requires_source(true)
+                    .option_groups(gateway_video_controls(&[5, 10, 15], &["854x480", "1280x720", "1920x1080"], &["16:9", "9:16", "1:1"], false, false)),
+                    "Alibaba", "wan", ImageFormat::Png, WAN_LOGO, None),
+                brand(GenerationModel::new("gateway-wan-3-prime", "Wan 3.0 Prime", GenerationRecipe::ImageVideo)
+                    .description("High fidelity image animation")
+                    .requires_source(true)
+                    .option_groups(gateway_video_controls(&[5, 10, 15], &["854x480", "1280x720", "1920x1080"], &["16:9", "9:16", "1:1"], false, false)),
+                    "Alibaba", "wan", ImageFormat::Png, WAN_LOGO, None),
+                brand(GenerationModel::new("gateway-veo-3.1-fast-studio", "Veo 3.1 Fast", GenerationRecipe::ImageVideo)
+                    .description("Animate frames with optional sound")
+                    .requires_source(true)
+                    .supports_end_frame(true)
+                    .option_groups(gateway_video_controls(&[4, 6, 8], &["1280x720", "1920x1080", "3840x2160"], &["16:9", "9:16"], true, false)),
+                    "Google", "google", ImageFormat::Png, GOOGLE_LOGO, None),
+                brand(GenerationModel::new("gateway-minimax-h3-max", "MiniMax H3 Max", GenerationRecipe::ImageVideo)
+                    .description("Animate frames with precise motion")
+                    .requires_source(true)
+                    .supports_end_frame(true)
+                    .option_groups(gateway_video_controls(&[5, 10, 15], &["480p", "768p"], &["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"], false, false)),
+                    "MiniMax", "minimax", ImageFormat::Jpeg, MINIMAX_LOGO, None),
+                brand(GenerationModel::new("replicate-wan-2.7-i2v", "Wan 2.7 Image to Video", GenerationRecipe::ImageVideo)
+                    .description("Animate two key frames")
+                    .requires_source(true)
+                    .supports_end_frame(true)
+                    .supports_negative(true)
+                    .supports_seed(true)
+                    .option_groups([
+                        GenerationOptionGroup::new("duration", "Duration", [
+                            GenerationChoice::new("2", "2 s"),
+                            GenerationChoice::new("5", "5 s"),
+                            GenerationChoice::new("10", "10 s"),
+                            GenerationChoice::new("15", "15 s"),
+                        ], "5"),
+                        GenerationOptionGroup::new("enable_prompt_expansion", "Prompt expansion", [
+                            GenerationChoice::new("true", "On"),
+                            GenerationChoice::new("false", "Off"),
+                        ], "true").advanced(true),
+                    ]),
+                    "Wan", "wan", ImageFormat::Png, WAN_LOGO, None),
+                brand(GenerationModel::new("replicate-ltx-2.3-pro", "LTX 2.3 Pro", GenerationRecipe::TextVideo)
+                    .description("Cinematic motion and camera controls")
+                    .option_groups(replicate_ltx_controls()),
+                    "Lightricks", "ltx", ImageFormat::Svg, LTX_LOGO, None),
+                brand(GenerationModel::new("replicate-ltx-2.3-pro", "LTX 2.3 Pro", GenerationRecipe::ImageVideo)
+                    .description("Animate start and end frames")
+                    .requires_source(true)
+                    .supports_end_frame(true)
+                    .option_groups(replicate_ltx_controls()),
+                    "Lightricks", "ltx", ImageFormat::Svg, LTX_LOGO, None),
+                brand(GenerationModel::new("replicate-seedance-2.5", "Seedance 2.5", GenerationRecipe::TextVideo)
+                    .description("Rich motion with optional audio")
+                    .supports_seed(true)
+                    .option_groups(replicate_seedance_controls()),
+                    "ByteDance", "seed", ImageFormat::Png, SEED_LOGO, None),
+                brand(GenerationModel::new("replicate-seedance-2.5", "Seedance 2.5", GenerationRecipe::ImageVideo)
+                    .description("Animate an image sequence")
+                    .requires_source(true)
+                    .supports_end_frame(true)
+                    .supports_seed(true)
+                    .option_groups(replicate_seedance_controls()),
+                    "ByteDance", "seed", ImageFormat::Png, SEED_LOGO, None),
             ],
             vec![
                 GenerationTemplate::new(
@@ -652,6 +1047,67 @@ fn fixture(kind: GenerationKind) -> GenerationViewData {
                 )]), "Hexgrad", "hexgrad", ImageFormat::Png, HEXGRAD_LOGO, Some(1)),
                 brand(GenerationModel::new("fanta-music-1", "Fanta Music", GenerationRecipe::Music)
                     .description("Music from a prompt"), "ACE-Step", "ace", ImageFormat::Jpeg, ACE_LOGO, Some(4)),
+                brand(GenerationModel::new("gateway-grok-tts", "Grok TTS", GenerationRecipe::Speech)
+                    .description("Expressive spoken audio")
+                    .option_groups(gateway_speech_controls(&["eve"])),
+                    "SpaceXAI", "xai", ImageFormat::Png, XAI_LOGO, None),
+                brand(GenerationModel::new("gateway-openai-tts-1", "OpenAI TTS 1", GenerationRecipe::Speech)
+                    .description("Six distinct speaking voices")
+                    .option_groups(gateway_speech_controls(&["alloy", "echo", "fable", "onyx", "nova", "shimmer"])),
+                    "OpenAI", "openai", ImageFormat::Svg, OPENAI_LOGO, None),
+                brand(GenerationModel::new("gateway-openai-tts-1-hd", "OpenAI TTS 1 HD", GenerationRecipe::Speech)
+                    .description("Higher fidelity spoken audio")
+                    .option_groups(gateway_speech_controls(&["alloy", "echo", "fable", "onyx", "nova", "shimmer"])),
+                    "OpenAI", "openai", ImageFormat::Svg, OPENAI_LOGO, None),
+                brand(GenerationModel::new("replicate-speech-2.8-hd", "MiniMax Speech 2.8 HD", GenerationRecipe::Speech)
+                    .description("Expressive voices and emotional tone")
+                    .option_groups([
+                        GenerationOptionGroup::new("voice_id", "Voice", [
+                            GenerationChoice::new("Wise_Woman", "Wise Woman"),
+                            GenerationChoice::new("Friendly_Person", "Friendly Person"),
+                            GenerationChoice::new("Deep_Voice_Man", "Deep Voice Man"),
+                            GenerationChoice::new("Calm_Woman", "Calm Woman"),
+                        ], "Wise_Woman"),
+                        GenerationOptionGroup::new("emotion", "Emotion", [
+                            GenerationChoice::new("auto", "Automatic"),
+                            GenerationChoice::new("happy", "Happy"),
+                            GenerationChoice::new("calm", "Calm"),
+                            GenerationChoice::new("sad", "Sad"),
+                            GenerationChoice::new("angry", "Angry"),
+                            GenerationChoice::new("surprised", "Surprised"),
+                        ], "auto").advanced(true),
+                        GenerationOptionGroup::new("speed", "Pace", [
+                            GenerationChoice::new("0.75", "Relaxed"),
+                            GenerationChoice::new("1", "Natural"),
+                            GenerationChoice::new("1.25", "Brisk"),
+                            GenerationChoice::new("1.5", "Fast"),
+                        ], "1").advanced(true),
+                        GenerationOptionGroup::new("audio_format", "Audio format", [
+                            GenerationChoice::new("mp3", "MP3"),
+                            GenerationChoice::new("wav", "WAV"),
+                        ], "mp3").advanced(true),
+                    ]),
+                    "MiniMax", "minimax", ImageFormat::Jpeg, MINIMAX_LOGO, None),
+                brand(GenerationModel::new("replicate-eleven-music", "Eleven Music", GenerationRecipe::Music)
+                    .description("Instrumental or vocal music")
+                    .option_groups([
+                        GenerationOptionGroup::new("music_length_ms", "Length", [
+                            GenerationChoice::new("10000", "10 s"),
+                            GenerationChoice::new("30000", "30 s"),
+                            GenerationChoice::new("60000", "1 min"),
+                            GenerationChoice::new("120000", "2 min"),
+                        ], "30000"),
+                        GenerationOptionGroup::new("force_instrumental", "Vocals", [
+                            GenerationChoice::new("true", "Instrumental"),
+                            GenerationChoice::new("false", "Allow vocals"),
+                        ], "true").advanced(true),
+                        GenerationOptionGroup::new("output_format", "Audio format", [
+                            GenerationChoice::new("mp3_standard", "MP3"),
+                            GenerationChoice::new("mp3_high_quality", "MP3 HQ"),
+                            GenerationChoice::new("wav_cd_quality", "WAV"),
+                        ], "mp3_standard").advanced(true),
+                    ]),
+                    "ElevenLabs", "elevenlabs", ImageFormat::Png, ELEVENLABS_LOGO, None),
             ],
             vec![
                 GenerationTemplate::new(
@@ -722,6 +1178,31 @@ fn fixture(kind: GenerationKind) -> GenerationViewData {
                     GenerationRecipe::PromptSvg,
                 )
                 .description("Fast SVG concepts"), "Anthropic", "claude", ImageFormat::Png, CLAUDE_LOGO, None),
+                brand(GenerationModel::new("gateway-arrow-1.1-svg", "Arrow 1.1 SVG", GenerationRecipe::PromptSvg)
+                    .description("Vector artwork from a prompt"),
+                    "QuiverAI", "quiverai", ImageFormat::Png, QUIVERAI_LOGO, None),
+                brand(GenerationModel::new("replicate-recraft-v4.1-svg", "Recraft V4.1 SVG", GenerationRecipe::PromptSvg)
+                    .description("Design-ready vector artwork")
+                    .option_groups([GenerationOptionGroup::new("aspect_ratio", "Aspect ratio", [
+                        GenerationChoice::new("Not set", "Automatic"),
+                        GenerationChoice::new("1:1", "1:1"),
+                        GenerationChoice::new("16:9", "16:9"),
+                        GenerationChoice::new("9:16", "9:16"),
+                        GenerationChoice::new("4:3", "4:3"),
+                        GenerationChoice::new("3:2", "3:2"),
+                    ], "Not set")]),
+                    "Recraft", "recraft", ImageFormat::Png, RECRAFT_LOGO, None),
+                brand(GenerationModel::new("replicate-recraft-v4.1-pro-svg", "Recraft V4.1 Pro SVG", GenerationRecipe::PromptSvg)
+                    .description("High fidelity vector artwork")
+                    .option_groups([GenerationOptionGroup::new("aspect_ratio", "Aspect ratio", [
+                        GenerationChoice::new("Not set", "Automatic"),
+                        GenerationChoice::new("1:1", "1:1"),
+                        GenerationChoice::new("16:9", "16:9"),
+                        GenerationChoice::new("9:16", "9:16"),
+                        GenerationChoice::new("4:3", "4:3"),
+                        GenerationChoice::new("3:2", "3:2"),
+                    ], "Not set")]),
+                    "Recraft", "recraft", ImageFormat::Png, RECRAFT_LOGO, None),
                 brand(GenerationModel::new("fanta-svg-1", "Fanta SVG", GenerationRecipe::ImageSvg)
                     .description("Create SVG from an image")
                     .requires_source(true), "StarVector", "starvector", ImageFormat::Jpeg, STARVECTOR_LOGO, Some(1)),
@@ -889,5 +1370,46 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn catalog_fixture_exercises_wide_hosted_and_fallback_choices() {
+        for (kind, minimum_count) in [
+            (GenerationKind::Image, 10),
+            (GenerationKind::Video, 15),
+            (GenerationKind::Audio, 9),
+            (GenerationKind::Svg, 7),
+        ] {
+            let data = fixture(kind);
+            assert!(
+                data.models.len() >= minimum_count,
+                "{kind:?} catalog narrowed"
+            );
+            assert!(data.models.iter().all(|model| model.logo.is_some()));
+            assert!(data.models.iter().all(|model| {
+                model.credits_per_output.is_some() || model.credit_hint.is_some()
+            }));
+            assert!(
+                data.models
+                    .iter()
+                    .any(|model| model.id.starts_with("gateway-"))
+            );
+            assert!(
+                data.models
+                    .iter()
+                    .any(|model| model.id.starts_with("replicate-"))
+            );
+        }
+        let video = fixture(GenerationKind::Video);
+        assert!(video.models.iter().any(|model| {
+            model.recipe == GenerationRecipe::ImageVideo && model.supports_end_frame
+        }));
+        let audio = fixture(GenerationKind::Audio);
+        assert!(audio.models.iter().any(|model| {
+            model
+                .option_groups
+                .iter()
+                .any(|group| group.choices.len() > 3)
+        }));
     }
 }

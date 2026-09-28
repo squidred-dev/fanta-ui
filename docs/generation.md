@@ -31,6 +31,10 @@ decoded `GenerationModelLogo`, and live `credits_per_output`. Models billed by
 usage can supply a variable-price hint instead. The bundled Storybook values
 illustrate current seed-catalog prices; production must read the authenticated
 catalog so prices reflect organization overrides and later changes.
+The screen opens model-specific advanced settings when a model is selected.
+Choice groups with more than three values use a searchable dropdown instead
+of a long row of chips; the host still owns the selected value and receives
+the same `OptionSelected` intent.
 
 `GenerationTemplate` is a host-provided prompt preset. Its optional `model_id`
 lets the host switch to the intended recipe when it handles `TemplateSelected`.
@@ -39,11 +43,12 @@ Selecting it fills a draft; generating requires a separate `GenerateRequested` i
 host-decoded preview. The source is required only for image-to-video,
 image-to-SVG, and vectorization recipes. The component emits source selection
 and clearing intents; the host owns file selection and upload.
-Image-to-video presents start and end frame slots. Current Wan I2V only accepts
-one start image, so the end slot remains unavailable for that model. A future
-model can enable the end slot with `supports_end_frame` once its backend worker
-accepts and validates an explicit end image; the submission then includes
-`end_frame_id`. The current backend must not be sent that field.
+Image-to-video presents start and end frame slots. The end slot is enabled only
+when the selected model declares `supports_end_frame` and the host has a
+matching backend input mapping. An enabled end slot submits `end_frame_id`;
+models without that capability never send it. Gateway Kling 3 and selected
+Veo/MiniMax variants, plus some Replicate models, can declare two-frame
+generation. The source picker and backend still enforce format and size limits.
 
 For speech models that support voice references, the host supplies an optional
 `GenerationVoiceReference` and an explicit consent flag. The screen requests
@@ -104,22 +109,25 @@ of deployed capacity.
 
 ## Verified creation models and controls
 
-Only Qwen Image currently has a full generation-control schema in the backend
-catalog. Other controls require an explicit host recipe, not an inference from
-the broad modality. The live model list remains authoritative.
+Controls require an explicit catalog capability, not an inference from the
+broad modality. The Storybook has a wide mock catalog to exercise long model
+lists, rich settings, creator marks, and Gateway-first ordering. It includes
+representative Gateway and Replicate entries, but the authenticated live model
+list remains authoritative. Disabled and unpriced backend rows do not appear
+in the production selector.
 
-| Screen | Seeded aliases and engines | Supported creation controls |
+| Screen | Storybook model families | Examples of host-declared controls |
 | --- | --- | --- |
-| Image | `fanta-image-1` → Qwen Image 2.0; `fanta-image-fast-1` → Z-Image Turbo; `flux-schnell` is a hosted fallback. | Qwen catalog sizes: `1024x1024`, `1280x768`, `768x1280`, `2048x2048`; steps 10–50, default 30; guidance 1–10, default 4; negative prompt; optional seed and prompt enhancement. Turbo has no published capability schema and has an eight-step worker default; do not apply Qwen's step range to Turbo. |
-| Video | `fanta-video-1` → LTX 2.3; `fanta-video-hd-1` → Wan 2.2 text-to-video; `fanta-animate-1` → Wan 2.2 image-to-video. | Send selected width/height, `input.frames` up to 81, and `input.fps` for MP4 playback rate. The Storybook LTX and Wan presets use different frame sizes and 17/33/49/65/81 frame lengths; changing frame rate updates the displayed duration. Only Animate takes one start image. No current video worker accepts an end image or video audio toggle; video workers do not consume seed. |
-| Audio | `fanta-voice-1` → Chatterbox; `fanta-voice-turbo-1` → Chatterbox Turbo; `fanta-voice-fast-1` → Kokoro; `fanta-music-1` → ACE-Step 1.5. | Top-level `prompt` becomes GPU `text`. Kokoro uses `input.speed`; Chatterbox workers ignore it. Chatterbox voice reference requires `input.voice_ref_b64` and explicit `input.consent: true`. Workers return WAV regardless of the schema's `format`. ACE-Step's validated TTS schema omits `duration_s`, so a music duration control is not reliable yet. |
-| SVG vectors | `fanta-svg-1` → StarVector 8B; `fanta-vectorize-1` → FLUX Klein plus vtracer; Claude chat models for prompt-to-SVG. | StarVector requires a source image and ignores prompt guidance. Vectorize requires an image and accepts `input.mode` (`line_art`, `flat_color`, `trace`) and `input.detail` (`low`, `medium`, `high`); the host enables its optional prompt only in line-art mode. Claude uses a separate `/v1/messages` adapter and its SVG is not included in generation history. |
+| Image | Fanta image aliases, Recraft V4.1, Grok Imagine, Seedream, FLUX, and Replicate fallbacks. | Canvas size and aspect ratio; negative prompt, seed, steps, guidance, and enhancement only when advertised by the selected model. |
+| Video | Fanta video aliases, Wan 3, Kling 3, Veo 3.1, MiniMax H3, Grok Imagine Video, plus Replicate LTX, Wan, and Seedance. | Duration, resolution, aspect ratio, sound, quality mode, frame rate, camera motion, and prompt expansion according to the model. Image-to-video always needs a start frame; only models with `supports_end_frame` expose an end frame. |
+| Audio | Fanta speech/music aliases, Grok TTS, OpenAI TTS, MiniMax Speech, and Eleven Music. | Voice, output format, pace, emotion, music length, and vocals according to the model. Reference voice and consent appear only where the host declares support. |
+| SVG vectors | Fanta SVG/vectorization, Claude prompt-to-SVG, QuiverAI Arrow, and Recraft SVG. | Prompt-to-SVG, image-to-SVG, and vectorization are distinct recipes. Recraft can declare aspect ratio; image-source recipes require a ready source. |
 
-The Qwen catalog advertises reference images, but the current worker's singular
-`reference_image` path is part of image editing and is omitted here. Edit,
-segment, track, upscale, video-tool, stems, transcription, audio-cleanup, and
-Comfy workflow models are also outside these screens. The backend's Comfy
-`template_id` flow is unrelated to the prompt presets shown here.
+Edit, segment, track, upscale, video-tool, stems, transcription, audio-cleanup,
+and Comfy workflow models are outside these screens. The backend's Comfy
+`template_id` flow is unrelated to the prompt presets shown here. The host
+maps every choice to a validated request field and re-quotes models whose
+price varies with duration, resolution, sound, or quality mode.
 
 Fanta Edit already implements Claude prompt-to-SVG through `/v1/messages` with
 a constrained SVG system instruction, a 1,200-character prompt cap, an
@@ -131,12 +139,11 @@ component only displays the supplied state and emits a submission intent.
 ## Current integration status
 
 The four screens and the Storybook mock host are implemented in `fanta-gpui`.
-The existing `fanta-edit` workspace still uses its own Image, Video, Vector,
-Design, and Masks UI and pins an earlier `fanta-gpui` Git revision. Shipping
-these screens inside Fanta Edit requires a coordinated library revision and a
-production host adapter for model discovery, submission, polling, media
-playback/download, and the paginated gallery. Storybook's previews are playable
-local fixtures, not generated results.
+Fanta Edit pins a Git revision of this library and owns model discovery,
+submission, polling, media playback/download, and the paginated gallery.
+Storybook's previews are playable local fixtures, not generated results.
+Publishing a new catalog also requires backend rows to be enabled and priced;
+a library update alone does not expose them in the native app.
 
 ## Integration checks
 
