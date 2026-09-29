@@ -264,6 +264,15 @@ pub struct BillingActions {
     pub refresh: BillingActionState,
 }
 
+impl BillingActions {
+    /// The host enables these only when Apple purchase recovery is available.
+    /// A Free account may have purchases to restore even without an active
+    /// Apple subscription, so the subscription provider is not the gate.
+    fn has_available_apple_action(&self) -> bool {
+        self.restore_purchases.enabled || self.sync_purchases.enabled || self.redeem_code.enabled
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct BillingViewData {
     pub selected_tab: BillingTab,
@@ -1934,10 +1943,9 @@ impl BillingScreen {
                     .child(self.render_subscription(colors, cx)),
             )
             .child(self.render_usage_summary(colors, cx))
-            .when(
-                self.data.subscription.provider == BillingProvider::Apple,
-                |body| body.child(self.render_apple_actions(colors, cx)),
-            )
+            .when(self.data.actions.has_available_apple_action(), |body| {
+                body.child(self.render_apple_actions(colors, cx))
+            })
             .child(
                 div()
                     .flex()
@@ -1979,10 +1987,9 @@ impl BillingScreen {
                     .child(self.render_balance(colors, cx)),
             )
             .child(self.render_subscription_row(colors, cx))
-            .when(
-                self.data.subscription.provider == BillingProvider::Apple,
-                |body| body.child(self.render_apple_actions_row(colors, cx)),
-            )
+            .when(self.data.actions.has_available_apple_action(), |body| {
+                body.child(self.render_apple_actions_row(colors, cx))
+            })
             .child(
                 div()
                     .id(SharedString::from(format!("{}-recent-activity", self.id)))
@@ -2365,6 +2372,64 @@ mod tests {
                 .is_some()
         );
         assert!(cx.debug_bounds("test-billing-export-usage").is_none());
+    }
+
+    #[gpui::test]
+    fn free_account_can_restore_apple_purchases_when_host_offers_actions(cx: &mut TestAppContext) {
+        let data = BillingViewData {
+            subscription: BillingSubscription {
+                plan_name: "Free".into(),
+                provider: BillingProvider::None,
+                ..Default::default()
+            },
+            actions: BillingActions {
+                add_credits: BillingActionState::enabled("Add credits"),
+                restore_purchases: BillingActionState::enabled("Restore purchases"),
+                sync_purchases: BillingActionState::enabled("Sync purchases"),
+                redeem_code: BillingActionState::enabled("Redeem code"),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let (host, actions, cx) = mount_component(cx, move |_, cx| {
+            BillingScreen::new_embedded("test-billing", data, cx)
+        });
+        cx.simulate_resize(size(px(560.), px(850.)));
+        cx.run_until_parked();
+
+        assert!(cx.debug_bounds("billing-embedded-apple-actions").is_some());
+        for (selector, action) in [
+            (
+                "test-billing-restore-purchases",
+                BillingAction::RestorePurchasesRequested,
+            ),
+            (
+                "test-billing-sync-purchases",
+                BillingAction::SyncPurchasesRequested,
+            ),
+            (
+                "test-billing-redeem-code",
+                BillingAction::RedeemCodeRequested,
+            ),
+        ] {
+            let button = cx.debug_bounds(selector).unwrap();
+            cx.simulate_click(button.center(), Modifiers::none());
+            cx.run_until_parked();
+            assert_eq!(actions.borrow().last(), Some(&action));
+        }
+
+        let screen = cx.read(|app| host.read(app).component.clone());
+        let mut no_store = cx.read(|app| screen.read(app).view_data().clone());
+        no_store.subscription.provider = BillingProvider::Apple;
+        no_store.actions.restore_purchases =
+            BillingActionState::disabled("Restore purchases", "Apple purchases unavailable");
+        no_store.actions.sync_purchases =
+            BillingActionState::disabled("Sync purchases", "Apple purchases unavailable");
+        no_store.actions.redeem_code =
+            BillingActionState::disabled("Redeem code", "Apple purchases unavailable");
+        cx.update(|_, app| screen.update(app, |screen, cx| screen.set_view_data(no_store, cx)));
+        cx.run_until_parked();
+        assert!(cx.debug_bounds("billing-embedded-apple-actions").is_none());
     }
 
     #[gpui::test]
