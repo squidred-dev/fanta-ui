@@ -13,6 +13,7 @@ name = "gpui_macos"
 
 [features]
 default = [ "gpui/default",]
+mac_app_store = []
 test-support = [ "gpui/test-support",]
 runtime_shaders = []
 font-kit = [ "dep:font-kit",]

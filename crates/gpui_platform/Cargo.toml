@@ -14,6 +14,7 @@ name = "gpui_platform"
 [features]
 default = []
 font-kit = [ "gpui_macos/font-kit",]
+mac_app_store = [ "gpui_macos/mac_app_store",]
 test-support = [ "gpui/test-support", "gpui_macos/test-support",]
 screen-capture = [ "gpui/screen-capture", "gpui_macos/screen-capture", "gpui_windows/screen-capture", "gpui_linux/screen-capture",]
 runtime_shaders = [ "gpui_macos/runtime_shaders",]
