@@ -1094,6 +1094,10 @@ impl PaintPicker {
         self.reset_text_input_edit_sessions();
     }
 
+    pub(crate) fn color_only_title(&self) -> Option<&SharedString> {
+        self.color_only_title.as_ref()
+    }
+
     /// Restricts the retained picker to the shared solid-color editor.
     ///
     /// Design-panel surfaces such as Page background and text decoration use
