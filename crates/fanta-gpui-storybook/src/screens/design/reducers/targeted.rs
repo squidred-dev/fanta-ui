@@ -3,6 +3,7 @@
 //! reducer in the target's original order.
 
 use super::*;
+use fanta_gpui::design::DesignPaintCollectionEditMode;
 
 pub(crate) fn replay_preflighted_target(
     screen: &mut DesignScreen,
@@ -738,6 +739,17 @@ pub(crate) fn aggregate_story_multiple_selection(
         resize_to_fit: first.supports_resize_to_fit() && second.supports_resize_to_fit(),
         clip_content: false,
         fill,
+        fill_edit_mode: if first
+            .paint_collection_edit_mode(DesignPanelCollection::Fill)
+            .allows_full_controls()
+            && second
+                .paint_collection_edit_mode(DesignPanelCollection::Fill)
+                .allows_full_controls()
+        {
+            DesignPaintCollectionEditMode::Full
+        } else {
+            DesignPaintCollectionEditMode::ColorAndOpacityOnly
+        },
         stroke,
         layer_appearance,
         pass_through_blend: first.supports_pass_through_blend()
