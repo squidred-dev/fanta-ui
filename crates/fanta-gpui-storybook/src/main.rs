@@ -15,6 +15,7 @@ use std::{
 use configuration::*;
 use design_host::*;
 use fanta_gpui::prelude::*;
+use fanta_gpui::properties_tabs::PrototypeInspectorAction;
 use fixtures::*;
 use gallery::SidebarPin;
 use gpui::{
@@ -193,7 +194,21 @@ impl Storybook {
                 |story, _, action: &PropertiesInspectorAction, window, cx| {
                     story
                         .properties_inspector_screen
-                        .handle_action(action, window, cx)
+                        .handle_action(action, window, cx);
+                    if matches!(action, PropertiesInspectorAction::PresentRequested) {
+                        story.properties_tabs_screen.handle_prototype_action(
+                            &PrototypeInspectorAction::PresentRequested,
+                            cx,
+                        );
+                    }
+                },
+            ),
+            cx.subscribe(
+                &properties_inspector_screen.prototype,
+                |story, _, action: &PrototypeInspectorAction, cx| {
+                    story
+                        .properties_tabs_screen
+                        .handle_prototype_action(action, cx);
                 },
             ),
             cx.subscribe(

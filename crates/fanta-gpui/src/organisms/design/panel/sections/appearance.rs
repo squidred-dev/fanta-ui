@@ -992,10 +992,12 @@ fn render_visibility_control(
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+                .hover(|style| {
+                    style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
+                })
                 .focus(|style| {
                     style
-                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                         .border_1()
                         .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
@@ -1056,10 +1058,12 @@ fn render_corner_details_control(
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+                .hover(|style| {
+                    style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
+                })
                 .focus(|style| {
                     style
-                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                         .border_1()
                         .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
@@ -1160,7 +1164,7 @@ fn render_draw_slider_row(
         .gap_1()
         .child(
             div()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child(label),
         )
@@ -1293,6 +1297,7 @@ fn render_blend_popover(
     )))
     .xsmall()
     .compact()
+    .typography(crate::atoms::TypographyToken::Panel)
     .ghost()
     .w(px(24.))
     .h(px(24.))
@@ -1354,6 +1359,7 @@ fn render_blend_popover(
                         .label(mode.label())
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
                         .w_full()
                         .selected(mode == current)
@@ -1419,20 +1425,19 @@ fn render_header(
         .id(id)
         .key_context(CONTROL_KEY_CONTEXT)
         .tab_index(0)
-        .h(px(40.))
+        .h(px(HEADER_HEIGHT))
         .w_full()
-        .pl(px(PANEL_PADDING))
-        .pr_2()
+        .px(px(PANEL_PADDING))
         .gap_1()
         .cursor_pointer()
         .hover(|style| {
-            style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+            style.bg(crate::atoms::SemanticColor::BackgroundPanelHover
                 .resolve(cx)
                 .opacity(0.45))
         })
         .focus(|style| {
             style
-                .bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                .bg(crate::atoms::SemanticColor::BackgroundPanelHover
                     .resolve(cx)
                     .opacity(0.45))
                 .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
@@ -1443,7 +1448,7 @@ fn render_header(
         .child(
             div()
                 .flex_1()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .font_semibold()
                 .child(section.label()),
         )
@@ -1482,12 +1487,7 @@ fn render_draw_layer(
     events: &AppearanceEventSink,
     cx: &mut Context<DesignPanel>,
 ) -> AnyElement {
-    let mut content = v_flex()
-        .pl(px(PANEL_PADDING))
-        .pr_2()
-        .pt(px(2.))
-        .pb_4()
-        .gap_2();
+    let mut content = crate::molecules::inspector_section_body();
     if projection.capabilities.supports_visibility
         && !projection.capabilities.supports_layer_appearance
     {
@@ -1658,7 +1658,7 @@ fn render_draw_layer(
         .w_full()
         .flex_none()
         .border_b_1()
-        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
+        .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
         .child(chrome.appearance_section_header(DesignPanelSection::Layer, cx))
         .when(projection.presentation.layer_expanded, |section| {
             section.child(content.into_any_element())
@@ -1675,12 +1675,7 @@ fn render_design_layer(
     events: &AppearanceEventSink,
     cx: &mut Context<DesignPanel>,
 ) -> AnyElement {
-    let mut content = v_flex()
-        .pl(px(PANEL_PADDING))
-        .pr_2()
-        .pt(px(2.))
-        .pb_4()
-        .gap_2()
+    let mut content = crate::molecules::inspector_section_body()
         .when_some(applied_component_controls, |content, applied| {
             content.child(applied)
         });
@@ -1818,7 +1813,7 @@ fn render_design_layer(
         .w_full()
         .flex_none()
         .border_b_1()
-        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
+        .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
         .child(render_header(
             projection,
             variable_mode_popover,
@@ -1870,18 +1865,13 @@ pub(in super::super) fn render_mask(
         DesignMaskType::Vector => DesignMaskType::Luminance,
         DesignMaskType::Luminance => DesignMaskType::Alpha,
     };
-    let content =
-        v_flex()
-            .px(px(PANEL_PADDING))
-            .pb_4()
-            .gap_2()
-            .child(chrome.appearance_value_cell(
-                "mask-type",
-                "Mask",
-                mask_type.label(),
-                DesignPanelProperty::MaskType,
-                DesignPanelValue::MaskType(next_mask_type),
-                cx,
-            ));
+    let content = crate::molecules::inspector_section_body().child(chrome.appearance_value_cell(
+        "mask-type",
+        "Mask",
+        mask_type.label(),
+        DesignPanelProperty::MaskType,
+        DesignPanelValue::MaskType(next_mask_type),
+        cx,
+    ));
     Some(chrome.appearance_section(DesignPanelSection::Mask, content.into_any_element(), cx))
 }

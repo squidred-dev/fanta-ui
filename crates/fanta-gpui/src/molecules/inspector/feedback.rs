@@ -53,7 +53,7 @@ impl RenderOnce for InspectorFieldMessage {
         gpui::div()
             .w_full()
             .min_w(gpui::px(0.))
-            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .typography(crate::atoms::TypographyToken::Panel)
             .text_color(match self.kind {
                 InspectorFieldMessageKind::Help => {
                     crate::atoms::SemanticColor::TextTertiary.resolve(cx)
@@ -126,11 +126,11 @@ impl RenderOnce for InspectorFeedback {
             .rounded(self.metrics.radius)
             .border_1()
             .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
             .when_some(self.title, |message, title| {
                 message.child(
                     gpui::div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .font_semibold()
                         .text_color(accent)
                         .child(title),
@@ -139,7 +139,7 @@ impl RenderOnce for InspectorFeedback {
             .child(
                 gpui::div()
                     .min_w(gpui::px(0.))
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(self.message),
             )
@@ -195,7 +195,7 @@ impl RenderOnce for InspectorEmptyState {
             .text_center()
             .child(
                 gpui::div()
-                    .typography(crate::atoms::TypographyToken::BodyLarge)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .font_semibold()
                     .child(self.title),
             )
@@ -203,7 +203,7 @@ impl RenderOnce for InspectorEmptyState {
                 state.child(
                     gpui::div()
                         .max_w(gpui::px(360.))
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(description),
                 )

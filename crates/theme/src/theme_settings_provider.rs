@@ -35,6 +35,12 @@ pub fn set_theme_settings_provider(provider: Box<dyn ThemeSettingsProvider>, cx:
     cx.set_global(GlobalThemeSettingsProvider(provider));
 }
 
+/// Returns the installed theme settings provider, if the host has registered one.
+pub fn try_theme_settings(cx: &App) -> Option<&dyn ThemeSettingsProvider> {
+    cx.try_global::<GlobalThemeSettingsProvider>()
+        .map(|provider| &*provider.0)
+}
+
 /// Returns the global [`ThemeSettingsProvider`].
 ///
 /// Panics if no provider has been registered via [`set_theme_settings_provider`].

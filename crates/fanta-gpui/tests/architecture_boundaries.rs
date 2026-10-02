@@ -937,11 +937,14 @@ fn design_production_consumes_the_shared_inspector_taxonomy() {
             "type settings must use the shared `{recipe}` recipe"
         );
     }
+    assert!(
+        type_settings.contains("InspectorTabs"),
+        "type settings content navigation must use shared Zed inspector tabs"
+    );
     for recipe in [
         "inspector_field_grid_with_layout",
         "inspector_row_with_layout",
         "inspector_field_label",
-        "inspector_action_group",
         "inspector_popover_surface",
     ] {
         assert!(
@@ -2216,15 +2219,15 @@ fn raw_pixel_literal_budget_ratchets_down() {
     // excluded, so fixture geometry never buys headroom for shipping code.
     // Every token migration must lower the directory it touches.
     const RAW_PIXEL_BUDGETS: &[(&str, usize)] = &[
-        ("organisms/design", 475),
-        ("organisms/paint_picker", 102),
+        ("organisms/design", 473),
+        ("organisms/paint_picker", 90),
         ("organisms/toolbar", 72),
         ("screens/variables", 49),
         ("organisms/pages", 40),
         ("organisms/timeline", 7),
         ("organisms/layers", 15),
         ("organisms/prototype", 40),
-        ("layouts", 30),
+        ("layouts", 26),
         ("molecules", 25),
         ("atoms", 7),
     ];

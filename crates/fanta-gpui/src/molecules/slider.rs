@@ -36,6 +36,7 @@ pub struct Slider {
     variant: SliderVariant,
     background: SliderBackground,
     disabled: bool,
+    compact: bool,
 }
 impl EventEmitter<SliderAction> for Slider {}
 impl Focusable for Slider {
@@ -62,6 +63,7 @@ impl Slider {
             variant: SliderVariant::Range,
             background: SliderBackground::Default,
             disabled: false,
+            compact: false,
         }
     }
     pub fn value(&self) -> f32 {
@@ -92,6 +94,14 @@ impl Slider {
         self.background = background;
         self.disabled = disabled;
         cx.notify();
+    }
+    /// Thin inspector rail with the same pointer target and controlled edits.
+    /// Color and gradient sliders retain their full visual rail.
+    pub fn set_compact(&mut self, compact: bool, cx: &mut Context<Self>) {
+        if self.compact != compact {
+            self.compact = compact;
+            cx.notify();
+        }
     }
     pub fn cancel(&mut self, cx: &mut Context<Self>) {
         self.finish(false, cx);
@@ -196,7 +206,28 @@ impl Render for Slider {
         } else {
             SliderState::Default
         };
-        let geometry = tokens::SliderGeometry::TRACK_HEIGHT;
+        let compact = self.compact
+            && matches!(&self.background, SliderBackground::Default)
+            && matches!(
+                self.variant,
+                SliderVariant::Range | SliderVariant::Stepper { .. } | SliderVariant::Centered
+            );
+        let geometry = if compact {
+            tokens::RowHeight::FIELD
+        } else {
+            tokens::SliderGeometry::TRACK_HEIGHT
+        };
+        let track_height = if compact {
+            tokens::Space::XS / 2.
+        } else {
+            geometry
+        };
+        let track_top = (geometry - track_height) / 2.;
+        let handle_size = if compact {
+            tokens::Space::SM
+        } else {
+            tokens::SliderGeometry::HANDLE_SIZE
+        };
         let colored = matches!(
             self.variant,
             SliderVariant::ColorRange | SliderVariant::Fill
@@ -219,8 +250,8 @@ impl Render for Slider {
                 .absolute()
                 .left(relative(value.min(origin)))
                 .w(relative((value - origin).abs()))
-                .top_0()
-                .bottom_0()
+                .top(px(track_top))
+                .h(px(track_height))
                 .rounded_full()
                 .bg(crate::atoms::SemanticColor::BackgroundBrand.resolve(cx))
         });
@@ -248,21 +279,46 @@ impl Render for Slider {
                 .rounded_full()
                 .bg(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
         }));
-        let handle = SliderHandle {
-            variant: if colored {
-                SliderHandleVariant::Fill
-            } else {
-                SliderHandleVariant::Stroke
-            },
-            state,
-            color: None,
+        let handle = if compact {
+            div()
+                .size(px(handle_size))
+                .rounded_full()
+                .border_1()
+                .border_color(crate::atoms::SemanticColor::BackgroundPanel.resolve(cx))
+                .bg(if state == SliderState::Focused {
+                    crate::atoms::SemanticColor::BackgroundBrand.resolve(cx)
+                } else {
+                    crate::atoms::SemanticColor::TextSecondary.resolve(cx)
+                })
+                .when(self.disabled, |handle| handle.opacity(0.5))
+        } else {
+            SliderHandle {
+                variant: if colored {
+                    SliderHandleVariant::Fill
+                } else {
+                    SliderHandleVariant::Stroke
+                },
+                state,
+                color: None,
+            }
+            .render(cx)
         }
-        .render(cx)
         .debug_selector(move || thumb_id.to_string())
         .absolute()
         .left(relative(value))
-        .ml(px(-tokens::SliderGeometry::HANDLE_SIZE / 2.))
-        .top(px((geometry - tokens::SliderGeometry::HANDLE_SIZE) / 2.));
+        .ml(px(-handle_size / 2.))
+        .top(px((geometry - handle_size) / 2.));
+        let rail = if compact {
+            div()
+                .w_full()
+                .h(px(track_height))
+                .absolute()
+                .top(px(track_top))
+                .rounded_full()
+                .bg(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
+        } else {
+            background.render(state, cx)
+        };
         div()
             .id(self.id.clone())
             .debug_selector(move || id.to_string())
@@ -297,7 +353,7 @@ impl Render for Slider {
                 cx.listener(|this, _: &MouseUpEvent, _, cx| this.finish(true, cx)),
             )
             .on_key_down(cx.listener(Self::key))
-            .child(background.render(state, cx))
+            .child(rail)
             .children(fill)
             .child(travel.child(handle))
             .child(track_bounds(cx.entity(), |this, bounds| {

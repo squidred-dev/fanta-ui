@@ -25,8 +25,8 @@ pub use menu::{
     menu_item, menu_panel, menu_surface,
 };
 pub(crate) use menu::{
-    SIDEBAR_MENU_ITEM_HEIGHT, sidebar_menu_height, sidebar_menu_item, sidebar_menu_separator,
-    sidebar_menu_surface,
+    SIDEBAR_MENU_ITEM_HEIGHT, sidebar_menu_chrome, sidebar_menu_height, sidebar_menu_item,
+    sidebar_menu_separator, sidebar_menu_surface,
 };
 pub(crate) use popup::sidebar_popup_surface;
 pub use popup::{

@@ -1,8 +1,7 @@
 use super::{PrototypeInspectorAction as Action, PrototypeInspectorViewData, controls::*};
 use crate::atoms::{
-    ControlExt as _, LucideIcon, SemanticButtonIconAlignment, SemanticButtonSize,
-    SemanticButtonVariant, SemanticColor as Color, TypographyExt as _, TypographyToken,
-    semantic_button, tokens, truncating_label,
+    ControlExt as _, LucideIcon, SemanticColor as Color, TypographyExt as _, TypographyToken,
+    icon_button, render_lucide_icon, tokens, truncating_label,
 };
 use gpui::StatefulInteractiveElement as _;
 use gpui::{
@@ -10,12 +9,13 @@ use gpui::{
     IntoElement, ParentElement as _, Render, SharedString, Styled as _, Window, div,
     prelude::FluentBuilder as _, px,
 };
-use gpui_component::{h_flex, v_flex};
+use gpui_component::{h_flex, tooltip::Tooltip, v_flex};
 
 pub struct PrototypeInspector {
     id: SharedString,
     data: PrototypeInspectorViewData,
     focus: FocusHandle,
+    show_presentation_action: bool,
     device: Entity<Picker>,
     background: Entity<Entry>,
     flow: Entity<Entry>,
@@ -63,6 +63,14 @@ impl PrototypeInspector {
             id,
             data,
             focus: cx.focus_handle(),
+            show_presentation_action: true,
+        }
+    }
+    /// Composed sidebars place the play control in their shared header.
+    pub fn set_show_presentation_action(&mut self, show: bool, cx: &mut Context<Self>) {
+        if self.show_presentation_action != show {
+            self.show_presentation_action = show;
+            cx.notify();
         }
     }
     pub fn view_data(&self) -> &PrototypeInspectorViewData {
@@ -110,7 +118,7 @@ impl Render for PrototypeInspector {
                     .gap(px(tokens::Space::XS))
                     .rounded(px(tokens::Radius::CONTROL))
                     .border_1()
-                    .border_color(Color::Border.resolve(cx))
+                    .border_color(Color::BorderPanel.resolve(cx))
                     .child(
                         h_flex()
                             .items_center()
@@ -120,7 +128,7 @@ impl Render for PrototypeInspector {
                                     "{} → {}",
                                     connection.trigger, connection.destination
                                 ))
-                                .typography(TypographyToken::BodyMediumStrong),
+                                .typography(TypographyToken::PanelStrong),
                             )
                             .child(
                                 action(
@@ -161,7 +169,7 @@ impl Render for PrototypeInspector {
                     )
                     .child(
                         div()
-                            .typography(TypographyToken::BodySmall)
+                            .typography(TypographyToken::PanelCaption)
                             .text_color(Color::TextSecondary.resolve(cx))
                             .child(format!("{} · {}", connection.action, connection.animation)),
                     ),
@@ -176,16 +184,67 @@ impl Render for PrototypeInspector {
             .overflow_y_scroll()
             .occlude()
             .on_pinch(|_, _, cx| cx.stop_propagation())
-            .bg(Color::Background.resolve(cx))
-            .text_color(Color::Text.resolve(cx))
+            .bg(Color::BackgroundPanel.resolve(cx))
+            .text_color(crate::atoms::sidebar_style(cx).text)
             .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
-            .when(!self.data.selection_name.is_empty(), |v| {
-                v.child(selection(
-                    self.data.selection_name.clone(),
-                    LucideIcon::Workflow,
-                    cx,
-                ))
-            })
+            .when(
+                !self.data.selection_name.is_empty() || self.show_presentation_action,
+                |v| {
+                    v.child(
+                        h_flex()
+                            .w_full()
+                            .h(px(tokens::InspectorGeometry::SECTION_HEADER))
+                            .px(px(tokens::Space::LG))
+                            .gap(px(tokens::Space::SM))
+                            .items_center()
+                            .border_b_1()
+                            .border_color(Color::BorderPanel.resolve(cx))
+                            .child(render_lucide_icon(
+                                LucideIcon::Workflow,
+                                crate::atoms::sidebar_style(cx).muted_icon,
+                                tokens::IconSize::SM,
+                            ))
+                            .child(
+                                truncating_label(if self.data.selection_name.is_empty() {
+                                    "Prototype".into()
+                                } else {
+                                    self.data.selection_name.clone()
+                                })
+                                .typography(TypographyToken::PanelStrong)
+                                .flex_1(),
+                            )
+                            .when(self.show_presentation_action, |header| {
+                                header.child(
+                                    icon_button(
+                                        format!("{}-present", self.id),
+                                        px(tokens::ControlSize::CHROME),
+                                        px(tokens::Radius::CONTROL),
+                                        cx,
+                                    )
+                                    .debug_selector({
+                                        let id = format!("{}-present", self.id);
+                                        move || id.clone()
+                                    })
+                                    .tab_index(if self.data.can_present { 0 } else { -1 })
+                                    .opacity(if self.data.can_present { 1. } else { 0.45 })
+                                    .tooltip(|window, cx| {
+                                        Tooltip::new("Play prototype").build(window, cx)
+                                    })
+                                    .on_activate(cx.listener(|this, _, _, cx| {
+                                        if this.data.can_present {
+                                            cx.emit(Action::PresentRequested);
+                                        }
+                                    }))
+                                    .child(render_lucide_icon(
+                                        LucideIcon::Play,
+                                        crate::atoms::sidebar_style(cx).icon,
+                                        tokens::IconSize::MD,
+                                    )),
+                                )
+                            }),
+                    )
+                },
+            )
             .child(
                 section("Flow starting point", cx).child(
                     body()
@@ -202,7 +261,7 @@ impl Render for PrototypeInspector {
                                     cx,
                                 )
                                 .w_full()
-                                .bg(Color::BackgroundSecondary.resolve(cx))
+                                .bg(Color::BackgroundPanelField.resolve(cx))
                                 .on_activate(cx.listener(
                                     |this, _, _, cx| {
                                         if !this.data.read_only && this.data.can_start_flow {
@@ -218,7 +277,7 @@ impl Render for PrototypeInspector {
                 section("Interactions", cx).child(interactions).child(
                     div()
                         .px(px(tokens::Space::LG))
-                        .pb(px(tokens::Space::LG))
+                        .pb(px(tokens::InspectorGeometry::BODY_BOTTOM))
                         .child(
                             action(
                                 format!("{}-add", self.id).into(),
@@ -228,7 +287,7 @@ impl Render for PrototypeInspector {
                                 cx,
                             )
                             .w_full()
-                            .bg(Color::BackgroundSecondary.resolve(cx))
+                            .bg(Color::BackgroundPanelField.resolve(cx))
                             .on_activate(cx.listener(
                                 |this, _, _, cx| {
                                     if !this.data.read_only && !this.data.selection_name.is_empty()
@@ -245,24 +304,6 @@ impl Render for PrototypeInspector {
                     body()
                         .child(row("Device", self.device.clone(), cx))
                         .child(row("Background", self.background.clone(), cx)),
-                ),
-            )
-            .child(
-                div().p(px(tokens::Space::LG)).child(
-                    semantic_button(
-                        format!("{}-present", self.id),
-                        SemanticButtonVariant::Primary,
-                        SemanticButtonSize::Large,
-                    )
-                    .label("Present prototype")
-                    .icon(LucideIcon::Play, SemanticButtonIconAlignment::Left)
-                    .full_width(true)
-                    .disabled(!self.data.can_present)
-                    .on_activate(cx.listener(|this, _, _, cx| {
-                        if this.data.can_present {
-                            cx.emit(Action::PresentRequested);
-                        }
-                    })),
                 ),
             )
             .when(self.data.selection_name.is_empty(), |v| {

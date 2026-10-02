@@ -644,6 +644,7 @@ pub(in super::super) fn render_page_resource_browser(
     })
     .xsmall()
     .compact()
+    .typography(crate::atoms::TypographyToken::Panel)
     .ghost()
     .disabled(!has_page)
     .on_keyboard_activate({
@@ -684,13 +685,13 @@ pub(in super::super) fn render_page_resource_browser(
                     .gap_2()
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyLarge)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .font_semibold()
                             .child(category.label()),
                     )
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("This file + libraries"),
                     ),
@@ -717,13 +718,13 @@ pub(in super::super) fn render_page_resource_browser(
                             .flex_1()
                             .min_w(px(0.))
                             .truncate()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .font_semibold()
                             .child(group.name.clone()),
                     )
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(SharedString::from(group.source.label().to_owned())),
                     ),
@@ -743,6 +744,7 @@ pub(in super::super) fn render_page_resource_browser(
                             )))
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
                             .on_activate(move |_, _, cx| {
                                 events.dispatch(PageEvent::OpenResource(selection.clone()), cx);
@@ -761,6 +763,7 @@ pub(in super::super) fn render_page_resource_browser(
                             })
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
                             .disabled(!can_edit)
                             .on_activate(move |_, _, cx| {
@@ -774,6 +777,7 @@ pub(in super::super) fn render_page_resource_browser(
                             .tooltip(reason.clone())
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
                             .disabled(true)
                             .into_any_element()
@@ -792,13 +796,13 @@ pub(in super::super) fn render_page_resource_browser(
                                 .child(
                                     div()
                                         .truncate()
-                                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                                        .typography(crate::atoms::TypographyToken::Panel)
                                         .child(resource.name.clone()),
                                 )
                                 .child(
                                     div()
                                         .truncate()
-                                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                                        .typography(crate::atoms::TypographyToken::Panel)
                                         .text_color(
                                             crate::atoms::SemanticColor::TextTertiary.resolve(cx),
                                         )
@@ -813,7 +817,7 @@ pub(in super::super) fn render_page_resource_browser(
             content = content.child(
                 div()
                     .py_3()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("No resources supplied by the host"),
             );
@@ -851,6 +855,7 @@ pub(in super::super) fn render_page_resource_browser(
                 })
                 .xsmall()
                 .compact()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .ghost()
                 .disabled(!can_edit)
                 .on_activate(move |_, _, cx| {
@@ -893,6 +898,7 @@ pub(in super::super) fn render_variable_mode_popover(
     .tooltip("Variable modes")
     .xsmall()
     .compact()
+    .typography(crate::atoms::TypographyToken::Panel)
     .ghost()
     .selected(projection.overlays.variable_mode_browser_open || explicit_count > 0)
     .on_keyboard_activate({
@@ -931,13 +937,13 @@ pub(in super::super) fn render_variable_mode_popover(
                         .justify_between()
                         .child(
                             div()
-                                .typography(crate::atoms::TypographyToken::BodyLarge)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .font_semibold()
                                 .child("Variable modes"),
                         )
                         .child(
                             div()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child("Explicit overrides"),
                         ),
@@ -971,18 +977,14 @@ pub(in super::super) fn render_variable_mode_popover(
                                         .child(
                                             div()
                                                 .truncate()
-                                                .typography(
-                                                    crate::atoms::TypographyToken::BodyMedium,
-                                                )
+                                                .typography(crate::atoms::TypographyToken::Panel)
                                                 .font_semibold()
                                                 .child(collection.name.clone()),
                                         )
                                         .child(
                                             div()
                                                 .truncate()
-                                                .typography(
-                                                    crate::atoms::TypographyToken::BodyMedium,
-                                                )
+                                                .typography(crate::atoms::TypographyToken::Panel)
                                                 .text_color(
                                                     crate::atoms::SemanticColor::TextTertiary
                                                         .resolve(cx),
@@ -994,7 +996,7 @@ pub(in super::super) fn render_variable_mode_popover(
                                 )
                                 .child(
                                     div()
-                                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                                        .typography(crate::atoms::TypographyToken::Panel)
                                         .text_color(
                                             crate::atoms::SemanticColor::TextTertiary.resolve(cx),
                                         )
@@ -1027,8 +1029,12 @@ pub(in super::super) fn render_variable_mode_popover(
                             )
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
                             .w_full()
+                            .text_left()
+                            .justify_start()
+                            .px_2()
                             .selected(mode.id == collection.resolved_mode_id)
                             .disabled(disabled_reason.is_some())
                             .on_activate(move |_, _, cx| {
@@ -1062,8 +1068,12 @@ pub(in super::super) fn render_variable_mode_popover(
                                 )
                                 .xsmall()
                                 .compact()
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .ghost()
                                 .w_full()
+                                .text_left()
+                                .justify_start()
+                                .px_2()
                                 .disabled(disabled_reason.is_some())
                                 .on_activate(move |_, _, cx| {
                                     events.dispatch(
@@ -1096,10 +1106,10 @@ fn render_local_style_preview(
             .items_center()
             .justify_center()
             .rounded(px(3.))
-            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
             .child(
                 div()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .font_semibold()
                     .child(SharedString::from(format!(
                         "{} {}",
@@ -1139,15 +1149,15 @@ fn render_local_style_preview(
                         .items_center()
                         .justify_center()
                         .rounded(px(3.))
-                        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .child("fx"),
                 )
                 .child(
                     div()
                         .min_w(px(0.))
                         .truncate()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(summary),
                 )
@@ -1166,7 +1176,7 @@ fn render_local_style_preview(
                         .border_1()
                         .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
                         .bg(first.map_or(
-                            crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx),
+                            crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx),
                             |grid| color_hsla(grid.color),
                         )),
                 )
@@ -1174,7 +1184,7 @@ fn render_local_style_preview(
                     div()
                         .min_w(px(0.))
                         .truncate()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(first.map_or("No guides", |grid| grid.kind().label())),
                 )
@@ -1293,6 +1303,7 @@ fn render_local_style_entries(
                             })
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
                             .flex_1()
                             .min_w(px(0.))
@@ -1310,6 +1321,7 @@ fn render_local_style_entries(
                             .tooltip(tooltip)
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
                             .w(px(22.))
                             .h(px(22.))
@@ -1403,6 +1415,7 @@ fn render_local_style_entries(
                             })
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
                             .w(px(22.))
                             .h(px(22.))
@@ -1433,6 +1446,7 @@ fn render_local_style_entries(
                         })
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
                         .w(px(22.))
                         .h(px(22.))
@@ -1464,6 +1478,7 @@ fn render_local_style_entries(
                             })
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
                             .w(px(22.))
                             .h(px(22.))
@@ -1498,6 +1513,7 @@ fn render_local_style_entries(
                             })
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
                             .w(px(22.))
                             .h(px(22.))
@@ -1558,7 +1574,7 @@ fn render_local_style_entries(
                                     .child(
                                         div()
                                             .truncate()
-                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .typography(crate::atoms::TypographyToken::Panel)
                                             .text_color(if enabled {
                                                 crate::atoms::SemanticColor::Text.resolve(cx)
                                             } else {
@@ -1571,9 +1587,7 @@ fn render_local_style_entries(
                                         details.child(
                                             div()
                                                 .truncate()
-                                                .typography(
-                                                    crate::atoms::TypographyToken::BodyMedium,
-                                                )
+                                                .typography(crate::atoms::TypographyToken::Panel)
                                                 .text_color(
                                                     crate::atoms::SemanticColor::TextTertiary
                                                         .resolve(cx),
@@ -1642,12 +1656,12 @@ fn render_page_local_styles(
         .gap_1()
         .pt_1()
         .border_t_1()
-        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
+        .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
         .child(
             h_flex().h(px(32.)).w_full().child(
                 div()
                     .flex_1()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .font_semibold()
                     .child("Local styles"),
             ),
@@ -1690,7 +1704,7 @@ fn render_page_local_styles(
             .child(
                 div()
                     .flex_1()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .font_semibold()
                     .child(kind.label()),
             )
@@ -1705,6 +1719,7 @@ fn render_page_local_styles(
                     )
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .ghost()
                     .disabled(!can_create)
                     .on_activate(move |_, _, cx| {
@@ -1724,6 +1739,7 @@ fn render_page_local_styles(
                     .tooltip(tooltip)
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .ghost()
                     .w(px(22.))
                     .h(px(22.))
@@ -1771,17 +1787,21 @@ pub(in super::super) fn render(
     cx: &mut Context<DesignPanel>,
 ) -> AnyElement {
     let page = projection.page_view_data_for_context();
-    let mut header = h_flex().h(px(40.)).px(px(PANEL_PADDING)).gap_2().child(
-        div()
-            .flex_1()
-            .typography(crate::atoms::TypographyToken::BodyLarge)
-            .font_semibold()
-            .child("Page"),
-    );
+    let mut header = h_flex()
+        .h(px(HEADER_HEIGHT))
+        .px(px(PANEL_PADDING))
+        .gap_2()
+        .child(
+            div()
+                .flex_1()
+                .typography(crate::atoms::TypographyToken::Panel)
+                .font_semibold()
+                .child("Page"),
+        );
     if let Some(mode_browser) = render_variable_mode_popover(projection, events.clone(), cx) {
         header = header.child(mode_browser);
     }
-    let mut page_body = v_flex().px(px(PANEL_PADDING)).pb_4().gap_2();
+    let mut page_body = crate::molecules::inspector_section_body();
     if page.is_some() {
         page_body = page_body.child(chrome.take_background_picker());
         if let Some(local_styles) = projection.page_local_styles_view_data_for_context() {
@@ -1810,6 +1830,7 @@ pub(in super::super) fn render(
                     )
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .ghost()
                     .w_full()
                     .disabled(!enabled)
@@ -1822,7 +1843,7 @@ pub(in super::super) fn render(
         page_body = page_body.child(
             div()
                 .py_2()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("Supply DesignPageViewData to inspect this Page"),
         );
@@ -1831,7 +1852,7 @@ pub(in super::super) fn render(
         .w_full()
         .flex_none()
         .border_b_1()
-        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
+        .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
         .child(header)
         .child(page_body)
         .into_any_element()

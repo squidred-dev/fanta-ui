@@ -906,10 +906,10 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
             .justify_center()
             .rounded(px(4.))
             .cursor_pointer()
-            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx)))
             .focus(|style| {
                 style
-                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                     .border_1()
                     .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
             })
@@ -953,13 +953,13 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                     .tab_index(0)
                     .cursor_pointer()
                     .hover(|style| {
-                        style.bg(crate::atoms::SemanticColor::BackgroundHover
+                        style.bg(crate::atoms::SemanticColor::BackgroundPanelHover
                             .resolve(cx)
                             .opacity(0.55))
                     })
                     .focus(|style| {
                         style
-                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                             .border_1()
                             .border_color(
                                 crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
@@ -986,7 +986,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
             })
             .child(
                 div()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .child(label),
             )
             .child(
@@ -1000,7 +1000,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                     .bg(if checked {
                         crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
                     } else {
-                        crate::atoms::SemanticColor::Border.resolve(cx)
+                        crate::atoms::SemanticColor::BorderPanel.resolve(cx)
                     })
                     .child(
                         div()
@@ -1037,6 +1037,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                 .tooltip(label)
                 .xsmall()
                 .compact()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .ghost()
                 .w_full()
                 .h(px(ROW_HEIGHT))
@@ -1053,13 +1054,13 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                         .justify_between()
                         .child(
                             div()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .child(label),
                         )
                         .child(
                             h_flex()
                                 .gap_1()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child(value)
                                 .child(Icon::new(IconName::ChevronRight).xsmall()),
@@ -1093,8 +1094,12 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                             .label(option_label)
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
                             .w_full()
+                            .text_left()
+                            .justify_start()
+                            .px_2()
                             .on_activate(move |_, window, cx| {
                                 event_sink.dispatch(
                                     ExportEvent::ConfigurationChange {
@@ -1333,44 +1338,45 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
         controls.into_any_element()
     }
 
-    fn render_export_mode_switch(&self, cx: &mut Context<DesignPanel>) -> Option<AnyElement> {
+    fn render_export_mode_switch(&self, _cx: &mut Context<DesignPanel>) -> Option<AnyElement> {
         self.projection.animated.view_data.as_ref()?;
         let event_sink = self.event_sink.clone();
         let expected_target = self.projection.target.target.clone();
         Some(
-            h_flex()
-                .w_full()
-                .p(px(2.))
-                .gap_1()
-                .rounded(px(6.))
-                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-                .children(DesignExportMode::ALL.into_iter().map(|mode| {
-                    let event_sink = event_sink.clone();
-                    let expected_target = expected_target.clone();
-                    crate::atoms::ui_button(SharedString::from(format!(
-                        "{}-export-mode-{}",
-                        self.id,
-                        mode.label().to_ascii_lowercase()
-                    )))
-                    .label(mode.label())
-                    .xsmall()
-                    .compact()
-                    .ghost()
-                    .flex_1()
-                    .selected(mode == self.projection.animated.mode)
-                    .disabled(!self.can_export())
-                    .on_activate(move |_, _, cx| {
-                        let expected_target = expected_target.clone();
-                        event_sink.dispatch(
-                            ExportEvent::ModeChange {
-                                expected_target,
-                                mode,
-                            },
-                            cx,
-                        );
-                    })
-                }))
-                .into_any_element(),
+            crate::atoms::InspectorTabs::new(
+                format!("{}-export-mode-tabs", self.id),
+                DesignExportMode::ALL.into_iter().map(|mode| {
+                    (
+                        format!(
+                            "{}-export-mode-{}",
+                            self.id,
+                            mode.label().to_ascii_lowercase()
+                        )
+                        .into(),
+                        mode.label().into(),
+                    )
+                }),
+            )
+            .selected_index(
+                DesignExportMode::ALL
+                    .iter()
+                    .position(|mode| *mode == self.projection.animated.mode)
+                    .unwrap_or(0),
+            )
+            .disabled(!self.can_export())
+            .on_change(move |selection, _, cx| {
+                let Some(mode) = DesignExportMode::ALL.get(selection.index).copied() else {
+                    return;
+                };
+                event_sink.dispatch(
+                    ExportEvent::ModeChange {
+                        expected_target: expected_target.clone(),
+                        mode,
+                    },
+                    cx,
+                );
+            })
+            .into_any_element(),
         )
     }
 
@@ -1398,6 +1404,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                 .tooltip(label.clone())
                 .xsmall()
                 .compact()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .ghost()
                 .w_full()
                 .h(px(ROW_HEIGHT))
@@ -1414,13 +1421,13 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                         .justify_between()
                         .child(
                             div()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .child(label),
                         )
                         .child(
                             h_flex()
                                 .gap_1()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child(value)
                                 .child(Icon::new(IconName::ChevronRight).xsmall()),
@@ -1453,8 +1460,12 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                             .label(option_label)
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
                             .w_full()
+                            .text_left()
+                            .justify_start()
+                            .px_2()
                             .on_activate(move |_, window, cx| {
                                 event_sink.dispatch(
                                     ExportEvent::AnimatedChange {
@@ -1604,7 +1615,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                             .w_full()
                             .h(px(ROW_HEIGHT))
                             .justify_between()
-                            .child(div().typography(crate::atoms::TypographyToken::BodyMedium).child("Loop count"))
+                            .child(div().typography(crate::atoms::TypographyToken::Panel).child("Loop count"))
                             .child(
                                 h_flex()
                                     .gap_1()
@@ -1619,6 +1630,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                                         .icon(IconName::Minus)
                                         .xsmall()
                                         .compact()
+                                        .typography(crate::atoms::TypographyToken::Panel)
                                         .ghost()
                                         .disabled(!self.can_export() || current_loop_count == 0)
                                         .on_activate(
@@ -1644,8 +1656,8 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                                             .items_center()
                                             .justify_center()
                                             .rounded(px(4.))
-                                            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+                                            .typography(crate::atoms::TypographyToken::Panel)
                                             .child(if current_loop_count == 0 {
                                                 SharedString::from("Forever")
                                             } else {
@@ -1663,6 +1675,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                                         .icon(IconName::Plus)
                                         .xsmall()
                                         .compact()
+                                        .typography(crate::atoms::TypographyToken::Panel)
                                         .ghost()
                                         .disabled(!self.can_export() || current_loop_count >= 1000)
                                         .on_activate(
@@ -1711,7 +1724,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                 if options.is_empty() {
                     content = content.child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("Animated SVG settings are supplied by the host."),
                     );
@@ -1730,8 +1743,8 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                         .px_2()
                         .py_1()
                         .rounded(px(5.))
-                        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(reason),
                 )
@@ -1747,6 +1760,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                     ))
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .w_full()
                     .disabled(!enabled)
                     .on_activate(move |_, _, cx| {
@@ -1767,14 +1781,14 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
             Some(DesignExportPreviewState::Idle) => div()
                 .px_2()
                 .pb_2()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("Open Preview to request a host-rendered thumbnail.")
                 .into_any_element(),
             Some(DesignExportPreviewState::Loading) => div()
                 .px_2()
                 .pb_2()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("Rendering preview…")
                 .into_any_element(),
@@ -1788,12 +1802,12 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                         .w_full()
                         .rounded(px(5.))
                         .border_1()
-                        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                        .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
+                        .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
                         .flex()
                         .items_center()
                         .justify_center()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(preview.thumbnail_id.clone().unwrap_or_else(|| {
                             SharedString::from("Host-rendered export thumbnail")
@@ -1803,7 +1817,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                     h_flex()
                         .w_full()
                         .justify_between()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(format!(
                             "{} × {} px",
@@ -1817,7 +1831,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
             Some(DesignExportPreviewState::Error { message }) => div()
                 .px_2()
                 .pb_2()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child(message.clone())
                 .into_any_element(),
@@ -1829,7 +1843,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
         let configurations = self.export_configurations();
         let mode_switch = self.render_export_mode_switch(cx);
         if self.export_mode() == DesignExportMode::Animated {
-            let mut content = v_flex().px(px(PANEL_PADDING)).pb_4().gap_2();
+            let mut content = crate::molecules::inspector_section_body();
             if let Some(mode_switch) = mode_switch {
                 content = content.child(mode_switch);
             }
@@ -1842,7 +1856,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
             );
         }
         if configurations.is_empty() {
-            let mut content = v_flex().px(px(PANEL_PADDING)).pb_4().gap_2();
+            let mut content = crate::molecules::inspector_section_body();
             if let Some(mode_switch) = mode_switch {
                 content = content.child(mode_switch);
             }
@@ -1853,7 +1867,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                 cx,
             );
         }
-        let mut content = v_flex().px(px(PANEL_PADDING)).pb_4().gap_2();
+        let mut content = crate::molecules::inspector_section_body();
         if let Some(mode_switch) = mode_switch {
             content = content.child(mode_switch);
         }
@@ -1880,14 +1894,24 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                         DesignPanelValue::ExportSizing(configuration.sizing),
                         cx,
                     ))
-                    .child(self.render_value_cell(
-                        format!("export-format-{index}"),
-                        "Format",
-                        configuration.format().label(),
-                        DesignPanelProperty::ExportFormat(index),
-                        DesignPanelValue::ExportFormat(configuration.format()),
-                        cx,
-                    ))
+                    .child(
+                        h_flex()
+                            .id(SharedString::from(format!(
+                                "{}-export-format-field-{index}",
+                                self.id
+                            )))
+                            .flex_1()
+                            .min_w_0()
+                            .tooltip(|window, cx| Tooltip::new("Export format").build(window, cx))
+                            .child(self.render_value_cell(
+                                format!("export-format-{index}"),
+                                "",
+                                configuration.format().label(),
+                                DesignPanelProperty::ExportFormat(index),
+                                DesignPanelValue::ExportFormat(configuration.format()),
+                                cx,
+                            )),
+                    )
                     .child(
                         div()
                             .id(SharedString::from(format!(
@@ -1904,11 +1928,14 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                             .rounded(px(4.))
                             .cursor_pointer()
                             .hover(|style| {
-                                style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                                style
+                                    .bg(crate::atoms::SemanticColor::BackgroundPanelHover
+                                        .resolve(cx))
                             })
                             .focus(|style| {
                                 style
-                                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                                    .bg(crate::atoms::SemanticColor::BackgroundPanelHover
+                                        .resolve(cx))
                                     .border_1()
                                     .border_color(
                                         crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
@@ -1970,19 +1997,19 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                 .justify_center()
                 .rounded(px(5.))
                 .border_1()
-                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
+                .typography(crate::atoms::TypographyToken::Panel)
                 .when(enabled, |button| {
                     button
                         .key_context(CONTROL_KEY_CONTEXT)
                         .tab_index(0)
                         .cursor_pointer()
                         .hover(|style| {
-                            style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                         })
                         .focus(|style| {
                             style
-                                .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                                .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                                 .border_color(
                                     crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
                                 )
@@ -2023,11 +2050,14 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                             .gap_2()
                             .cursor_pointer()
                             .hover(|style| {
-                                style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                                style
+                                    .bg(crate::atoms::SemanticColor::BackgroundPanelHover
+                                        .resolve(cx))
                             })
                             .focus(|style| {
                                 style
-                                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                                    .bg(crate::atoms::SemanticColor::BackgroundPanelHover
+                                        .resolve(cx))
                                     .border_color(
                                         crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
                                     )
@@ -2050,7 +2080,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                             )
                             .child(
                                 div()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .child("Preview"),
                             ),
                     )

@@ -1,6 +1,6 @@
 //! Structural recipes for compact inspector sections and fields.
 
-use crate::atoms::TypographyExt as _;
+use crate::atoms::{TypographyExt as _, tokens::InspectorGeometry};
 use gpui::{
     App, Div, ElementId, InteractiveElement as _, Stateful, Styled as _,
     prelude::FluentBuilder as _,
@@ -22,7 +22,7 @@ pub fn inspector_section(cx: &App) -> Div {
         .min_w(gpui::px(0.))
         .flex_none()
         .border_b_1()
-        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
+        .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
 }
 
 /// Groups adjacent inspector sections without adding another visual border.
@@ -31,14 +31,28 @@ pub fn inspector_section_group() -> Div {
     v_flex().w_full().min_w(gpui::px(0.)).flex_none()
 }
 
+/// A section body starts directly below its disclosure header. Captions stay
+/// with their controls; sibling rows and subgroups use one inspector rhythm.
+pub fn inspector_section_body() -> Div {
+    v_flex()
+        .w_full()
+        .min_w_0()
+        .px(gpui::px(InspectorGeometry::BODY_INSET))
+        .pb(gpui::px(InspectorGeometry::BODY_BOTTOM))
+        .gap(gpui::px(InspectorGeometry::ROW_GAP))
+}
+
 /// Disclosure-header baseline for an inspector section.
 pub fn inspector_section_header(
     id: impl Into<ElementId>,
     metrics: InspectorMetrics,
     cx: &App,
 ) -> Stateful<Div> {
+    let id = id.into();
+    let selector = id.to_string();
     h_flex()
         .id(id)
+        .debug_selector(move || selector)
         .key_context(CONTROL_KEY_CONTEXT)
         .tab_index(0)
         .h(metrics.section_header_height)
@@ -49,19 +63,15 @@ pub fn inspector_section_header(
         .px(metrics.horizontal_padding)
         .gap(metrics.control_gap)
         .cursor_pointer()
-        .border_1()
-        .border_color(cx.theme().transparent)
         .hover(|style| {
-            style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+            style.bg(crate::atoms::SemanticColor::BackgroundPanelHover
                 .resolve(cx)
                 .opacity(0.45))
         })
         .focus(|style| {
-            style
-                .bg(crate::atoms::SemanticColor::BackgroundToolbarHover
-                    .resolve(cx)
-                    .opacity(0.45))
-                .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
+            style.bg(crate::atoms::SemanticColor::BackgroundPanelHover
+                .resolve(cx)
+                .opacity(0.45))
         })
 }
 
@@ -116,7 +126,7 @@ pub fn inspector_row_with_layout(layout: InspectorGridLayout) -> Div {
 pub fn inspector_field_label(layout: InspectorGridLayout) -> Div {
     gpui::div()
         .min_w(gpui::px(0.))
-        .typography(crate::atoms::TypographyToken::BodyMedium)
+        .typography(crate::atoms::TypographyToken::Panel)
         .when(
             layout.label_placement == InspectorLabelPlacement::Leading,
             |label| label.w(layout.metrics.label_width).flex_none().truncate(),
@@ -144,8 +154,8 @@ pub fn inspector_field_frame(
         .rounded(metrics.radius)
         .border_1()
         .border_color(cx.theme().transparent)
-        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-        .typography(crate::atoms::TypographyToken::BodyMedium);
+        .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+        .typography(crate::atoms::TypographyToken::Panel);
 
     if access.is_interactive() {
         field = field
@@ -157,7 +167,7 @@ pub fn inspector_field_frame(
             })
             .focus(|style| {
                 style
-                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                     .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
             });
     }
@@ -203,16 +213,16 @@ pub fn inspector_grouped_field_frame(
         .items_center()
         .gap(metrics.control_gap)
         .px(metrics.control_gap)
-        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-        .typography(crate::atoms::TypographyToken::BodyMedium);
+        .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+        .typography(crate::atoms::TypographyToken::Panel);
 
     if presentation.access.is_interactive() {
         field = field
             .key_context(CONTROL_KEY_CONTEXT)
             .tab_index(0)
             .cursor_pointer()
-            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
-            .focus(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)));
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx)))
+            .focus(|style| style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx)));
     }
     if !presentation.access.is_editable() {
         field = field.text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx));

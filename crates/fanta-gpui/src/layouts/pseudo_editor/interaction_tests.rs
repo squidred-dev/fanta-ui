@@ -119,15 +119,10 @@ fn right_surface_tabs_share_pointer_enter_and_space_activation(cx: &mut TestAppC
 }
 
 #[gpui::test]
-fn present_and_share_share_pointer_enter_and_space_activation(cx: &mut TestAppContext) {
+fn canvas_chrome_omits_present_while_share_preserves_keyboard_activation(cx: &mut TestAppContext) {
     let (_host, actions, cx) = mount(cx);
 
-    assert_pointer_and_keyboard_parity(
-        cx,
-        "pseudo-editor-present",
-        &actions,
-        PseudoEditorAction::PresentRequested,
-    );
+    assert!(cx.debug_bounds("pseudo-editor-present").is_none());
     assert_pointer_and_keyboard_parity(
         cx,
         "pseudo-editor-share",

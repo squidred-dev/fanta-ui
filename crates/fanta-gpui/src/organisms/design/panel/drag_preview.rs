@@ -22,7 +22,7 @@ fn drag_preview(
         .child(
             div()
                 .w(px(14.))
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("⠿"),
         )
@@ -31,7 +31,7 @@ fn drag_preview(
             div()
                 .flex_1()
                 .truncate()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .child(label),
         )
         .into_any_element()

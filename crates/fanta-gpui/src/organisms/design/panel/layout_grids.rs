@@ -739,6 +739,7 @@ impl DesignLayoutGridController for DesignPanel {
         .tooltip(tooltip)
         .xsmall()
         .compact()
+        .typography(crate::atoms::TypographyToken::Panel)
         .ghost()
         .w(px(24.))
         .h(px(24.))
@@ -785,7 +786,7 @@ impl DesignLayoutGridController for DesignPanel {
                     div()
                         .px_2()
                         .py_1()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .font_semibold()
                         .child("Layout guide styles"),
                 );
@@ -801,7 +802,7 @@ impl DesignLayoutGridController for DesignPanel {
                                 .flex_1()
                                 .min_w(px(0.))
                                 .truncate()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .child(binding.style_name),
                         )
                         .child(
@@ -815,6 +816,7 @@ impl DesignLayoutGridController for DesignPanel {
                             })
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
                             .disabled(!can_edit || !binding.can_detach)
                             .on_activate(move |_, _, cx| {
@@ -833,7 +835,11 @@ impl DesignLayoutGridController for DesignPanel {
                 .label("Create style from guides")
                 .xsmall()
                 .compact()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .ghost()
+                .text_left()
+                .justify_start()
+                .px_2()
                 .w_full()
                 .disabled(!can_create)
                 .on_activate(move |_, _, cx| {
@@ -853,7 +859,7 @@ impl DesignLayoutGridController for DesignPanel {
                     div()
                         .px_2()
                         .py_2()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(if catalog_is_empty {
                             "No Grid styles supplied by the host"
@@ -867,7 +873,7 @@ impl DesignLayoutGridController for DesignPanel {
                     div()
                         .px_2()
                         .pt_2()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("This page"),
                 );
@@ -889,12 +895,18 @@ impl DesignLayoutGridController for DesignPanel {
                         .tooltip(summary)
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
                         .when(view_mode == StyleBrowserViewMode::Grid, |button| {
                             button.w(px(124.)).h(px(44.))
                         })
                         .when(view_mode == StyleBrowserViewMode::List, |button| {
-                            button.w_full()
+                            button
+                                .w_full()
+                                .text_left()
+                                .justify_start()
+                                .px_2()
+                                .h(px(crate::atoms::tokens::RowHeight::MENU))
                         })
                         .disabled(!can_edit || !imported)
                         .on_activate(move |_, _, cx| {
@@ -912,7 +924,7 @@ impl DesignLayoutGridController for DesignPanel {
                     div()
                         .px_2()
                         .pt_2()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(library_name),
                 );
@@ -939,12 +951,18 @@ impl DesignLayoutGridController for DesignPanel {
                         .tooltip(summary)
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
                         .when(view_mode == StyleBrowserViewMode::Grid, |button| {
                             button.w(px(124.)).h(px(44.))
                         })
                         .when(view_mode == StyleBrowserViewMode::List, |button| {
-                            button.w_full()
+                            button
+                                .w_full()
+                                .text_left()
+                                .justify_start()
+                                .px_2()
+                                .h(px(crate::atoms::tokens::RowHeight::MENU))
                         })
                         .disabled(!can_edit)
                         .on_activate(move |_, _, cx| {
@@ -1012,12 +1030,22 @@ impl DesignLayoutGridController for DesignPanel {
         let Some((target, value)) = self.layout_grid_variable_target(index, property) else {
             return cell;
         };
+        let tooltip = SharedString::from(format!(
+            "{} · {}",
+            self.layout_grid_variable_label(&target),
+            value.label(),
+        ));
         h_flex()
+            .id(SharedString::from(format!(
+                "{}-layout-guide-property-{property:?}",
+                self.id,
+            )))
             .flex_1()
             .min_w(px(0.))
             .gap_1()
             .child(cell)
             .child(self.render_layout_grid_variable_button(target, value, cx))
+            .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
             .into_any_element()
     }
 
@@ -1100,6 +1128,7 @@ impl DesignLayoutGridController for DesignPanel {
         .tooltip(tooltip)
         .xsmall()
         .compact()
+        .typography(crate::atoms::TypographyToken::Panel)
         .ghost()
         .w(px(24.))
         .h(px(24.))
@@ -1152,7 +1181,7 @@ impl DesignLayoutGridController for DesignPanel {
                 div()
                     .px_2()
                     .py_1()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .font_semibold()
                     .child(title.clone()),
             );
@@ -1173,7 +1202,7 @@ impl DesignLayoutGridController for DesignPanel {
                                 .flex_1()
                                 .min_w(px(0.))
                                 .truncate()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .child(format!("{collection} · {}", binding.variable_name)),
                         )
                         .child(
@@ -1189,6 +1218,7 @@ impl DesignLayoutGridController for DesignPanel {
                             )
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
                             .disabled(
                                 !can_change
@@ -1227,7 +1257,11 @@ impl DesignLayoutGridController for DesignPanel {
                     )
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .ghost()
+                    .text_left()
+                    .justify_start()
+                    .px_2()
                     .w_full()
                     .disabled(
                         !can_change
@@ -1247,7 +1281,7 @@ impl DesignLayoutGridController for DesignPanel {
                     div()
                         .px_2()
                         .py_2()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("No Number variables supplied"),
                 );
@@ -1292,7 +1326,11 @@ impl DesignLayoutGridController for DesignPanel {
                     .tooltip(tooltip)
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .ghost()
+                    .text_left()
+                    .justify_start()
+                    .px_2()
                     .w_full()
                     .selected(selected)
                     .disabled(!can_change || compatibility_reason.is_some())
@@ -1333,15 +1371,13 @@ impl DesignLayoutGridController for DesignPanel {
                 .layout_grid_style_binding
                 .as_ref()
             {
-                let content =
-                    v_flex()
-                        .px(px(PANEL_PADDING))
-                        .pb_4()
-                        .child(self.render_bound_style_summary(
-                            "layout-guides",
-                            binding.style_name.clone(),
-                            cx,
-                        ));
+                let content = crate::molecules::inspector_section_body().child(
+                    self.render_bound_style_summary(
+                        "layout-guides",
+                        binding.style_name.clone(),
+                        cx,
+                    ),
+                );
                 return self.render_section(
                     DesignPanelSection::LayoutGrid,
                     Some(DesignPanelCollection::LayoutGrid),
@@ -1349,7 +1385,7 @@ impl DesignLayoutGridController for DesignPanel {
                     cx,
                 );
             }
-            let mut content = v_flex().px(px(PANEL_PADDING)).pb_4().gap_2();
+            let mut content = crate::molecules::inspector_section_body();
             for (index, grid) in self.host.inspected_node().layout_grids.iter().enumerate() {
                 let next_kind = match grid.kind() {
                     DesignGridKind::Uniform => DesignGridKind::Columns,
@@ -1405,7 +1441,7 @@ impl DesignLayoutGridController for DesignPanel {
                         let cell = self.render_value_cell(
                             format!("layout-guide-size-{index}"),
                             "S",
-                            format!("Size · {}", format_number(settings.size)),
+                            format_number(settings.size),
                             property,
                             DesignPanelValue::Number(settings.size + 1.),
                             cx,
@@ -1456,7 +1492,7 @@ impl DesignLayoutGridController for DesignPanel {
                                     .child(self.render_value_cell(
                                         format!("layout-guide-size-{index}"),
                                         "W",
-                                        "Size · Auto",
+                                        "Auto",
                                         DesignPanelProperty::LayoutGridSize(index),
                                         DesignPanelValue::Number(settings.size),
                                         cx,
@@ -1466,7 +1502,7 @@ impl DesignLayoutGridController for DesignPanel {
                                         let cell = self.render_value_cell(
                                             format!("layout-guide-margin-{index}"),
                                             "M",
-                                            format!("Margin · {}", format_number(settings.margin)),
+                                            format_number(settings.margin),
                                             property,
                                             DesignPanelValue::Number(settings.margin + 1.),
                                             cx,
@@ -1481,7 +1517,7 @@ impl DesignLayoutGridController for DesignPanel {
                             let cell = self.render_value_cell(
                                 format!("layout-guide-size-{index}"),
                                 "W",
-                                format!("Width · {}", format_number(settings.size)),
+                                format_number(settings.size),
                                 property,
                                 DesignPanelValue::Number(settings.size + 1.),
                                 cx,
@@ -1494,7 +1530,7 @@ impl DesignLayoutGridController for DesignPanel {
                                 let cell = self.render_value_cell(
                                     format!("layout-guide-offset-{index}"),
                                     "O",
-                                    format!("Offset · {}", format_number(settings.offset)),
+                                    format_number(settings.offset),
                                     property,
                                     DesignPanelValue::Number(settings.offset + 1.),
                                     cx,
@@ -1509,7 +1545,7 @@ impl DesignLayoutGridController for DesignPanel {
                         let cell = self.render_value_cell(
                             format!("layout-guide-gutter-{index}"),
                             "G",
-                            format!("Gutter · {}", format_number(settings.gutter)),
+                            format_number(settings.gutter),
                             property,
                             DesignPanelValue::Number(settings.gutter + 1.),
                             cx,
@@ -1560,7 +1596,7 @@ impl DesignLayoutGridController for DesignPanel {
                                     .child(self.render_value_cell(
                                         format!("layout-guide-size-{index}"),
                                         "H",
-                                        "Size · Auto",
+                                        "Auto",
                                         DesignPanelProperty::LayoutGridSize(index),
                                         DesignPanelValue::Number(settings.size),
                                         cx,
@@ -1570,7 +1606,7 @@ impl DesignLayoutGridController for DesignPanel {
                                         let cell = self.render_value_cell(
                                             format!("layout-guide-margin-{index}"),
                                             "M",
-                                            format!("Margin · {}", format_number(settings.margin)),
+                                            format_number(settings.margin),
                                             property,
                                             DesignPanelValue::Number(settings.margin + 1.),
                                             cx,
@@ -1585,7 +1621,7 @@ impl DesignLayoutGridController for DesignPanel {
                             let cell = self.render_value_cell(
                                 format!("layout-guide-size-{index}"),
                                 "H",
-                                format!("Height · {}", format_number(settings.size)),
+                                format_number(settings.size),
                                 property,
                                 DesignPanelValue::Number(settings.size + 1.),
                                 cx,
@@ -1598,7 +1634,7 @@ impl DesignLayoutGridController for DesignPanel {
                                 let cell = self.render_value_cell(
                                     format!("layout-guide-offset-{index}"),
                                     "O",
-                                    format!("Offset · {}", format_number(settings.offset)),
+                                    format_number(settings.offset),
                                     property,
                                     DesignPanelValue::Number(settings.offset + 1.),
                                     cx,
@@ -1613,7 +1649,7 @@ impl DesignLayoutGridController for DesignPanel {
                         let cell = self.render_value_cell(
                             format!("layout-guide-gutter-{index}"),
                             "G",
-                            format!("Gutter · {}", format_number(settings.gutter)),
+                            format_number(settings.gutter),
                             property,
                             DesignPanelValue::Number(settings.gutter + 1.),
                             cx,

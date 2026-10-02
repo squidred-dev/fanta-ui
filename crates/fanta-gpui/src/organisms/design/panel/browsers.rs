@@ -340,6 +340,7 @@ impl DesignBrowserController for DesignPanel {
                     .tooltip(label)
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .ghost()
                     .max_w(px(120.))
                     .selected(selected)
@@ -361,6 +362,7 @@ impl DesignBrowserController for DesignPanel {
                 .tooltip(candidate.label())
                 .xsmall()
                 .compact()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .ghost()
                 .w(px(24.))
                 .h(px(24.))
@@ -378,7 +380,7 @@ impl DesignBrowserController for DesignPanel {
             .gap_1()
             .child(
                 Input::new(&search)
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .small()
                     .prefix(Icon::new(IconName::Search).small()),
             )
@@ -474,12 +476,7 @@ impl DesignBrowserController for DesignPanel {
                 groups.push((variable.source.clone(), vec![variable]));
             }
         }
-        let fields_label = target
-            .fields
-            .iter()
-            .map(|field| field.api_name())
-            .collect::<Vec<_>>()
-            .join(", ");
+        let fields_label = Self::compact_property_label(property);
         let trigger_tooltip = binding.as_ref().map_or_else(
             || {
                 read_only_reason.clone().unwrap_or_else(|| {
@@ -500,6 +497,7 @@ impl DesignBrowserController for DesignPanel {
         .tooltip(trigger_tooltip)
         .xsmall()
         .compact()
+        .typography(crate::atoms::TypographyToken::Panel)
         .ghost()
         .w(px(20.))
         .h(px(ROW_HEIGHT))
@@ -517,6 +515,7 @@ impl DesignBrowserController for DesignPanel {
                 panel_id
             )))
             .anchor(Anchor::TopRight)
+            .appearance(false)
             .open(active)
             .overlay_closable(true)
             .on_open_change(move |open, window, cx| {
@@ -534,39 +533,43 @@ impl DesignBrowserController for DesignPanel {
             })
             .trigger(trigger)
             .content(move |_, window, cx| {
-                let mut content = v_flex()
-                    .w(popup_width(window, 292.))
-                    .max_h(popup_height(window, 420.))
-                    .gap_1()
-                    .p_2()
-                    .child(
-                        h_flex()
-                            .w_full()
-                            .justify_between()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .typography(crate::atoms::TypographyToken::BodyLarge)
-                                    .font_semibold()
-                                    .child("Variables"),
-                            )
-                            .child(
-                                div()
-                                    .min_w(px(0.))
-                                    .truncate()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
-                                    .text_color(
-                                        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
-                                    )
-                                    .child(fields_label.clone()),
-                            ),
-                    )
-                    .child(
-                        Input::new(&search_input)
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
-                            .small()
-                            .prefix(Icon::new(IconName::Search).small()),
-                    );
+                let mut content = crate::molecules::sidebar_popup_surface(
+                    SharedString::from(format!(
+                        "{panel_id}-property-variable-surface-{property:?}"
+                    )),
+                    cx,
+                )
+                .debug_selector(move || format!("property-variable-surface-{property:?}"))
+                .w(popup_width(window, 292.))
+                .max_h(popup_height(window, 420.))
+                .gap_1()
+                .p_2()
+                .child(
+                    h_flex()
+                        .w_full()
+                        .justify_between()
+                        .gap_2()
+                        .child(
+                            div()
+                                .typography(crate::atoms::TypographyToken::PanelStrong)
+                                .font_semibold()
+                                .child("Variables"),
+                        )
+                        .child(
+                            div()
+                                .min_w(px(0.))
+                                .truncate()
+                                .typography(crate::atoms::TypographyToken::Panel)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                                .child(fields_label),
+                        ),
+                )
+                .child(
+                    Input::new(&search_input)
+                        .typography(crate::atoms::TypographyToken::Panel)
+                        .small()
+                        .prefix(Icon::new(IconName::Search).small()),
+                );
                 if let Some(binding) = binding.clone() {
                     let panel = panel_for_content.clone();
                     let variable_id = binding.id().clone();
@@ -580,7 +583,7 @@ impl DesignBrowserController for DesignPanel {
                                     .flex_1()
                                     .min_w(px(0.))
                                     .truncate()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .child(binding.name().clone()),
                             )
                             .child(
@@ -595,6 +598,7 @@ impl DesignBrowserController for DesignPanel {
                                 )
                                 .xsmall()
                                 .compact()
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .ghost()
                                 .disabled(!can_change)
                                 .on_activate(move |_, _, cx| {
@@ -613,7 +617,7 @@ impl DesignBrowserController for DesignPanel {
                     content = content.child(
                         div()
                             .px_1()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(reason),
                     );
@@ -623,13 +627,14 @@ impl DesignBrowserController for DesignPanel {
                         div()
                             .px_1()
                             .py_3()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("No compatible variables"),
                     );
                 }
                 let mut rows = v_flex()
                     .w_full()
+                    .min_h(px(0.))
                     .max_h(popup_height(window, 300.))
                     .overflow_y_scrollbar();
                 for (source, variables) in groups.clone() {
@@ -643,9 +648,11 @@ impl DesignBrowserController for DesignPanel {
                     };
                     rows = rows.child(
                         div()
+                            .min_w(px(0.))
+                            .truncate()
                             .px_1()
                             .pt_2()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::PanelCaption)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(heading),
                     );
@@ -669,32 +676,58 @@ impl DesignBrowserController for DesignPanel {
                             } else {
                                 "Apply"
                             };
-                            format!(
-                                "{import} · {} · {}",
-                                variable.resolved_type.label(),
-                                variable
-                                    .scopes
-                                    .iter()
-                                    .map(DesignVariableScope::api_name)
-                                    .collect::<Vec<_>>()
-                                    .join(", ")
-                            )
-                            .into()
+                            format!("{import} · {label} · {}", variable.resolved_type.label())
+                                .into()
                         });
+                        let type_icon = match variable.resolved_type {
+                            super::super::DesignVariableResolvedType::Boolean => {
+                                crate::atoms::LucideIcon::ToggleLeft
+                            }
+                            super::super::DesignVariableResolvedType::Color => {
+                                crate::atoms::LucideIcon::Palette
+                            }
+                            super::super::DesignVariableResolvedType::Float => {
+                                crate::atoms::LucideIcon::Hash
+                            }
+                            super::super::DesignVariableResolvedType::String => {
+                                crate::atoms::LucideIcon::TextCursorInput
+                            }
+                        };
+                        let selector =
+                            format!("{panel_id}-property-variable-{property:?}-{}", variable.id);
                         rows = rows.child(
-                            crate::atoms::ui_button(SharedString::from(format!(
-                                "{panel_id}-property-variable-{property:?}-{}",
-                                variable.id
-                            )))
-                            .label(label)
-                            .tooltip(tooltip)
-                            .xsmall()
-                            .compact()
-                            .ghost()
-                            .w_full()
-                            .selected(selected)
-                            .disabled(disabled)
+                            crate::molecules::sidebar_menu_item(
+                                SharedString::from(selector.clone()),
+                                px(crate::molecules::SIDEBAR_MENU_ITEM_HEIGHT),
+                                !disabled,
+                                cx,
+                            )
+                            .debug_selector(move || selector.clone())
+                            .min_w(px(0.))
+                            .typography(crate::atoms::TypographyToken::Panel)
+                            .when(selected, |row| {
+                                row.bg(crate::atoms::sidebar_style(cx).selected)
+                            })
+                            .child(crate::atoms::render_lucide_icon(
+                                type_icon,
+                                if disabled {
+                                    crate::atoms::sidebar_style(cx).disabled_text
+                                } else {
+                                    crate::atoms::sidebar_style(cx).muted_icon
+                                },
+                                crate::atoms::tokens::IconSize::SM,
+                            ))
+                            .child(div().flex_1().min_w(px(0.)).truncate().child(label))
+                            .when(selected, |row| {
+                                row.child(Icon::new(IconName::Check).xsmall())
+                            })
+                            .tooltip(move |window, cx| {
+                                Tooltip::new(tooltip.clone()).build(window, cx)
+                            })
                             .on_activate(move |_, _, cx| {
+                                if disabled {
+                                    return;
+                                }
                                 panel.update(cx, |this, cx| {
                                     if available {
                                         this.emit_property_variable_import(
@@ -716,8 +749,6 @@ impl DesignBrowserController for DesignPanel {
                 }
                 content.child(rows)
             })
-            .w(px(20.))
-            .h(px(ROW_HEIGHT))
             .into_any_element(),
         )
     }
@@ -964,13 +995,13 @@ impl DesignBrowserController for DesignPanel {
             .px_2()
             .gap_2()
             .rounded(px(4.))
-            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
             .child(
                 div()
                     .flex_1()
                     .min_w(px(0.))
                     .truncate()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .child(name),
             )
             .into_any_element()

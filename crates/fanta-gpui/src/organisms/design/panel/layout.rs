@@ -900,7 +900,7 @@ impl DesignLayoutController for DesignPanel {
         }
         row.child(
             div()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .child("Auto rows"),
         )
         .child(
@@ -957,7 +957,7 @@ impl DesignLayoutController for DesignPanel {
             } else {
                 cx.theme().transparent
             })
-            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
             .when(editable, |control| {
                 control
                     .key_context(CONTROL_KEY_CONTEXT)
@@ -985,7 +985,7 @@ impl DesignLayoutController for DesignPanel {
             .child(
                 div()
                     .w(px(12.))
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(if custom { "Custom" } else { "V" }),
             )
@@ -993,7 +993,7 @@ impl DesignLayoutController for DesignPanel {
                 div()
                     .flex_1()
                     .truncate()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .child(if custom { "Custom" } else { "Linked to gap" }),
             );
 
@@ -1031,6 +1031,7 @@ impl DesignLayoutController for DesignPanel {
         .tooltip(tooltip)
         .xsmall()
         .compact()
+        .typography(crate::atoms::TypographyToken::Panel)
         .ghost()
         .h(px(22.))
         .selected(self.features.layout.padding_editor_mode == mode)
@@ -1195,6 +1196,7 @@ impl DesignLayoutController for DesignPanel {
             .dropdown_caret(true)
             .xsmall()
             .compact()
+            .typography(crate::atoms::TypographyToken::Panel)
             .ghost()
             .w_full()
             .h(px(ROW_HEIGHT))
@@ -1235,6 +1237,7 @@ impl DesignLayoutController for DesignPanel {
         .dropdown_caret(true)
         .xsmall()
         .compact()
+        .typography(crate::atoms::TypographyToken::Panel)
         .ghost()
         .w_full()
         .h(px(ROW_HEIGHT))
@@ -1345,7 +1348,7 @@ impl DesignLayoutController for DesignPanel {
                                 .resolve(cx)
                                 .opacity(0.28)
                         } else {
-                            crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx)
+                            crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx)
                         })
                         .when(!cell_is_editable, |cell| cell.opacity(0.3));
                     if cell_is_editable {
@@ -1384,13 +1387,13 @@ impl DesignLayoutController for DesignPanel {
                         .justify_between()
                         .child(
                             div()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .font_semibold()
                                 .child("Grid dimensions"),
                         )
                         .child(
                             div()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child(format!("{} × {}", candidate.columns, candidate.rows)),
                         ),
@@ -1398,7 +1401,7 @@ impl DesignLayoutController for DesignPanel {
                 .child(selector)
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(if automatic_rows {
                             "Rows are derived while Auto rows is on. Use ←/→, then Enter or Space."
@@ -1434,7 +1437,7 @@ impl DesignLayoutController for DesignPanel {
                     div()
                         .w(px(112.))
                         .flex_none()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(label),
                 )
@@ -1465,7 +1468,7 @@ impl DesignLayoutController for DesignPanel {
             controls = controls.child(
                 div()
                     .pl(px(112.))
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("Derived by Auto rows"),
             );
@@ -1582,6 +1585,7 @@ impl DesignLayoutController for DesignPanel {
         .tooltip("Browse host-supplied Frame presets")
         .xsmall()
         .compact()
+        .typography(crate::atoms::TypographyToken::Panel)
         .ghost()
         .w_full()
         .h(px(ROW_HEIGHT))
@@ -1646,7 +1650,7 @@ impl DesignLayoutController for DesignPanel {
                     .p_2()
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyLarge)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .font_semibold()
                             .child("Frame presets"),
                     );
@@ -1655,7 +1659,7 @@ impl DesignLayoutController for DesignPanel {
                         div()
                             .px_1()
                             .pb_1()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(reason.clone()),
                     );
@@ -1692,8 +1696,12 @@ impl DesignLayoutController for DesignPanel {
                         .tooltip(group_tooltip)
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
                         .w_full()
+                        .text_left()
+                        .justify_start()
+                        .px_2()
                         .h(px(ROW_HEIGHT))
                         .on_activate(move |_, _, cx| {
                             panel.update(cx, |this, cx| {
@@ -1707,7 +1715,7 @@ impl DesignLayoutController for DesignPanel {
                                 .w_full()
                                 .px_2()
                                 .pb_1()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child(reason.clone()),
                         );
@@ -1747,6 +1755,7 @@ impl DesignLayoutController for DesignPanel {
                             .tooltip(tooltip)
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
                             .w_full()
                             .h(px(ROW_HEIGHT))
@@ -2136,7 +2145,7 @@ impl DesignLayoutController for DesignPanel {
                 .items_center()
                 .justify_center()
                 .rounded(px(4.))
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .cursor_pointer()
                 .hover(|trigger| {
                     trigger.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
@@ -2200,7 +2209,7 @@ impl DesignLayoutController for DesignPanel {
                 div()
                     .px_2()
                     .py_1()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .font_semibold()
                     .child(format!("{} resizing", axis.label())),
             );
@@ -2228,8 +2237,12 @@ impl DesignLayoutController for DesignPanel {
                         .label(SharedString::from(sizing_label))
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
                         .w_full()
+                        .text_left()
+                        .justify_start()
+                        .px_2()
                         .selected(mode == sizing)
                         .disabled(!sizing_editable)
                         .on_hover(move |hovered, _, cx| {
@@ -2302,8 +2315,12 @@ impl DesignLayoutController for DesignPanel {
                     )))
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .ghost()
                     .w_full()
+                    .text_left()
+                    .justify_start()
+                    .px_2()
                     .disabled(minimum.is_some() || !minimum_editable)
                     .on_activate(move |_, window, cx| {
                         panel.update(cx, |this, cx| {
@@ -2322,8 +2339,12 @@ impl DesignLayoutController for DesignPanel {
                     )))
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .ghost()
                     .w_full()
+                    .text_left()
+                    .justify_start()
+                    .px_2()
                     .disabled(maximum.is_some() || !maximum_editable)
                     .on_activate(move |_, window, cx| {
                         panel.update(cx, |this, cx| {
@@ -2343,21 +2364,22 @@ impl DesignLayoutController for DesignPanel {
                 );
                 content = content.child(
                     crate::atoms::ui_button(remove_selector.clone())
+                        .debug_selector(move || remove_selector.to_string())
+                        .label("Remove min and max")
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
                         .w_full()
+                        .text_left()
+                        .justify_start()
+                        .px_2()
                         .disabled(!remove_editable)
                         .on_activate(move |_, _, cx| {
                             panel.update(cx, |this, cx| {
                                 this.remove_dimension_limits(axis, cx);
                             });
-                        })
-                        .child(
-                            div()
-                                .debug_selector(move || remove_selector.to_string())
-                                .child("Remove min and max"),
-                        ),
+                        }),
                 );
             }
             content
@@ -2406,7 +2428,7 @@ impl DesignLayoutController for DesignPanel {
             .min_w(px(0.))
             .overflow_hidden()
             .rounded(px(4.))
-            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
             .child(self.render_dimension_menu_trigger(axis, sizing, cx))
             .child(
                 div()
@@ -2518,6 +2540,7 @@ impl DesignLayoutController for DesignPanel {
             .tooltip(tooltip)
             .xsmall()
             .compact()
+            .typography(crate::atoms::TypographyToken::Panel)
             .ghost()
             .w_full()
             .disabled(!enabled)
@@ -2593,18 +2616,17 @@ impl DesignLayoutController for DesignPanel {
             .tab_index(0)
             .h(px(40.))
             .w_full()
-            .pl(px(PANEL_PADDING))
-            .pr_2()
+            .px(px(PANEL_PADDING))
             .gap_1()
             .cursor_pointer()
             .hover(|style| {
-                style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                style.bg(crate::atoms::SemanticColor::BackgroundPanelHover
                     .resolve(cx)
                     .opacity(0.45))
             })
             .focus(|style| {
                 style
-                    .bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                    .bg(crate::atoms::SemanticColor::BackgroundPanelHover
                         .resolve(cx)
                         .opacity(0.45))
                     .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
@@ -2615,7 +2637,7 @@ impl DesignLayoutController for DesignPanel {
             .child(
                 div()
                     .flex_1()
-                    .typography(crate::atoms::TypographyToken::BodyLarge)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .font_semibold()
                     .child(section.label()),
             )

@@ -86,6 +86,14 @@ the shared default/large sizes and purpose variants onto `gpui-component`
 behavior. Production components do not construct raw buttons or select ad-hoc
 text-size utilities.
 
+Editor inspectors use `TypographyToken::{Panel, PanelStrong, PanelCaption}`:
+Zed's 14 px UI body scale and 12 px captions, expressed in rems for host text
+scaling. Their surfaces use the semantic Panel background, field, hover, and
+border roles, which resolve to the installed Zed theme and retain a
+`gpui-component` fallback. Section headers use background focus treatment;
+fields reserve their border width. Buttons respect explicitly supplied label
+typography and truncate constrained labels.
+
 The library can reference the canonical `IconName` paths. Asset ownership stays
 with the application because GPUI installs one application-level asset source.
 The storybook uses `gpui-component-assets::Assets`; a production host may use
@@ -691,6 +699,14 @@ contained. Color, gradient, media, resource, shader, and contrast editors live
 in separate modules. `ColorPicker` is its smaller RGBA-only adapter, not a
 second implementation. The `paint-picker` story supplies a standalone mock
 host, paint fixtures, read-only and open knobs.
+
+Image and Video expose Source, Assets, and Adjust destinations. Switching paint
+types only emits a controlled paint edit; upload requires an explicit source
+action. `DesignMediaPaintViewData::assets` is a host-supplied catalog and choosing
+one emits the existing Source edit while retaining placement and adjustments.
+Pattern geometry uses exact-entry numeric fields. Shader selection and parameter
+editing have separate destinations. Blend mode uses a bounded scrolling menu
+outside the paint-type selector.
 
 ## §21 AI generation screens
 

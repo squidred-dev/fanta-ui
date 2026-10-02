@@ -123,7 +123,11 @@ impl Render for CommentsInspector {
                 CommentsFilter::Resolved => thread.resolved,
             })
             .collect::<Vec<_>>();
-        let mut threads = v_flex().p(px(tokens::Space::LG)).gap(px(tokens::Space::MD));
+        let mut threads = v_flex()
+            .px(px(tokens::InspectorGeometry::BODY_INSET))
+            .pt(px(tokens::InspectorGeometry::ROW_GAP))
+            .pb(px(tokens::InspectorGeometry::BODY_BOTTOM))
+            .gap(px(tokens::InspectorGeometry::GROUP_GAP));
         for thread in &visible {
             let id = thread.id.clone();
             let resolve_id = id.clone();
@@ -149,7 +153,7 @@ impl Render for CommentsInspector {
                     .gap(px(tokens::Space::XS))
                     .child(
                         truncating_label(thread.location.clone())
-                            .typography(TypographyToken::BodySmall)
+                            .typography(TypographyToken::PanelCaption)
                             .text_color(Color::TextSecondary.resolve(cx)),
                     )
                     .when(thread.unread, |v| {
@@ -205,8 +209,9 @@ impl Render for CommentsInspector {
                                 .items_center()
                                 .justify_center()
                                 .rounded_full()
-                                .bg(Color::BackgroundSecondary.resolve(cx))
-                                .typography(TypographyToken::BodySmallStrong)
+                                .bg(Color::BackgroundPanelField.resolve(cx))
+                                .typography(TypographyToken::PanelCaption)
+                                .font_weight(gpui::FontWeight::SEMIBOLD)
                                 .child(initials),
                         )
                         .child(
@@ -219,19 +224,19 @@ impl Render for CommentsInspector {
                                         .gap(px(tokens::Space::XS))
                                         .child(
                                             truncating_label(comment.author.clone())
-                                                .typography(TypographyToken::BodyMediumStrong),
+                                                .typography(TypographyToken::PanelStrong),
                                         )
                                         .child(
                                             div()
                                                 .flex_none()
-                                                .typography(TypographyToken::BodySmall)
+                                                .typography(TypographyToken::PanelCaption)
                                                 .text_color(Color::TextTertiary.resolve(cx))
                                                 .child(comment.time_label.clone()),
                                         ),
                                 )
                                 .child(
                                     div()
-                                        .typography(TypographyToken::BodyMedium)
+                                        .typography(TypographyToken::Panel)
                                         .child(comment.body.clone()),
                                 ),
                         ),
@@ -280,8 +285,8 @@ impl Render for CommentsInspector {
             .track_focus(&self.focus)
             .size_full()
             .min_w_0()
-            .bg(Color::Background.resolve(cx))
-            .text_color(Color::Text.resolve(cx))
+            .bg(Color::BackgroundPanel.resolve(cx))
+            .text_color(crate::atoms::sidebar_style(cx).text)
             .occlude()
             .on_pinch(|_, _, cx| cx.stop_propagation())
             .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
@@ -305,8 +310,10 @@ impl Render for CommentsInspector {
             )
             .child(
                 v_flex()
-                    .p(px(tokens::Space::LG))
-                    .gap(px(tokens::Space::SM))
+                    .px(px(tokens::InspectorGeometry::BODY_INSET))
+                    .pt(px(tokens::InspectorGeometry::ROW_GAP))
+                    .pb(px(tokens::InspectorGeometry::BODY_BOTTOM))
+                    .gap(px(tokens::InspectorGeometry::ROW_GAP))
                     .border_t_1()
                     .border_color(Color::Border.resolve(cx))
                     .when(self.data.selected_thread.is_some(), |v| {
@@ -316,7 +323,8 @@ impl Render for CommentsInspector {
                                 .gap(px(tokens::Space::SM))
                                 .child(
                                     truncating_label("Replying to thread")
-                                        .typography(TypographyToken::BodySmallStrong)
+                                        .typography(TypographyToken::PanelCaption)
+                                        .font_weight(gpui::FontWeight::SEMIBOLD)
                                         .text_color(Color::TextSecondary.resolve(cx)),
                                 )
                                 .child(
@@ -335,7 +343,7 @@ impl Render for CommentsInspector {
                     })
                     .child(
                         Input::new(self.composer.as_ref().unwrap())
-                            .typography(TypographyToken::BodyMedium)
+                            .typography(TypographyToken::Panel)
                             .small()
                             .disabled(!self.data.can_comment),
                     )
@@ -352,7 +360,7 @@ impl Render for CommentsInspector {
                             cx,
                         )
                         .w_full()
-                        .bg(Color::BackgroundSecondary.resolve(cx))
+                        .bg(Color::BackgroundPanelField.resolve(cx))
                         .on_activate(cx.listener(|this, _, window, cx| this.submit(window, cx))),
                     ),
             )

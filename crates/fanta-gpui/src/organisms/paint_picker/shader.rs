@@ -328,20 +328,23 @@ impl PaintPicker {
         let selection_for_click = selection.clone();
         h_flex()
             .w_full()
-            .min_h(px(34.))
-            .gap_2()
-            .px_2()
-            .rounded(px(6.))
+            .min_h(px(2. * tokens::RowHeight::LIST))
+            .gap(px(tokens::InspectorGeometry::ROW_GAP))
+            .p(px(tokens::Space::SM))
+            .border_1()
+            .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
+            .rounded(px(tokens::Radius::CONTROL))
             .when(selected, |row| {
-                row.bg(crate::atoms::SemanticColor::BackgroundHover
+                row.bg(crate::atoms::SemanticColor::BackgroundPanelHover
                     .resolve(cx)
                     .opacity(0.12))
             })
             .child(
                 Icon::new(IconName::Asterisk)
                     .xsmall()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(if selected {
-                        crate::atoms::SemanticColor::BackgroundHover.resolve(cx)
+                        crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx)
                     } else {
                         crate::atoms::SemanticColor::TextTertiary.resolve(cx)
                     }),
@@ -353,15 +356,16 @@ impl PaintPicker {
                     .child(
                         div()
                             .truncate()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .font_semibold()
                             .child(shader.name.clone()),
                     )
                     .child(
                         div()
                             .truncate()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                            .typography(crate::atoms::TypographyToken::PanelCaption)
                             .child(if shader.imported {
                                 format!(
                                     "Imported · {} properties",
@@ -379,11 +383,18 @@ impl PaintPicker {
                     if shader.imported { "apply" } else { "import" },
                     shader.id
                 )))
-                .label(if shader.imported { "Apply" } else { "Import" })
+                .label(if selected && shader.imported {
+                    "Applied"
+                } else if shader.imported {
+                    "Apply"
+                } else {
+                    "Import"
+                })
                 .xsmall()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .compact()
                 .outline()
-                .disabled(self.editing_disabled() || (selected && shader.imported))
+                .disabled(self.base_editing_disabled() || (selected && shader.imported))
                 .on_activate(cx.listener(move |this, _, _, cx| {
                     this.request_shader_selection(selection_for_click.clone(), cx);
                 })),
@@ -408,8 +419,8 @@ impl PaintPicker {
                 .min_h(px(180.))
                 .items_center()
                 .justify_center()
-                .gap_2()
-                .p_4()
+                .gap(px(tokens::InspectorGeometry::ROW_GAP))
+                .p(px(tokens::InspectorGeometry::BODY_INSET))
                 .child(
                     Icon::new(IconName::Asterisk)
                         .small()
@@ -417,29 +428,72 @@ impl PaintPicker {
                 )
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyLarge)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .font_semibold()
                         .child("Shaders"),
                 )
                 .child(
                     div()
                         .text_center()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("No fill shaders supplied by the host."),
                 )
                 .into_any_element();
         }
 
-        let mut content = v_flex().w_full().gap_3().p_4();
-        if !self.shader_view_data.page_shaders.is_empty() {
-            let mut page = v_flex().w_full().gap_1().child(
+        let query = self.resource_search_input.read(cx).value().to_lowercase();
+        let matches = |shader: &&DesignShaderDefinition| {
+            query.is_empty() || shader.name.to_lowercase().contains(&query)
+        };
+        let result_count = self
+            .shader_view_data
+            .page_shaders
+            .iter()
+            .filter(matches)
+            .count()
+            + self
+                .shader_view_data
+                .libraries
+                .iter()
+                .flat_map(|library| &library.shaders)
+                .filter(matches)
+                .count();
+        let mut content = v_flex()
+            .w_full()
+            .gap(px(tokens::InspectorGeometry::GROUP_GAP))
+            .p(px(tokens::InspectorGeometry::BODY_INSET))
+            .child(
+                Input::new(&self.resource_search_input)
+                    .xsmall()
+                    .typography(crate::atoms::TypographyToken::Panel)
+                    .w_full()
+                    .prefix(Icon::new(IconName::Search).small()),
+            )
+            .child(
                 div()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
-                    .font_semibold()
-                    .child("In this file"),
+                    .typography(crate::atoms::TypographyToken::PanelCaption)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    .child(format!("{result_count} shaders available")),
             );
-            for shader in &self.shader_view_data.page_shaders {
+        if result_count == 0 {
+            content = content.child(
+                div()
+                    .typography(crate::atoms::TypographyToken::Panel)
+                    .child("No shaders match your search"),
+            );
+        }
+        if !self.shader_view_data.page_shaders.is_empty() {
+            let mut page = v_flex()
+                .w_full()
+                .gap(px(tokens::InspectorGeometry::ROW_GAP))
+                .child(
+                    div()
+                        .typography(crate::atoms::TypographyToken::PanelCaption)
+                        .font_semibold()
+                        .child("In this file"),
+                );
+            for shader in self.shader_view_data.page_shaders.iter().filter(matches) {
                 page = page.child(self.render_shader_row(
                     shader,
                     DesignShaderSelection::page(shader.id.clone()),
@@ -451,33 +505,37 @@ impl PaintPicker {
         }
         for library in &self.shader_view_data.libraries {
             let library_id = library.id.clone();
-            let mut group = v_flex().w_full().gap_1().child(
-                h_flex()
-                    .w_full()
-                    .h(px(24.))
-                    .gap_2()
-                    .child(
-                        Icon::new(IconName::BookOpen)
-                            .xsmall()
-                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx)),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .truncate()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
-                            .font_semibold()
-                            .child(library.name.clone()),
-                    )
-                    .child(
-                        div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
-                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
-                            .child(library.shaders.len().to_string()),
-                    ),
-            );
-            for shader in &library.shaders {
+            let mut group = v_flex()
+                .w_full()
+                .gap(px(tokens::InspectorGeometry::ROW_GAP))
+                .child(
+                    h_flex()
+                        .w_full()
+                        .h(px(24.))
+                        .gap(px(tokens::InspectorGeometry::ROW_GAP))
+                        .child(
+                            Icon::new(IconName::BookOpen)
+                                .xsmall()
+                                .typography(crate::atoms::TypographyToken::Panel)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx)),
+                        )
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w(px(0.))
+                                .truncate()
+                                .typography(crate::atoms::TypographyToken::PanelCaption)
+                                .font_semibold()
+                                .child(library.name.clone()),
+                        )
+                        .child(
+                            div()
+                                .typography(crate::atoms::TypographyToken::PanelCaption)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                                .child(library.shaders.len().to_string()),
+                        ),
+                );
+            for shader in library.shaders.iter().filter(matches) {
                 group = group.child(self.render_shader_row(
                     shader,
                     DesignShaderSelection::library(library_id.clone(), shader.id.clone()),
@@ -502,7 +560,7 @@ impl PaintPicker {
         shader: DesignShaderSelection,
         cx: &mut Context<Self>,
     ) {
-        if self.editing_disabled() {
+        if self.base_editing_disabled() {
             return;
         }
         let (Some(target), Some(definition)) =
@@ -602,6 +660,10 @@ impl PaintPicker {
             .or(definition.default_value.as_ref());
         let summary = value.map_or_else(|| "No value".into(), DesignShaderPropertyValue::summary);
         let disabled = self.editing_disabled();
+        let property_tooltip = definition
+            .description
+            .clone()
+            .unwrap_or_else(|| definition.name.clone());
         let definition_id = definition.id.clone();
         let variable_id = value
             .and_then(DesignShaderPropertyValue::variable_alias_id)
@@ -614,10 +676,25 @@ impl PaintPicker {
                     "{}-shader-property-{}-boolean",
                     self.id, definition.id
                 )))
-                .label(if *current { "On" } else { "Off" })
+                .child(
+                    div()
+                        .w_full()
+                        .min_w_0()
+                        .text_left()
+                        .typography(crate::atoms::TypographyToken::Panel)
+                        .child(if *current { "On" } else { "Off" }),
+                )
+                .tooltip(property_tooltip.clone())
                 .xsmall()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .compact()
                 .outline()
+                .w_full()
+                .min_w_0()
+                .justify_start()
+                .h(px(tokens::RowHeight::FIELD))
+                .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+                .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
                 .disabled(disabled)
                 .on_activate({
                     let definition_id = definition_id.clone();
@@ -646,10 +723,11 @@ impl PaintPicker {
                         .debug_selector(|| "shader-number-input".to_owned())
                         .child(
                             Input::new(&self.shader_number_input)
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
                                 .xsmall()
-                                .h(px(26.))
-                                .w(px(74.))
+                                .typography(crate::atoms::TypographyToken::Panel)
+                                .h(px(tokens::RowHeight::FIELD))
+                                .w_full()
+                                .min_w_0()
                                 .disabled(disabled)
                                 .when(self.shader_number_invalid, |input| {
                                     input.border_color(
@@ -664,12 +742,30 @@ impl PaintPicker {
                         self.id, definition.id
                     ));
                     let debug_id = button_id.to_string();
+                    let readout_debug_id = format!("{debug_id}-readout");
                     crate::atoms::ui_button(button_id)
                         .debug_selector(move || debug_id.clone())
-                        .label(format_decimal(*current))
+                        .child(
+                            div()
+                                .debug_selector(move || readout_debug_id.clone())
+                                .w_full()
+                                .min_w_0()
+                                .truncate()
+                                .text_left()
+                                .typography(crate::atoms::TypographyToken::Panel)
+                                .child(format_decimal(*current)),
+                        )
+                        .tooltip(property_tooltip.clone())
                         .xsmall()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .compact()
                         .outline()
+                        .w_full()
+                        .min_w_0()
+                        .justify_start()
+                        .h(px(tokens::RowHeight::FIELD))
+                        .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+                        .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
                         .disabled(disabled)
                         .on_activate({
                             let definition_id = definition_id.clone();
@@ -686,20 +782,47 @@ impl PaintPicker {
                     self.id, definition.id
                 ));
                 let debug_id = button_id.to_string();
+                let readout_debug_id = format!("{debug_id}-readout");
                 crate::atoms::ui_button(button_id)
                     .debug_selector(move || debug_id.clone())
-                    .label(format!("#{}", current.hex()))
+                    .tooltip(property_tooltip.clone())
                     .child(
-                        div()
-                            .size(px(16.))
-                            .rounded(px(3.))
-                            .border_1()
-                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                            .bg(color_to_hsla(*current)),
+                        h_flex()
+                            .debug_selector(move || readout_debug_id.clone())
+                            .w_full()
+                            .min_w_0()
+                            .gap(px(tokens::Space::XS))
+                            .child(
+                                div()
+                                    .size(px(tokens::ControlSize::INLINE))
+                                    .flex_none()
+                                    .rounded(px(tokens::Radius::CONTROL))
+                                    .border_1()
+                                    .border_color(
+                                        crate::atoms::SemanticColor::BorderPanel.resolve(cx),
+                                    )
+                                    .bg(color_to_hsla(*current)),
+                            )
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .truncate()
+                                    .text_left()
+                                    .typography(crate::atoms::TypographyToken::Panel)
+                                    .child(format!("#{}", current.hex())),
+                            ),
                     )
                     .xsmall()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .compact()
                     .outline()
+                    .w_full()
+                    .min_w_0()
+                    .justify_start()
+                    .h(px(tokens::RowHeight::FIELD))
+                    .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+                    .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
                     .disabled(disabled)
                     .on_activate({
                         let definition_id = definition_id.clone();
@@ -713,10 +836,26 @@ impl PaintPicker {
                 "{}-shader-property-{}-edit",
                 self.id, definition.id
             )))
-            .label(summary)
+            .child(
+                div()
+                    .w_full()
+                    .min_w_0()
+                    .truncate()
+                    .text_left()
+                    .typography(crate::atoms::TypographyToken::Panel)
+                    .child(summary.clone()),
+            )
+            .tooltip(definition.description.clone().unwrap_or(summary))
             .xsmall()
+            .typography(crate::atoms::TypographyToken::Panel)
             .compact()
             .outline()
+            .w_full()
+            .min_w_0()
+            .justify_start()
+            .h(px(tokens::RowHeight::FIELD))
+            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+            .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
             .disabled(disabled || variable_id.is_some())
             .on_activate({
                 let definition_id = definition_id.clone();
@@ -733,11 +872,19 @@ impl PaintPicker {
                     "{}-shader-property-{}-detach",
                     self.id, definition.id
                 )))
-                .label("Detach")
+                .child(render_lucide_icon(
+                    LucideIcon::Unlink,
+                    crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                    tokens::IconSize::SM,
+                ))
                 .tooltip(format!("Detach variable {variable_id}"))
                 .xsmall()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .compact()
                 .ghost()
+                .w(px(tokens::ControlSize::CHROME))
+                .h(px(tokens::ControlSize::CHROME))
+                .flex_none()
                 .disabled(disabled)
                 .on_activate({
                     let definition_id = definition_id.clone();
@@ -760,10 +907,19 @@ impl PaintPicker {
             Some(
                 crate::atoms::ui_button(button_id)
                     .debug_selector(move || debug_id.clone())
-                    .label("Bind")
+                    .child(render_lucide_icon(
+                        LucideIcon::Link,
+                        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                        tokens::IconSize::SM,
+                    ))
+                    .tooltip("Apply variable")
                     .xsmall()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .compact()
                     .ghost()
+                    .w(px(tokens::ControlSize::CHROME))
+                    .h(px(tokens::ControlSize::CHROME))
+                    .flex_none()
                     .disabled(disabled)
                     .on_activate({
                         let definition_id = definition_id.clone();
@@ -779,52 +935,28 @@ impl PaintPicker {
 
         v_flex()
             .w_full()
-            .gap_1()
-            .py_1()
+            .gap(px(tokens::InspectorGeometry::ROW_GAP))
             .child(
                 h_flex()
                     .w_full()
-                    .gap_2()
+                    .min_h(px(tokens::RowHeight::FIELD))
+                    .gap(px(tokens::InspectorGeometry::ROW_GAP))
                     .child(
-                        v_flex()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .child(
-                                div()
-                                    .truncate()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
-                                    .font_semibold()
-                                    .child(definition.name.clone()),
-                            )
-                            .child(
-                                div()
-                                    .truncate()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
-                                    .text_color(
-                                        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
-                                    )
-                                    .child(format!(
-                                        "{} · {}",
-                                        definition.kind.label(),
-                                        definition.id
-                                    )),
-                            ),
+                        div()
+                            .w(px(tokens::InputGeometry::VARIABLE_CELL_WIDTH))
+                            .flex_none()
+                            .truncate()
+                            .typography(crate::atoms::TypographyToken::PanelCaption)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                            .child(definition.name.clone()),
                     )
-                    .child(value_control)
+                    .child(div().flex_1().min_w_0().child(value_control))
                     .children(variable_control),
             )
             .when(
                 self.shader_active_color_property.as_ref() == Some(&definition.id),
                 |row| row.child(self.render_shader_color_editor(definition, value, cx)),
             )
-            .when_some(definition.description.clone(), |row, description| {
-                row.child(
-                    div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
-                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
-                        .child(description),
-                )
-            })
             .into_any_element()
     }
 
@@ -852,7 +984,7 @@ impl PaintPicker {
             DesignColor::rgb(139, 80, 208),
             DesignColor::rgb(222, 83, 157),
         ];
-        let mut swatches = h_flex().w_full().gap_1().flex_wrap();
+        let mut swatches = h_flex().w_full().gap(px(tokens::Space::XS)).flex_wrap();
         for (index, palette_color) in palette.into_iter().enumerate() {
             let color = DesignColor::rgba(
                 palette_color.red,
@@ -868,6 +1000,7 @@ impl PaintPicker {
                 )))
                 .tooltip(format!("Set #{}", color.hex()))
                 .xsmall()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .compact()
                 .ghost()
                 .selected(color == current)
@@ -877,7 +1010,7 @@ impl PaintPicker {
                         .size(px(20.))
                         .rounded(px(3.))
                         .border_1()
-                        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                        .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
                         .bg(color_to_hsla(color)),
                 )
                 .on_activate(cx.listener(move |this, _, _, cx| {
@@ -887,18 +1020,18 @@ impl PaintPicker {
         }
         v_flex()
             .w_full()
-            .gap_2()
-            .p_2()
+            .gap(px(tokens::InspectorGeometry::ROW_GAP))
+            .p(px(tokens::Space::SM))
             .rounded(px(6.))
             .border_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
             .child(
                 h_flex()
                     .w_full()
-                    .gap_2()
+                    .gap(px(tokens::InspectorGeometry::ROW_GAP))
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .child("Hex"),
                     )
                     .child(
@@ -908,8 +1041,8 @@ impl PaintPicker {
                             .min_w(px(0.))
                             .child(
                                 Input::new(&self.shader_color_input)
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
                                     .xsmall()
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .h(px(26.))
                                     .flex_1()
                                     .disabled(self.editing_disabled())
@@ -930,65 +1063,71 @@ impl PaintPicker {
         shader: &DesignShaderPaint,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let mut content = v_flex().w_full().gap_2().child(
-            h_flex()
-                .w_full()
-                .p_2()
-                .gap_2()
-                .rounded(px(7.))
-                .border_1()
-                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                .child(
-                    Icon::new(IconName::Asterisk)
-                        .small()
-                        .text_color(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)),
-                )
-                .child(
-                    v_flex()
-                        .flex_1()
-                        .min_w(px(0.))
-                        .child(
-                            div()
-                                .truncate()
-                                .typography(crate::atoms::TypographyToken::BodyLarge)
-                                .font_semibold()
-                                .child(shader.name.clone()),
-                        )
-                        .child(
-                            div()
-                                .truncate()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
-                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
-                                .child(shader.shader_id.clone()),
+        let mut content = v_flex()
+            .w_full()
+            .gap(px(tokens::InspectorGeometry::GROUP_GAP))
+            .child(
+                h_flex()
+                    .w_full()
+                    .p(px(tokens::Space::SM))
+                    .gap(px(tokens::InspectorGeometry::ROW_GAP))
+                    .rounded(px(7.))
+                    .border_1()
+                    .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
+                    .child(
+                        Icon::new(IconName::Asterisk).small().text_color(
+                            crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx),
                         ),
-                )
-                .child(
-                    crate::atoms::ui_button(SharedString::from(format!(
-                        "{}-choose-shader",
-                        self.id
-                    )))
-                    .label("Choose")
-                    .xsmall()
-                    .compact()
-                    .outline()
-                    .disabled(self.editing_disabled())
-                    .on_activate(cx.listener(|this, _, _, cx| {
-                        this.active_tab = PaintPickerTab::Libraries;
-                        this.scroll_handle.set_offset(Point::default());
-                        cx.notify();
-                    })),
-                ),
-        );
+                    )
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .min_w(px(0.))
+                            .child(
+                                div()
+                                    .truncate()
+                                    .typography(crate::atoms::TypographyToken::Panel)
+                                    .font_semibold()
+                                    .child(shader.name.clone()),
+                            )
+                            .child(
+                                div()
+                                    .truncate()
+                                    .typography(crate::atoms::TypographyToken::Panel)
+                                    .text_color(
+                                        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                                    )
+                                    .typography(crate::atoms::TypographyToken::PanelCaption)
+                                    .child("Shader fill"),
+                            ),
+                    )
+                    .child(
+                        crate::atoms::ui_button(SharedString::from(format!(
+                            "{}-choose-shader",
+                            self.id
+                        )))
+                        .label("Choose")
+                        .xsmall()
+                        .typography(crate::atoms::TypographyToken::Panel)
+                        .compact()
+                        .outline()
+                        .disabled(self.editing_disabled())
+                        .on_activate(cx.listener(|this, _, _, cx| {
+                            this.active_tab = PaintPickerTab::Libraries;
+                            this.shader_browser_requested = true;
+                            this.scroll_handle.set_offset(Point::default());
+                            cx.notify();
+                        })),
+                    ),
+            );
 
         let Some(definition) = self.shader_view_data.definition(&shader.shader_id) else {
             return content
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
-                        .child(
-                            "Shader metadata is unavailable. The host still preserves every assignment.",
-                        ),
+                        .child("Shader settings are unavailable."),
                 )
                 .into_any_element();
         };
@@ -996,23 +1135,19 @@ impl PaintPicker {
             return content
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
-                        .child(
-                            "Import metadata is pending; no property definitions are available.",
-                        ),
+                        .child("This shader has no adjustable parameters."),
                 )
                 .into_any_element();
         }
-        content = content.child(
-            div()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
-                .font_semibold()
-                .child("Properties"),
-        );
+        let mut parameters = v_flex()
+            .w_full()
+            .gap(px(tokens::InspectorGeometry::ROW_GAP));
         for property in &definition.property_definitions {
-            content = content.child(self.render_shader_property(shader, property, cx));
+            parameters = parameters.child(self.render_shader_property(shader, property, cx));
         }
+        content = content.child(parameters);
         content.into_any_element()
     }
 }

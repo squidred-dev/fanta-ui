@@ -54,6 +54,7 @@ pub struct Tab {
     single_tab: bool,
     compact: bool,
     state: TabState,
+    sidebar_style: bool,
     badge: Option<SharedString>,
     on_activate: Option<ActivateHandler>,
 }
@@ -67,6 +68,7 @@ impl Tab {
             single_tab: false,
             compact: false,
             state: TabState::Default,
+            sidebar_style: false,
             badge: None,
             on_activate: None,
         }
@@ -80,6 +82,12 @@ impl Tab {
     /// Compact navigation for dense inspector headers.
     pub const fn compact(mut self, compact: bool) -> Self {
         self.compact = compact;
+        self
+    }
+
+    /// Uses Zed panel typography and palette for inspector navigation.
+    pub const fn sidebar_style(mut self, sidebar_style: bool) -> Self {
+        self.sidebar_style = sidebar_style;
         self
     }
 
@@ -114,6 +122,7 @@ impl RenderOnce for Tab {
         let preview_hover = self.state == TabState::Hover;
         let handler = self.on_activate;
         let selector = self.id.to_string();
+        let sidebar = self.sidebar_style.then(|| super::sidebar_style(cx));
 
         h_flex()
             .id(self.id)
@@ -139,28 +148,54 @@ impl RenderOnce for Tab {
                 SemanticColor::Border.resolve(cx).opacity(0.)
             })
             .bg(if selected {
-                SemanticColor::BackgroundSelected.resolve(cx)
+                sidebar.map_or_else(
+                    || SemanticColor::BackgroundSelected.resolve(cx),
+                    |p| p.selected,
+                )
             } else if preview_hover {
-                SemanticColor::BackgroundHover.resolve(cx)
+                sidebar.map_or_else(|| SemanticColor::BackgroundHover.resolve(cx), |p| p.hover)
             } else {
                 SemanticColor::BackgroundSecondary.resolve(cx).opacity(0.)
             })
             .cursor_pointer()
-            .hover(|style| style.bg(SemanticColor::BackgroundHover.resolve(cx)))
-            .active(|style| style.bg(SemanticColor::BackgroundActive.resolve(cx)))
-            .focus(|style| style.border_color(SemanticColor::BorderSelected.resolve(cx)))
+            .hover(|style| {
+                style
+                    .bg(sidebar
+                        .map_or_else(|| SemanticColor::BackgroundHover.resolve(cx), |p| p.hover))
+            })
+            .active(|style| {
+                style.bg(sidebar
+                    .map_or_else(|| SemanticColor::BackgroundActive.resolve(cx), |p| p.hover))
+            })
+            .focus(|style| {
+                style.border_color(sidebar.map_or_else(
+                    || SemanticColor::BorderSelected.resolve(cx),
+                    |p| p.focused_border,
+                ))
+            })
             .child(
                 div()
                     .min_w(px(tokens::Space::NONE))
                     .truncate()
-                    .typography(TypographyToken::BodyMedium)
+                    .typography(if sidebar.is_some() {
+                        TypographyToken::Panel
+                    } else {
+                        TypographyToken::BodyMedium
+                    })
                     .when(selected, |label| {
-                        label.typography(TypographyToken::BodyMediumStrong)
+                        label.typography(if sidebar.is_some() {
+                            TypographyToken::PanelStrong
+                        } else {
+                            TypographyToken::BodyMediumStrong
+                        })
                     })
                     .text_color(if selected {
-                        SemanticColor::Text.resolve(cx)
+                        sidebar.map_or_else(|| SemanticColor::Text.resolve(cx), |p| p.text)
                     } else {
-                        SemanticColor::TextSecondary.resolve(cx)
+                        sidebar.map_or_else(
+                            || SemanticColor::TextSecondary.resolve(cx),
+                            |p| p.muted_text,
+                        )
                     })
                     .child(self.label),
             )
@@ -194,6 +229,7 @@ pub struct Tabs {
     selected_index: usize,
     natural_width: bool,
     compact: bool,
+    sidebar_style: bool,
     badges: Vec<Option<SharedString>>,
     on_change: Option<ChangeHandler>,
 }
@@ -207,6 +243,7 @@ impl Tabs {
             selected_index: 0,
             natural_width: false,
             compact: false,
+            sidebar_style: false,
             badges,
             on_change: None,
         }
@@ -219,6 +256,12 @@ impl Tabs {
 
     pub const fn compact(mut self, compact: bool) -> Self {
         self.compact = compact;
+        self
+    }
+
+    /// Uses Zed panel typography and palette for the child tabs.
+    pub const fn sidebar_style(mut self, sidebar_style: bool) -> Self {
+        self.sidebar_style = sidebar_style;
         self
     }
 
@@ -257,7 +300,8 @@ impl RenderOnce for Tabs {
                 let mut tab = Tab::new(SharedString::from(format!("{base_id}-tab-{index}")), label)
                     .selected(!single_tab && index == selected_index)
                     .single_tab(single_tab)
-                    .compact(self.compact);
+                    .compact(self.compact)
+                    .sidebar_style(self.sidebar_style);
                 if let Some(Some(badge)) = self.badges.get(index).cloned() {
                     tab = tab.badge(badge);
                 }

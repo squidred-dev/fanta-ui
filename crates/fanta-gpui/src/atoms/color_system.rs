@@ -87,10 +87,14 @@ pub enum SemanticColor {
     TextOnDanger,
     TextOnWarning,
     TextOnSuccess,
+    BorderPanel,
+    BackgroundPanel,
+    BackgroundPanelField,
+    BackgroundPanelHover,
 }
 
 impl SemanticColor {
-    pub const ALL: [Self; 57] = [
+    pub const ALL: [Self; 61] = [
         Self::Border,
         Self::BorderSelected,
         Self::BorderSelectedStrong,
@@ -148,6 +152,10 @@ impl SemanticColor {
         Self::TextOnDanger,
         Self::TextOnWarning,
         Self::TextOnSuccess,
+        Self::BorderPanel,
+        Self::BackgroundPanel,
+        Self::BackgroundPanelField,
+        Self::BackgroundPanelHover,
     ];
 
     pub const fn group(self) -> SemanticColorGroup {
@@ -156,7 +164,8 @@ impl SemanticColor {
             | Self::BorderSelected
             | Self::BorderSelectedStrong
             | Self::BorderToolbar
-            | Self::BorderMenu => SemanticColorGroup::Border,
+            | Self::BorderMenu
+            | Self::BorderPanel => SemanticColorGroup::Border,
             Self::Background
             | Self::BackgroundSecondary
             | Self::BackgroundTertiary
@@ -180,7 +189,10 @@ impl SemanticColor {
             | Self::BackgroundToolbarHover
             | Self::BackgroundToolbarSelected
             | Self::BackgroundMenu
-            | Self::BackgroundTooltip => SemanticColorGroup::Background,
+            | Self::BackgroundTooltip
+            | Self::BackgroundPanel
+            | Self::BackgroundPanelField
+            | Self::BackgroundPanelHover => SemanticColorGroup::Background,
             Self::Icon
             | Self::IconSecondary
             | Self::IconTertiary
@@ -259,6 +271,10 @@ impl SemanticColor {
             Self::TextOnDanger => "color-text-ondanger",
             Self::TextOnWarning => "color-text-onwarning",
             Self::TextOnSuccess => "color-text-onsuccess",
+            Self::BorderPanel => "color-border-panel",
+            Self::BackgroundPanel => "color-bg-panel",
+            Self::BackgroundPanelField => "color-bg-panel-field",
+            Self::BackgroundPanelHover => "color-bg-panel-hover",
         }
     }
 
@@ -309,6 +325,19 @@ impl SemanticColor {
             Self::IconOnSuccess | Self::TextOnSuccess => theme.success_foreground,
             Self::IconOnLightCanvas => gpui::black(),
             Self::IconOnDarkCanvas => gpui::white(),
+            Self::BorderPanel => super::sidebar_style::sidebar_style(cx).border,
+            Self::BackgroundPanel => super::sidebar_style::sidebar_style(cx).background,
+            Self::BackgroundPanelField => {
+                if cx.try_global::<theme::GlobalTheme>().is_some() {
+                    // Zed's element background can be identical to its panel
+                    // surface. Exact-entry inspector fields need the same
+                    // visible input chrome as the themed Select/Input controls.
+                    theme::GlobalTheme::theme(cx).colors().background
+                } else {
+                    theme.secondary
+                }
+            }
+            Self::BackgroundPanelHover => super::sidebar_style::sidebar_style(cx).hover,
         }
     }
 }

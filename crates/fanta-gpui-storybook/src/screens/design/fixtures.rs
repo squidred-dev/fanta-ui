@@ -2426,6 +2426,27 @@ pub(crate) fn seed_design_shaders() -> DesignShaderViewData {
     DesignShaderViewData::new([fractal, mesh], [library])
 }
 
+pub(crate) fn seed_design_media_assets() -> Vec<DesignMediaPaintAsset> {
+    vec![
+        DesignMediaPaintAsset::new(
+            DesignPaintSource::new("image:hero", "Hero photograph"),
+            DesignMediaKind::Image,
+        ),
+        DesignMediaPaintAsset::new(
+            DesignPaintSource::new("image:material", "Material texture"),
+            DesignMediaKind::Image,
+        ),
+        DesignMediaPaintAsset::new(
+            DesignPaintSource::new("video:product", "Product showcase"),
+            DesignMediaKind::Video,
+        ),
+        DesignMediaPaintAsset::new(
+            DesignPaintSource::new("video:motion", "Motion study"),
+            DesignMediaKind::Video,
+        ),
+    ]
+}
+
 // The Page view fixture intentionally exercises the deprecated
 // local-resource read model until the Design story migrates off it.
 #[allow(deprecated)]
@@ -3819,7 +3840,7 @@ pub(crate) fn seed_design_media_paint_views(
 ) -> HashMap<SharedString, DesignMediaPaintViewData> {
     nodes
         .iter()
-        .filter_map(|node| {
+        .map(|node| {
             let paints = node
                 .fills
                 .iter()
@@ -3887,7 +3908,10 @@ pub(crate) fn seed_design_media_paint_views(
                     _ => None,
                 })
                 .collect::<Vec<_>>();
-            (!paints.is_empty()).then(|| (node.id.clone(), DesignMediaPaintViewData::new(paints)))
+            (
+                node.id.clone(),
+                DesignMediaPaintViewData::new(paints).with_assets(seed_design_media_assets()),
+            )
         })
         .collect()
 }

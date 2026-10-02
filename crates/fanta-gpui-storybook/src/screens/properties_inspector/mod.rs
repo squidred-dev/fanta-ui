@@ -3,10 +3,13 @@ use super::knobs::{self, KnobOption};
 use super::properties_tabs::PropertiesTabsScreen;
 use crate::*;
 use fanta_gpui::design::{DesignInspector, DesignPropertyPanel, DesignPropertyPanelKind};
+use fanta_gpui::properties_tabs::PrototypeInspector;
 
 pub(crate) struct PropertiesInspectorScreen {
     pub(crate) inspector: Entity<PropertiesInspector>,
     pub(crate) design: Entity<DesignInspector>,
+    pub(crate) prototype: Entity<PrototypeInspector>,
+    _presentation_observer: Subscription,
     panels: Vec<(DesignPropertyPanelKind, Entity<DesignPropertyPanel>)>,
     pub(crate) last_action: SharedString,
     pub(crate) typography_host: DesignScreen,
@@ -43,23 +46,45 @@ impl PropertiesInspectorScreen {
                 (kind, panel)
             })
             .collect();
+        let prototype = cx.new(|cx| {
+            let mut prototype = PrototypeInspector::new(
+                "storybook-composed-prototype-inspector",
+                tabs.prototype_data.clone(),
+                cx,
+            );
+            prototype.set_show_presentation_action(false, cx);
+            prototype
+        });
         let inspector = cx.new(|cx| {
-            PropertiesInspector::new(
+            let mut inspector = PropertiesInspector::new(
                 "storybook-properties-inspector",
                 PropertiesInspectorChildren {
                     design: design.clone().into(),
                     motion: tabs.motion.clone().into(),
                     draw: tabs.draw.clone().into(),
                     code: tabs.code.clone().into(),
-                    prototype: tabs.prototype.clone().into(),
+                    prototype: prototype.clone().into(),
                     comments: tabs.comments.clone().into(),
                 },
                 100,
                 cx,
-            )
+            );
+            inspector.set_can_present(tabs.prototype_data.can_present, cx);
+            inspector
+        });
+        let observed_inspector = inspector.clone();
+        let observed_prototype = prototype.clone();
+        let presentation_observer = cx.observe(&tabs.prototype, move |_, accepted, cx| {
+            let data = accepted.read(cx).view_data().clone();
+            observed_inspector.update(cx, |sidebar, cx| {
+                sidebar.set_can_present(data.can_present, cx)
+            });
+            observed_prototype.update(cx, |prototype, cx| prototype.set_view_data(data, cx));
         });
         Self {
             inspector,
+            prototype,
+            _presentation_observer: presentation_observer,
             design,
             panels,
             typography_host,

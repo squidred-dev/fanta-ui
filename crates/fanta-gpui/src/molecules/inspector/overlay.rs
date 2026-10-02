@@ -260,7 +260,7 @@ pub fn inspector_menu_item(
             .px_2()
             .gap_2()
             .rounded(metrics.radius)
-            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .typography(crate::atoms::TypographyToken::Panel)
             .text_color(gpui_component::ActiveTheme::theme(cx).muted_foreground)
             .opacity(0.62)
     }

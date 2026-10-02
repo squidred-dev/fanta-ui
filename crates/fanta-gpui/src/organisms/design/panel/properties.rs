@@ -1879,12 +1879,14 @@ impl DesignPropertiesController for DesignPanel {
         }
         if collection == DesignPanelCollection::Export {
             if self.can_export() {
+                self.sections.expand(DesignPanelSection::Export);
                 cx.emit_design_panel_action(
                     self,
                     DesignPanelAction::ExportConfigurationAddRequested {
                         target: self.export_target(),
                     },
                 );
+                cx.notify();
             }
             return;
         }
@@ -1912,6 +1914,7 @@ impl DesignPropertiesController for DesignPanel {
                 return;
             }
             if let Some(kind) = self.host.inspected_node().first_addable_effect_kind() {
+                self.sections.expand(DesignPanelSection::Effects);
                 self.pending_added_editor = Some(PendingAddedEditor::Effect {
                     node_id: self.host.inspected_node().id.clone(),
                     existing_ids: self
@@ -1929,6 +1932,7 @@ impl DesignPropertiesController for DesignPanel {
                         kind,
                     },
                 );
+                cx.notify();
             }
             return;
         }
@@ -1936,6 +1940,10 @@ impl DesignPropertiesController for DesignPanel {
             collection,
             DesignPanelCollection::Fill | DesignPanelCollection::Stroke
         ) {
+            self.sections.expand(match collection {
+                DesignPanelCollection::Fill => DesignPanelSection::Fill,
+                _ => DesignPanelSection::Stroke,
+            });
             self.pending_added_editor = Some(PendingAddedEditor::Paint {
                 node_id: self.host.inspected_node().id.clone(),
                 collection,
@@ -1947,6 +1955,9 @@ impl DesignPropertiesController for DesignPanel {
                     .collect(),
             });
         }
+        if collection == DesignPanelCollection::LayoutGrid {
+            self.sections.expand(DesignPanelSection::LayoutGrid);
+        }
         cx.emit_design_panel_action(
             self,
             DesignPanelAction::CollectionItemAddRequested {
@@ -1955,6 +1966,7 @@ impl DesignPropertiesController for DesignPanel {
                 target: self.paint_target(collection),
             },
         );
+        cx.notify();
     }
 
     fn emit_remove(
@@ -4998,7 +5010,22 @@ impl DesignPropertiesController for DesignPanel {
         }
         self.cancel_menu_preview(cx);
         self.overlays.discard(DesignOpenOverlay::PaintPicker);
-        self.overlays.discard(DesignOpenOverlay::EffectSettings);
+        // Effect settings are an inline editor. Keep their parent mounted while
+        // editing one of its fields so focus and the edit lifecycle survive.
+        let editing_active_effect = property.effect_index().is_some_and(|index| {
+            self.host
+                .inspected_node()
+                .effects
+                .get(index)
+                .is_some_and(|effect| {
+                    self.overlays
+                        .active_effect_settings()
+                        .is_some_and(|target| target.matches(effect, index))
+                })
+        });
+        if !editing_active_effect {
+            self.overlays.discard(DesignOpenOverlay::EffectSettings);
+        }
         self.overlays.discard(DesignOpenOverlay::GridDimensions);
         self.overlays.discard(DesignOpenOverlay::EffectStyle);
         self.overlays.discard(DesignOpenOverlay::PropertyVariable);

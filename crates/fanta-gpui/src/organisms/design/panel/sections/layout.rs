@@ -636,10 +636,12 @@ fn render_lock_aspect_ratio_button(
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+                .hover(|style| {
+                    style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
+                })
                 .focus(|style| {
                     style
-                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                         .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
         })
@@ -683,7 +685,7 @@ pub(in super::super) fn render(
         .h(px(ROW_HEIGHT))
         .w_full()
         .rounded(px(4.))
-        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx));
+        .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx));
     for (mode, icon) in direction_buttons
         .into_iter()
         .filter(|(mode, _)| *mode != DesignLayoutMode::Grid || projection.grid.supports_auto_layout)
@@ -709,7 +711,7 @@ pub(in super::super) fn render(
                 )
                 .when(layout.mode == mode, |button| {
                     button
-                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                         .border_1()
                         .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
@@ -722,11 +724,14 @@ pub(in super::super) fn render(
                             .tab_index(0)
                             .cursor_pointer()
                             .hover(|style| {
-                                style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                                style
+                                    .bg(crate::atoms::SemanticColor::BackgroundPanelHover
+                                        .resolve(cx))
                             })
                             .focus(|style| {
                                 style
-                                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                                    .bg(crate::atoms::SemanticColor::BackgroundPanelHover
+                                        .resolve(cx))
                                     .border_1()
                                     .border_color(
                                         crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
@@ -747,7 +752,7 @@ pub(in super::super) fn render(
         );
     }
 
-    let mut content = v_flex().pl(px(PANEL_PADDING)).pr_2().pb_4().gap_1();
+    let mut content = crate::molecules::inspector_section_body();
     if !projection.presentation.renders_draw_workspace
         && let Some(view_data) = projection.auto_layout.add.as_ref()
     {
@@ -764,7 +769,7 @@ pub(in super::super) fn render(
                 div()
                     .id(flow_id)
                     .debug_selector(move || flow_selector.clone())
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("Flow"),
             );
@@ -792,13 +797,10 @@ pub(in super::super) fn render(
     if let Some(catalog) = projection.auxiliary.presets.catalog.as_ref()
         && let Some(frame_presets) = chrome.layout_frame_preset_browser(catalog, cx)
     {
-        content = content
-            .child(chrome.layout_group_label("Frame", cx))
-            .child(frame_presets);
+        content = content.child(frame_presets);
     }
-    content = content
-        .child(chrome.layout_group_label("Dimensions", cx))
-        .child(
+    content =
+        content.child(
             h_flex()
                 .w_full()
                 .gap_2()
@@ -934,14 +936,14 @@ pub(in super::super) fn render(
                         .child(
                             div()
                                 .w(px(88.))
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child("Alignment"),
                         )
                         .child(
                             div()
                                 .flex_1()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child("Gap"),
                         ),
@@ -1148,7 +1150,7 @@ pub(in super::super) fn render(
                 .child(
                     div()
                         .pt_1()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .font_semibold()
                         .child("Grid"),
                 )
@@ -1180,7 +1182,7 @@ pub(in super::super) fn render(
             .child(
                 div()
                     .pt_1()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .font_semibold()
                     .child("Auto-layout child"),
             )
@@ -1283,7 +1285,7 @@ pub(in super::super) fn render(
             .child(
                 div()
                     .pt_1()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .font_semibold()
                     .child("Auto-layout child"),
             )
@@ -1310,7 +1312,7 @@ pub(in super::super) fn render(
             .w_full()
             .flex_none()
             .border_b_1()
-            .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
+            .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
             .child(chrome.layout_draw_header(cx))
             .when(projection.presentation.section_expanded, |section| {
                 section.child(content.into_any_element())

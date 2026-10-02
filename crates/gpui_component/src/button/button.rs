@@ -443,6 +443,9 @@ impl RenderOnce for Button {
             .read(cx)
             .clone();
         let is_focused = focus_handle.is_focused(window);
+        let label_debug_selector = format!("{}-button-label", self.id);
+        let text_debug_selector = format!("{}-button-label-text", self.id);
+        let caret_debug_selector = format!("{}-button-caret", self.id);
 
         let rounding = match self.rounded {
             ButtonRounded::Small => cx.theme().radius * 0.5,
@@ -568,9 +571,19 @@ impl RenderOnce for Button {
             .child({
                 h_flex()
                     .id("label")
+                    .debug_selector(move || label_debug_selector)
+                    .min_w_0()
+                    .flex_grow(1.)
+                    .flex_shrink(1.)
                     .items_center()
                     .justify_center()
                     .button_text_size(self.size)
+                    // Explicit host typography must also reach the inner
+                    // label; compact sizing otherwise overrides it here.
+                    .when_some(self.style.text.font_size, |this, size| this.text_size(size))
+                    .when_some(self.style.text.font_weight, |this, weight| {
+                        this.font_weight(weight)
+                    })
                     .map(|this| match self.size {
                         Size::XSmall => this.gap_1(),
                         Size::Small => this.gap_1(),
@@ -578,7 +591,7 @@ impl RenderOnce for Button {
                     })
                     .when(!self.loading, |this| {
                         this.when_some(self.icon, |this, icon| {
-                            this.child(icon.with_size(icon_size))
+                            this.child(div().flex_none().child(icon.with_size(icon_size)))
                         })
                     })
                     .when(self.loading, |this| {
@@ -589,11 +602,30 @@ impl RenderOnce for Button {
                         )
                     })
                     .when_some(self.label, |this, label| {
-                        this.child(div().flex_none().line_height(relative(1.)).child(label))
+                        this.child(
+                            div()
+                                .debug_selector(move || text_debug_selector)
+                                .min_w_0()
+                                .flex_grow(1.)
+                                .truncate()
+                                .text_align(
+                                    self.style
+                                        .text
+                                        .text_align
+                                        .unwrap_or(gpui::TextAlign::Center),
+                                )
+                                .line_height(relative(1.))
+                                .child(label),
+                        )
                     })
                     .children(self.children)
                     .when(self.dropdown_caret, |this| {
-                        this.child(Icon::new(IconName::ChevronDown).with_size(icon_size))
+                        this.child(
+                            div()
+                                .debug_selector(move || caret_debug_selector)
+                                .flex_none()
+                                .child(Icon::new(IconName::ChevronDown).with_size(icon_size)),
+                        )
                     })
             })
             .when(self.loading && !self.disabled, |this| {

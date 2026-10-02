@@ -38,14 +38,16 @@ pub fn inspector_action_button(
         .rounded(metrics.radius)
         .border_1()
         .border_color(cx.theme().transparent)
-        .typography(crate::atoms::TypographyToken::BodyMedium);
+        .typography(crate::atoms::TypographyToken::Panel);
     if access.is_interactive() {
         control = control
             .key_context(CONTROL_KEY_CONTEXT)
             .tab_index(0)
             .cursor_pointer()
-            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
-            .active(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)));
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx)))
+            .active(|style| {
+                style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
+            });
     }
     if access.is_editable() {
         control = control.focus(|style| {
@@ -87,19 +89,19 @@ pub fn inspector_segment(
         .items_center()
         .justify_center()
         .px(metrics.row_gap)
-        .typography(crate::atoms::TypographyToken::BodyMedium);
+        .typography(crate::atoms::TypographyToken::Panel);
     if selected {
         segment = segment
-            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
-            .text_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx));
+            .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
+            .text_color(crate::atoms::sidebar_style(cx).text);
     }
     if access.is_interactive() {
         segment = segment
             .key_context(CONTROL_KEY_CONTEXT)
             .tab_index(0)
             .cursor_pointer()
-            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
-            .focus(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)));
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx)))
+            .focus(|style| style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx)));
     } else {
         segment = segment
             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
@@ -130,9 +132,9 @@ pub fn inspector_collection_row(
         .rounded(metrics.radius)
         .border_1()
         .border_color(cx.theme().transparent)
-        .typography(crate::atoms::TypographyToken::BodyMedium);
+        .typography(crate::atoms::TypographyToken::Panel);
     if selected {
-        row = row.bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx));
+        row = row.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx));
     }
     if access.is_interactive() {
         row = row
@@ -140,13 +142,11 @@ pub fn inspector_collection_row(
             .tab_index(0)
             .cursor_pointer()
             .hover(|style| {
-                style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                style.bg(crate::atoms::SemanticColor::BackgroundPanelHover
                     .resolve(cx)
                     .opacity(0.55))
             })
-            .focus(|style| {
-                style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
-            });
+            .focus(|style| style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx)));
     } else {
         row = row
             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))

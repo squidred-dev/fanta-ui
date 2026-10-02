@@ -9,14 +9,16 @@ use crate::{
     },
     molecules::{
         InspectorFieldAccess, InspectorMetrics, inspector_action_button, inspector_field_grid,
-        inspector_row, inspector_section, menu_item, popup_height, popup_surface, popup_width,
+        inspector_row, inspector_section, popup_height, popup_surface, popup_width,
+        sidebar_menu_item,
     },
 };
 use gpui::AppContext as _;
 use gpui::{
     App, Bounds, Context, Div, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, ParentElement as _, Pixels, Render, SharedString,
-    Stateful, Styled as _, Subscription, Window, div, point, prelude::FluentBuilder as _, px,
+    Stateful, StatefulInteractiveElement as _, Styled as _, Subscription, Window, div, point,
+    prelude::FluentBuilder as _, px,
 };
 use gpui_component::{
     Sizable as _, h_flex,
@@ -25,19 +27,21 @@ use gpui_component::{
 };
 
 pub(super) fn section(title: &'static str, cx: &App) -> Div {
-    inspector_section(cx).child(
-        h_flex()
-            .h(px(tokens::RowHeight::SECTION_HEADER))
-            .px(px(Space::LG))
-            .items_center()
-            .typography(TypographyToken::BodyMediumStrong)
-            .child(title),
-    )
+    inspector_section(cx)
+        .border_color(Color::BorderPanel.resolve(cx))
+        .child(
+            h_flex()
+                .h(px(tokens::InspectorGeometry::SECTION_HEADER))
+                .px(px(tokens::InspectorGeometry::BODY_INSET))
+                .items_center()
+                .typography(TypographyToken::PanelStrong)
+                .child(title),
+        )
 }
 pub(super) fn body() -> Div {
     inspector_field_grid(InspectorMetrics::default())
-        .pb(px(Space::LG))
-        .gap(px(Space::SM))
+        .pb(px(tokens::InspectorGeometry::BODY_BOTTOM))
+        .gap(px(tokens::InspectorGeometry::ROW_GAP))
 }
 pub(super) fn row(label: &'static str, control: impl IntoElement, cx: &App) -> Div {
     inspector_row(InspectorMetrics::default())
@@ -45,8 +49,8 @@ pub(super) fn row(label: &'static str, control: impl IntoElement, cx: &App) -> D
             div()
                 .w(px(tokens::InputGeometry::VARIABLE_CELL_WIDTH))
                 .flex_none()
-                .typography(TypographyToken::BodyMedium)
-                .text_color(Color::TextSecondary.resolve(cx))
+                .typography(TypographyToken::Panel)
+                .text_color(crate::atoms::sidebar_style(cx).muted_text)
                 .child(label),
         )
         .child(div().flex_1().min_w_0().child(control))
@@ -66,6 +70,8 @@ pub(super) fn action(
     inspector_action_button(id.clone(), &access, InspectorMetrics::default(), cx)
         .debug_selector(move || id.to_string())
         .gap(px(Space::SM))
+        .typography(TypographyToken::Panel)
+        .text_color(crate::atoms::sidebar_style(cx).text)
         .child(render_lucide_icon(
             icon,
             if enabled {
@@ -93,33 +99,29 @@ pub(super) fn empty(
             Color::IconSecondary.resolve(cx),
             tokens::ControlSize::TOOL,
         ))
+        .child(div().typography(TypographyToken::PanelStrong).child(title))
         .child(
             div()
-                .typography(TypographyToken::BodyMediumStrong)
-                .child(title),
-        )
-        .child(
-            div()
-                .typography(TypographyToken::BodyMedium)
-                .text_color(Color::TextSecondary.resolve(cx))
+                .typography(TypographyToken::Panel)
+                .text_color(crate::atoms::sidebar_style(cx).muted_text)
                 .child(description),
         )
 }
 pub(super) fn selection(name: SharedString, icon: LucideIcon, cx: &App) -> Div {
     h_flex()
         .px(px(Space::LG))
-        .h(px(tokens::RowHeight::SECTION_HEADER))
+        .h(px(tokens::RowHeight::PAGE))
         .flex_none()
         .gap(px(Space::SM))
         .items_center()
         .border_b_1()
-        .border_color(Color::Border.resolve(cx))
+        .border_color(Color::BorderPanel.resolve(cx))
         .child(render_lucide_icon(
             icon,
             Color::IconSecondary.resolve(cx),
             tokens::IconSize::SM,
         ))
-        .child(truncating_label(name).typography(TypographyToken::BodyMediumStrong))
+        .child(truncating_label(name).typography(TypographyToken::PanelStrong))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -130,8 +132,10 @@ pub(super) struct Picker {
     choices: Vec<InspectorChoice>,
     disabled: bool,
     open: bool,
+    cursor: usize,
     bounds: Bounds<Pixels>,
     focus: FocusHandle,
+    menu_focus: FocusHandle,
 }
 impl EventEmitter<Picked> for Picker {}
 impl Picker {
@@ -142,8 +146,10 @@ impl Picker {
             choices: Vec::new(),
             disabled: false,
             open: false,
+            cursor: 0,
             bounds: Bounds::default(),
             focus: cx.focus_handle(),
+            menu_focus: cx.focus_handle(),
         }
     }
     pub fn sync(
@@ -157,6 +163,7 @@ impl Picker {
             self.value = value;
             self.choices = choices;
             self.disabled = disabled;
+            self.cursor = self.cursor.min(self.choices.len().saturating_sub(1));
             if disabled {
                 self.open = false;
             }
@@ -191,9 +198,21 @@ impl Render for Picker {
                 Dropdown::new(SharedString::from(format!("{}-trigger", self.id)), label)
                     .full_width(true)
                     .disabled(self.disabled)
+                    .sidebar_style(true)
+                    .inset(true)
+                    .stroke(false)
                     .on_activate(cx.listener(|this, _, window, cx| {
                         this.open = !this.open;
-                        this.focus.focus(window, cx);
+                        if this.open {
+                            this.cursor = this
+                                .choices
+                                .iter()
+                                .position(|choice| choice.id == this.value)
+                                .unwrap_or_default();
+                            this.menu_focus.focus(window, cx);
+                        } else {
+                            this.focus.focus(window, cx);
+                        }
                         cx.notify();
                     })),
             )
@@ -214,6 +233,10 @@ impl Render for Picker {
                 px(tokens::Radius::MENU),
                 cx,
             )
+            .debug_selector({
+                let id = format!("{}-menu", self.id);
+                move || id.clone()
+            })
             .w(popup_width(
                 window,
                 self.bounds
@@ -224,22 +247,69 @@ impl Render for Picker {
             ))
             .max_h(popup_height(window, tokens::MenuWidth::PICKER))
             .py(px(Space::XS))
+            .bg(crate::atoms::sidebar_style(cx).menu_background)
+            .text_color(crate::atoms::sidebar_style(cx).text)
+            .typography(TypographyToken::Panel)
+            .track_focus(&self.menu_focus)
             .occlude()
             .on_pinch(|_, _, cx| cx.stop_propagation())
             .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
             .on_mouse_down_out(cx.listener(|this, _, _, cx| {
                 this.open = false;
                 cx.notify();
-            }));
-            for choice in &self.choices {
+            }))
+            .on_key_down(cx.listener(
+                |this, event: &gpui::KeyDownEvent, window, cx| {
+                    if event.keystroke.key == "escape" {
+                        this.open = false;
+                        this.focus.focus(window, cx);
+                    } else if !this.choices.is_empty() {
+                        match event.keystroke.key.as_str() {
+                            "up" => {
+                                this.cursor =
+                                    (this.cursor + this.choices.len() - 1) % this.choices.len()
+                            }
+                            "down" => this.cursor = (this.cursor + 1) % this.choices.len(),
+                            "home" => this.cursor = 0,
+                            "end" => this.cursor = this.choices.len() - 1,
+                            "enter" | "space" => {
+                                if !this.disabled {
+                                    let value = this.choices[this.cursor].id.clone();
+                                    this.open = false;
+                                    this.focus.focus(window, cx);
+                                    cx.emit(Picked(value));
+                                }
+                            }
+                            _ => return,
+                        }
+                    } else {
+                        return;
+                    }
+                    window.prevent_default();
+                    cx.stop_propagation();
+                    cx.notify();
+                },
+            ));
+            for (index, choice) in self.choices.iter().enumerate() {
                 let selected = choice.id == self.value;
                 let value = choice.id.clone();
                 menu = menu.child(
-                    menu_item(
+                    sidebar_menu_item(
                         SharedString::from(format!("{}-{}", self.id, choice.id)),
                         px(tokens::RowHeight::MENU),
+                        true,
                         cx,
                     )
+                    .typography(TypographyToken::Panel)
+                    .when(index == self.cursor, |row| {
+                        row.bg(Color::BackgroundPanelHover.resolve(cx))
+                    })
+                    .on_hover(cx.listener(move |this, hovered, _, cx| {
+                        if *hovered {
+                            this.cursor = index;
+                            cx.notify();
+                        }
+                    }))
                     .debug_selector({
                         let id = format!("{}-{}", self.id, choice.id);
                         move || id.clone()
@@ -255,7 +325,9 @@ impl Render for Picker {
                     .on_activate(cx.listener(move |this, _, window, cx| {
                         this.open = false;
                         this.focus.focus(window, cx);
-                        cx.emit(Picked(value.clone()));
+                        if !this.disabled && this.choices.iter().any(|choice| choice.id == value) {
+                            cx.emit(Picked(value.clone()));
+                        }
                         cx.notify();
                     })),
                 );
@@ -293,6 +365,7 @@ pub(super) struct Entry {
     input: Option<Entity<InputState>>,
     subscriptions: Vec<Subscription>,
     invalid: bool,
+    unit: Option<&'static str>,
 }
 impl EventEmitter<Entered> for Entry {}
 impl Entry {
@@ -305,6 +378,7 @@ impl Entry {
             input: None,
             subscriptions: Vec::new(),
             invalid: false,
+            unit: None,
         }
     }
     pub fn sync(&mut self, value: SharedString, disabled: bool, cx: &mut Context<Self>) {
@@ -313,6 +387,9 @@ impl Entry {
             self.disabled = disabled;
             cx.notify();
         }
+    }
+    pub fn set_unit(&mut self, unit: &'static str) {
+        self.unit = Some(unit);
     }
     fn validated(&self, value: &str) -> Option<SharedString> {
         match self.kind {
@@ -327,6 +404,20 @@ impl Entry {
             EntryKind::Text => (!value.trim().is_empty()).then(|| value.trim().into()),
         }
     }
+    fn commit(&mut self, value: &str, cx: &mut Context<Self>) {
+        if self.disabled {
+            return;
+        }
+        if let Some(value) = self.validated(value) {
+            self.invalid = false;
+            if value != self.value {
+                cx.emit(Entered(value));
+            }
+        } else {
+            self.invalid = true;
+        }
+        cx.notify();
+    }
 }
 impl Render for Entry {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -339,20 +430,24 @@ impl Render for Entry {
                     if matches!(event, InputEvent::PressEnter { .. } | InputEvent::Blur)
                         && !this.disabled
                     {
-                        if let Some(value) = this.validated(&input.read(cx).value()) {
-                            this.invalid = false;
-                            if value != this.value {
-                                cx.emit(Entered(value));
-                            }
-                        } else {
-                            this.invalid = true;
-                        }
-                        cx.notify();
+                        this.commit(&input.read(cx).value(), cx);
                     }
                 },
             ));
             self.input = Some(input);
         }
+        let color_swatch = matches!(self.kind, EntryKind::Color).then(|| {
+            let color = crate::color::parse_hex_rgba(&self.value)
+                .map(|hex| gpui::Hsla::from(gpui::rgba(hex)))
+                .unwrap_or(Color::BackgroundPanelField.resolve(cx));
+            div()
+                .size(px(tokens::ControlSize::INLINE))
+                .flex_none()
+                .rounded(px(tokens::Radius::CONTROL))
+                .border_1()
+                .border_color(Color::BorderPanel.resolve(cx))
+                .bg(color)
+        });
         let input = self.input.as_ref().unwrap();
         if !input.focus_handle(cx).is_focused(window)
             && input.read(cx).value() != self.value
@@ -373,19 +468,45 @@ impl Render for Entry {
             .child(
                 Input::new(input)
                     .small()
-                    .typography(TypographyToken::BodyMedium)
+                    // Own the field surface so Input's unit wrapper stays transparent.
+                    .appearance(false)
+                    .typography(TypographyToken::Panel)
+                    .bg(Color::BackgroundPanelField.resolve(cx))
+                    .rounded(px(tokens::Radius::CONTROL))
+                    .border_1()
+                    .border_color(if input.focus_handle(cx).is_focused(window) {
+                        crate::atoms::sidebar_style(cx).focused_border
+                    } else {
+                        Color::BorderPanel.resolve(cx).opacity(0.)
+                    })
+                    .when_some(color_swatch, |input, swatch| input.prefix(swatch))
+                    .when_some(self.unit, |input, unit| {
+                        input.suffix(
+                            div()
+                                .typography(TypographyToken::PanelCaption)
+                                .text_color(crate::atoms::sidebar_style(cx).muted_text)
+                                .child(unit),
+                        )
+                    })
                     .disabled(self.disabled),
             )
             .when(self.invalid, |v| {
                 v.child(
                     div()
-                        .typography(TypographyToken::BodySmall)
+                        .typography(TypographyToken::PanelCaption)
                         .text_color(Color::TextDanger.resolve(cx))
                         .child("Enter a valid value"),
                 )
             })
             .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
-                if event.keystroke.key == "escape" {
+                if event.keystroke.key == "enter" {
+                    if let Some(input) = &this.input {
+                        let value = input.read(cx).value();
+                        this.commit(&value, cx);
+                    }
+                    window.prevent_default();
+                    cx.stop_propagation();
+                } else if event.keystroke.key == "escape" {
                     this.invalid = false;
                     if let Some(input) = &this.input {
                         input.update(cx, |input, cx| {

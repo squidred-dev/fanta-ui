@@ -93,12 +93,11 @@ impl Render for CodeInspector {
                     .gap(px(tokens::Space::SM))
                     .child(
                         truncating_label(property.id.clone())
-                            .typography(TypographyToken::BodyMedium)
+                            .typography(TypographyToken::Panel)
                             .text_color(Color::TextSecondary.resolve(cx)),
                     )
                     .child(
-                        truncating_label(property.label.clone())
-                            .typography(TypographyToken::BodyMedium),
+                        truncating_label(property.label.clone()).typography(TypographyToken::Panel),
                     )
                     .child(
                         action(
@@ -125,9 +124,9 @@ impl Render for CodeInspector {
             .overflow_y_scroll()
             .occlude()
             .on_pinch(|_, _, cx| cx.stop_propagation())
-            .bg(Color::Background.resolve(cx))
-            .text_color(Color::Text.resolve(cx))
-            .typography(TypographyToken::BodyMedium)
+            .bg(Color::BackgroundPanel.resolve(cx))
+            .text_color(crate::atoms::sidebar_style(cx).text)
+            .typography(TypographyToken::Panel)
             .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
             .when(!self.data.selection_name.is_empty(), |v| {
                 v.child(selection(
@@ -150,7 +149,7 @@ impl Render for CodeInspector {
                                     cx,
                                 )
                                 .flex_1()
-                                .bg(Color::BackgroundSecondary.resolve(cx))
+                                .bg(Color::BackgroundPanelField.resolve(cx))
                                 .on_activate(cx.listener(
                                     |this, _, _, cx| {
                                         if !this.data.code.is_empty() {
@@ -170,7 +169,7 @@ impl Render for CodeInspector {
                                     cx,
                                 )
                                 .when(self.data.wrap_lines, |v| {
-                                    v.bg(Color::BackgroundSecondary.resolve(cx))
+                                    v.bg(Color::BackgroundPanelField.resolve(cx))
                                 })
                                 .on_activate(cx.listener(
                                     |this, _, _, cx| {
@@ -190,7 +189,7 @@ impl Render for CodeInspector {
                         .flex_none()
                         .w_full()
                         .overflow_x_scroll()
-                        .bg(Color::BackgroundSecondary.resolve(cx))
+                        .bg(Color::BackgroundPanelField.resolve(cx))
                         .child(lines),
                 )
             })

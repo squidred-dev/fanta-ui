@@ -247,8 +247,8 @@ impl DesignPanelCompositionController for DesignPanel {
             .on_key_down(cx.listener(Self::handle_property_key_down))
             .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
             .on_pinch(|_, _, cx| cx.stop_propagation())
-            .bg(crate::atoms::SemanticColor::BackgroundToolbar.resolve(cx))
+            .bg(crate::atoms::SemanticColor::BackgroundPanel.resolve(cx))
             .text_color(crate::atoms::SemanticColor::Text.resolve(cx))
-            .typography(crate::atoms::TypographyToken::BodyLarge)
+            .typography(crate::atoms::TypographyToken::Panel)
     }
 }

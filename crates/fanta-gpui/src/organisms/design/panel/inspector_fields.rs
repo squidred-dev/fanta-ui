@@ -291,7 +291,7 @@ fn render_compact_property_label(
         .overflow_hidden()
         .whitespace_nowrap()
         .truncate()
-        .typography(crate::atoms::TypographyToken::BodySmall)
+        .typography(crate::atoms::TypographyToken::PanelCaption)
         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
         .child(projection.label.clone())
         .into_any_element()
@@ -327,7 +327,7 @@ fn render_value_cell_projection(
         .when(projection.editing && !projection.invalid, |cell| {
             cell.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
         })
-        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+        .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
         .when(!interactive, |cell| {
             cell.text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .opacity(0.78)
@@ -366,8 +366,7 @@ fn render_value_cell_projection(
         }
         cell = cell.child(
             Input::new(&projection.property_input)
-                .typography(crate::atoms::TypographyToken::BodyMedium)
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .appearance(false)
                 .bordered(false)
                 .focus_bordered(false)
@@ -386,7 +385,7 @@ fn render_value_cell_projection(
                     })
                     .flex_none()
                     .whitespace_nowrap()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(projection.prefix),
             );
@@ -399,7 +398,7 @@ fn render_value_cell_projection(
                 .flex_1()
                 .min_w(px(0.))
                 .truncate()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .child(projection.display),
         );
         cell = cell.child(render_numeric_scrub_surface(
@@ -470,7 +469,7 @@ fn render_icon_value_cell_projection(
         .min_w(px(0.))
         .overflow_hidden()
         .rounded(metrics.radius)
-        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+        .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
         .child(prefix)
         .child(
             div()
@@ -507,13 +506,13 @@ fn render_toggle_row_projection(
                 .tab_index(0)
                 .cursor_pointer()
                 .hover(|style| {
-                    style.bg(crate::atoms::SemanticColor::BackgroundHover
+                    style.bg(crate::atoms::SemanticColor::BackgroundPanelHover
                         .resolve(cx)
                         .opacity(0.55))
                 })
                 .focus(|style| {
                     style
-                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                         .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
         })
@@ -544,7 +543,7 @@ fn render_toggle_row_projection(
     row.child(
         div()
             .flex_1()
-            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .typography(crate::atoms::TypographyToken::Panel)
             .child(projection.label),
     )
     .when_some(projection.variable_button, |row, button| row.child(button))
@@ -842,7 +841,7 @@ impl DesignInspectorFieldRenderer for DesignPanel {
             .h(px(16.))
             .flex()
             .items_center()
-            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .typography(crate::atoms::TypographyToken::PanelCaption)
             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
             .child(label)
             .into_any_element()

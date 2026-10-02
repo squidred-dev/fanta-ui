@@ -7549,6 +7549,105 @@ fn tooltip_story_trigger_responds_to_hover(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn composed_properties_tabs_mount_draw_and_comments_and_echo_their_host_edits(
+    cx: &mut TestAppContext,
+) {
+    use fanta_gpui::properties_tabs::{CommentsInspectorAction, DrawInspectorAction};
+    let (storybook, cx) = setup_gallery_storybook(cx);
+    cx.update(|window, app| {
+        storybook.update(app, |story, cx| {
+            story.activate_gallery_story(StoryKind::PropertiesInspector, window, cx);
+        });
+    });
+    cx.run_until_parked();
+    let draw_tab = cx
+        .debug_bounds("properties-inspector-tab-list-tab-2")
+        .expect("Draw should always be directly available")
+        .center();
+    cx.simulate_click(draw_tab, Modifiers::none());
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("storybook-draw-inspector-tip").is_some());
+    let draw = storybook.read_with(cx, |story, app| {
+        assert_eq!(
+            story
+                .properties_inspector_screen
+                .inspector
+                .read(app)
+                .active_tab(),
+            PropertiesInspectorTab::Draw,
+        );
+        story.properties_tabs_screen.draw.clone()
+    });
+    draw.update(cx, |draw, cx| {
+        let mut options = draw.view_data().options.clone();
+        options.size = 48;
+        cx.emit(DrawInspectorAction::OptionsChangeRequested { options });
+    });
+    cx.run_until_parked();
+    storybook.read_with(cx, |story, app| {
+        assert_eq!(story.properties_tabs_screen.draw_data.options.size, 48);
+        assert_eq!(
+            draw.read(app).view_data(),
+            &story.properties_tabs_screen.draw_data
+        );
+    });
+    for _ in 0..3 {
+        let next_tab = cx
+            .debug_bounds("properties-inspector-tab-next")
+            .expect("overflow arrows keep Comments accessible by pointer")
+            .center();
+        cx.simulate_click(next_tab, Modifiers::none());
+        cx.run_until_parked();
+    }
+    let comments_tab = cx
+        .debug_bounds("properties-inspector-tab-list-tab-5")
+        .expect("Comments should always be directly available")
+        .center();
+    cx.simulate_click(comments_tab, Modifiers::none());
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("storybook-comments-inspector-filter")
+            .is_some()
+    );
+    let comments = storybook.read_with(cx, |story, app| {
+        assert_eq!(
+            story
+                .properties_inspector_screen
+                .inspector
+                .read(app)
+                .active_tab(),
+            PropertiesInspectorTab::Comments,
+        );
+        story.properties_tabs_screen.comments.clone()
+    });
+    comments.update(cx, |_, cx| {
+        cx.emit(CommentsInspectorAction::CommentAddRequested {
+            body: "Composed inspector comment".into(),
+        });
+    });
+    cx.run_until_parked();
+    storybook.read_with(cx, |story, app| {
+        assert!(
+            story
+                .properties_tabs_screen
+                .comments_data
+                .threads
+                .iter()
+                .any(|thread| {
+                    thread
+                        .comments
+                        .iter()
+                        .any(|comment| comment.body == "Composed inspector comment")
+                })
+        );
+        assert_eq!(
+            comments.read(app).view_data(),
+            &story.properties_tabs_screen.comments_data
+        );
+    });
+}
+
+#[gpui::test]
 fn properties_tab_mock_hosts_echo_edits_and_enforce_read_only(cx: &mut TestAppContext) {
     use crate::screens::properties_tabs::PropertiesTabsNamedState;
     use fanta_gpui::properties_tabs::*;

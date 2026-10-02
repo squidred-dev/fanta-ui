@@ -432,33 +432,6 @@ impl Render for PseudoEditor {
                     )
                     .child(
                         div()
-                            .id(SharedString::from(format!("{}-present", self.id)))
-                            .debug_selector(|| "pseudo-editor-present".to_owned())
-                            .key_context(CONTROL_KEY_CONTEXT)
-                            .tab_index(0)
-                            .h(px(28.))
-                            .px(px(9.))
-                            .items_center()
-                            .rounded(px(5.))
-                            .cursor_pointer()
-                            .typography(crate::atoms::TypographyToken::BodySmall)
-                            .border_1()
-                            .border_color(cx.theme().transparent)
-                            .hover(|style| {
-                                style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
-                            })
-                            .focus(|style| {
-                                style.border_color(
-                                    crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
-                                )
-                            })
-                            .on_activate(cx.listener(|_, _, _, cx| {
-                                cx.emit(PseudoEditorAction::PresentRequested);
-                            }))
-                            .child("Present"),
-                    )
-                    .child(
-                        div()
                             .id(SharedString::from(format!("{}-share", self.id)))
                             .debug_selector(|| "pseudo-editor-share".to_owned())
                             .key_context(CONTROL_KEY_CONTEXT)

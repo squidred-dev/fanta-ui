@@ -46,5 +46,5 @@ pub use structure::{
     inspector_field_frame, inspector_field_frame_with_presentation, inspector_field_grid,
     inspector_field_grid_with_layout, inspector_field_group, inspector_field_label,
     inspector_grouped_field_frame, inspector_row, inspector_row_with_layout, inspector_section,
-    inspector_section_group, inspector_section_header,
+    inspector_section_body, inspector_section_group, inspector_section_header,
 };
