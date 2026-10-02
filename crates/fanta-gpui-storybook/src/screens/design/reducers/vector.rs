@@ -24,6 +24,51 @@ pub(crate) fn reduce(
                     .into()
             };
         }
+        DesignPanelAction::TextPathDirectionChangeRequested { node_id, direction } => {
+            let applied = node.kind == DesignPanelNodeKind::TextPath
+                && node.supports_section(DesignPanelSection::Typography)
+                && node.text_path.as_mut().is_some_and(|text_path| {
+                    if text_path.direction.is_none() {
+                        return false;
+                    }
+                    text_path.direction = Some(*direction);
+                    true
+                });
+            screen.harness.last_action = if applied {
+                format!(
+                    "Host set text path direction to {} on {node_id}",
+                    direction.label()
+                )
+                .into()
+            } else {
+                format!("Host rejected unavailable text path direction on {node_id}").into()
+            };
+        }
+        DesignPanelAction::TextPathPlacementChangeRequested {
+            node_id,
+            placement,
+            phase,
+        } => {
+            let available = node.kind == DesignPanelNodeKind::TextPath
+                && node.supports_section(DesignPanelSection::Typography)
+                && node.text_path_placement.is_some()
+                && placement.offset.is_finite()
+                && (0. ..=1.).contains(&placement.offset);
+            if available
+                && matches!(
+                    *phase,
+                    DesignPanelEditPhase::Preview | DesignPanelEditPhase::Commit
+                )
+            {
+                node.text_path_placement = Some(*placement);
+            }
+            screen.harness.last_action = if available {
+                format!("Host observed {phase:?} text path placement {placement:?} on {node_id}")
+                    .into()
+            } else {
+                format!("Host rejected unavailable text path placement on {node_id}").into()
+            };
+        }
         DesignPanelAction::TextPathStartChangeRequested {
             node_id,
             data,

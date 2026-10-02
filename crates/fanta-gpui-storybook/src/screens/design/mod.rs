@@ -1412,6 +1412,9 @@ pub(crate) fn story_node_edit_transaction(
             phase,
             ..
         } => (node_id, format!("typography-axis:{target:?}:{tag}"), *phase),
+        DesignPanelAction::TextPathPlacementChangeRequested { node_id, phase, .. } => {
+            (node_id, "text-path-placement".to_owned(), *phase)
+        }
         DesignPanelAction::PropertyEditRequested {
             node_id,
             property,
@@ -1460,7 +1463,7 @@ pub(crate) fn story_node_edit_transaction(
             ),
             *phase,
         ),
-        // Paint, TextPath, and vector-edit transactions keep specialized
+        // Paint, debug TextPath start, and vector-edit transactions keep specialized
         // stable-identity snapshots because they resolve leaves differently.
         _ => return None,
     };

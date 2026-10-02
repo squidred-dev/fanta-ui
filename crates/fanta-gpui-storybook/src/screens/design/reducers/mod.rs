@@ -135,6 +135,8 @@ impl DesignScreen {
             | DesignPanelAction::TypographyFontImportRequested { node_id, .. }
             | DesignPanelAction::TypographyOpenTypeFeatureChangeRequested { node_id, .. }
             | DesignPanelAction::TextPathFlipOrientationRequested { node_id }
+            | DesignPanelAction::TextPathDirectionChangeRequested { node_id, .. }
+            | DesignPanelAction::TextPathPlacementChangeRequested { node_id, .. }
             | DesignPanelAction::TextPathStartChangeRequested { node_id, .. }
             | DesignPanelAction::VectorVertexSelectionEditRequested { node_id, .. }
             | DesignPanelAction::VectorVertexPositionEditRequested { node_id, .. }

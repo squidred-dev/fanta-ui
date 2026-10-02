@@ -19726,13 +19726,22 @@ fn text_path_placement_and_direction_are_controlled_and_preserve_rounded_input(
     panel.read_with(visual_cx, |panel, _| {
         assert_eq!(panel.host.inspected_node().text_path, node.text_path)
     });
+    let flip = visual_cx
+        .debug_bounds("design-text-path-flip-orientation")
+        .expect("the keyboard focus anchor precedes the direction Buttons")
+        .center();
+    visual_cx.simulate_click(flip, Modifiers::none());
+    visual_cx.run_until_parked();
     captured.borrow_mut().clear();
-    visual_cx.simulate_keystrokes("enter");
+    visual_cx.simulate_keystrokes("tab tab enter");
     visual_cx.run_until_parked();
     assert_eq!(
-        captured.borrow().len(),
-        1,
-        "keyboard activation emits an intent until the host accepts"
+        captured.borrow().as_slice(),
+        &[DesignPanelAction::TextPathDirectionChangeRequested {
+            node_id: "path".into(),
+            direction: DesignTextPathDirection::Reverse,
+        }],
+        "the tab-reachable direction Button emits one controlled intent"
     );
     captured.borrow_mut().clear();
 
@@ -19989,13 +19998,27 @@ fn preserved_property_draft_commits_after_peer_focus_without_stealing_focus(
         cx.notify();
         scope
     });
+    visual_cx.update(|window, _| window.activate_window());
+    visual_cx.run_until_parked();
+    assert!(visual_cx.update(|window, _| window.is_window_active()));
+    let width = visual_cx
+        .debug_bounds("design-width")
+        .expect("the Width field is mounted")
+        .center();
+    visual_cx.simulate_click(width, Modifiers::none());
     visual_cx.run_until_parked();
     panel.update_in(visual_cx, |panel, window, cx| {
-        panel.activate_property(
-            DesignPanelProperty::Width,
-            DesignPanelValue::Number(100.),
-            window,
-            cx,
+        assert_eq!(
+            panel.edit.property.as_ref().map(|editor| editor.property),
+            Some(DesignPanelProperty::Width)
+        );
+        assert!(
+            panel
+                .retained
+                .inputs
+                .property
+                .focus_handle(cx)
+                .is_focused(window)
         );
         panel
             .retained
@@ -20004,9 +20027,14 @@ fn preserved_property_draft_commits_after_peer_focus_without_stealing_focus(
             .update(cx, |input, cx| input.set_value("240", window, cx));
     });
     visual_cx.run_until_parked();
-    visual_cx.update(|window, app| scope.focus(window, app));
+    let peer = visual_cx
+        .debug_bounds("design-draft-peer-scope")
+        .expect("the draft-preserving peer control is mounted")
+        .center();
+    visual_cx.simulate_click(peer, Modifiers::none());
     visual_cx.run_until_parked();
-    panel.read_with(visual_cx, |panel, _| {
+    panel.update_in(visual_cx, |panel, window, _| {
+        assert!(scope.is_focused(window));
         assert!(panel.property_draft_preserved);
         assert!(panel.edit.property.is_some());
     });
