@@ -4035,7 +4035,7 @@ fn legacy_media_snapshot_has_a_lossless_paint_filter_migration() {
 }
 
 #[test]
-fn selected_node_header_presets_preserve_the_observed_control_order() {
+fn selected_node_header_presets_keep_editing_actions_in_the_compact_row() {
     use DesignSelectionHeaderControlKind as Kind;
 
     let ellipse = DesignSelectionHeaderViewData::for_node_kind(DesignPanelNodeKind::Ellipse);
@@ -4045,12 +4045,7 @@ fn selected_node_header_presets_preserve_the_observed_control_order() {
             .iter()
             .map(|control| control.kind)
             .collect::<Vec<_>>(),
-        vec![
-            Kind::CreateComponent,
-            Kind::UseAsMask,
-            Kind::BooleanFlattenMenu,
-            Kind::EditObject,
-        ]
+        vec![Kind::CreateComponent, Kind::EditObject,]
     );
 
     let text = DesignSelectionHeaderViewData::for_node_kind(DesignPanelNodeKind::Text);
@@ -4059,12 +4054,7 @@ fn selected_node_header_presets_preserve_the_observed_control_order() {
             .iter()
             .map(|control| control.kind)
             .collect::<Vec<_>>(),
-        vec![
-            Kind::SelectMatchingLayers,
-            Kind::CreateLink,
-            Kind::ApplyTextContentVariable,
-            Kind::CreateComponent,
-        ]
+        vec![Kind::CreateComponent,]
     );
     assert!(!text.overflow_controls.is_empty());
 
@@ -4076,12 +4066,7 @@ fn selected_node_header_presets_preserve_the_observed_control_order() {
             .iter()
             .map(|control| control.kind)
             .collect::<Vec<_>>(),
-        vec![
-            Kind::SelectMatchingLayers,
-            Kind::CreateComponent,
-            Kind::UseAsMask,
-            Kind::BooleanFlattenMenu,
-        ]
+        vec![Kind::CreateComponent,]
     );
 }
 
@@ -5285,4 +5270,24 @@ fn scrub_speed_bands_are_deterministic_at_every_boundary() {
         ],
         [2., 1., 0.5, 0.25]
     );
+}
+
+#[test]
+fn container_type_menu_emits_explicit_host_conversion_commands() {
+    for current in [
+        DesignPanelNodeKind::Frame,
+        DesignPanelNodeKind::Group,
+        DesignPanelNodeKind::Section,
+    ] {
+        let header = DesignSelectionHeaderViewData::for_node_kind(current);
+        let menu = header.title_menu.expect("container conversion menu");
+        assert_eq!(menu.items.len(), 3);
+        for item in menu.items {
+            let DesignSelectionHeaderCommand::ChangeLayerType { kind } = item.command else {
+                panic!("layer conversion must be typed");
+            };
+            assert_eq!(item.enabled, kind != current);
+            assert!(item.effective_access().requires_edit());
+        }
+    }
 }

@@ -49,7 +49,7 @@ impl PaintPicker {
             crate::atoms::SemanticColor::TextDanger.resolve(cx)
         };
 
-        let mut category_controls = h_flex().w_full().gap_1().flex_wrap();
+        let mut category_controls = h_flex().w_full().gap(px(tokens::Space::XS)).flex_wrap();
         for option in DesignColorContrastCategory::ALL {
             category_controls = category_controls.child(
                 crate::atoms::ui_button(SharedString::from(format!(
@@ -65,6 +65,7 @@ impl PaintPicker {
                     _ => SharedString::from(option.label()),
                 })
                 .xsmall()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .compact()
                 .ghost()
                 .selected(self.contrast_category == option)
@@ -78,7 +79,7 @@ impl PaintPicker {
             );
         }
 
-        let mut level_controls = h_flex().gap_1();
+        let mut level_controls = h_flex().gap(px(tokens::Space::XS));
         for option in DesignColorContrastLevel::ALL {
             let unavailable = category == DesignColorContrastCategory::Graphics
                 && option == DesignColorContrastLevel::Aaa;
@@ -95,6 +96,7 @@ impl PaintPicker {
                     option.label()
                 })
                 .xsmall()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .compact()
                 .ghost()
                 .selected(level == option)
@@ -114,27 +116,27 @@ impl PaintPicker {
         Some(
             v_flex()
                 .w_full()
-                .gap_2()
-                .p_2()
+                .gap(px(tokens::InspectorGeometry::ROW_GAP))
+                .p(px(tokens::Space::SM))
                 .rounded(px(6.))
                 .border_1()
-                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
                 .child(
                     h_flex()
                         .w_full()
                         .justify_between()
                         .child(
                             div()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .font_semibold()
                                 .child("Contrast"),
                         )
                         .child(
                             h_flex()
-                                .gap_1()
+                                .gap(px(tokens::Space::XS))
                                 .child(
                                     div()
-                                        .typography(crate::atoms::TypographyToken::BodyLarge)
+                                        .typography(crate::atoms::TypographyToken::Panel)
                                         .font_semibold()
                                         .child(format!("{:.2}:1", leaf.ratio)),
                                 )
@@ -154,6 +156,7 @@ impl PaintPicker {
                                         }
                                     }))
                                     .xsmall()
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .compact()
                                     .ghost()
                                     .text_color(pass_color)
@@ -169,24 +172,24 @@ impl PaintPicker {
                 .child(
                     h_flex()
                         .w_full()
-                        .gap_2()
+                        .gap(px(tokens::InspectorGeometry::ROW_GAP))
                         .child(
                             div()
                                 .size(px(24.))
                                 .rounded(px(4.))
                                 .border_1()
-                                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                                .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
                                 .bg(color_to_hsla(foreground)),
                         )
                         .child(
                             div()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .child("Selected layer"),
                         )
                         .child(div().flex_1())
                         .child(
                             div()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child("on"),
                         )
@@ -195,7 +198,7 @@ impl PaintPicker {
                                 .size(px(24.))
                                 .rounded(px(4.))
                                 .border_1()
-                                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                                .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
                                 .bg(color_to_hsla(leaf.effective_background)),
                         ),
                 )
@@ -207,7 +210,7 @@ impl PaintPicker {
                         .child(level_controls)
                         .child(
                             div()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .font_semibold()
                                 .text_color(pass_color)
                                 .child(if passes { "Pass" } else { "Fail" }),
@@ -215,7 +218,7 @@ impl PaintPicker {
                 )
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(format!(
                             "{} · {} requires {:.1}:1",

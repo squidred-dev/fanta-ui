@@ -659,12 +659,15 @@ impl PaintPicker {
         let menu_focus_handle = self.gradient_kind_menu_focus_handle.clone();
         let menu_focus_for_content = menu_focus_handle.clone();
         let disabled = self.editing_disabled();
+        let selected_kind = paint.kind;
         let trigger =
             crate::atoms::ui_button(SharedString::from(format!("{}-gradient-kind", self.id)))
                 .label(paint.kind.label())
+                .text_left()
                 .dropdown_caret(true)
                 .tooltip("Gradient type")
                 .xsmall()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .compact()
                 .outline()
                 .flex_1()
@@ -685,6 +688,7 @@ impl PaintPicker {
             self.id
         )))
         .anchor(Anchor::BottomLeft)
+        .appearance(false)
         .open(self.nested_overlay_is_open(PaintPickerOverlay::GradientKind))
         .track_focus(&menu_focus_handle)
         .overlay_closable(true)
@@ -711,51 +715,60 @@ impl PaintPicker {
             });
         })
         .trigger(trigger)
-        .content(move |_, window, _| {
-            v_flex()
-                .id(SharedString::from(format!(
-                    "{picker_id}-gradient-kind-options"
+        .content(move |_, window, cx| {
+            crate::molecules::sidebar_popup_surface(
+                SharedString::from(format!("{picker_id}-gradient-kind-options")),
+                cx,
+            )
+            .key_context(CONTROL_KEY_CONTEXT)
+            .track_focus(&menu_focus_for_content.clone().tab_index(0).tab_stop(true))
+            .on_action({
+                let picker = picker_for_content.clone();
+                move |_: &ActivateControl, window, cx| {
+                    picker.update(cx, |this, cx| {
+                        this.commit_gradient_kind_menu(window, cx);
+                    });
+                }
+            })
+            .on_key_down({
+                let picker = picker_for_content.clone();
+                move |event: &KeyDownEvent, window, cx| {
+                    picker.update(cx, |this, cx| {
+                        this.handle_gradient_kind_menu_key(event, window, cx);
+                    });
+                }
+            })
+            .w(popup_width(window, tokens::MenuWidth::NARROW))
+            .p(px(tokens::Space::XS))
+            .children(GRADIENT_KINDS.into_iter().enumerate().map(|(index, kind)| {
+                let picker = picker_for_content.clone();
+                crate::atoms::ui_button(SharedString::from(format!(
+                    "{picker_id}-gradient-kind-{}",
+                    kind.label().to_lowercase()
                 )))
-                .key_context(CONTROL_KEY_CONTEXT)
-                .track_focus(&menu_focus_for_content.clone().tab_index(0).tab_stop(true))
-                .on_action({
-                    let picker = picker_for_content.clone();
-                    move |_: &ActivateControl, window, cx| {
-                        picker.update(cx, |this, cx| {
-                            this.commit_gradient_kind_menu(window, cx);
-                        });
-                    }
+                .child(picker_menu_option(
+                    format!("paint-picker-gradient-{}", kind.label().to_lowercase()),
+                    kind.label(),
+                    None,
+                    selected_kind == kind,
+                    cx,
+                ))
+                .tooltip(kind.label())
+                .xsmall()
+                .typography(crate::atoms::TypographyToken::Panel)
+                .compact()
+                .ghost()
+                .w_full()
+                .h(px(tokens::RowHeight::MENU))
+                .px(px(tokens::Space::SM))
+                .tab_stop(false)
+                .selected(highlighted_index == index)
+                .on_activate(move |_, window, cx| {
+                    picker.update(cx, |this, cx| {
+                        this.choose_gradient_kind(kind, window, cx);
+                    });
                 })
-                .on_key_down({
-                    let picker = picker_for_content.clone();
-                    move |event: &KeyDownEvent, window, cx| {
-                        picker.update(cx, |this, cx| {
-                            this.handle_gradient_kind_menu_key(event, window, cx);
-                        });
-                    }
-                })
-                .w(popup_width(window, 152.))
-                .gap_1()
-                .children(GRADIENT_KINDS.into_iter().enumerate().map(|(index, kind)| {
-                    let picker = picker_for_content.clone();
-                    crate::atoms::ui_button(SharedString::from(format!(
-                        "{picker_id}-gradient-kind-{}",
-                        kind.label().to_lowercase()
-                    )))
-                    .label(kind.label())
-                    .tooltip(kind.label())
-                    .xsmall()
-                    .compact()
-                    .ghost()
-                    .w_full()
-                    .tab_stop(false)
-                    .selected(highlighted_index == index)
-                    .on_activate(move |_, window, cx| {
-                        picker.update(cx, |this, cx| {
-                            this.choose_gradient_kind(kind, window, cx);
-                        });
-                    })
-                }))
+            }))
         })
         .into_any_element()
     }
@@ -770,12 +783,13 @@ impl PaintPicker {
         }
         let disabled = self.editing_disabled();
 
-        let mut stops = h_flex().w_full().gap_1().flex_wrap();
+        let mut stops = h_flex().w_full().gap(px(tokens::Space::XS)).flex_wrap();
         for (index, stop) in paint.gradient_stops.iter().enumerate() {
             let selected = index == self.selected_stop;
             stops = stops.child(
                 crate::atoms::ui_button(SharedString::from(format!("{}-stop-{index}", self.id)))
                     .xsmall()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .compact()
                     .outline()
                     .disabled(disabled)
@@ -791,18 +805,20 @@ impl PaintPicker {
                     }))
                     .child(
                         h_flex()
-                            .gap_1()
+                            .gap(px(tokens::Space::XS))
                             .child(
                                 div()
                                     .size(px(12.))
                                     .rounded(px(3.))
                                     .border_1()
-                                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                                    .border_color(
+                                        crate::atoms::SemanticColor::BorderPanel.resolve(cx),
+                                    )
                                     .bg(color_to_hsla(stop.color)),
                             )
                             .child(
                                 div()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .child(format!("{}%", (stop.position * 100.).round() as i32)),
                             ),
                     )
@@ -817,11 +833,11 @@ impl PaintPicker {
         Some(
             v_flex()
                 .w_full()
-                .gap_2()
+                .gap(px(tokens::InspectorGeometry::ROW_GAP))
                 .child(
                     h_flex()
                         .w_full()
-                        .gap_1()
+                        .gap(px(tokens::Space::XS))
                         .child(self.render_gradient_kind_selector(paint, cx))
                         .child(
                             crate::atoms::ui_button(SharedString::from(format!(
@@ -831,6 +847,7 @@ impl PaintPicker {
                             .icon(IconName::Replace)
                             .tooltip("Flip gradient")
                             .xsmall()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .compact()
                             .outline()
                             .disabled(disabled)
@@ -851,6 +868,7 @@ impl PaintPicker {
                             .icon(IconName::Redo2)
                             .tooltip("Rotate gradient 90°")
                             .xsmall()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .compact()
                             .outline()
                             .disabled(disabled)
@@ -867,41 +885,45 @@ impl PaintPicker {
                 .child(self.render_gradient_preview(paint, cx))
                 .child(stops)
                 .child(
-                    h_flex().w_full().gap_2().child(
-                        v_flex()
-                            .flex_1()
-                            .gap_1()
-                            .child(
-                                div()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
-                                    .text_color(
-                                        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
-                                    )
-                                    .child("Stop position"),
-                            )
-                            .child(
-                                Input::new(&self.stop_position_input)
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
-                                    .suffix(
-                                        div()
-                                            .typography(crate::atoms::TypographyToken::BodyMedium)
-                                            .child("%"),
-                                    )
-                                    .xsmall()
-                                    .h(px(26.))
-                                    .disabled(disabled)
-                                    .when(self.stop_position_invalid, |input| {
-                                        input.border_color(
-                                            crate::atoms::SemanticColor::TextDanger.resolve(cx),
+                    h_flex()
+                        .w_full()
+                        .gap(px(tokens::InspectorGeometry::ROW_GAP))
+                        .child(
+                            v_flex()
+                                .flex_1()
+                                .gap(px(tokens::InspectorGeometry::ROW_GAP))
+                                .child(
+                                    div()
+                                        .typography(crate::atoms::TypographyToken::Panel)
+                                        .text_color(
+                                            crate::atoms::SemanticColor::TextTertiary.resolve(cx),
                                         )
-                                    }),
-                            ),
-                    ),
+                                        .child("Stop position"),
+                                )
+                                .child(
+                                    Input::new(&self.stop_position_input)
+                                        .typography(crate::atoms::TypographyToken::Panel)
+                                        .suffix(
+                                            div()
+                                                .typography(crate::atoms::TypographyToken::Panel)
+                                                .child("%"),
+                                        )
+                                        .xsmall()
+                                        .typography(crate::atoms::TypographyToken::Panel)
+                                        .h(px(26.))
+                                        .disabled(disabled)
+                                        .when(self.stop_position_invalid, |input| {
+                                            input.border_color(
+                                                crate::atoms::SemanticColor::TextDanger.resolve(cx),
+                                            )
+                                        }),
+                                ),
+                        ),
                 )
                 .child(
                     h_flex()
                         .w_full()
-                        .gap_2()
+                        .gap(px(tokens::InspectorGeometry::ROW_GAP))
                         .child(
                             crate::atoms::ui_button(SharedString::from(format!(
                                 "{}-add-stop",
@@ -910,6 +932,7 @@ impl PaintPicker {
                             .label("Add stop")
                             .icon(IconName::Plus)
                             .xsmall()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .compact()
                             .outline()
                             .disabled(disabled)
@@ -927,6 +950,7 @@ impl PaintPicker {
                             .label("Remove")
                             .icon(IconName::Minus)
                             .xsmall()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .compact()
                             .outline()
                             .disabled(disabled || paint.gradient_stops.len() <= 2)

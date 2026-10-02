@@ -124,6 +124,7 @@ pub(in super::super::super) fn render(
     .tooltip(tooltip)
     .xsmall()
     .compact()
+    .typography(crate::atoms::TypographyToken::Panel)
     .ghost()
     .w(px(24.))
     .h(px(24.))

@@ -161,7 +161,6 @@ impl DesignSectionController {
         self.expanded.clear();
     }
 
-    #[cfg(test)]
     pub(super) fn expand(&mut self, section: DesignPanelSection) {
         self.expanded.insert(section);
     }

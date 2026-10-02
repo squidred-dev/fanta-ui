@@ -354,11 +354,11 @@ impl DesignOptionsController for DesignPanel {
                 .rounded(px(4.))
                 .border_1()
                 .border_color(cx.theme().transparent)
-                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
                 .child(
                     div()
                         .w(px(14.))
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(prefix),
                 );
@@ -371,7 +371,7 @@ impl DesignOptionsController for DesignPanel {
                         .flex_1()
                         .min_w(px(0.))
                         .truncate()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .child(value),
                 )
                 .when_some(
@@ -412,6 +412,7 @@ impl DesignOptionsController for DesignPanel {
                 div().flex_1().min_w(px(0.)).child(
                     Select::new(state)
                         .xsmall()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .w_full()
                         .h(px(ROW_HEIGHT))
                         .menu_width(px(168.))
@@ -463,7 +464,9 @@ impl DesignOptionsController for DesignPanel {
             .dropdown_caret(true)
             .xsmall()
             .compact()
+            .typography(crate::atoms::TypographyToken::Panel)
             .outline()
+            .text_left()
             .w_full()
             .h(px(ROW_HEIGHT))
             .disabled(!self.property_is_editable(property))
@@ -540,7 +543,12 @@ impl DesignOptionsController for DesignPanel {
                                 .label(option.label)
                                 .xsmall()
                                 .compact()
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .ghost()
+                                .text_left()
+                                .justify_start()
+                                .px_2()
+                                .h(px(crate::atoms::tokens::RowHeight::MENU))
                                 .w_full()
                                 .selected(current.as_ref() == Some(&candidate))
                                 .on_hover(move |hovered, _, cx| {
@@ -660,10 +668,10 @@ impl DesignOptionsController for DesignPanel {
             .justify_center()
             .rounded(px(4.))
             .cursor_pointer()
-            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx)))
             .focus(|style| {
                 style
-                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                     .border_1()
                     .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
             })
@@ -946,8 +954,8 @@ impl DesignOptionsController for DesignPanel {
                 .rounded(px(4.))
                 .border_1()
                 .border_color(cx.theme().transparent)
-                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+                .typography(crate::atoms::TypographyToken::Panel)
                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .opacity(0.62)
                 .child(label)
@@ -965,13 +973,13 @@ impl DesignOptionsController for DesignPanel {
             .rounded(px(4.))
             .border_1()
             .border_color(cx.theme().transparent)
-            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
             .cursor_pointer()
-            .typography(crate::atoms::TypographyToken::BodyMedium)
-            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+            .typography(crate::atoms::TypographyToken::Panel)
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx)))
             .focus(|style| {
                 style
-                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                     .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
             })
             .on_activate(cx.listener(move |this, _, _, cx| {
@@ -1005,11 +1013,11 @@ impl DesignOptionsController for DesignPanel {
                     .tab_index(0)
                     .cursor_pointer()
                     .hover(|style| {
-                        style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                     })
                     .focus(|style| {
                         style
-                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                             .border_color(
                                 crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
                             )

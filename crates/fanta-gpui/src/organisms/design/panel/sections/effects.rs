@@ -336,32 +336,20 @@ fn render_remove_button(
         return div().size(px(24.)).flex_none().into_any_element();
     }
     let events = events.clone();
-    div()
-        .id(SharedString::from(format!(
-            "{}-remove-effect-{index}",
-            projection.identity.panel_id
-        )))
-        .key_context(CONTROL_KEY_CONTEXT)
-        .tab_index(0)
-        .size(px(24.))
-        .flex_none()
-        .flex()
-        .items_center()
-        .justify_center()
-        .rounded(px(4.))
-        .cursor_pointer()
-        .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
-        .focus(|style| {
-            style
-                .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
-                .border_1()
-                .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
-        })
-        .on_activate(move |_, _, cx| {
-            events.send(EffectsEvent::Remove(target.clone()), cx);
-        })
-        .child(Icon::new(IconName::Minus).xsmall())
-        .into_any_element()
+    let selector = format!("{}-remove-effect-{index}", projection.identity.panel_id);
+    crate::molecules::inspector_action_button(
+        SharedString::from(selector.clone()),
+        &InspectorFieldAccess::Editable,
+        InspectorMetrics::current(),
+        cx,
+    )
+    .debug_selector(move || selector.clone())
+    .size(px(24.))
+    .on_activate(move |_, _, cx| {
+        events.send(EffectsEvent::Remove(target.clone()), cx);
+    })
+    .child(Icon::new(IconName::Minus).xsmall())
+    .into_any_element()
 }
 
 pub(in super::super) fn render(
@@ -372,9 +360,7 @@ pub(in super::super) fn render(
 ) -> AnyElement {
     let metrics = InspectorMetrics::current();
     if let Some(name) = projection.content.style_binding_name.clone() {
-        let content = v_flex()
-            .px(px(PANEL_PADDING))
-            .pb_4()
+        let content = crate::molecules::inspector_section_body()
             .child(chrome.effects_bound_style_summary(name, cx));
         return chrome.effects_section(content.into_any_element(), cx);
     }
@@ -382,20 +368,23 @@ pub(in super::super) fn render(
         return chrome.effects_section(div().into_any_element(), cx);
     }
 
-    let mut content = v_flex().px(px(PANEL_PADDING)).pb_4().gap_1();
+    let mut content = crate::molecules::inspector_section_body();
     for (index, effect) in projection.content.effects.iter().enumerate() {
         let can_reorder = false;
         let active = projection.settings_are_active(effect, index);
         let target = projection.target(effect, index);
         let target_for_keyboard = target.clone();
         let events_for_keyboard = events.clone();
+        let settings_selector = format!("{}-effect-settings-{index}", projection.identity.panel_id);
         let settings_trigger = crate::atoms::ui_button(SharedString::from(format!(
             "{}-effect-settings-{index}",
             projection.identity.panel_id
         )))
+        .debug_selector(move || settings_selector.clone())
         .tooltip("Effect settings")
         .xsmall()
         .compact()
+        .typography(crate::atoms::TypographyToken::Panel)
         .ghost()
         .w(px(24.))
         .h(px(24.))
@@ -473,14 +462,20 @@ pub(in super::super) fn render(
         .px(px(0.))
         .gap_1()
         .when(can_reorder, |row| row.cursor_move())
-        .child(
-            div()
-                .w(px(14.))
-                .flex_none()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
-                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
-                .when(can_reorder, |handle| handle.child("⠇")),
-        )
+        .when(can_reorder, |row| {
+            row.child(
+                div()
+                    .w(px(14.))
+                    .flex_none()
+                    .typography(crate::atoms::TypographyToken::Panel)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    .child(crate::atoms::render_lucide_icon(
+                        crate::atoms::LucideIcon::GripVertical,
+                        crate::atoms::sidebar_style(cx).muted_icon,
+                        crate::atoms::tokens::IconSize::SM,
+                    )),
+            )
+        })
         .child(swatch)
         .child(chrome.effects_value_cell(
             format!("effect-kind-{index}"),
@@ -522,11 +517,18 @@ pub(in super::super) fn render(
         if active && let Some(settings) = chrome.effects_settings_for_target(&target, cx) {
             content = content.child(
                 v_flex()
+                    .id(SharedString::from(format!(
+                        "{}-effect-settings-body-{index}",
+                        projection.identity.panel_id
+                    )))
+                    .debug_selector(move || format!("effect-settings-body-{index}"))
                     .w_full()
-                    .p_3()
+                    .p_2()
                     .gap_2()
                     .rounded(px(crate::atoms::tokens::Radius::CONTROL))
-                    .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                    .border_1()
+                    .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
+                    .bg(crate::atoms::SemanticColor::BackgroundPanel.resolve(cx))
                     .child(settings),
             );
         }

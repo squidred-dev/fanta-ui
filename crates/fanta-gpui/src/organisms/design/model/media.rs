@@ -807,6 +807,8 @@ impl DesignMediaPaintView {
 pub struct DesignMediaPaintViewData {
     pub paints: Vec<DesignMediaPaintView>,
     pub pattern_sources: Vec<DesignPatternSource>,
+    /// Existing project media offered by the host for source reuse.
+    pub assets: Vec<DesignMediaPaintAsset>,
 }
 
 impl DesignMediaPaintViewData {
@@ -814,6 +816,7 @@ impl DesignMediaPaintViewData {
         Self {
             paints: paints.into_iter().collect(),
             pattern_sources: Vec::new(),
+            assets: Vec::new(),
         }
     }
 
@@ -829,6 +832,11 @@ impl DesignMediaPaintViewData {
         self.pattern_sources.iter().find(|source| source.id == *id)
     }
 
+    pub fn with_assets(mut self, assets: impl IntoIterator<Item = DesignMediaPaintAsset>) -> Self {
+        self.assets = assets.into_iter().collect();
+        self
+    }
+
     pub fn paint(
         &self,
         collection: DesignPanelCollection,
@@ -838,6 +846,19 @@ impl DesignMediaPaintViewData {
         self.paints
             .iter()
             .find(|paint| paint.matches(collection, paint_id, index))
+    }
+}
+
+/// Host-owned media that may be reused without opening a file chooser.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DesignMediaPaintAsset {
+    pub source: DesignPaintSource,
+    pub kind: DesignMediaKind,
+}
+
+impl DesignMediaPaintAsset {
+    pub fn new(source: DesignPaintSource, kind: DesignMediaKind) -> Self {
+        Self { source, kind }
     }
 }
 

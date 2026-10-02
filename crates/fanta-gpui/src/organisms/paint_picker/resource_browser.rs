@@ -533,6 +533,7 @@ impl PaintPicker {
                 },
             )
             .xsmall()
+            .typography(crate::atoms::TypographyToken::Panel)
             .compact()
             .ghost()
             .disabled(disabled)
@@ -548,6 +549,7 @@ impl PaintPicker {
 
         Popover::new(SharedString::from(format!("{}-creation-menu", self.id)))
             .anchor(Anchor::BottomRight)
+            .appearance(false)
             .open(self.nested_overlay_is_open(PaintPickerOverlay::Creation))
             .track_focus(&menu_focus_handle)
             .overlay_closable(true)
@@ -571,43 +573,65 @@ impl PaintPicker {
                 });
             })
             .trigger(trigger)
-            .content(move |_, window, _| {
-                v_flex()
-                    .id(SharedString::from(format!("{picker_id}-creation-options")))
-                    .key_context(CONTROL_KEY_CONTEXT)
-                    .track_focus(&menu_focus_for_content.clone().tab_index(0).tab_stop(true))
-                    .on_action({
-                        let picker = picker_for_content.clone();
-                        move |_: &ActivateControl, window, cx| {
-                            picker.update(cx, |this, cx| {
-                                this.commit_creation_menu(window, cx);
-                            });
-                        }
-                    })
-                    .on_key_down({
-                        let picker = picker_for_content.clone();
-                        move |event: &KeyDownEvent, window, cx| {
-                            picker.update(cx, |this, cx| {
-                                this.handle_creation_menu_key(event, window, cx);
-                            });
-                        }
-                    })
-                    .w(popup_width(window, 144.))
-                    .gap_1()
-                    .children(creation_kinds.clone().into_iter().enumerate().map(
-                        |(index, kind)| {
+            .content(move |_, window, cx| {
+                crate::molecules::sidebar_popup_surface(
+                    SharedString::from(format!("{picker_id}-creation-options")),
+                    cx,
+                )
+                .key_context(CONTROL_KEY_CONTEXT)
+                .track_focus(&menu_focus_for_content.clone().tab_index(0).tab_stop(true))
+                .on_action({
+                    let picker = picker_for_content.clone();
+                    move |_: &ActivateControl, window, cx| {
+                        picker.update(cx, |this, cx| {
+                            this.commit_creation_menu(window, cx);
+                        });
+                    }
+                })
+                .on_key_down({
+                    let picker = picker_for_content.clone();
+                    move |event: &KeyDownEvent, window, cx| {
+                        picker.update(cx, |this, cx| {
+                            this.handle_creation_menu_key(event, window, cx);
+                        });
+                    }
+                })
+                .w(popup_width(window, tokens::MenuWidth::STANDARD))
+                .p(px(tokens::Space::XS))
+                .children(
+                    creation_kinds
+                        .clone()
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, kind)| {
                             let picker = picker_for_content.clone();
                             crate::atoms::ui_button(SharedString::from(format!(
                                 "{}-{}",
                                 picker_id,
                                 kind.label().to_lowercase().replace(' ', "-")
                             )))
-                            .label(kind.label())
+                            .child(picker_menu_option(
+                                format!(
+                                    "paint-picker-{}",
+                                    kind.label().to_lowercase().replace(' ', "-")
+                                ),
+                                kind.label(),
+                                Some(if kind == PaintCreationKind::Style {
+                                    LucideIcon::Paintbrush
+                                } else {
+                                    LucideIcon::Variable
+                                }),
+                                false,
+                                cx,
+                            ))
                             .tooltip(kind.label())
                             .xsmall()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .compact()
                             .ghost()
                             .w_full()
+                            .h(px(tokens::RowHeight::MENU))
+                            .px(px(tokens::Space::SM))
                             .tab_stop(false)
                             .selected(highlighted_index == index)
                             .on_activate(move |_, window, cx| {
@@ -615,8 +639,8 @@ impl PaintPicker {
                                     this.activate_creation_kind(kind, window, cx);
                                 });
                             })
-                        },
-                    ))
+                        }),
+                )
             })
             .into_any_element()
     }
@@ -633,6 +657,7 @@ impl PaintPicker {
         )))
         .tooltip(format!("Color style: {}", sample.name))
         .xsmall()
+        .typography(crate::atoms::TypographyToken::Panel)
         .compact()
         .ghost()
         .w(px(28.))
@@ -649,7 +674,7 @@ impl PaintPicker {
                 .overflow_hidden()
                 .rounded(px(10.))
                 .border_1()
-                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
                 .bg(pattern_slash(
                     crate::atoms::SemanticColor::TextTertiary
                         .resolve(cx)
@@ -677,7 +702,7 @@ impl PaintPicker {
         )))
         .w_full()
         .h(px(28.))
-        .px_2()
+        .px(px(tokens::Space::SM))
         .compact()
         .ghost()
         .disabled(
@@ -695,14 +720,14 @@ impl PaintPicker {
             h_flex()
                 .w_full()
                 .min_w(px(0.))
-                .gap_2()
+                .gap(px(tokens::InspectorGeometry::ROW_GAP))
                 .child(
                     div()
                         .size(px(18.))
                         .flex_none()
                         .rounded(px(9.))
                         .border_1()
-                        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                        .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
                         .bg(color_to_hsla(sample.color)),
                 )
                 .child(
@@ -710,13 +735,13 @@ impl PaintPicker {
                         .flex_1()
                         .min_w(px(0.))
                         .truncate()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_left()
                         .child(sample.name.clone()),
                 )
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("Style"),
                 ),
@@ -754,7 +779,7 @@ impl PaintPicker {
         )))
         .w_full()
         .h(px(28.))
-        .px_2()
+        .px(px(tokens::Space::SM))
         .compact()
         .ghost()
         .selected(selected)
@@ -769,14 +794,14 @@ impl PaintPicker {
             h_flex()
                 .w_full()
                 .min_w(px(0.))
-                .gap_2()
+                .gap(px(tokens::InspectorGeometry::ROW_GAP))
                 .child(
                     div()
                         .size(px(18.))
                         .flex_none()
                         .rounded(px(4.))
                         .border_1()
-                        .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                        .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
                         .bg(color_to_hsla(color)),
                 )
                 .child(
@@ -784,7 +809,7 @@ impl PaintPicker {
                         .flex_1()
                         .min_w(px(0.))
                         .truncate()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_left()
                         .child(label),
                 )
@@ -792,7 +817,7 @@ impl PaintPicker {
                     div()
                         .max_w(px(74.))
                         .truncate()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(variable.collection_name.clone()),
                 )
@@ -800,6 +825,7 @@ impl PaintPicker {
                     row.child(
                         Icon::new(IconName::Check)
                             .xsmall()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::Text.resolve(cx)),
                     )
                 }),
@@ -828,6 +854,7 @@ impl PaintPicker {
         )))
         .tooltip(format!("{} — {}", variable.name, variable.collection_name))
         .xsmall()
+        .typography(crate::atoms::TypographyToken::Panel)
         .compact()
         .ghost()
         .w(px(28.))
@@ -844,7 +871,7 @@ impl PaintPicker {
                 .border_color(if selected {
                     crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
                 } else {
-                    crate::atoms::SemanticColor::Border.resolve(cx)
+                    crate::atoms::SemanticColor::BorderPanel.resolve(cx)
                 })
                 .bg(pattern_slash(
                     crate::atoms::SemanticColor::TextTertiary
@@ -865,6 +892,7 @@ impl PaintPicker {
                             .child(
                                 Icon::new(IconName::Check)
                                     .xsmall()
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .text_color(crate::atoms::SemanticColor::Text.resolve(cx)),
                             ),
                     )
@@ -887,6 +915,7 @@ impl PaintPicker {
         )))
         .label("Detach current variable")
         .xsmall()
+        .typography(crate::atoms::TypographyToken::Panel)
         .compact()
         .ghost()
         .w_full()
@@ -903,6 +932,7 @@ impl PaintPicker {
         let picker_for_content = picker_for_open.clone();
         let picker_id = self.id.clone();
         let scopes = self.resource_scopes();
+        let selected_scope = self.resource_scope.clone();
         let highlighted_index = self
             .resource_scope_menu_index
             .min(scopes.len().saturating_sub(1));
@@ -911,9 +941,11 @@ impl PaintPicker {
         let trigger =
             crate::atoms::ui_button(SharedString::from(format!("{}-resource-scope", self.id)))
                 .label(self.resource_scope.label())
+                .text_left()
                 .dropdown_caret(true)
                 .tooltip("Choose a page or library palette")
                 .xsmall()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .compact()
                 .outline()
                 .w_full()
@@ -932,6 +964,7 @@ impl PaintPicker {
             self.id
         )))
         .anchor(Anchor::BottomLeft)
+        .appearance(false)
         .open(self.nested_overlay_is_open(PaintPickerOverlay::ResourceScope))
         .track_focus(&menu_focus_handle)
         .overlay_closable(true)
@@ -951,58 +984,71 @@ impl PaintPicker {
             });
         })
         .trigger(trigger)
-        .content(move |_, window, _| {
-            v_flex()
-                .id(SharedString::from(format!(
-                    "{picker_id}-resource-scope-options"
+        .content(move |_, window, cx| {
+            crate::molecules::sidebar_popup_surface(
+                SharedString::from(format!("{picker_id}-resource-scope-options")),
+                cx,
+            )
+            .key_context(CONTROL_KEY_CONTEXT)
+            .track_focus(&menu_focus_for_content.clone().tab_index(0).tab_stop(true))
+            .on_action({
+                let picker = picker_for_content.clone();
+                move |_: &ActivateControl, window, cx| {
+                    picker.update(cx, |this, cx| {
+                        this.commit_resource_scope_menu(window, cx);
+                    });
+                }
+            })
+            .on_key_down({
+                let picker = picker_for_content.clone();
+                move |event: &KeyDownEvent, window, cx| {
+                    picker.update(cx, |this, cx| {
+                        this.handle_resource_scope_menu_key(event, window, cx);
+                    });
+                }
+            })
+            .w(popup_width(window, tokens::MenuWidth::STANDARD))
+            .max_h(popup_height(window, 280.))
+            .overflow_y_scroll()
+            .p(px(tokens::Space::XS))
+            .children(scopes.iter().cloned().enumerate().map(|(index, scope)| {
+                let picker = picker_for_content.clone();
+                let option_id = match &scope {
+                    PaintResourceScope::Page => "page".to_owned(),
+                    PaintResourceScope::Library { library_id, .. } => {
+                        format!("library-{library_id}")
+                    }
+                };
+                crate::atoms::ui_button(SharedString::from(format!(
+                    "{picker_id}-resource-scope-{option_id}"
                 )))
-                .key_context(CONTROL_KEY_CONTEXT)
-                .track_focus(&menu_focus_for_content.clone().tab_index(0).tab_stop(true))
-                .on_action({
-                    let picker = picker_for_content.clone();
-                    move |_: &ActivateControl, window, cx| {
-                        picker.update(cx, |this, cx| {
-                            this.commit_resource_scope_menu(window, cx);
-                        });
-                    }
+                .child(picker_menu_option(
+                    format!("paint-picker-scope-{option_id}"),
+                    scope.label(),
+                    Some(if matches!(&scope, PaintResourceScope::Page) {
+                        LucideIcon::File
+                    } else {
+                        LucideIcon::Library
+                    }),
+                    selected_scope.same_identity(&scope),
+                    cx,
+                ))
+                .tooltip(scope.label())
+                .xsmall()
+                .typography(crate::atoms::TypographyToken::Panel)
+                .compact()
+                .ghost()
+                .w_full()
+                .h(px(tokens::RowHeight::MENU))
+                .px(px(tokens::Space::SM))
+                .tab_stop(false)
+                .selected(highlighted_index == index)
+                .on_activate(move |_, window, cx| {
+                    picker.update(cx, |this, cx| {
+                        this.select_resource_scope(scope.clone(), window, cx);
+                    });
                 })
-                .on_key_down({
-                    let picker = picker_for_content.clone();
-                    move |event: &KeyDownEvent, window, cx| {
-                        picker.update(cx, |this, cx| {
-                            this.handle_resource_scope_menu_key(event, window, cx);
-                        });
-                    }
-                })
-                .w(popup_width(window, 216.))
-                .max_h(popup_height(window, 280.))
-                .overflow_y_scroll()
-                .gap_1()
-                .children(scopes.iter().cloned().enumerate().map(|(index, scope)| {
-                    let picker = picker_for_content.clone();
-                    let option_id = match &scope {
-                        PaintResourceScope::Page => "page".to_owned(),
-                        PaintResourceScope::Library { library_id, .. } => {
-                            format!("library-{library_id}")
-                        }
-                    };
-                    crate::atoms::ui_button(SharedString::from(format!(
-                        "{picker_id}-resource-scope-{option_id}"
-                    )))
-                    .label(scope.label())
-                    .tooltip(scope.label())
-                    .xsmall()
-                    .compact()
-                    .ghost()
-                    .w_full()
-                    .tab_stop(false)
-                    .selected(highlighted_index == index)
-                    .on_activate(move |_, window, cx| {
-                        picker.update(cx, |this, cx| {
-                            this.select_resource_scope(scope.clone(), window, cx);
-                        });
-                    })
-                }))
+            }))
         })
         .into_any_element()
     }
@@ -1043,7 +1089,10 @@ impl PaintPicker {
                 | (PaintResourceScope::Library { .. }, DesignVariableSource::Page { .. }) => false,
             })
             .collect::<Vec<_>>();
-        let mut style_samples = h_flex().w_full().gap_2().flex_wrap();
+        let mut style_samples = h_flex()
+            .w_full()
+            .gap(px(tokens::InspectorGeometry::ROW_GAP))
+            .flex_wrap();
         if scoped_style_samples.is_empty() {
             style_samples = style_samples.child(
                 div()
@@ -1051,7 +1100,7 @@ impl PaintPicker {
                     .min_h(px(24.))
                     .flex()
                     .items_center()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("No Color styles in this source"),
             );
@@ -1072,7 +1121,10 @@ impl PaintPicker {
                     .child(self.render_color_style_sample_swatch(sample, selection, cx));
             }
         }
-        let mut variables = h_flex().w_full().gap_2().flex_wrap();
+        let mut variables = h_flex()
+            .w_full()
+            .gap(px(tokens::InspectorGeometry::ROW_GAP))
+            .flex_wrap();
         if scoped_variables.is_empty() {
             variables = variables.child(
                 div()
@@ -1080,7 +1132,7 @@ impl PaintPicker {
                     .min_h(px(24.))
                     .flex()
                     .items_center()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("No Color variables in this source"),
             );
@@ -1096,27 +1148,35 @@ impl PaintPicker {
 
         v_flex()
             .w_full()
-            .gap_2()
-            .pt_3()
+            .gap(px(tokens::InspectorGeometry::GROUP_GAP))
+            .pt(px(tokens::InspectorGeometry::GROUP_GAP))
             .border_t_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
             .child(self.render_resource_scope_selector(cx))
             .child(
-                div()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
-                    .font_semibold()
-                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
-                    .child("Color styles"),
+                v_flex()
+                    .w_full()
+                    .gap(px(tokens::InspectorGeometry::ROW_GAP))
+                    .child(
+                        div()
+                            .typography(crate::atoms::TypographyToken::PanelCaption)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                            .child("Color styles"),
+                    )
+                    .child(style_samples),
             )
-            .child(style_samples)
             .child(
-                div()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
-                    .font_semibold()
-                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
-                    .child("Color variables"),
+                v_flex()
+                    .w_full()
+                    .gap(px(tokens::InspectorGeometry::ROW_GAP))
+                    .child(
+                        div()
+                            .typography(crate::atoms::TypographyToken::PanelCaption)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                            .child("Color variables"),
+                    )
+                    .child(variables),
             )
-            .child(variables)
             .when(selected_binding.is_some(), |scope| {
                 scope.child(self.render_color_variable_detach_button("page", cx))
             })
@@ -1182,10 +1242,15 @@ impl PaintPicker {
         }
         let mut content = v_flex()
             .w_full()
-            .gap_3()
-            .p_4()
-            .child(Input::new(&self.resource_search_input).xsmall().h(px(28.)))
-            .typography(crate::atoms::TypographyToken::BodyMedium);
+            .gap(px(tokens::InspectorGeometry::GROUP_GAP))
+            .p(px(tokens::InspectorGeometry::BODY_INSET))
+            .child(
+                Input::new(&self.resource_search_input)
+                    .xsmall()
+                    .typography(crate::atoms::TypographyToken::Panel)
+                    .h(px(28.)),
+            )
+            .typography(crate::atoms::TypographyToken::Panel);
         if selected_binding.is_some() {
             content = content.child(self.render_color_variable_detach_button("library", cx));
         }
@@ -1200,7 +1265,7 @@ impl PaintPicker {
                 .min_h(px(180.))
                 .items_center()
                 .justify_center()
-                .gap_2()
+                .gap(px(tokens::InspectorGeometry::ROW_GAP))
                 .child(
                     Icon::new(IconName::BookOpen)
                         .small()
@@ -1208,14 +1273,14 @@ impl PaintPicker {
                 )
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyLarge)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .font_semibold()
                         .child("Color libraries"),
                 )
                 .child(
                     div()
                         .text_center()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(message),
                 )
@@ -1225,39 +1290,43 @@ impl PaintPicker {
         if !style_libraries.is_empty() {
             content = content.child(
                 div()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .font_semibold()
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("Color styles"),
             );
         }
         for (library, samples) in style_libraries {
-            let mut group = v_flex().w_full().gap_1().child(
-                h_flex()
-                    .w_full()
-                    .h(px(24.))
-                    .gap_2()
-                    .child(
-                        Icon::new(IconName::BookOpen)
-                            .xsmall()
-                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx)),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .truncate()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
-                            .font_semibold()
-                            .child(library.name.clone()),
-                    )
-                    .child(
-                        div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
-                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
-                            .child(samples.len().to_string()),
-                    ),
-            );
+            let mut group = v_flex()
+                .w_full()
+                .gap(px(tokens::InspectorGeometry::ROW_GAP))
+                .child(
+                    h_flex()
+                        .w_full()
+                        .h(px(24.))
+                        .gap(px(tokens::InspectorGeometry::ROW_GAP))
+                        .child(
+                            Icon::new(IconName::BookOpen)
+                                .xsmall()
+                                .typography(crate::atoms::TypographyToken::Panel)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx)),
+                        )
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w(px(0.))
+                                .truncate()
+                                .typography(crate::atoms::TypographyToken::Panel)
+                                .font_semibold()
+                                .child(library.name.clone()),
+                        )
+                        .child(
+                            div()
+                                .typography(crate::atoms::TypographyToken::Panel)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                                .child(samples.len().to_string()),
+                        ),
+                );
             for sample in samples {
                 group = group.child(self.render_color_style_sample_row(
                     sample,
@@ -1271,7 +1340,7 @@ impl PaintPicker {
         if !libraries.is_empty() {
             content = content.child(
                 div()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .font_semibold()
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("Color variables"),
@@ -1279,32 +1348,36 @@ impl PaintPicker {
         }
         for (_, library_name, variables) in libraries {
             let count = variables.len();
-            let mut group = v_flex().w_full().gap_1().child(
-                h_flex()
-                    .w_full()
-                    .h(px(24.))
-                    .gap_2()
-                    .child(
-                        Icon::new(IconName::BookOpen)
-                            .xsmall()
-                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx)),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .truncate()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
-                            .font_semibold()
-                            .child(library_name),
-                    )
-                    .child(
-                        div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
-                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
-                            .child(count.to_string()),
-                    ),
-            );
+            let mut group = v_flex()
+                .w_full()
+                .gap(px(tokens::InspectorGeometry::ROW_GAP))
+                .child(
+                    h_flex()
+                        .w_full()
+                        .h(px(24.))
+                        .gap(px(tokens::InspectorGeometry::ROW_GAP))
+                        .child(
+                            Icon::new(IconName::BookOpen)
+                                .xsmall()
+                                .typography(crate::atoms::TypographyToken::Panel)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx)),
+                        )
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w(px(0.))
+                                .truncate()
+                                .typography(crate::atoms::TypographyToken::Panel)
+                                .font_semibold()
+                                .child(library_name),
+                        )
+                        .child(
+                            div()
+                                .typography(crate::atoms::TypographyToken::Panel)
+                                .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                                .child(count.to_string()),
+                        ),
+                );
             for variable in variables {
                 group = group.child(self.render_color_variable_row(variable, selected_binding, cx));
             }

@@ -226,9 +226,11 @@ pub(in super::super::super) fn render(
     let rows = projection.rows.clone();
     let trigger = crate::atoms::ui_button(SharedString::from(format!("{panel_id}-font-browser")))
         .label(projection.trigger_label)
+        .text_left()
         .tooltip("Browse font family and style")
         .xsmall()
         .compact()
+        .typography(crate::atoms::TypographyToken::Panel)
         .w_full()
         .h(px(ROW_HEIGHT))
         .selected(open)
@@ -265,13 +267,13 @@ pub(in super::super::super) fn render(
                 .p_2()
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyLarge)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .font_semibold()
                         .child("Fonts"),
                 )
                 .child(
                     Input::new(&search)
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .small()
                         .prefix(Icon::new(IconName::Search).small()),
                 );
@@ -281,7 +283,7 @@ pub(in super::super::super) fn render(
                         div()
                             .px_1()
                             .py_3()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("Loading available fonts…"),
                     );
@@ -294,12 +296,12 @@ pub(in super::super::super) fn render(
                             .gap_1()
                             .child(
                                 div()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .child("Fonts unavailable"),
                             )
                             .child(
                                 div()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .text_color(
                                         crate::atoms::SemanticColor::TextTertiary.resolve(cx),
                                     )
@@ -312,7 +314,7 @@ pub(in super::super::super) fn render(
                         div()
                             .px_1()
                             .py_3()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("No fonts found"),
                     );
@@ -336,7 +338,11 @@ pub(in super::super::super) fn render(
                             .tooltip(row.tooltip)
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
+                            .text_left()
+                            .justify_start()
+                            .px_2()
                             .w_full()
                             .selected(row.selected)
                             .disabled(!row.enabled)

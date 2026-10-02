@@ -41,11 +41,144 @@ pub(super) fn media_transform_is_finite(transform: DesignPaintTransform) -> bool
     .all(f32::is_finite)
 }
 
+fn media_asset_matches(asset: &DesignMediaPaintAsset, paint_type: DesignPaintType) -> bool {
+    !asset.source.id.is_empty()
+        && matches!(
+            (asset.kind, paint_type),
+            (DesignMediaKind::Image, DesignPaintType::Image)
+                | (DesignMediaKind::Video, DesignPaintType::Video)
+        )
+}
+
 // Retained media-editor state and rendering are kept with the pure media
 // validation helpers so the parent picker remains an orchestration shell.
 use super::*;
 
 impl PaintPicker {
+    pub(super) fn select_media_asset(&mut self, source_id: &SharedString, cx: &mut Context<Self>) {
+        if self.base_editing_disabled() {
+            return;
+        }
+        let Some(paint_type) = self.paint.as_ref().map(DesignPaint::paint_type) else {
+            return;
+        };
+        let Some(asset) =
+            self.media_view_data.assets.iter().find(|asset| {
+                asset.source.id == *source_id && media_asset_matches(asset, paint_type)
+            })
+        else {
+            return;
+        };
+        if self
+            .emit_edit(
+                DesignPaintEdit {
+                    property: DesignPaintProperty::Source,
+                    value: DesignPaintValue::Source(asset.source.clone()),
+                },
+                DesignPanelEditPhase::Commit,
+                cx,
+            )
+            .is_some()
+        {
+            self.media_tab = MediaPickerTab::Adjust;
+            cx.notify();
+        }
+    }
+
+    pub(super) fn render_media_tabs(&self, cx: &mut Context<Self>) -> AnyElement {
+        crate::atoms::InspectorTabs::new(
+            format!("{}-media-tabs", self.id),
+            ["Source", "Assets", "Adjust"].map(|label| {
+                (
+                    format!("{}-media-tab-{}", self.id, label.to_lowercase()).into(),
+                    label.into(),
+                )
+            }),
+        )
+        .selected_index(match self.media_tab {
+            MediaPickerTab::Source => 0,
+            MediaPickerTab::Assets => 1,
+            MediaPickerTab::Adjust => 2,
+        })
+        .on_change(
+            cx.listener(|this, selection: &crate::atoms::TabSelection, _, cx| {
+                this.media_tab = match selection.index {
+                    0 => MediaPickerTab::Source,
+                    1 => MediaPickerTab::Assets,
+                    _ => MediaPickerTab::Adjust,
+                };
+                this.scroll_handle.set_offset(Point::default());
+                cx.notify();
+            }),
+        )
+        .into_any_element()
+    }
+
+    fn render_media_assets(&self, paint: &DesignPaint, cx: &mut Context<Self>) -> AnyElement {
+        let assets: Vec<_> = self
+            .media_view_data
+            .assets
+            .iter()
+            .filter(|asset| media_asset_matches(asset, paint.paint_type()))
+            .collect();
+        let source_id = match &paint.payload {
+            DesignPaintPayload::Image(image) => Some(&image.source.id),
+            DesignPaintPayload::Video(video) => Some(&video.source.id),
+            _ => None,
+        };
+        let mut content = v_flex()
+            .w_full()
+            .gap(px(tokens::InspectorGeometry::ROW_GAP))
+            .child(
+                div()
+                    .typography(crate::atoms::TypographyToken::PanelCaption)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    .child("Reuse media from this project"),
+            );
+        if assets.is_empty() {
+            return content
+                .child(
+                    div()
+                        .typography(crate::atoms::TypographyToken::Panel)
+                        .child("No compatible assets available"),
+                )
+                .into_any_element();
+        }
+        for asset in assets {
+            let id = asset.source.id.clone();
+            let selector = format!("{}-media-asset-{}", self.id, id);
+            content = content.child(
+                crate::atoms::ui_button(SharedString::from(selector.clone()))
+                    .debug_selector(move || selector.clone())
+                    .child(picker_menu_option(
+                        format!("{}-media-asset-{id}", self.id),
+                        asset.source.name.clone(),
+                        Some(if asset.kind == DesignMediaKind::Image {
+                            LucideIcon::Image
+                        } else {
+                            LucideIcon::Video
+                        }),
+                        source_id == Some(&id),
+                        cx,
+                    ))
+                    .xsmall()
+                    .typography(crate::atoms::TypographyToken::Panel)
+                    .compact()
+                    .ghost()
+                    .w_full()
+                    .h(px(tokens::RowHeight::LIST))
+                    .px(px(tokens::Space::SM))
+                    .min_w_0()
+                    .justify_start()
+                    .selected(source_id == Some(&id))
+                    .disabled(self.base_editing_disabled())
+                    .on_activate(cx.listener(move |this, _, _, cx| {
+                        this.select_media_asset(&id, cx);
+                    })),
+            );
+        }
+        content.into_any_element()
+    }
     pub(super) fn current_media_view(&self) -> Option<&DesignMediaPaintView> {
         let target = self.target.as_ref()?;
         self.media_view_data
@@ -94,6 +227,9 @@ impl PaintPicker {
         let Some(paint_type) = self.paint.as_ref().map(DesignPaint::paint_type) else {
             return true;
         };
+        if action == DesignMediaSourceAction::EditImage && self.paint.as_ref().is_some_and(|paint| matches!(&paint.payload, DesignPaintPayload::Image(image) if image.source.id.is_empty())) {
+            return true;
+        }
         !action.is_applicable_to(paint_type)
             || !self
                 .current_media_capabilities()
@@ -166,6 +302,7 @@ impl PaintPicker {
             "Choose a layer for the pattern tile"
         })
         .xsmall()
+        .typography(crate::atoms::TypographyToken::Panel)
         .compact()
         .outline()
         .selected(self.nested_overlay_is_open(PaintPickerOverlay::PatternSource))
@@ -187,6 +324,7 @@ impl PaintPicker {
             self.id
         )))
         .anchor(Anchor::BottomRight)
+        .appearance(false)
         .open(self.nested_overlay_is_open(PaintPickerOverlay::PatternSource))
         .overlay_closable(true)
         .on_open_change(move |open, window, cx| {
@@ -205,41 +343,59 @@ impl PaintPicker {
             });
         })
         .trigger(trigger)
-        .content(move |_, window, _| {
-            v_flex()
-                .id(SharedString::from(format!(
-                    "{picker_id}-pattern-source-options"
+        .content(move |_, window, cx| {
+            crate::molecules::sidebar_popup_surface(
+                SharedString::from(format!("{picker_id}-pattern-source-options")),
+                cx,
+            )
+            .w(popup_width(window, tokens::MenuWidth::STANDARD))
+            .max_h(popup_height(window, 300.))
+            .overflow_y_scroll()
+            .p(px(tokens::Space::XS))
+            .child(
+                div()
+                    .px(px(tokens::Space::SM))
+                    .py(px(tokens::Space::XS))
+                    .typography(crate::atoms::TypographyToken::PanelCaption)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    .child("Layers on this page"),
+            )
+            .children(sources.clone().into_iter().map(|source| {
+                let picker = picker_for_content.clone();
+                let source_id = source.id.clone();
+                let selector = format!("{}-pattern-source-{}", picker_id, source.id);
+                let button = crate::atoms::ui_button(SharedString::from(format!(
+                    "{}-pattern-source-{}",
+                    picker_id, source.id
                 )))
-                .w(popup_width(window, 220.))
-                .max_h(popup_height(window, 300.))
-                .overflow_y_scroll()
-                .p_1()
-                .gap_1()
-                .children(sources.clone().into_iter().map(|source| {
-                    let picker = picker_for_content.clone();
-                    let source_id = source.id.clone();
-                    let selector = format!("{}-pattern-source-{}", picker_id, source.id);
-                    let button = crate::atoms::ui_button(SharedString::from(format!(
-                        "{}-pattern-source-{}",
-                        picker_id, source.id
-                    )))
-                    .label(source.name)
-                    .tooltip(source.id)
-                    .xsmall()
-                    .compact()
-                    .ghost()
-                    .w_full()
-                    .selected(selected_source_id.as_ref() == Some(&source_id))
-                    .on_activate(move |_, window, cx| {
-                        picker.update(cx, |this, cx| {
-                            this.select_pattern_source(source_id.clone(), window, cx);
-                        });
+                .child(picker_menu_option(
+                    selector.clone(),
+                    source.name,
+                    Some(LucideIcon::Layers),
+                    selected_source_id.as_ref() == Some(&source_id),
+                    cx,
+                ))
+                .tooltip(source.id)
+                .xsmall()
+                .typography(crate::atoms::TypographyToken::Panel)
+                .compact()
+                .ghost()
+                .w_full()
+                .h(px(tokens::RowHeight::MENU))
+                .px(px(tokens::Space::SM))
+                .selected(selected_source_id.as_ref() == Some(&source_id))
+                .on_activate(move |_, window, cx| {
+                    picker.update(cx, |this, cx| {
+                        this.select_pattern_source(source_id.clone(), window, cx);
                     });
-                    div()
-                        .id(SharedString::from(format!("{selector}-row")))
-                        .debug_selector(move || selector.clone())
-                        .child(button)
-                }))
+                });
+                div()
+                    .id(SharedString::from(format!("{selector}-row")))
+                    .debug_selector(move || selector.clone())
+                    .w_full()
+                    .min_w_0()
+                    .child(button)
+            }))
         });
         div()
             .id(SharedString::from(format!("{selector}-anchor")))
@@ -388,10 +544,8 @@ impl PaintPicker {
         paint: &DesignPaint,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let disabled = self.editing_disabled();
-        let (title, source_name, icon) = match &paint.payload {
+        let (source_name, icon) = match &paint.payload {
             DesignPaintPayload::Pattern(pattern) => (
-                "Pattern fill",
                 self.media_view_data
                     .pattern_source(&pattern.source_node_id)
                     .map_or_else(
@@ -406,34 +560,30 @@ impl PaintPicker {
                     ),
                 IconName::LayoutDashboard,
             ),
-            DesignPaintPayload::Image(image) => (
-                "Image fill",
-                image.source.name.clone(),
-                IconName::GalleryVerticalEnd,
-            ),
-            DesignPaintPayload::Video(video) => {
-                ("Video fill", video.source.name.clone(), IconName::File)
+            DesignPaintPayload::Image(image) => {
+                (image.source.name.clone(), IconName::GalleryVerticalEnd)
             }
+            DesignPaintPayload::Video(video) => (video.source.name.clone(), IconName::File),
             DesignPaintPayload::Shader(shader) => {
                 return self.render_shader_state(shader, cx);
             }
             DesignPaintPayload::Unsupported(opaque) => {
                 return v_flex()
                     .w_full()
-                    .p_3()
-                    .gap_2()
+                    .p(px(tokens::Space::MD))
+                    .gap(px(tokens::InspectorGeometry::ROW_GAP))
                     .rounded(px(7.))
                     .border_1()
-                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                    .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyLarge)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .font_semibold()
                             .child(opaque.type_name.clone()),
                     )
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("This payload is preserved losslessly and is read-only here."),
                     )
@@ -473,46 +623,36 @@ impl PaintPicker {
         let media_drop_border = crate::atoms::SemanticColor::BackgroundSelected.resolve(cx);
         let source_card = h_flex()
             .w_full()
-            .p_2()
-            .gap_2()
-            .rounded(px(7.))
+            .min_h(px(tokens::RowHeight::LIST))
+            .px(px(tokens::Space::SM))
+            .py(px(tokens::Space::XS))
+            .gap(px(tokens::InspectorGeometry::ROW_GAP))
+            .rounded(px(tokens::Radius::CONTROL))
             .border_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-            .bg(if paint.paint_type() == DesignPaintType::Pattern {
-                pattern_slash(
-                    crate::atoms::SemanticColor::TextTertiary
-                        .resolve(cx)
-                        .opacity(0.18),
-                    0.5,
-                    0.5,
+            .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
+            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+            .when(pattern_source, |source| {
+                source.child(
+                    div()
+                        .typography(crate::atoms::TypographyToken::PanelCaption)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                        .child("Source"),
                 )
-            } else {
-                crate::atoms::SemanticColor::BackgroundSecondary
-                    .resolve(cx)
-                    .into()
+            })
+            .when(!pattern_source, |source| {
+                source.child(
+                    Icon::new(icon)
+                        .small()
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx)),
+                )
             })
             .child(
-                Icon::new(icon)
-                    .small()
-                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx)),
-            )
-            .child(
-                v_flex()
-                    .min_w(px(0.))
+                div()
+                    .min_w_0()
                     .flex_1()
-                    .child(
-                        div()
-                            .typography(crate::atoms::TypographyToken::BodyLarge)
-                            .font_semibold()
-                            .child(title),
-                    )
-                    .child(
-                        div()
-                            .truncate()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
-                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
-                            .child(source_name),
-                    ),
+                    .truncate()
+                    .typography(crate::atoms::TypographyToken::Panel)
+                    .child(source_name),
             )
             .when(pattern_source, |source| {
                 source.child(self.render_pattern_source_selector(pattern_sources, cx))
@@ -540,191 +680,42 @@ impl PaintPicker {
                         this.request_media_source_drop(paths.paths(), cx);
                     }))
             });
-        let mut content = v_flex().w_full().gap_2().child(source_card);
+        let source_selected = match &paint.payload {
+            DesignPaintPayload::Image(image) => !image.source.id.is_empty(),
+            DesignPaintPayload::Video(video) => !video.source.id.is_empty(),
+            _ => true,
+        };
+        let mut content = v_flex()
+            .w_full()
+            .gap(px(tokens::Space::MD))
+            .when(source_selected, |content| content.child(source_card));
         if pattern_source && no_pattern_sources {
             content = content.child(
                 div()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("No eligible layers on this page"),
             );
         }
         if media_source {
-            content = content.child(self.render_media_source_actions(paint, cx));
+            match self.media_tab {
+                MediaPickerTab::Source => {
+                    return content
+                        .child(self.render_media_source_actions(paint, cx))
+                        .into_any_element();
+                }
+                MediaPickerTab::Assets => {
+                    return content
+                        .child(self.render_media_assets(paint, cx))
+                        .into_any_element();
+                }
+                MediaPickerTab::Adjust => {}
+            }
         }
 
         match &paint.payload {
             DesignPaintPayload::Pattern(pattern) => {
-                let mut modes = h_flex().w_full().gap_1();
-                for tile_type in DesignPatternTileType::ALL {
-                    modes = modes.child(
-                        crate::atoms::ui_button(SharedString::from(format!(
-                            "{}-pattern-mode-{}",
-                            self.id,
-                            tile_type.label().to_lowercase().replace(' ', "-")
-                        )))
-                        .label(tile_type.label())
-                        .xsmall()
-                        .compact()
-                        .ghost()
-                        .flex_1()
-                        .selected(pattern.tile_type == tile_type)
-                        .disabled(disabled)
-                        .on_activate(cx.listener(
-                            move |this, _, _, cx| {
-                                let _ = this.emit_edit(
-                                    DesignPaintEdit {
-                                        property: DesignPaintProperty::PatternTileType,
-                                        value: DesignPaintValue::PatternTileType(tile_type),
-                                    },
-                                    DesignPanelEditPhase::Commit,
-                                    cx,
-                                );
-                            },
-                        )),
-                    );
-                }
-                let mut alignment = h_flex().w_full().gap_1();
-                for option in DesignPatternHorizontalAlignment::ALL {
-                    alignment = alignment.child(
-                        crate::atoms::ui_button(SharedString::from(format!(
-                            "{}-pattern-align-{}",
-                            self.id,
-                            option.label().to_lowercase()
-                        )))
-                        .label(option.label())
-                        .xsmall()
-                        .compact()
-                        .ghost()
-                        .flex_1()
-                        .selected(pattern.horizontal_alignment == option)
-                        .disabled(disabled)
-                        .on_activate(cx.listener(
-                            move |this, _, _, cx| {
-                                let _ = this.emit_edit(
-                                    DesignPaintEdit {
-                                        property: DesignPaintProperty::PatternHorizontalAlignment,
-                                        value: DesignPaintValue::PatternHorizontalAlignment(option),
-                                    },
-                                    DesignPanelEditPhase::Commit,
-                                    cx,
-                                );
-                            },
-                        )),
-                    );
-                }
-                content = content
-                    .child(modes)
-                    .child(
-                        v_flex()
-                            .w_full()
-                            .gap_1()
-                            .child(
-                                h_flex().w_full().gap_1().child(
-                                    crate::atoms::ui_button(SharedString::from(format!(
-                                        "{}-pattern-scale",
-                                        self.id
-                                    )))
-                                    .label(format!(
-                                        "Scale {}%",
-                                        format_decimal(pattern.scaling_factor * 100.)
-                                    ))
-                                    .xsmall()
-                                    .compact()
-                                    .outline()
-                                    .flex_1()
-                                    .disabled(disabled)
-                                    .on_activate({
-                                        let value = pattern.scaling_factor + 0.1;
-                                        cx.listener(move |this, _, _, cx| {
-                                            let _ = this.emit_edit(
-                                                DesignPaintEdit {
-                                                    property:
-                                                        DesignPaintProperty::PatternScalingFactor,
-                                                    value: DesignPaintValue::Number(value),
-                                                },
-                                                DesignPanelEditPhase::Commit,
-                                                cx,
-                                            );
-                                        })
-                                    }),
-                                ),
-                            )
-                            .child(
-                                h_flex()
-                                    .w_full()
-                                    .gap_1()
-                                    .child(
-                                        crate::atoms::ui_button(SharedString::from(format!(
-                                            "{}-pattern-spacing-x",
-                                            self.id
-                                        )))
-                                        .label(format!(
-                                            "Space X {}",
-                                            format_decimal(pattern.spacing.x)
-                                        ))
-                                        .xsmall()
-                                        .compact()
-                                        .outline()
-                                        .flex_1()
-                                        .disabled(disabled)
-                                        .on_activate({
-                                            let spacing = DesignPatternSpacing::new(
-                                                pattern.spacing.x + 0.01,
-                                                pattern.spacing.y,
-                                            );
-                                            cx.listener(move |this, _, _, cx| {
-                                                let _ = this.emit_edit(
-                                                    DesignPaintEdit {
-                                                        property:
-                                                            DesignPaintProperty::PatternSpacing,
-                                                        value: DesignPaintValue::PatternSpacing(
-                                                            spacing,
-                                                        ),
-                                                    },
-                                                    DesignPanelEditPhase::Commit,
-                                                    cx,
-                                                );
-                                            })
-                                        }),
-                                    )
-                                    .child(
-                                        crate::atoms::ui_button(SharedString::from(format!(
-                                            "{}-pattern-spacing-y",
-                                            self.id
-                                        )))
-                                        .label(format!(
-                                            "Space Y {}",
-                                            format_decimal(pattern.spacing.y)
-                                        ))
-                                        .xsmall()
-                                        .compact()
-                                        .outline()
-                                        .flex_1()
-                                        .disabled(disabled)
-                                        .on_activate({
-                                            let spacing = DesignPatternSpacing::new(
-                                                pattern.spacing.x,
-                                                pattern.spacing.y + 0.01,
-                                            );
-                                            cx.listener(move |this, _, _, cx| {
-                                                let _ = this.emit_edit(
-                                                    DesignPaintEdit {
-                                                        property:
-                                                            DesignPaintProperty::PatternSpacing,
-                                                        value: DesignPaintValue::PatternSpacing(
-                                                            spacing,
-                                                        ),
-                                                    },
-                                                    DesignPanelEditPhase::Commit,
-                                                    cx,
-                                                );
-                                            })
-                                        }),
-                                    ),
-                            ),
-                    )
-                    .child(alignment);
+                content = content.child(self.render_pattern_settings(pattern, cx));
             }
             DesignPaintPayload::Image(image) => {
                 content = content.child(self.render_media_settings(
@@ -771,32 +762,135 @@ impl PaintPicker {
         paint: &DesignPaint,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let paint_type = paint.paint_type();
-        let mut actions = v_flex().w_full().gap_1();
-        for action in DesignMediaSourceAction::ALL {
-            if !action.is_applicable_to(paint_type) {
-                continue;
-            }
-            let mut button = crate::atoms::ui_button(SharedString::from(format!(
-                "{}-media-source-{}",
-                self.id,
-                action.slug()
-            )))
-            .label(action.label())
-            .tooltip(action.label())
-            .xsmall()
-            .compact()
+        let media_label = if paint.paint_type() == DesignPaintType::Video {
+            "video"
+        } else {
+            "image"
+        };
+        let caps = self.current_media_capabilities();
+        let drop_enabled = !self.base_editing_disabled() && caps.can_upload_source;
+        let drop_border = crate::atoms::SemanticColor::BackgroundSelected.resolve(cx);
+        let upload_panel = v_flex()
             .w_full()
-            .disabled(self.media_source_action_disabled(action))
-            .on_activate(cx.listener(move |this, _, _, cx| {
-                this.request_media_source_action(action, cx);
-            }));
-            button = if action == DesignMediaSourceAction::Upload {
-                button.primary()
-            } else {
-                button.outline()
-            };
-            actions = actions.child(button);
+            .items_center()
+            .gap(px(tokens::InspectorGeometry::ROW_GAP))
+            .p(px(tokens::Space::LG))
+            .rounded(px(tokens::Radius::CONTROL))
+            .border_1()
+            .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
+            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+            .child(render_lucide_icon(
+                LucideIcon::Upload,
+                crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                tokens::ControlSize::SWATCH,
+            ))
+            .child(
+                div()
+                    .typography(crate::atoms::TypographyToken::PanelStrong)
+                    .child(format!("Upload {media_label}")),
+            )
+            .child(
+                div()
+                    .typography(crate::atoms::TypographyToken::PanelCaption)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    .child("Drag a file here"),
+            )
+            .child(
+                crate::atoms::ui_button(SharedString::from(format!(
+                    "{}-media-source-upload",
+                    self.id
+                )))
+                .label("Choose file…")
+                .debug_selector(|| "media-source-upload".to_owned())
+                .xsmall()
+                .typography(crate::atoms::TypographyToken::Panel)
+                .compact()
+                .outline()
+                .disabled(self.media_source_action_disabled(DesignMediaSourceAction::Upload))
+                .on_activate(cx.listener(|this, _, _, cx| {
+                    this.request_media_source_action(DesignMediaSourceAction::Upload, cx);
+                })),
+            )
+            .when(drop_enabled, |panel| {
+                panel
+                    .can_drop(move |candidate, _, _| {
+                        candidate
+                            .downcast_ref::<ExternalPaths>()
+                            .and_then(|paths| media_drop_from_paths(paths.paths(), caps))
+                            .is_some()
+                    })
+                    .drag_over::<ExternalPaths>(move |style, paths, _, _| {
+                        if media_drop_from_paths(paths.paths(), caps).is_some() {
+                            style.border_color(drop_border)
+                        } else {
+                            style
+                        }
+                    })
+                    .on_drop(cx.listener(|this, paths: &ExternalPaths, _, cx| {
+                        this.request_media_source_drop(paths.paths(), cx);
+                    }))
+            });
+        let mut actions = v_flex()
+            .w_full()
+            .gap(px(tokens::Space::SM))
+            .child(upload_panel)
+            .child(
+                crate::atoms::ui_button(SharedString::from(format!(
+                    "{}-media-browse-assets",
+                    self.id
+                )))
+                .label("Browse assets")
+                .xsmall()
+                .typography(crate::atoms::TypographyToken::Panel)
+                .compact()
+                .ghost()
+                .w_full()
+                .on_activate(cx.listener(|this, _, _, cx| {
+                    this.media_tab = MediaPickerTab::Assets;
+                    cx.notify();
+                })),
+            );
+        if paint.paint_type() == DesignPaintType::Image {
+            let mut secondary = h_flex().w_full().gap(px(tokens::Space::SM));
+            for (action, label, icon) in [
+                (
+                    DesignMediaSourceAction::MakeImage,
+                    "Generate",
+                    LucideIcon::Sparkles,
+                ),
+                (
+                    DesignMediaSourceAction::EditImage,
+                    "Edit image",
+                    LucideIcon::Pencil,
+                ),
+            ] {
+                secondary = secondary.child(
+                    crate::atoms::ui_button(SharedString::from(format!(
+                        "{}-media-source-{}",
+                        self.id,
+                        action.slug()
+                    )))
+                    .label(label)
+                    .debug_selector(move || format!("media-source-{}", action.slug()))
+                    .tooltip(action.label())
+                    .child(render_lucide_icon(
+                        icon,
+                        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                        tokens::IconSize::SM,
+                    ))
+                    .xsmall()
+                    .typography(crate::atoms::TypographyToken::PanelCaption)
+                    .compact()
+                    .ghost()
+                    .flex_1()
+                    .min_w_0()
+                    .disabled(self.media_source_action_disabled(action))
+                    .on_activate(cx.listener(move |this, _, _, cx| {
+                        this.request_media_source_action(action, cx);
+                    })),
+                );
+            }
+            actions = actions.child(secondary);
         }
         actions.into_any_element()
     }
@@ -812,7 +906,7 @@ impl PaintPicker {
         let tile_scale = settings.placement.tile_scaling_factor().unwrap_or(1.);
         let filters = settings.filters;
         let crop_tool = settings.crop_tool;
-        let mut modes = h_flex().w_full().gap_1();
+        let mut modes = h_flex().w_full().gap(px(tokens::Space::XS));
         for mode in DesignMediaPaintScaleMode::ALL {
             modes = modes.child(
                 crate::atoms::ui_button(SharedString::from(format!(
@@ -822,6 +916,7 @@ impl PaintPicker {
                 )))
                 .label(mode.label())
                 .xsmall()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .compact()
                 .ghost()
                 .flex_1()
@@ -841,12 +936,12 @@ impl PaintPicker {
         }
         v_flex()
             .w_full()
-            .gap_2()
+            .gap(px(tokens::InspectorGeometry::GROUP_GAP))
             .child(modes)
             .child(
                 h_flex()
                     .w_full()
-                    .gap_2()
+                    .gap(px(tokens::InspectorGeometry::ROW_GAP))
                     .child(
                         crate::atoms::ui_button(SharedString::from(format!(
                             "{}-media-rotation",
@@ -854,6 +949,7 @@ impl PaintPicker {
                         )))
                         .label(format!("Rotation {}°", rotation.degrees()))
                         .xsmall()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .compact()
                         .outline()
                         .disabled(disabled || current_mode == DesignMediaPaintScaleMode::Crop)
@@ -879,6 +975,7 @@ impl PaintPicker {
                         )))
                         .label(format!("Tile {}%", format_decimal(tile_scale * 100.)))
                         .xsmall()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .compact()
                         .outline()
                         .disabled(disabled || current_mode != DesignMediaPaintScaleMode::Tile)
@@ -914,6 +1011,7 @@ impl PaintPicker {
             return crate::atoms::ui_button(SharedString::from(format!("{}-media-crop", self.id)))
                 .label("Crop image")
                 .xsmall()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .compact()
                 .outline()
                 .w_full()
@@ -930,11 +1028,11 @@ impl PaintPicker {
         let next_aspect_ratio = crop_tool.aspect_ratio.next();
         v_flex()
             .w_full()
-            .gap_1()
+            .gap(px(tokens::InspectorGeometry::ROW_GAP))
             .child(
                 h_flex()
                     .w_full()
-                    .gap_1()
+                    .gap(px(tokens::Space::XS))
                     .child(
                         crate::atoms::ui_button(SharedString::from(format!(
                             "{}-media-crop-nudge",
@@ -942,6 +1040,7 @@ impl PaintPicker {
                         )))
                         .label("Nudge crop")
                         .xsmall()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .compact()
                         .outline()
                         .flex_1()
@@ -966,6 +1065,7 @@ impl PaintPicker {
                         )))
                         .label(format!("Zoom {}×", format_decimal(crop_tool.zoom)))
                         .xsmall()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .compact()
                         .outline()
                         .flex_1()
@@ -987,7 +1087,7 @@ impl PaintPicker {
             .child(
                 h_flex()
                     .w_full()
-                    .gap_1()
+                    .gap(px(tokens::Space::XS))
                     .child(
                         crate::atoms::ui_button(SharedString::from(format!(
                             "{}-media-crop-aspect",
@@ -995,6 +1095,7 @@ impl PaintPicker {
                         )))
                         .label(format!("Ratio {}", crop_tool.aspect_ratio.label()))
                         .xsmall()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .compact()
                         .outline()
                         .flex_1()
@@ -1030,6 +1131,7 @@ impl PaintPicker {
                                 )))
                                 .label("Rotate 15°")
                                 .xsmall()
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .compact()
                                 .outline()
                                 .w_full()
@@ -1053,6 +1155,7 @@ impl PaintPicker {
                         )))
                         .label("Resize to fit")
                         .xsmall()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .compact()
                         .outline()
                         .flex_1()
@@ -1065,7 +1168,7 @@ impl PaintPicker {
             .child(
                 h_flex()
                     .w_full()
-                    .gap_1()
+                    .gap(px(tokens::Space::XS))
                     .child(
                         crate::atoms::ui_button(SharedString::from(format!(
                             "{}-media-crop-cancel",
@@ -1073,6 +1176,7 @@ impl PaintPicker {
                         )))
                         .label("Cancel")
                         .xsmall()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .compact()
                         .ghost()
                         .flex_1()
@@ -1088,6 +1192,7 @@ impl PaintPicker {
                         )))
                         .label("Apply")
                         .xsmall()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .compact()
                         .primary()
                         .flex_1()
@@ -1115,18 +1220,22 @@ impl PaintPicker {
         disabled: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let mut rows = v_flex().w_full().gap_1();
+        let mut rows = v_flex()
+            .w_full()
+            .gap(px(tokens::InspectorGeometry::ROW_GAP));
         for filter in DesignImageFilter::ALL {
             let value = filters.value(filter);
             let slug = filter.label().to_ascii_lowercase();
             rows = rows.child(
                 h_flex()
                     .w_full()
-                    .gap_1()
+                    .gap(px(tokens::Space::XS))
                     .child(
                         div()
-                            .w(px(76.))
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .child(filter.label()),
                     )
                     .child(
@@ -1136,6 +1245,7 @@ impl PaintPicker {
                         )))
                         .label("−")
                         .xsmall()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .compact()
                         .outline()
                         .disabled(disabled || value <= -1.)
@@ -1160,6 +1270,7 @@ impl PaintPicker {
                         .label(format!("{:+.0}", value * 100.))
                         .tooltip("Reset")
                         .xsmall()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .compact()
                         .ghost()
                         .w(px(46.))
@@ -1184,6 +1295,7 @@ impl PaintPicker {
                         )))
                         .label("+")
                         .xsmall()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .compact()
                         .outline()
                         .disabled(disabled || value >= 1.)
@@ -1208,24 +1320,24 @@ impl PaintPicker {
     pub(super) fn render_video_preview(&self, cx: &mut Context<Self>) -> AnyElement {
         let Some(preview) = self.current_video_preview() else {
             return div()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("Preview unavailable")
                 .into_any_element();
         };
         match &preview.status {
             DesignVideoPreviewStatus::Idle => div()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("Preview idle")
                 .into_any_element(),
             DesignVideoPreviewStatus::Loading => div()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("Loading preview…")
                 .into_any_element(),
             DesignVideoPreviewStatus::Error { message } => div()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .text_color(crate::atoms::SemanticColor::TextDanger.resolve(cx))
                 .child(format!("Preview error: {message}"))
                 .into_any_element(),
@@ -1237,20 +1349,20 @@ impl PaintPicker {
                 let scrub_forward = (current + duration * 0.1).min(duration);
                 v_flex()
                     .w_full()
-                    .gap_1()
+                    .gap(px(tokens::InspectorGeometry::ROW_GAP))
                     .child(
                         h_flex()
                             .w_full()
                             .justify_between()
                             .child(
                                 div()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .font_semibold()
                                     .child("Video preview"),
                             )
                             .child(
                                 div()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .child(format!(
                                         "{} / {}s",
                                         format_decimal(current),
@@ -1261,7 +1373,7 @@ impl PaintPicker {
                     .child(
                         h_flex()
                             .w_full()
-                            .gap_1()
+                            .gap(px(tokens::Space::XS))
                             .child(
                                 crate::atoms::ui_button(SharedString::from(format!(
                                     "{}-video-preview-play",
@@ -1269,6 +1381,7 @@ impl PaintPicker {
                                 )))
                                 .label(if preview.playing { "Pause" } else { "Play" })
                                 .xsmall()
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .compact()
                                 .primary()
                                 .disabled(duration <= 0.)
@@ -1293,6 +1406,7 @@ impl PaintPicker {
                                 )))
                                 .label("−1s")
                                 .xsmall()
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .compact()
                                 .outline()
                                 .disabled(current <= 0.)
@@ -1312,6 +1426,7 @@ impl PaintPicker {
                                 )))
                                 .label("+1s")
                                 .xsmall()
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .compact()
                                 .outline()
                                 .disabled(current >= duration)
@@ -1335,6 +1450,7 @@ impl PaintPicker {
                         .label("Scrub +10%")
                         .tooltip("Simulate a begin/preview/commit scrub")
                         .xsmall()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .compact()
                         .outline()
                         .disabled(duration <= 0. || current >= duration)

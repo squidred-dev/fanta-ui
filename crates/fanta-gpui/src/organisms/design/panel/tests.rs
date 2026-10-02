@@ -4,7 +4,7 @@ use super::super::{
     DesignComponentResetState, DesignLayoutGrid, DesignPanelNodeCapabilities,
     DesignPanelPropertyBinding, DesignRepeatModifier, DesignSectionDevStatus,
     DesignShaderDefinition, DesignShaderEffect, DesignShaderProperty,
-    DesignShaderPropertyDefinition, DesignStroke,
+    DesignShaderPropertyDefinition, DesignStroke, DesignVariableScope,
 };
 use super::*;
 use std::{cell::RefCell, rc::Rc};
@@ -1311,6 +1311,68 @@ fn adding_fill_and_effect_opens_the_new_item_editor_after_host_echo(cx: &mut Tes
 
 fn key_downs(host: &Entity<TestHost>, cx: &VisualTestContext) -> Rc<RefCell<Vec<SharedString>>> {
     cx.read(|app| host.read(app).key_downs.clone())
+}
+
+#[gpui::test]
+fn design_sections_share_header_insets_and_vertical_row_spacing(cx: &mut TestAppContext) {
+    let node = DesignPanelNode::new("shape", "Shape", DesignPanelNodeKind::Rectangle);
+    let (host, cx) = setup(node, cx);
+    panel(&host, cx).update(cx, |panel, cx| {
+        panel.sections.toggle_constraints();
+        cx.notify();
+    });
+    cx.run_until_parked();
+    let viewport = cx.debug_bounds("design-test-panel-viewport").unwrap();
+    let header = cx.debug_bounds("design-section-position").unwrap();
+    let alignment = cx.debug_bounds("design-align-left").unwrap();
+    let coordinate = cx.debug_bounds("design-x").unwrap();
+    let rotation = cx.debug_bounds("design-rotation").unwrap();
+    let next_header = cx.debug_bounds("design-section-layout").unwrap();
+    assert_eq!(header.size.height, px(32.));
+    assert_eq!(alignment.top(), header.bottom());
+    assert_eq!(coordinate.top() - alignment.bottom(), px(8.));
+    assert_eq!(rotation.top() - coordinate.bottom(), px(8.));
+    assert_eq!(coordinate.left() - viewport.left(), px(16.));
+    assert!(
+        (next_header.top() - rotation.bottom() - px(12.))
+            .as_f32()
+            .abs()
+            <= 1.
+    );
+}
+
+#[gpui::test]
+fn stroke_position_preview_button_keeps_its_label_and_caret_readable_at_compact_widths(
+    cx: &mut TestAppContext,
+) {
+    let mut node = DesignPanelNode::new("shape", "Shape", DesignPanelNodeKind::Rectangle);
+    node.stroke = Some(DesignStroke::from_paint(
+        DesignPaint::solid(DesignColor::WHITE),
+        2.,
+        DesignStrokeAlign::Inside,
+    ));
+    let (host, visual_cx) = setup(node, cx);
+
+    for width in [320., 400., 472.] {
+        host.update(visual_cx, |host, cx| {
+            host.panel_width = width;
+            cx.notify();
+        });
+        visual_cx.run_until_parked();
+        let trigger = visual_cx
+            .debug_bounds("design-stroke-align-preview-menu-trigger")
+            .expect("Stroke Position should show its preview menu trigger");
+        let text = visual_cx
+            .debug_bounds("design-stroke-align-preview-menu-trigger-button-label-text")
+            .expect("the controlled Inside label should have a layout allocation");
+        let caret = visual_cx
+            .debug_bounds("design-stroke-align-preview-menu-trigger-button-caret")
+            .expect("the preview trigger should retain its dropdown caret");
+        assert!(text.size.width >= px(60.), "label collapsed: {text:?}");
+        assert!(caret.size.width >= px(8.), "caret shrank: {caret:?}");
+        assert!(text.left() >= trigger.left() && text.right() <= caret.left());
+        assert!(caret.right() <= trigger.right());
+    }
 }
 
 #[gpui::test]
@@ -19389,4 +19451,222 @@ fn viewer_representation_button_activates_from_the_keyboard(cx: &mut TestAppCont
         "a viewer representation Button must be reachable and Enter-activatable"
     );
     captured.borrow_mut().clear();
+}
+
+#[gpui::test]
+fn adding_inspector_items_reveals_their_collapsed_section(cx: &mut TestAppContext) {
+    let node = DesignPanelNode::new("shape", "Shape", DesignPanelNodeKind::Frame);
+    let (host, visual_cx) = setup(node.clone(), cx);
+    let panel = panel(&host, visual_cx);
+    let captured = actions(&host, visual_cx);
+    panel.update(visual_cx, |panel, cx| {
+        panel.set_export_view_data(
+            DesignExportViewData {
+                target: DesignPanelTarget::Nodes {
+                    node_ids: vec![node.id.clone()],
+                },
+                configurations: Vec::new(),
+                mode: DesignExportMode::Static,
+                static_capabilities: Default::default(),
+                preview: None,
+                animated: None,
+            },
+            cx,
+        );
+        for (collection, section) in [
+            (DesignPanelCollection::Fill, DesignPanelSection::Fill),
+            (DesignPanelCollection::Stroke, DesignPanelSection::Stroke),
+            (DesignPanelCollection::Effect, DesignPanelSection::Effects),
+            (
+                DesignPanelCollection::LayoutGrid,
+                DesignPanelSection::LayoutGrid,
+            ),
+            (DesignPanelCollection::Export, DesignPanelSection::Export),
+        ] {
+            panel.sections.toggle(section);
+            assert!(!panel.sections.is_expanded(section));
+            panel.emit_add(collection, cx);
+            assert!(
+                panel.sections.is_expanded(section),
+                "adding {collection:?} reveals its editor"
+            );
+        }
+        assert_eq!(panel.host.inspected_node().fills, node.fills);
+        assert_eq!(panel.host.inspected_node().effects, node.effects);
+    });
+    visual_cx.run_until_parked();
+    assert_eq!(
+        captured.borrow().len(),
+        5,
+        "disclosure emits no document actions of its own"
+    );
+}
+
+#[gpui::test]
+fn effect_adjustments_keep_the_inline_editor_mounted_across_edits_and_host_echoes(
+    cx: &mut TestAppContext,
+) {
+    let mut node = DesignPanelNode::new("effects", "Effects", DesignPanelNodeKind::Rectangle);
+    node.effects = vec![DesignEffect::new(DesignEffectKind::DropShadow).with_id("shadow")];
+    let (host, visual_cx) = setup(node.clone(), cx);
+    let panel = panel(&host, visual_cx);
+    let captured = actions(&host, visual_cx);
+    panel.update(visual_cx, |panel, cx| {
+        panel
+            .overlays
+            .open(DesignOverlayState::EffectSettings(EffectSettingsTarget {
+                index: 0,
+                effect_id: "shadow".into(),
+            }));
+        cx.notify();
+    });
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("effect-settings-body-0").is_some());
+
+    visual_cx.update(|window, app| {
+        panel.update(app, |panel, cx| {
+            panel.activate_property(
+                DesignPanelProperty::EffectShadowOffsetX(0),
+                DesignPanelValue::Number(12.),
+                window,
+                cx,
+            );
+            panel.retained.inputs.property.update(cx, |input, cx| {
+                input.set_value("12", window, cx);
+            });
+            panel.validate_property_draft(cx);
+            let DesignEffectSettings::DropShadow(settings) = &mut node.effects[0].settings else {
+                unreachable!();
+            };
+            settings.offset.x = 12.;
+            let mut echo = panel.canonical_view_data();
+            echo.inspection_context = DesignPanelInspectionContext::single(
+                node.clone(),
+                DesignPanelParentLayout::Freeform,
+                DesignPanelPermissions::editor(),
+            );
+            panel.set_view_data(echo, cx);
+            assert!(panel.overlays.active_effect_settings().is_some());
+            assert!(panel.edit.property.is_some());
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("effect-settings-body-0").is_some());
+    visual_cx.update(|window, app| {
+        panel.update(app, |panel, cx| {
+            panel.finish_property_edit(true, window, cx)
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("effect-settings-body-0").is_some());
+    let phases = captured
+        .borrow()
+        .iter()
+        .filter_map(|action| match action {
+            DesignPanelAction::EffectEditRequested {
+                effect_id,
+                property: DesignPanelProperty::EffectShadowOffsetX(0),
+                phase,
+                ..
+            } if effect_id.as_ref() == "shadow" => Some(*phase),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(phases.first(), Some(&DesignPanelEditPhase::Begin));
+    assert_eq!(phases.last(), Some(&DesignPanelEditPhase::Commit));
+    assert_eq!(
+        phases
+            .iter()
+            .filter(|phase| matches!(
+                phase,
+                DesignPanelEditPhase::Commit | DesignPanelEditPhase::Cancel
+            ))
+            .count(),
+        1
+    );
+}
+
+#[gpui::test]
+fn property_variable_popup_uses_its_full_surface_and_stays_inside_the_window(
+    cx: &mut TestAppContext,
+) {
+    let node = DesignPanelNode::new("frame", "Frame", DesignPanelNodeKind::Frame);
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    visual_cx.update(|window, app| {
+        panel.update(app, |panel, cx| {
+            let variable = DesignVariable::page(
+                "long-variable",
+                "A very long reusable container width variable name",
+                "long-collection",
+                "An equally long collection of container size variables",
+                super::super::DesignVariableResolvedType::Float,
+            )
+            .with_source(DesignVariableSource::library(
+                "library",
+                "A very long library name that should never widen this popup",
+            ))
+            .with_scopes([DesignVariableScope::WidthHeight]);
+            panel.set_property_variable_view_data(DesignVariableViewData::new([variable]), cx);
+            panel.open_property_variable_picker(DesignPanelProperty::Width, window, cx);
+        });
+    });
+    visual_cx.run_until_parked();
+    let surface = visual_cx
+        .debug_bounds("property-variable-surface-Width")
+        .expect("a variable picker has one opaque surface");
+    let viewport = visual_cx.update(|window, _| window.viewport_size());
+    assert!(
+        surface.size.width > px(200.),
+        "the popup must not inherit its 20px trigger width"
+    );
+    assert!(surface.left() >= px(0.) && surface.right() <= viewport.width);
+    assert!(surface.top() >= px(0.) && surface.bottom() <= viewport.height);
+    let row = visual_cx
+        .debug_bounds("design-property-variable-Width-long-variable")
+        .expect("the compatible variable remains visible");
+    assert!(row.left() >= surface.left() && row.right() <= surface.right());
+    assert!(row.top() >= surface.top() && row.bottom() <= surface.bottom());
+}
+
+#[gpui::test]
+fn canonical_effect_settings_follow_identity_and_dismiss_after_removal(cx: &mut TestAppContext) {
+    let mut node = DesignPanelNode::new("effects", "Effects", DesignPanelNodeKind::Rectangle);
+    node.effects = vec![
+        DesignEffect::new(DesignEffectKind::DropShadow).with_id("first"),
+        DesignEffect::new(DesignEffectKind::InnerShadow).with_id("second"),
+    ];
+    let (host, visual_cx) = setup(node.clone(), cx);
+    let panel = panel(&host, visual_cx);
+    panel.update(visual_cx, |panel, cx| {
+        panel
+            .overlays
+            .open(DesignOverlayState::EffectSettings(EffectSettingsTarget {
+                index: 1,
+                effect_id: "second".into(),
+            }));
+        node.effects.swap(0, 1);
+        let mut echo = panel.canonical_view_data();
+        echo.inspection_context = DesignPanelInspectionContext::single(
+            node.clone(),
+            DesignPanelParentLayout::Freeform,
+            DesignPanelPermissions::editor(),
+        );
+        panel.set_view_data(echo, cx);
+        let target = panel
+            .overlays
+            .active_effect_settings()
+            .expect("same effect remains open");
+        assert_eq!(target.index, 0);
+        assert_eq!(target.effect_id.as_ref(), "second");
+        node.effects.remove(0);
+        let mut echo = panel.canonical_view_data();
+        echo.inspection_context = DesignPanelInspectionContext::single(
+            node,
+            DesignPanelParentLayout::Freeform,
+            DesignPanelPermissions::editor(),
+        );
+        panel.set_view_data(echo, cx);
+        assert!(panel.overlays.active_effect_settings().is_none());
+    });
 }

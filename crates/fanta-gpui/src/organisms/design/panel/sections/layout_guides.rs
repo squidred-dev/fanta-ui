@@ -211,9 +211,7 @@ pub(in super::super) fn render(
 ) -> Option<AnyElement> {
     projection.is_visible().then(|| {
         if let Some(name) = projection.content.style_binding_name.clone() {
-            let content = v_flex()
-                .px(px(PANEL_PADDING))
-                .pb_4()
+            let content = crate::molecules::inspector_section_body()
                 .child(chrome.layout_guides_bound_style_summary(name, cx));
             return chrome.layout_guides_section(content.into_any_element(), cx);
         }

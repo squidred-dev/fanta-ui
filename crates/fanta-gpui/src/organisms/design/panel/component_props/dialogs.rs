@@ -64,7 +64,7 @@ pub(super) fn render_container(
 
 pub(super) fn unavailable_editor(cx: &App) -> AnyElement {
     div()
-        .typography(crate::atoms::TypographyToken::BodyLarge)
+        .typography(crate::atoms::TypographyToken::Panel)
         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
         .child("This component-property editor is no longer available.")
         .into_any_element()

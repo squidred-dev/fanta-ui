@@ -634,26 +634,7 @@ impl DesignPanelViewDataController for DesignPanel {
             self.overlays
                 .discard(DesignOpenOverlay::LayoutGridCountVariable);
         }
-        if let Some(mut target) = self.overlays.active_effect_settings().clone() {
-            let next_index = if target.effect_id.is_empty() {
-                self.host
-                    .inspected_node()
-                    .effects
-                    .get(target.index)
-                    .map(|_| target.index)
-            } else {
-                self.host
-                    .inspected_node()
-                    .effect_index_by_id(target.effect_id.as_ref())
-            };
-            if let Some(index) = next_index {
-                target.index = index;
-                self.overlays
-                    .replace(DesignOverlayState::EffectSettings(target));
-            } else {
-                self.overlays.discard(DesignOpenOverlay::EffectSettings);
-            }
-        }
+        self.reconcile_effect_settings();
         self.reconcile_layout_grid_targets();
         if self.host.inspected_node().typography.is_none() {
             self.overlays.discard(DesignOpenOverlay::TypographyStyle);
@@ -927,6 +908,7 @@ impl DesignPanelViewDataController for DesignPanel {
             self.host.page_node_fallback = node;
         }
         self.host.inspection_context = context;
+        self.reconcile_effect_settings();
         self.reconcile_slot_limits_state();
         self.reconcile_component_authoring_state(cx);
         if !self.dimension_limits_are_applicable() {

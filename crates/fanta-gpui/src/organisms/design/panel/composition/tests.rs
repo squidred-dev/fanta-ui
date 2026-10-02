@@ -1,7 +1,10 @@
 use gpui::{TestAppContext, VisualTestContext};
 
 use super::*;
-use crate::design::{DesignPageBackground, DesignPanelEditPhase, DesignPanelNodeCapabilities};
+use crate::design::{
+    DesignPageBackground, DesignPanelEditPhase, DesignPanelNodeCapabilities,
+    DesignSelectionHeaderMenuItem,
+};
 use crate::properties_inspector::{PropertiesInspector, PropertiesInspectorChildren};
 use crate::test_support::mount_component;
 
@@ -412,4 +415,83 @@ fn hiding_composition_cancels_once_and_preserves_host_navigation(cx: &mut TestAp
         assert!(!panel.overlays.appearance_blend_mode_open());
         assert_eq!(panel.view_data(), before);
     });
+}
+
+#[gpui::test]
+fn layer_type_menu_emits_conversion_without_mutating_the_controlled_layer(cx: &mut TestAppContext) {
+    let (host, actions, visual_cx) = mount_component(cx, |window, cx| {
+        Harness::new(DesignPropertyPanelKind::Layout, true, window, cx)
+    });
+    let controller = controller(&host, visual_cx);
+    controller.update(visual_cx, |panel, cx| {
+        panel.set_node(
+            DesignPanelNode::new("opaque-node", "Card", DesignPanelNodeKind::Frame),
+            cx,
+        );
+    });
+    visual_cx.run_until_parked();
+    let trigger = visual_cx.debug_bounds("design-layer-type").unwrap();
+    visual_cx.simulate_click(trigger.center(), Modifiers::none());
+    visual_cx.run_until_parked();
+    let group = visual_cx.debug_bounds("design-layer-type-group").unwrap();
+    visual_cx.simulate_click(group.center(), Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(
+        matches!(actions.borrow().as_slice(), [DesignPanelAction::SelectionHeaderCommandRequested {
+        target: DesignPanelTarget::Nodes { node_ids },
+        command: DesignSelectionHeaderCommand::ChangeLayerType { kind: DesignPanelNodeKind::Group },
+    }] if node_ids == &[SharedString::from("opaque-node")])
+    );
+    assert_eq!(
+        controller.read_with(visual_cx, |panel, _| panel.node().kind),
+        DesignPanelNodeKind::Frame
+    );
+}
+
+#[gpui::test]
+fn host_conversion_menu_revalidates_its_enabled_parent_and_leaf(cx: &mut TestAppContext) {
+    let (host, actions, visual_cx) = mount_component(cx, |window, cx| {
+        Harness::new(DesignPropertyPanelKind::Layout, true, window, cx)
+    });
+    let controller = controller(&host, visual_cx);
+    let command = DesignSelectionHeaderCommand::ChangeLayerType {
+        kind: DesignPanelNodeKind::Group,
+    };
+    let control =
+        DesignSelectionHeaderControl::new("convert", DesignSelectionHeaderControlKind::HostDefined)
+            .with_menu_items([DesignSelectionHeaderMenuItem::new(
+                "group",
+                "Group",
+                command.clone(),
+            )]);
+    controller.update(visual_cx, |panel, cx| {
+        panel.set_selection_header_view_data(
+            DesignSelectionHeaderViewData::new("Host layer", [])
+                .with_overflow_controls([control.clone()]),
+            cx,
+        );
+        let target = panel.current_selection_header_target().unwrap();
+        panel.emit_selection_header_command_for_target(
+            target.clone(),
+            command.clone(),
+            DesignSelectionHeaderCommandAccess::EditRequired,
+            cx,
+        );
+        let mut disabled = control;
+        disabled.enabled = false;
+        panel.set_selection_header_view_data(
+            DesignSelectionHeaderViewData::new("Host layer", []).with_overflow_controls([disabled]),
+            cx,
+        );
+        panel.emit_selection_header_command_for_target(
+            target,
+            command.clone(),
+            DesignSelectionHeaderCommandAccess::EditRequired,
+            cx,
+        );
+    });
+    assert_eq!(actions.borrow().len(), 1);
+    assert!(
+        matches!(&actions.borrow()[0], DesignPanelAction::SelectionHeaderCommandRequested { command: received, .. } if received == &command)
+    );
 }

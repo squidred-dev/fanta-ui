@@ -347,17 +347,19 @@ fn render_direct_action_button(
         .rounded(px(4.))
         .border_1()
         .border_color(cx.theme().transparent)
-        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-        .typography(crate::atoms::TypographyToken::BodyMedium)
+        .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+        .typography(crate::atoms::TypographyToken::Panel)
         .when(enabled, |button| {
             button
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+                .hover(|style| {
+                    style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
+                })
                 .focus(|style| {
                     style
-                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                         .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
         })
@@ -390,7 +392,7 @@ fn render_context<T: ParentElement>(
             .justify_between()
             .child(
                 div()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(role.label()),
             )
@@ -400,8 +402,8 @@ fn render_context<T: ParentElement>(
                         .px_2()
                         .py(px(2.))
                         .rounded(px(4.))
-                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .child(format!(
                             "{} overrides",
                             context.overrides.overridden_property_count
@@ -429,7 +431,7 @@ fn render_context<T: ParentElement>(
                 .rounded(px(5.))
                 .border_1()
                 .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
                 .child(render_lucide_icon(
                     if role.uses_instance_section() {
                         LucideIcon::Diamond
@@ -446,20 +448,20 @@ fn render_context<T: ParentElement>(
                         .child(
                             div()
                                 .truncate()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .child(main.name.clone()),
                         )
                         .child(
                             div()
                                 .truncate()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child(origin),
                         ),
                 )
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(if available {
                             crate::atoms::SemanticColor::TextSuccess.resolve(cx)
                         } else {
@@ -480,7 +482,7 @@ fn render_context<T: ParentElement>(
     if let Some(description) = context.description.as_ref() {
         content = content.child(
             div()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child(description.clone()),
         );
@@ -498,14 +500,14 @@ fn render_context<T: ParentElement>(
                     div()
                         .flex_1()
                         .truncate()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .child(link.label.clone()),
                 )
                 .child(
                     div()
                         .max_w(px(120.))
                         .truncate()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(link.url.clone()),
                 ),
@@ -520,7 +522,7 @@ pub(in super::super) fn render_component(
     event_sink: ComponentEventSink,
     cx: &mut Context<DesignPanel>,
 ) -> AnyElement {
-    let mut content = v_flex().px(px(PANEL_PADDING)).pb_4().gap_2();
+    let mut content = crate::molecules::inspector_section_body();
     content = render_context(projection, content, cx);
 
     if projection.authoring.applied_controls
@@ -563,14 +565,14 @@ pub(in super::super) fn render_component(
                             .child(
                                 div()
                                     .truncate()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .font_semibold()
                                     .child(instance_name.clone()),
                             )
                             .child(
                                 div()
                                     .truncate()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .text_color(
                                         crate::atoms::SemanticColor::TextTertiary.resolve(cx),
                                     )

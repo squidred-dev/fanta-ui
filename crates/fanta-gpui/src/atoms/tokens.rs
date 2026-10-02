@@ -21,6 +21,18 @@ impl Space {
     pub const LG: f32 = 16.;
 }
 
+/// Density shared by properties inspector sections without changing other chrome.
+pub struct InspectorGeometry;
+
+impl InspectorGeometry {
+    pub const SECTION_HEADER: f32 = 32.;
+    pub const BODY_INSET: f32 = Space::LG;
+    pub const BODY_BOTTOM: f32 = Space::MD;
+    pub const CAPTION_GAP: f32 = Space::XS;
+    pub const ROW_GAP: f32 = Space::SM;
+    pub const GROUP_GAP: f32 = Space::MD;
+}
+
 /// Fixed heights for the crate's horizontal strips: inspector rows, list rows,
 /// menu items, page entries, flyouts, and section headers.
 pub struct RowHeight;

@@ -37,6 +37,7 @@ pub(super) fn projection(panel: &DesignPanel) -> sections::effects::EffectsProje
 /// Internal controller for effect transactions, resources, and retained
 /// compatibility chrome used by the extracted Effects section.
 pub(super) trait DesignEffectsController: Sized {
+    fn reconcile_effect_settings(&mut self);
     fn effect_edit_target(
         &self,
         property: DesignPanelProperty,
@@ -159,6 +160,38 @@ pub(super) trait DesignEffectsController: Sized {
 }
 
 impl DesignEffectsController for DesignPanel {
+    fn reconcile_effect_settings(&mut self) {
+        let Some(mut target) = self.overlays.active_effect_settings() else {
+            return;
+        };
+        if !self.collection_is_supported(DesignPanelCollection::Effect)
+            || self.host.inspected_node().effect_style_binding.is_some()
+        {
+            self.overlays.discard(DesignOpenOverlay::EffectSettings);
+            return;
+        }
+        let next_index = if target.effect_id.is_empty() {
+            self.host
+                .inspected_node()
+                .effects
+                .get(target.index)
+                .map(|_| target.index)
+        } else {
+            self.host
+                .inspected_node()
+                .effect_index_by_id(target.effect_id.as_ref())
+        };
+        if let Some(index) = next_index {
+            if target.index != index {
+                target.index = index;
+                self.overlays
+                    .replace(DesignOverlayState::EffectSettings(target));
+            }
+        } else {
+            self.overlays.discard(DesignOpenOverlay::EffectSettings);
+        }
+    }
+
     fn effect_edit_target(
         &self,
         property: DesignPanelProperty,
@@ -670,6 +703,7 @@ impl DesignEffectsController for DesignPanel {
                 .tooltip(tooltip)
                 .xsmall()
                 .compact()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .ghost()
                 .w(px(24.))
                 .h(px(24.))
@@ -712,7 +746,7 @@ impl DesignEffectsController for DesignPanel {
                     div()
                         .px_2()
                         .py_1()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .font_semibold()
                         .child("Effect styles"),
                 );
@@ -727,7 +761,7 @@ impl DesignEffectsController for DesignPanel {
                             div()
                                 .flex_1()
                                 .truncate()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .child(binding.name),
                         )
                         .child(
@@ -737,6 +771,7 @@ impl DesignEffectsController for DesignPanel {
                             .label("Detach")
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
                             .disabled(!can_edit || !binding.can_detach)
                             .on_activate(move |_, _, cx| {
@@ -755,7 +790,11 @@ impl DesignEffectsController for DesignPanel {
                 .label("Create style from selection")
                 .xsmall()
                 .compact()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .ghost()
+                .text_left()
+                .justify_start()
+                .px_2()
                 .w_full()
                 .disabled(!can_create)
                 .on_activate(move |_, _, cx| {
@@ -775,7 +814,7 @@ impl DesignEffectsController for DesignPanel {
                     div()
                         .px_2()
                         .py_3()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(if catalog_is_empty {
                             "No Effect styles supplied by the host"
@@ -789,7 +828,7 @@ impl DesignEffectsController for DesignPanel {
                     div()
                         .px_2()
                         .pt_2()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("This page"),
                 );
@@ -810,12 +849,18 @@ impl DesignEffectsController for DesignPanel {
                         .tooltip(summary)
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
                         .when(view_mode == StyleBrowserViewMode::Grid, |button| {
                             button.w(px(118.)).h(px(44.))
                         })
                         .when(view_mode == StyleBrowserViewMode::List, |button| {
-                            button.w_full()
+                            button
+                                .w_full()
+                                .text_left()
+                                .justify_start()
+                                .px_2()
+                                .h(px(crate::atoms::tokens::RowHeight::MENU))
                         })
                         .disabled(!can_edit)
                         .on_activate(move |_, _, cx| {
@@ -833,7 +878,7 @@ impl DesignEffectsController for DesignPanel {
                     div()
                         .px_2()
                         .pt_2()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(library_name),
                 );
@@ -852,12 +897,18 @@ impl DesignEffectsController for DesignPanel {
                         .tooltip(summary)
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
                         .when(view_mode == StyleBrowserViewMode::Grid, |button| {
                             button.w(px(118.)).h(px(44.))
                         })
                         .when(view_mode == StyleBrowserViewMode::List, |button| {
-                            button.w_full()
+                            button
+                                .w_full()
+                                .text_left()
+                                .justify_start()
+                                .px_2()
+                                .h(px(crate::atoms::tokens::RowHeight::MENU))
                         })
                         .disabled(!can_edit)
                         .on_activate(move |_, _, cx| {
@@ -954,24 +1005,36 @@ impl DesignEffectsController for DesignPanel {
         effect: &DesignEffect,
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
-        let fields =
-            effect.variable_fields(self.host.inspected_node().effect_capabilities.shadow_spread);
+        let fields = effect
+            .variable_fields(self.host.inspected_node().effect_capabilities.shadow_spread)
+            .iter()
+            .copied()
+            .filter(|field| {
+                effect.variable_binding(*field).is_some()
+                    || self
+                        .resources
+                        .effect_variables
+                        .compatible(*field)
+                        .next()
+                        .is_some()
+            })
+            .collect::<Vec<_>>();
         (!fields.is_empty()).then(|| {
             let mut content = v_flex()
                 .w_full()
                 .gap_1()
                 .pt_2()
                 .border_t_1()
-                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("Variables"),
                 );
             for field in fields {
-                let binding = effect.variable_binding(*field);
-                let candidate = self.resources.effect_variables.compatible(*field).next();
+                let binding = effect.variable_binding(field);
+                let candidate = self.resources.effect_variables.compatible(field).next();
                 let enabled = self.can_edit()
                     && self.host.inspected_node().effect_style_binding.is_none()
                     && (binding.is_some_and(|binding| binding.can_detach)
@@ -987,7 +1050,6 @@ impl DesignEffectsController for DesignPanel {
                         format!("{} · {}", binding.collection_name, binding.variable_name).into()
                     },
                 );
-                let field = *field;
                 let panel = cx.entity();
                 content = content.child(
                     crate::atoms::ui_button(SharedString::from(format!(
@@ -1002,8 +1064,12 @@ impl DesignEffectsController for DesignPanel {
                     })
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .ghost()
                     .w_full()
+                    .text_left()
+                    .justify_start()
+                    .px_2()
                     .disabled(!enabled)
                     .on_activate(move |_, _, cx| {
                         panel.update(cx, |this, cx| {
@@ -1079,7 +1145,7 @@ impl DesignEffectsController for DesignPanel {
             } else {
                 cx.theme().transparent
             })
-            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
             .when(editable, |cell| {
                 cell.key_context(CONTROL_KEY_CONTEXT)
                     .cursor_pointer()
@@ -1088,7 +1154,7 @@ impl DesignEffectsController for DesignPanel {
                     })
                     .focus(|style| {
                         style
-                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                             .border_color(
                                 crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
                             )
@@ -1114,7 +1180,7 @@ impl DesignEffectsController for DesignPanel {
             cell.child(
                 div()
                     .w(px(12.))
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(prefix),
             )
@@ -1122,7 +1188,7 @@ impl DesignEffectsController for DesignPanel {
         if editing {
             cell = cell.child(
                 Input::new(&self.retained.inputs.property)
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .appearance(false)
                     .bordered(false)
                     .focus_bordered(false)
@@ -1135,7 +1201,7 @@ impl DesignEffectsController for DesignPanel {
             cell = cell.child(
                 div()
                     .truncate()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .child(value.into()),
             );
         }
@@ -1168,13 +1234,13 @@ impl DesignEffectsController for DesignPanel {
                     .tab_index(0)
                     .cursor_pointer()
                     .hover(|style| {
-                        style.bg(crate::atoms::SemanticColor::BackgroundHover
+                        style.bg(crate::atoms::SemanticColor::BackgroundPanelHover
                             .resolve(cx)
                             .opacity(0.55))
                     })
                     .focus(|style| {
                         style
-                            .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                            .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                             .border_color(
                                 crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
                             )
@@ -1192,7 +1258,7 @@ impl DesignEffectsController for DesignPanel {
         row.child(
             div()
                 .flex_1()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .child("Enabled"),
         )
         .child(
@@ -1206,7 +1272,7 @@ impl DesignEffectsController for DesignPanel {
                 .bg(if checked {
                     crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
                 } else {
-                    crate::atoms::SemanticColor::Border.resolve(cx)
+                    crate::atoms::SemanticColor::BorderPanel.resolve(cx)
                 })
                 .child(
                     div()
@@ -1249,7 +1315,7 @@ impl DesignEffectsController for DesignPanel {
                     .flex_1()
                     .min_w(px(0.))
                     .truncate()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(label),
             )
@@ -1266,6 +1332,7 @@ impl DesignEffectsController for DesignPanel {
                 })
                 .xsmall()
                 .compact()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .ghost()
                 .disabled(!enabled)
                 .on_activate(move |_, _, cx| {
@@ -1290,6 +1357,7 @@ impl DesignEffectsController for DesignPanel {
                 .tooltip("Detach variable")
                 .xsmall()
                 .compact()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .ghost()
                 .disabled(!enabled)
                 .on_activate(move |_, _, cx| {
@@ -1368,7 +1436,7 @@ impl DesignEffectsController for DesignPanel {
                                 .flex_1()
                                 .min_w(px(0.))
                                 .truncate()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .child(asset_id.clone()),
                         )
                         .child(
@@ -1381,6 +1449,7 @@ impl DesignEffectsController for DesignPanel {
                             .tooltip(format!("Choose {}", kind.label()))
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
                             .disabled(!enabled)
                             .on_activate(move |_, _, cx| {
@@ -1408,7 +1477,7 @@ impl DesignEffectsController for DesignPanel {
                                 .flex_none()
                                 .rounded(px(4.))
                                 .border_1()
-                                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                                .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
                                 .bg(color_hsla(*color)),
                         )
                         .child(self.render_shader_property_field_cell(
@@ -1448,7 +1517,7 @@ impl DesignEffectsController for DesignPanel {
                 body = body
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("Start"),
                     )
@@ -1475,7 +1544,7 @@ impl DesignEffectsController for DesignPanel {
                     )
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("End"),
                     )
@@ -1619,7 +1688,9 @@ impl DesignEffectsController for DesignPanel {
                                     .flex_none()
                                     .rounded(px(4.))
                                     .border_1()
-                                    .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                                    .border_color(
+                                        crate::atoms::SemanticColor::BorderPanel.resolve(cx),
+                                    )
                                     .bg(color_hsla(*color)),
                             )
                             .child(self.render_shader_property_field_cell(
@@ -1658,7 +1729,7 @@ impl DesignEffectsController for DesignPanel {
                                         .rounded(px(4.))
                                         .border_1()
                                         .border_color(
-                                            crate::atoms::SemanticColor::Border.resolve(cx),
+                                            crate::atoms::SemanticColor::BorderPanel.resolve(cx),
                                         )
                                         .bg(color_hsla(stop.color)),
                                 )
@@ -1692,6 +1763,7 @@ impl DesignEffectsController for DesignPanel {
                                     })
                                     .xsmall()
                                     .compact()
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .ghost()
                                     .disabled(!can_remove)
                                     .on_activate(
@@ -1730,6 +1802,7 @@ impl DesignEffectsController for DesignPanel {
                     .tooltip("Add gradient stop")
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .ghost()
                     .w_full()
                     .disabled(!can_add)
@@ -1748,8 +1821,8 @@ impl DesignEffectsController for DesignPanel {
                             .px_2()
                             .py_1()
                             .rounded(px(4.))
-                            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .child(format!("Variable alias · {variable_id}")),
                     )
                     .child(self.render_shader_property_variable_controls(
@@ -1767,8 +1840,8 @@ impl DesignEffectsController for DesignPanel {
                             .px_2()
                             .py_1()
                             .rounded(px(4.))
-                            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .child(format!("Opaque value · {type_name}")),
                     )
                     .child(
@@ -1780,8 +1853,8 @@ impl DesignEffectsController for DesignPanel {
                             .py_1()
                             .rounded(px(4.))
                             .border_1()
-                            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(payload.clone()),
                     );
@@ -1805,7 +1878,7 @@ impl DesignEffectsController for DesignPanel {
             .p_2()
             .rounded(px(6.))
             .border_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
             .child(
                 h_flex()
                     .w_full()
@@ -1815,13 +1888,13 @@ impl DesignEffectsController for DesignPanel {
                             .flex_1()
                             .min_w(px(0.))
                             .truncate()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .font_semibold()
                             .child(property.name.clone()),
                     )
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(property.kind.label()),
                     ),
@@ -1829,7 +1902,7 @@ impl DesignEffectsController for DesignPanel {
             .when_some(property.description.clone(), |card, description| {
                 card.child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(description),
                 )
@@ -1856,6 +1929,22 @@ impl DesignEffectsController for DesignPanel {
                     DesignPanelProperty::EffectShadowColor(index),
                     cx,
                 ))
+                .when(
+                    self.host
+                        .inspected_node()
+                        .effect_capabilities
+                        .shadow_blend_mode,
+                    |content| {
+                        content.child(self.render_value_cell(
+                            format!("effect-shadow-blend-mode-{index}"),
+                            "Blend",
+                            settings.blend_mode.label(),
+                            DesignPanelProperty::EffectShadowBlendMode(index),
+                            DesignPanelValue::BlendMode(DesignBlendMode::Normal),
+                            cx,
+                        ))
+                    },
+                )
                 .child(
                     h_flex()
                         .w_full()
@@ -1863,7 +1952,7 @@ impl DesignEffectsController for DesignPanel {
                         .child(self.render_value_cell(
                             format!("effect-shadow-offset-x-{index}"),
                             "X",
-                            format!("Offset X · {}", format_number(settings.offset.x)),
+                            format_number(settings.offset.x),
                             DesignPanelProperty::EffectShadowOffsetX(index),
                             DesignPanelValue::Number(settings.offset.x + 1.),
                             cx,
@@ -1871,7 +1960,7 @@ impl DesignEffectsController for DesignPanel {
                         .child(self.render_value_cell(
                             format!("effect-shadow-offset-y-{index}"),
                             "Y",
-                            format!("Offset Y · {}", format_number(settings.offset.y)),
+                            format_number(settings.offset.y),
                             DesignPanelProperty::EffectShadowOffsetY(index),
                             DesignPanelValue::Number(settings.offset.y + 1.),
                             cx,
@@ -1883,8 +1972,8 @@ impl DesignEffectsController for DesignPanel {
                         .gap_2()
                         .child(self.render_value_cell(
                             format!("effect-shadow-blur-{index}"),
-                            "B",
-                            format!("Blur · {}", format_number(settings.radius)),
+                            "Blur",
+                            format_number(settings.radius),
                             DesignPanelProperty::EffectShadowBlur(index),
                             DesignPanelValue::Number(settings.radius + 1.),
                             cx,
@@ -1894,8 +1983,8 @@ impl DesignEffectsController for DesignPanel {
                             |row| {
                                 row.child(self.render_value_cell(
                                     format!("effect-shadow-spread-{index}"),
-                                    "S",
-                                    format!("Spread · {}", format_number(settings.spread)),
+                                    "Spread",
+                                    format_number(settings.spread),
                                     DesignPanelProperty::EffectShadowSpread(index),
                                     DesignPanelValue::Number(settings.spread + 1.),
                                     cx,
@@ -1929,6 +2018,22 @@ impl DesignEffectsController for DesignPanel {
                     DesignPanelProperty::EffectShadowColor(index),
                     cx,
                 ))
+                .when(
+                    self.host
+                        .inspected_node()
+                        .effect_capabilities
+                        .shadow_blend_mode,
+                    |content| {
+                        content.child(self.render_value_cell(
+                            format!("effect-shadow-blend-mode-{index}"),
+                            "Blend",
+                            settings.blend_mode.label(),
+                            DesignPanelProperty::EffectShadowBlendMode(index),
+                            DesignPanelValue::BlendMode(DesignBlendMode::Normal),
+                            cx,
+                        ))
+                    },
+                )
                 .child(
                     h_flex()
                         .w_full()
@@ -1936,7 +2041,7 @@ impl DesignEffectsController for DesignPanel {
                         .child(self.render_value_cell(
                             format!("effect-shadow-offset-x-{index}"),
                             "X",
-                            format!("Offset X · {}", format_number(settings.offset.x)),
+                            format_number(settings.offset.x),
                             DesignPanelProperty::EffectShadowOffsetX(index),
                             DesignPanelValue::Number(settings.offset.x + 1.),
                             cx,
@@ -1944,7 +2049,7 @@ impl DesignEffectsController for DesignPanel {
                         .child(self.render_value_cell(
                             format!("effect-shadow-offset-y-{index}"),
                             "Y",
-                            format!("Offset Y · {}", format_number(settings.offset.y)),
+                            format_number(settings.offset.y),
                             DesignPanelProperty::EffectShadowOffsetY(index),
                             DesignPanelValue::Number(settings.offset.y + 1.),
                             cx,
@@ -1956,8 +2061,8 @@ impl DesignEffectsController for DesignPanel {
                         .gap_2()
                         .child(self.render_value_cell(
                             format!("effect-shadow-blur-{index}"),
-                            "B",
-                            format!("Blur · {}", format_number(settings.radius)),
+                            "Blur",
+                            format_number(settings.radius),
                             DesignPanelProperty::EffectShadowBlur(index),
                             DesignPanelValue::Number(settings.radius + 1.),
                             cx,
@@ -1967,8 +2072,8 @@ impl DesignEffectsController for DesignPanel {
                             |row| {
                                 row.child(self.render_value_cell(
                                     format!("effect-shadow-spread-{index}"),
-                                    "S",
-                                    format!("Spread · {}", format_number(settings.spread)),
+                                    "Spread",
+                                    format_number(settings.spread),
                                     DesignPanelProperty::EffectShadowSpread(index),
                                     DesignPanelValue::Number(settings.spread + 1.),
                                     cx,
@@ -2327,6 +2432,7 @@ impl DesignEffectsController for DesignPanel {
                     })
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .ghost()
                     .w_full()
                     .disabled(
@@ -2366,16 +2472,16 @@ impl DesignEffectsController for DesignPanel {
                 .p_2()
                 .rounded(px(6.))
                 .border_1()
-                .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+                .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .font_semibold()
                         .child(opaque.summary.clone()),
                 )
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(format!(
                             "{} is preserved as opaque host data",

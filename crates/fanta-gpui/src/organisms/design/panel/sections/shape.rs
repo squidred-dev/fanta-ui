@@ -281,7 +281,7 @@ pub(in super::super) fn render_geometry(
     if !projection.supports_geometry {
         return None;
     }
-    let mut rows = v_flex().px(px(PANEL_PADDING)).pb_4().gap_2();
+    let mut rows = crate::molecules::inspector_section_body();
     let mut has_geometry = false;
     match projection.shape_geometry {
         DesignShapeGeometry::None => {}
@@ -433,17 +433,19 @@ pub(in super::super) fn render_intent_button(
         .rounded(px(4.))
         .border_1()
         .border_color(cx.theme().transparent)
-        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-        .typography(crate::atoms::TypographyToken::BodyMedium)
+        .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+        .typography(crate::atoms::TypographyToken::Panel)
         .when(enabled, |button| {
             button
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+                .hover(|style| {
+                    style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
+                })
                 .focus(|style| {
                     style
-                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                         .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
         })
@@ -484,17 +486,13 @@ pub(in super::super) fn render_section_properties(
     } else {
         Some(DesignSectionDevStatusKind::ReadyForDev)
     };
-    let mut content = v_flex()
-        .px(px(PANEL_PADDING))
-        .pb_4()
-        .gap_2()
-        .child(chrome.shape_toggle_row(
-            "section-contents-hidden",
-            "Hide section contents",
-            section.contents_hidden,
-            DesignPanelProperty::SectionContentsHidden,
-            cx,
-        ));
+    let mut content = crate::molecules::inspector_section_body().child(chrome.shape_toggle_row(
+        "section-contents-hidden",
+        "Hide section contents",
+        section.contents_hidden,
+        DesignPanelProperty::SectionContentsHidden,
+        cx,
+    ));
     if section.capabilities.set_dev_status {
         content = content.child(chrome.shape_value_cell(
             "section-dev-status",
@@ -515,8 +513,8 @@ pub(in super::super) fn render_section_properties(
                 .px_2()
                 .py_1()
                 .rounded(px(5.))
-                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+                .typography(crate::atoms::TypographyToken::Panel)
                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child(description),
         );
@@ -571,7 +569,7 @@ pub(in super::super) fn render_transform_modifiers(
     if projection.kind != DesignPanelNodeKind::TransformGroup {
         return None;
     }
-    let mut content = v_flex().px(px(PANEL_PADDING)).pb_4().gap_2();
+    let mut content = crate::molecules::inspector_section_body();
     for (index, modifier) in projection.transform_modifiers.iter().enumerate() {
         let repeat_type = modifier.mode.repeat_type();
         let next_type = match repeat_type {
@@ -595,7 +593,7 @@ pub(in super::super) fn render_transform_modifiers(
                         .justify_between()
                         .child(
                             div()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .font_semibold()
                                 .child(repeat_type.label()),
                         )

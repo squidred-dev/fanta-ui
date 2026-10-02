@@ -1301,11 +1301,11 @@ fn top_level_types_preserve_gradient_subtypes_and_create_defaults() {
             DesignPaintType::Shader,
         ]
     );
-    assert_eq!(PAINT_HEADER_TRAILING_CONTROL_COUNT, 2);
-    assert_eq!(paint_header_min_width(), 272.);
+    assert_eq!(PAINT_HEADER_TRAILING_CONTROL_COUNT, 0);
+    assert_eq!(paint_header_min_width(), 220.);
     assert!(
         PICKER_WIDTH >= paint_header_min_width(),
-        "six paint types plus compact Blend and Contrast controls must not overflow"
+        "six paint types must fit with utility actions on their own row"
     );
     assert_eq!(
         COLOR_AREA_HEIGHT,
@@ -1485,7 +1485,485 @@ fn pattern_image_and_video_tabs_emit_payloads(cx: &mut TestAppContext) {
                 ..
             }] if matches!(&edit.value, DesignPaintValue::Payload(payload) if payload.kind().paint_type() == paint_type)
         ));
+        assert!(
+            !events
+                .borrow()
+                .iter()
+                .any(|event| matches!(event, PaintPickerEvent::MediaSourceActionRequested { .. })),
+            "changing a paint type must never open a file chooser"
+        );
     }
+}
+
+#[gpui::test]
+fn type_controls_and_blend_action_do_not_overlap(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target(
+                "node",
+                DesignPanelCollection::Fill,
+                0,
+                DesignPaint::solid(DesignColor::BLUE).with_id("fill"),
+                window,
+                cx,
+            )
+        })
+    });
+    visual_cx.run_until_parked();
+    let controls: Vec<_> = [
+        "paint-picker-type-solid",
+        "paint-picker-type-gradient",
+        "paint-picker-type-pattern",
+        "paint-picker-type-image",
+        "paint-picker-type-video",
+        "paint-picker-type-shader",
+    ]
+    .into_iter()
+    .map(|selector| {
+        visual_cx
+            .debug_bounds(selector)
+            .expect("paint type control is visible")
+    })
+    .collect();
+    for pair in controls.windows(2) {
+        assert!(
+            pair[0].right() <= pair[1].left(),
+            "paint type controls must have distinct bounds"
+        );
+    }
+    let blend = visual_cx
+        .debug_bounds("paint-picker-blend-mode")
+        .expect("blend action is visible");
+    assert!(
+        controls
+            .iter()
+            .all(|control| control.bottom() <= blend.top()),
+        "blend mode belongs to a separate row"
+    );
+    assert!(
+        controls
+            .iter()
+            .all(|control| control.right() <= px(PICKER_WIDTH)),
+        "type controls remain inside the picker"
+    );
+}
+
+#[gpui::test]
+fn picker_menus_keep_text_and_check_columns_aligned(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target(
+                "node",
+                DesignPanelCollection::Fill,
+                0,
+                DesignPaint::solid(DesignColor::BLACK).with_id("fill"),
+                window,
+                cx,
+            );
+            picker.open_nested_overlay(PaintPickerOverlay::BlendMode, window, cx);
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+
+    let mut blend_text_left = None;
+    let mut blend_check_right = None;
+    for (row_selector, label_selector, text_selector, check_selector) in [
+        (
+            "paint-picker-blend-normal",
+            "paint-picker-test-paint-blend-mode-normal-button-label",
+            "paint-picker-blend-normal-text",
+            "paint-picker-blend-normal-check",
+        ),
+        (
+            "paint-picker-blend-multiply",
+            "paint-picker-test-paint-blend-mode-multiply-button-label",
+            "paint-picker-blend-multiply-text",
+            "paint-picker-blend-multiply-check",
+        ),
+    ] {
+        let row = visual_cx
+            .debug_bounds(row_selector)
+            .expect("blend option is visible");
+        let label = visual_cx
+            .debug_bounds(label_selector)
+            .expect("blend option content is visible");
+        let text = visual_cx
+            .debug_bounds(text_selector)
+            .expect("blend label is visible");
+        let check = visual_cx
+            .debug_bounds(check_selector)
+            .expect("check column is reserved");
+        assert_eq!(row.size.height, px(tokens::RowHeight::MENU));
+        assert_eq!(
+            text.left(),
+            label.left(),
+            "plain menu labels begin at the row inset"
+        );
+        assert_eq!(
+            check.right(),
+            label.right(),
+            "checks align at the trailing inset"
+        );
+        assert!(text.right() + px(tokens::Space::SM) <= check.left());
+        assert_eq!(*blend_text_left.get_or_insert(text.left()), text.left());
+        assert_eq!(
+            *blend_check_right.get_or_insert(check.right()),
+            check.right()
+        );
+    }
+
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.close_nested_overlay(PaintPickerOverlay::BlendMode, window, cx);
+            picker.open_creation_menu_from_keyboard(window, cx);
+        });
+    });
+    visual_cx.run_until_parked();
+
+    let mut creation_text_left = None;
+    for (label_selector, text_selector, check_selector) in [
+        (
+            "paint-picker-test-create-style-button-label",
+            "paint-picker-create-style-text",
+            "paint-picker-create-style-check",
+        ),
+        (
+            "paint-picker-test-create-variable-button-label",
+            "paint-picker-create-variable-text",
+            "paint-picker-create-variable-check",
+        ),
+    ] {
+        let label = visual_cx
+            .debug_bounds(label_selector)
+            .expect("creation option is visible");
+        let text = visual_cx
+            .debug_bounds(text_selector)
+            .expect("creation label is visible");
+        let check = visual_cx
+            .debug_bounds(check_selector)
+            .expect("trailing column is reserved");
+        assert_eq!(
+            text.left(),
+            label.left() + px(tokens::ControlSize::INLINE + tokens::Space::SM)
+        );
+        assert_eq!(check.right(), label.right());
+        assert_eq!(*creation_text_left.get_or_insert(text.left()), text.left());
+    }
+}
+
+#[gpui::test]
+fn media_assets_reuse_only_compatible_sources(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    let image_source = DesignPaintSource::new("image-asset", "Existing photograph");
+    let video_source = DesignPaintSource::new("video-asset", "Existing clip");
+    for (kind, source) in [
+        (DesignMediaKind::Image, image_source.clone()),
+        (DesignMediaKind::Video, video_source.clone()),
+    ] {
+        events.borrow_mut().clear();
+        visual_cx.update(|window, app| {
+            picker.update(app, |picker, cx| {
+                let paint = if kind == DesignMediaKind::Image {
+                    DesignPaint::image(DesignPaintSource::default())
+                } else {
+                    DesignPaint::video(DesignPaintSource::default())
+                };
+                picker.set_target(
+                    "node",
+                    DesignPanelCollection::Fill,
+                    0,
+                    paint.with_id("media-fill"),
+                    window,
+                    cx,
+                );
+                picker.set_media_view_data(
+                    DesignMediaPaintViewData::new([DesignMediaPaintView::new(
+                        DesignPanelCollection::Fill,
+                        "media-fill",
+                        0,
+                    )
+                    .with_capabilities(DesignMediaPaintCapabilities {
+                        can_edit_properties: false,
+                        ..DesignMediaPaintCapabilities::editor()
+                    })])
+                    .with_assets([
+                        DesignMediaPaintAsset::new(image_source.clone(), DesignMediaKind::Image),
+                        DesignMediaPaintAsset::new(video_source.clone(), DesignMediaKind::Video),
+                    ]),
+                    cx,
+                );
+                picker.media_tab = MediaPickerTab::Assets;
+            })
+        });
+        visual_cx.run_until_parked();
+        let (compatible_selector, other_selector) = if kind == DesignMediaKind::Image {
+            (
+                "paint-picker-test-media-asset-image-asset",
+                "paint-picker-test-media-asset-video-asset",
+            )
+        } else {
+            (
+                "paint-picker-test-media-asset-video-asset",
+                "paint-picker-test-media-asset-image-asset",
+            )
+        };
+        let compatible = visual_cx
+            .debug_bounds(compatible_selector)
+            .expect("compatible asset is offered");
+        assert!(visual_cx.debug_bounds(other_selector).is_none());
+        visual_cx.simulate_click(compatible.center(), gpui::Modifiers::none());
+        visual_cx.run_until_parked();
+        assert!(
+            matches!(events.borrow().as_slice(), [PaintPickerEvent::Edit { edit, phase: DesignPanelEditPhase::Commit, .. }] if edit.property == DesignPaintProperty::Source && edit.value == DesignPaintValue::Source(source.clone()))
+        );
+        assert_eq!(
+            visual_cx.read(|app| picker.read(app).media_tab),
+            MediaPickerTab::Adjust
+        );
+    }
+}
+
+#[gpui::test]
+fn shader_browser_keeps_a_back_action_before_applying_a_shader(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target(
+                "node",
+                DesignPanelCollection::Fill,
+                0,
+                DesignPaint::image(DesignPaintSource::new("photo", "Photo")).with_id("image-fill"),
+                window,
+                cx,
+            );
+            picker.select_paint_type(DesignPaintType::Shader, cx);
+        })
+    });
+    visual_cx.run_until_parked();
+    let back = visual_cx
+        .debug_bounds("paint-picker-shader-back")
+        .expect("shader discovery has a back action before a shader is chosen");
+    assert!(events.borrow().is_empty());
+    visual_cx.simulate_click(back.center(), gpui::Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("paint-picker-type-image").is_some());
+    assert!(events.borrow().is_empty());
+    assert_eq!(
+        visual_cx.read(|app| picker.read(app).active_tab),
+        PaintPickerTab::Custom
+    );
+}
+
+#[gpui::test]
+fn pattern_scale_input_commits_once_and_rejects_nonfinite_values(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target(
+                "node",
+                DesignPanelCollection::Fill,
+                0,
+                DesignPaint::pattern("tile").with_id("pattern-fill"),
+                window,
+                cx,
+            )
+        })
+    });
+    visual_cx.run_until_parked();
+    let input = visual_cx.read(|app| picker.read(app).pattern_number_inputs[0].clone());
+    visual_cx.update(|window, app| input.focus_handle(app).focus(window, app));
+    visual_cx
+        .update(|window, app| input.update(app, |input, cx| input.set_value("125", window, cx)));
+    visual_cx.run_until_parked();
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.handle_pattern_number_input(
+                0,
+                &InputEvent::PressEnter { secondary: false },
+                window,
+                cx,
+            );
+            picker.handle_pattern_number_input(0, &InputEvent::Blur, window, cx);
+        })
+    });
+    assert_eq!(
+        edit_phases(&events.borrow()),
+        [
+            DesignPanelEditPhase::Begin,
+            DesignPanelEditPhase::Preview,
+            DesignPanelEditPhase::Commit
+        ]
+    );
+    assert!(
+        matches!(events.borrow().last(), Some(PaintPickerEvent::Edit { edit, .. }) if edit.property == DesignPaintProperty::PatternScalingFactor && edit.value == DesignPaintValue::Number(1.25))
+    );
+    events.borrow_mut().clear();
+    visual_cx
+        .update(|window, app| input.update(app, |input, cx| input.set_value("NaN", window, cx)));
+    visual_cx.run_until_parked();
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.handle_pattern_number_input(
+                0,
+                &InputEvent::PressEnter { secondary: false },
+                window,
+                cx,
+            )
+        })
+    });
+    assert_eq!(
+        edit_phases(&events.borrow()),
+        [DesignPanelEditPhase::Begin, DesignPanelEditPhase::Cancel]
+    );
+}
+
+#[gpui::test]
+fn zero_pattern_scale_can_be_edited_and_negative_scale_is_rejected(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    let mut zero_pattern = DesignPaint::pattern("tile").with_id("pattern-fill");
+    zero_pattern.apply_edit(&DesignPaintEdit {
+        property: DesignPaintProperty::PatternScalingFactor,
+        value: DesignPaintValue::Number(0.),
+    });
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target(
+                "node",
+                DesignPanelCollection::Fill,
+                0,
+                zero_pattern,
+                window,
+                cx,
+            )
+        })
+    });
+    visual_cx.run_until_parked();
+    let input = visual_cx.read(|app| picker.read(app).pattern_number_inputs[0].clone());
+    visual_cx.update(|window, app| input.focus_handle(app).focus(window, app));
+    visual_cx
+        .update(|window, app| input.update(app, |input, cx| input.set_value("100", window, cx)));
+    visual_cx.run_until_parked();
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.handle_pattern_number_input(
+                0,
+                &InputEvent::PressEnter { secondary: false },
+                window,
+                cx,
+            )
+        })
+    });
+    assert_eq!(
+        edit_phases(&events.borrow()),
+        [
+            DesignPanelEditPhase::Begin,
+            DesignPanelEditPhase::Preview,
+            DesignPanelEditPhase::Commit
+        ]
+    );
+    assert!(
+        matches!(events.borrow().first(), Some(PaintPickerEvent::Edit { edit, .. }) if edit.value == DesignPaintValue::Number(0.))
+    );
+    assert!(
+        matches!(events.borrow().last(), Some(PaintPickerEvent::Edit { edit, .. }) if edit.value == DesignPaintValue::Number(1.))
+    );
+    events.borrow_mut().clear();
+    visual_cx
+        .update(|window, app| input.update(app, |input, cx| input.set_value("-1", window, cx)));
+    visual_cx.run_until_parked();
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.handle_pattern_number_input(
+                0,
+                &InputEvent::PressEnter { secondary: false },
+                window,
+                cx,
+            )
+        })
+    });
+    assert_eq!(
+        edit_phases(&events.borrow()),
+        [DesignPanelEditPhase::Begin, DesignPanelEditPhase::Cancel]
+    );
+}
+
+#[gpui::test]
+fn accepted_paint_type_change_resets_transient_navigation(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    for (next_paint, selector) in [
+        (DesignPaint::pattern("tile"), "paint-picker-type-pattern"),
+        (
+            DesignPaint::image(DesignPaintSource::default()),
+            "paint-picker-type-image",
+        ),
+        (
+            DesignPaint::video(DesignPaintSource::default()),
+            "paint-picker-type-video",
+        ),
+    ] {
+        visual_cx.update(|window, app| {
+            picker.update(app, |picker, cx| {
+                picker.set_target(
+                    "node",
+                    DesignPanelCollection::Fill,
+                    0,
+                    DesignPaint::solid(DesignColor::BLUE).with_id("fill"),
+                    window,
+                    cx,
+                );
+                picker.active_tab = PaintPickerTab::Libraries;
+                picker.media_tab = MediaPickerTab::Adjust;
+                picker.shader_browser_requested = false;
+                picker.open_nested_overlay(PaintPickerOverlay::ColorFormat, window, cx);
+                // Ordinary accepted value changes preserve the selected tab.
+                picker.set_target(
+                    "node",
+                    DesignPanelCollection::Fill,
+                    0,
+                    DesignPaint::solid(DesignColor::BLACK).with_id("fill"),
+                    window,
+                    cx,
+                );
+                assert_eq!(picker.active_tab, PaintPickerTab::Libraries);
+                picker.set_target(
+                    "node",
+                    DesignPanelCollection::Fill,
+                    0,
+                    next_paint.with_id("fill"),
+                    window,
+                    cx,
+                );
+                assert_eq!(picker.active_tab, PaintPickerTab::Custom);
+                assert_eq!(picker.media_tab, MediaPickerTab::Source);
+                assert!(!picker.shader_browser_requested);
+                assert!(!picker.has_open_menu());
+            })
+        });
+        visual_cx.run_until_parked();
+        assert!(
+            visual_cx.debug_bounds(selector).is_some(),
+            "destination paint editor must be reachable"
+        );
+    }
+    assert!(
+        events.borrow().is_empty(),
+        "navigation cleanup must not emit document edits"
+    );
 }
 
 #[gpui::test]
@@ -2024,6 +2502,7 @@ fn crop_rotation_control_obeys_host_capability(cx: &mut TestAppContext) {
     visual_cx.update(|window, app| {
         picker.update(app, |picker, cx| {
             picker.set_target("node", DesignPanelCollection::Fill, 0, paint, window, cx);
+            picker.media_tab = MediaPickerTab::Adjust;
             picker.set_media_view_data(
                 DesignMediaPaintViewData::new([crop_view.clone().with_capabilities(
                     DesignMediaPaintCapabilities::property_editor_only().with_crop_rotation(false),
@@ -2121,6 +2600,60 @@ fn editable_shader_fixture() -> (DesignShaderDefinition, DesignPaint) {
     ))
     .with_id("shader-fill");
     (definition, paint)
+}
+
+#[gpui::test]
+fn shader_readouts_use_the_available_field_width(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let (definition, paint) = editable_shader_fixture();
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target("node", DesignPanelCollection::Fill, 0, paint, window, cx);
+            picker.set_shader_view_data(DesignShaderViewData::new([definition], []), cx);
+        });
+    });
+    visual_cx.run_until_parked();
+
+    for (field_selector, label_selector, readout_selector) in [
+        (
+            "paint-picker-test-shader-property-scale-number",
+            "paint-picker-test-shader-property-scale-number-button-label",
+            "paint-picker-test-shader-property-scale-number-readout",
+        ),
+        (
+            "paint-picker-test-shader-property-tint-color",
+            "paint-picker-test-shader-property-tint-color-button-label",
+            "paint-picker-test-shader-property-tint-color-readout",
+        ),
+    ] {
+        let field = visual_cx
+            .debug_bounds(field_selector)
+            .expect("field is visible");
+        let label = visual_cx
+            .debug_bounds(label_selector)
+            .expect("field label row is visible");
+        let readout = visual_cx
+            .debug_bounds(readout_selector)
+            .expect("readout is visible");
+        assert!(
+            field.size.width >= px(100.),
+            "field has useful editing width"
+        );
+        assert!(
+            label.size.width >= field.size.width - px(16.),
+            "custom child label row must fill the inset field"
+        );
+        assert_eq!(
+            readout.size.width, label.size.width,
+            "readout uses its allocated row width"
+        );
+        assert!(readout.left() >= field.left() && readout.right() <= field.right());
+        assert!(
+            field.right() <= px(PICKER_WIDTH),
+            "field stays inside the picker"
+        );
+    }
 }
 
 #[gpui::test]
@@ -2550,5 +3083,171 @@ fn standalone_picker_emits_close_and_contains_wheel_events(cx: &mut TestAppConte
     assert_eq!(
         events.borrow().as_slice(),
         &[PaintPickerAction::CloseRequested]
+    );
+}
+
+#[gpui::test]
+fn picker_content_tabs_preserve_focus_and_fit_280px(cx: &mut TestAppContext) {
+    exercise_picker_content_tabs(cx);
+}
+
+#[gpui::test]
+fn picker_content_tabs_allow_a_partial_zed_theme(cx: &mut TestAppContext) {
+    cx.update(|cx| theme::init(theme::LoadThemes::JustBase, cx));
+    exercise_picker_content_tabs(cx);
+}
+
+#[gpui::test]
+fn picker_content_tabs_use_canonical_zed_navigation(cx: &mut TestAppContext) {
+    struct ThemeSettings(gpui::Font);
+    impl theme::ThemeSettingsProvider for ThemeSettings {
+        fn ui_font<'a>(&'a self, _: &'a App) -> &'a gpui::Font {
+            &self.0
+        }
+        fn buffer_font<'a>(&'a self, _: &'a App) -> &'a gpui::Font {
+            &self.0
+        }
+        fn ui_font_size(&self, _: &App) -> Pixels {
+            px(16.)
+        }
+        fn buffer_font_size(&self, _: &App) -> Pixels {
+            px(14.)
+        }
+        fn ui_density(&self, _: &App) -> theme::UiDensity {
+            theme::UiDensity::Default
+        }
+    }
+    cx.update(|cx| {
+        theme::init(theme::LoadThemes::JustBase, cx);
+        theme::set_theme_settings_provider(Box::new(ThemeSettings(gpui::font("UI Test"))), cx);
+    });
+    exercise_picker_content_tabs(cx);
+}
+
+fn exercise_picker_content_tabs(cx: &mut TestAppContext) {
+    let (host, cx) = setup_picker(cx);
+    let picker = picker(&host, cx);
+    let events = picker_events(&host, cx);
+    cx.simulate_resize(gpui::size(px(PICKER_WIDTH), px(720.)));
+    cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target(
+                "node",
+                DesignPanelCollection::Fill,
+                0,
+                DesignPaint::solid(DesignColor::BLACK).with_id("fill"),
+                window,
+                cx,
+            );
+        });
+    });
+    cx.run_until_parked();
+    let bar = cx
+        .debug_bounds("paint-picker-test-content-tabs")
+        .expect("content navigation is visible");
+    let custom = cx
+        .debug_bounds("paint-picker-test-custom-tab")
+        .expect("Custom tab");
+    let libraries = cx
+        .debug_bounds("paint-picker-test-libraries-tab")
+        .expect("Libraries tab");
+    let close = cx.debug_bounds("paint-picker-close").expect("Close action");
+    assert_eq!(
+        bar.size.height,
+        px(tokens::InspectorGeometry::SECTION_HEADER)
+    );
+    assert_eq!(custom.top(), libraries.top());
+    assert!(custom.right() <= libraries.left());
+    assert!(libraries.right() <= close.left());
+    assert!(close.right() <= bar.right());
+    for (tab, selector) in [
+        (custom, "paint-picker-test-custom-tab-label"),
+        (libraries, "paint-picker-test-libraries-tab-label"),
+    ] {
+        let label = cx.debug_bounds(selector).expect("left-aligned tab label");
+        assert!(label.left() < tab.center().x);
+        assert!(label.right() <= tab.right());
+    }
+    cx.simulate_click(custom.center(), gpui::Modifiers::none());
+    cx.simulate_keystrokes("right enter");
+    cx.run_until_parked();
+    assert_eq!(
+        cx.read(|app| picker.read(app).active_tab),
+        PaintPickerTab::Libraries
+    );
+    cx.simulate_keystrokes("left enter");
+    cx.run_until_parked();
+    assert_eq!(
+        cx.read(|app| picker.read(app).active_tab),
+        PaintPickerTab::Custom
+    );
+    assert!(events.borrow().is_empty(), "navigation does not edit paint");
+
+    cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target(
+                "node",
+                DesignPanelCollection::Fill,
+                0,
+                DesignPaint::image(DesignPaintSource::default()).with_id("media-fill"),
+                window,
+                cx,
+            );
+        });
+    });
+    cx.run_until_parked();
+    let media_bar = cx
+        .debug_bounds("paint-picker-test-media-tabs")
+        .expect("media navigation is visible");
+    assert_eq!(media_bar.size.width, bar.size.width);
+    assert!(media_bar.right() <= px(PICKER_WIDTH));
+    let source = cx
+        .debug_bounds("paint-picker-test-media-tab-source")
+        .expect("Source tab");
+    assert!(source.left() >= media_bar.left());
+    assert!(source.right() <= media_bar.right());
+    let mut previous = source;
+    for selector in [
+        "paint-picker-test-media-tab-assets",
+        "paint-picker-test-media-tab-adjust",
+    ] {
+        let tab = cx.debug_bounds(selector).expect("media tab is laid out");
+        assert_eq!(source.top(), tab.top());
+        assert!(previous.right() <= tab.left());
+        previous = tab;
+    }
+    cx.simulate_click(source.center(), gpui::Modifiers::none());
+    cx.simulate_keystrokes("right enter");
+    cx.run_until_parked();
+    assert_eq!(
+        cx.read(|app| picker.read(app).media_tab),
+        MediaPickerTab::Assets
+    );
+    let assets = cx
+        .debug_bounds("paint-picker-test-media-tab-assets")
+        .expect("selected Assets tab is visible");
+    assert!(assets.left() >= media_bar.left());
+    assert!(assets.right() <= media_bar.right());
+    cx.simulate_keystrokes("end enter");
+    cx.run_until_parked();
+    assert_eq!(
+        cx.read(|app| picker.read(app).media_tab),
+        MediaPickerTab::Adjust
+    );
+    let adjust = cx
+        .debug_bounds("paint-picker-test-media-tab-adjust")
+        .expect("selected Adjust tab is visible");
+    assert!(adjust.left() >= media_bar.left());
+    assert!(adjust.right() <= media_bar.right());
+    cx.simulate_keystrokes("left enter");
+    cx.run_until_parked();
+    assert_eq!(
+        cx.read(|app| picker.read(app).media_tab),
+        MediaPickerTab::Assets,
+        "focus follows the selected tab through scrolling"
+    );
+    assert!(
+        events.borrow().is_empty(),
+        "media navigation does not upload or edit"
     );
 }

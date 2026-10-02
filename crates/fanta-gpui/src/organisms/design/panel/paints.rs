@@ -1205,6 +1205,7 @@ impl DesignPaintController for DesignPanel {
         .tooltip(tooltip)
         .xsmall()
         .compact()
+        .typography(crate::atoms::TypographyToken::Panel)
         .ghost()
         .w(px(24.))
         .h(px(24.))
@@ -1247,7 +1248,7 @@ impl DesignPaintController for DesignPanel {
                     div()
                         .px_2()
                         .py_1()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .font_semibold()
                         .child(format!("{} styles", collection.label())),
                 );
@@ -1262,7 +1263,7 @@ impl DesignPaintController for DesignPanel {
                             div()
                                 .flex_1()
                                 .truncate()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .child(binding.name),
                         )
                         .child(
@@ -1292,7 +1293,11 @@ impl DesignPaintController for DesignPanel {
                 .label("Create style from selection")
                 .xsmall()
                 .compact()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .ghost()
+                .text_left()
+                .justify_start()
+                .px_2()
                 .w_full()
                 .disabled(!can_create)
                 .on_activate(move |_, _, cx| {
@@ -1314,7 +1319,7 @@ impl DesignPaintController for DesignPanel {
                     div()
                         .px_2()
                         .py_3()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(if catalog_is_empty {
                             "No Paint styles supplied by the host"
@@ -1328,7 +1333,7 @@ impl DesignPaintController for DesignPanel {
                     div()
                         .px_2()
                         .pt_2()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("This page"),
                 );
@@ -1352,12 +1357,18 @@ impl DesignPaintController for DesignPanel {
                         .tooltip(summary)
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
                         .when(view_mode == StyleBrowserViewMode::Grid, |button| {
                             button.w(px(124.)).h(px(44.))
                         })
                         .when(view_mode == StyleBrowserViewMode::List, |button| {
-                            button.w_full()
+                            button
+                                .w_full()
+                                .text_left()
+                                .justify_start()
+                                .px_2()
+                                .h(px(crate::atoms::tokens::RowHeight::MENU))
                         })
                         .selected(selected)
                         .disabled(!can_edit)
@@ -1386,7 +1397,7 @@ impl DesignPaintController for DesignPanel {
                     div()
                         .px_2()
                         .pt_2()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(library_name),
                 );
@@ -1415,12 +1426,18 @@ impl DesignPaintController for DesignPanel {
                         .tooltip(summary)
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
                         .when(view_mode == StyleBrowserViewMode::Grid, |button| {
                             button.w(px(124.)).h(px(44.))
                         })
                         .when(view_mode == StyleBrowserViewMode::List, |button| {
-                            button.w_full()
+                            button
+                                .w_full()
+                                .text_left()
+                                .justify_start()
+                                .px_2()
+                                .h(px(crate::atoms::tokens::RowHeight::MENU))
                         })
                         .selected(selected)
                         .disabled(!can_edit)
@@ -1460,7 +1477,7 @@ impl DesignPaintController for DesignPanel {
             .rounded(px(2.))
             .border_1()
             .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-            .typography(crate::atoms::TypographyToken::BodyMedium);
+            .typography(crate::atoms::TypographyToken::Panel);
         match &paint.payload {
             DesignPaintPayload::Solid(solid) => {
                 swatch.bg(color_hsla(solid.color)).into_any_element()
@@ -1493,11 +1510,11 @@ impl DesignPaintController for DesignPanel {
                 .child("P")
                 .into_any_element(),
             DesignPaintPayload::Image(_) => swatch
-                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
                 .child(Icon::new(IconName::GalleryVerticalEnd).xsmall())
                 .into_any_element(),
             DesignPaintPayload::Video(_) => swatch
-                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
                 .child(Icon::new(IconName::File).xsmall())
                 .into_any_element(),
             DesignPaintPayload::Shader(_) => swatch
@@ -1505,7 +1522,7 @@ impl DesignPaintController for DesignPanel {
                 .child(Icon::new(IconName::Asterisk).xsmall())
                 .into_any_element(),
             DesignPaintPayload::Unsupported(_) => swatch
-                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                 .child("?")
                 .into_any_element(),
@@ -1611,6 +1628,8 @@ impl DesignPaintController for DesignPanel {
         let trigger = crate::atoms::ui_button(trigger_id)
             .debug_selector(move || trigger_debug_id.clone())
             .xsmall()
+            .compact()
+            .typography(crate::atoms::TypographyToken::Panel)
             .w_full()
             .h_full()
             .justify_start()
@@ -1647,7 +1666,7 @@ impl DesignPaintController for DesignPanel {
                     .flex_1()
                     .truncate()
                     .text_left()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .child(label.clone()),
             );
         let paint_values = h_flex()
@@ -1656,7 +1675,7 @@ impl DesignPaintController for DesignPanel {
             .min_w(px(0.))
             .overflow_hidden()
             .rounded(px(4.))
-            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
             .child(
                 div().flex_1().min_w(px(0.)).h_full().child(
                     Popover::new(popover_id)
@@ -1704,7 +1723,7 @@ impl DesignPaintController for DesignPanel {
             )
             .child(
                 div()
-                    .w(px(58.))
+                    .w(px(crate::atoms::tokens::InputGeometry::NUMERIC_WIDTH))
                     .h_full()
                     .flex_none()
                     .border_l_1()
@@ -1715,7 +1734,7 @@ impl DesignPaintController for DesignPanel {
                             collection.label().to_lowercase().replace(' ', "-")
                         ),
                         "",
-                        format!("{}  %", format_number(paint.opacity)),
+                        format!("{}%", format_number(paint.opacity)),
                         DesignPanelProperty::PaintOpacity { collection, index },
                         DesignPanelValue::Number((paint.opacity - 10.).max(0.)),
                         8.,
@@ -1749,14 +1768,20 @@ impl DesignPaintController for DesignPanel {
             .border_1()
             .border_color(cx.theme().transparent)
             .when(can_reorder, |row| row.cursor_move())
-            .child(
-                div()
-                    .w(px(12.))
-                    .flex_none()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
-                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
-                    .when(can_reorder, |handle| handle.child("⠿")),
-            )
+            .when(can_reorder, |row| {
+                row.child(
+                    div()
+                        .w(px(12.))
+                        .flex_none()
+                        .typography(crate::atoms::TypographyToken::Panel)
+                        .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                        .child(crate::atoms::render_lucide_icon(
+                            crate::atoms::LucideIcon::GripVertical,
+                            crate::atoms::sidebar_style(cx).muted_icon,
+                            crate::atoms::tokens::IconSize::SM,
+                        )),
+                )
+            })
             .child(paint_values)
             .when(self.paint_visibility_supported, |row| {
                 row.child(self.render_visibility_button(
@@ -2539,7 +2564,7 @@ impl DesignPaintController for DesignPanel {
                 .p_2()
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyLarge)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .font_semibold()
                         .child("Selection Paint styles"),
                 );
@@ -2554,7 +2579,7 @@ impl DesignPaintController for DesignPanel {
                             div()
                                 .flex_1()
                                 .truncate()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .child(binding.name),
                         )
                         .child(
@@ -2588,7 +2613,11 @@ impl DesignPaintController for DesignPanel {
                 .label("Create style from collection")
                 .xsmall()
                 .compact()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .ghost()
+                .text_left()
+                .justify_start()
+                .px_2()
                 .w_full()
                 .disabled(!can_create)
                 .on_activate(move |_, _, cx| {
@@ -2609,7 +2638,7 @@ impl DesignPaintController for DesignPanel {
                 content = content.child(
                     div()
                         .py_2()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(if catalog_is_empty {
                             "No Paint styles supplied by the host"
@@ -2622,7 +2651,7 @@ impl DesignPaintController for DesignPanel {
                 content = content.child(
                     div()
                         .pt_2()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("This page"),
                 );
@@ -2647,12 +2676,18 @@ impl DesignPaintController for DesignPanel {
                         .tooltip(summary)
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
                         .when(view_mode == StyleBrowserViewMode::Grid, |button| {
                             button.w(px(127.)).h(px(44.))
                         })
                         .when(view_mode == StyleBrowserViewMode::List, |button| {
-                            button.w_full()
+                            button
+                                .w_full()
+                                .text_left()
+                                .justify_start()
+                                .px_2()
+                                .h(px(crate::atoms::tokens::RowHeight::MENU))
                         })
                         .selected(selected)
                         .disabled(!can_mutate)
@@ -2681,7 +2716,7 @@ impl DesignPaintController for DesignPanel {
                 content = content.child(
                     div()
                         .pt_2()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(library_name),
                 );
@@ -2711,12 +2746,18 @@ impl DesignPaintController for DesignPanel {
                         .tooltip(summary)
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
                         .when(view_mode == StyleBrowserViewMode::Grid, |button| {
                             button.w(px(127.)).h(px(44.))
                         })
                         .when(view_mode == StyleBrowserViewMode::List, |button| {
-                            button.w_full()
+                            button
+                                .w_full()
+                                .text_left()
+                                .justify_start()
+                                .px_2()
+                                .h(px(crate::atoms::tokens::RowHeight::MENU))
                         })
                         .selected(selected)
                         .disabled(!can_mutate)
@@ -2863,14 +2904,14 @@ impl DesignPaintController for DesignPanel {
                 .p_2()
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyLarge)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .font_semibold()
                         .child("Selection Color variables"),
                 );
             if style_bound {
                 content = content.child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("Detach the Paint style before changing this color leaf."),
                 );
@@ -2886,7 +2927,7 @@ impl DesignPaintController for DesignPanel {
                             div()
                                 .flex_1()
                                 .truncate()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .child(binding.variable_name),
                         )
                         .child(
@@ -2917,7 +2958,11 @@ impl DesignPaintController for DesignPanel {
                 .label("Create variable from color")
                 .xsmall()
                 .compact()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .ghost()
+                .text_left()
+                .justify_start()
+                .px_2()
                 .w_full()
                 .disabled(!can_create)
                 .on_activate(move |_, _, cx| {
@@ -2930,7 +2975,7 @@ impl DesignPaintController for DesignPanel {
                 content = content.child(
                     div()
                         .py_2()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("No Color variables supplied by the host"),
                 );
@@ -2939,7 +2984,7 @@ impl DesignPaintController for DesignPanel {
                 content = content.child(
                     div()
                         .pt_2()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(source.label().clone()),
                 );
@@ -2968,7 +3013,11 @@ impl DesignPaintController for DesignPanel {
                         .tooltip(tooltip)
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
+                        .text_left()
+                        .justify_start()
+                        .px_2()
                         .w_full()
                         .selected(selected)
                         .disabled(disabled)
@@ -3932,6 +3981,9 @@ impl DesignPaintController for DesignPanel {
         )
         .xsmall()
         .ghost()
+        .text_left()
+        .justify_start()
+        .px_2()
         .w_full()
         .h(px(ROW_HEIGHT))
         .justify_start()
@@ -3949,13 +4001,13 @@ impl DesignPaintController for DesignPanel {
             div()
                 .flex_1()
                 .min_w_0()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .child("Page background"),
         )
         .child(
             div()
                 .flex_none()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .child(SharedString::from(format!("#{}", current.hex()))),
         )
         .on_activate({

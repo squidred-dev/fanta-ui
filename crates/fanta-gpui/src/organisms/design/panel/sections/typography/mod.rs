@@ -292,7 +292,7 @@ fn group_label(label: &'static str, cx: &mut Context<DesignPanel>) -> AnyElement
         .h(px(16.))
         .flex()
         .items_center()
-        .typography(crate::atoms::TypographyToken::BodyMedium)
+        .typography(crate::atoms::TypographyToken::Panel)
         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
         .child(label)
         .into_any_element()
@@ -312,13 +312,13 @@ fn bound_style_summary(
         .px_2()
         .gap_2()
         .rounded(px(4.))
-        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+        .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
         .child(
             div()
                 .flex_1()
                 .min_w(px(0.))
                 .truncate()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .child(name),
         )
         .into_any_element()
@@ -402,6 +402,7 @@ fn alignment_segment(
     )))
     .xsmall()
     .compact()
+    .typography(crate::atoms::TypographyToken::Panel)
     .ghost()
     .w_full()
     .h(px(ROW_HEIGHT))
@@ -490,11 +491,11 @@ fn text_path_orientation(
         .border_1()
         .border_color(cx.theme().transparent)
         .bg(if orientation == DesignTextPathOrientation::Flipped {
-            crate::atoms::SemanticColor::BackgroundHover.resolve(cx)
+            crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx)
         } else {
-            crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx)
+            crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx)
         })
-        .typography(crate::atoms::TypographyToken::BodyMedium)
+        .typography(crate::atoms::TypographyToken::Panel)
         .when(!enabled, |control| {
             control
                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
@@ -506,10 +507,10 @@ fn text_path_orientation(
             .key_context(CONTROL_KEY_CONTEXT)
             .tab_index(0)
             .cursor_pointer()
-            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+            .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx)))
             .focus(|style| {
                 style
-                    .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                    .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                     .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
             })
             .on_activate(move |_, _, cx| {
@@ -524,7 +525,7 @@ fn text_path_orientation(
             .child(
                 div()
                     .px_1()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(tooltip),
             )
@@ -541,22 +542,15 @@ fn render_content(
 ) -> AnyElement {
     let typography = &projection.values.typography;
     let mut content = if let Some(binding) = typography.style_binding.as_ref() {
-        v_flex()
-            .px(px(PANEL_PADDING))
-            .pb_4()
-            .gap_2()
-            .child(bound_style_summary(
-                &projection.identity.panel_id,
-                binding.name.clone(),
-                cx,
-            ))
+        crate::molecules::inspector_section_body().child(bound_style_summary(
+            &projection.identity.panel_id,
+            binding.name.clone(),
+            cx,
+        ))
     } else {
         let horizontal = typography.horizontal_alignment;
         let vertical = typography.vertical_alignment;
-        v_flex()
-            .px(px(PANEL_PADDING))
-            .pb_4()
-            .gap_2()
+        crate::molecules::inspector_section_body()
             .child(font_browser_row(projection, &mut controls, events, cx))
             .child(
                 h_flex()
@@ -569,7 +563,7 @@ fn render_content(
                             .child(group_label("Weight", cx))
                             .child(chrome.typography_value_cell(
                                 "font-weight",
-                                "W",
+                                "",
                                 format_number(typography.weight),
                                 DesignPanelProperty::FontWeight,
                                 DesignPanelValue::Number((typography.weight + 100.).min(1000.)),
@@ -584,7 +578,7 @@ fn render_content(
                             .child(group_label("Size", cx))
                             .child(chrome.typography_value_cell(
                                 "font-size",
-                                "Size",
+                                "",
                                 format_number(typography.size),
                                 DesignPanelProperty::FontSize,
                                 DesignPanelValue::Number((typography.size + 1.).max(1.)),
@@ -642,7 +636,7 @@ fn render_content(
                             .flex_1()
                             .overflow_hidden()
                             .rounded(px(4.))
-                            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
                             .child(alignment_segment(
                                 &projection.identity.panel_id,
                                 TypographyAlignmentOption::horizontal(
@@ -686,7 +680,7 @@ fn render_content(
                             .flex_1()
                             .overflow_hidden()
                             .rounded(px(4.))
-                            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
                             .child(alignment_segment(
                                 &projection.identity.panel_id,
                                 TypographyAlignmentOption::vertical(
@@ -798,8 +792,7 @@ pub(in super::super) fn render(
         InspectorMetrics::default(),
         cx,
     )
-    .pl(px(PANEL_PADDING))
-    .pr_2()
+    .px(px(PANEL_PADDING))
     .gap_1()
     .on_activate(move |_, _, cx| {
         header_events.send(&identity, TypographyEvent::ToggleSection, cx);
@@ -807,7 +800,7 @@ pub(in super::super) fn render(
     .child(
         div()
             .flex_1()
-            .typography(crate::atoms::TypographyToken::BodyLarge)
+            .typography(crate::atoms::TypographyToken::Panel)
             .font_semibold()
             .child(DesignPanelSection::Typography.label()),
     )

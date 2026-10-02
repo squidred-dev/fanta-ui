@@ -64,6 +64,7 @@ pub struct Dropdown {
     stroke: bool,
     full_width: bool,
     sidebar_style: bool,
+    inset: bool,
     leading_icon: Option<LucideIcon>,
     on_activate: Option<ActivateHandler>,
 }
@@ -79,6 +80,7 @@ impl Dropdown {
             stroke: true,
             full_width: false,
             sidebar_style: false,
+            inset: false,
             leading_icon: None,
             on_activate: None,
         }
@@ -92,6 +94,12 @@ impl Dropdown {
     /// Uses Zed's sidebar palette and text size when its theme is installed.
     pub const fn sidebar_style(mut self, sidebar_style: bool) -> Self {
         self.sidebar_style = sidebar_style;
+        self
+    }
+
+    /// Quiet filled field surface for dense inspector controls.
+    pub const fn inset(mut self, inset: bool) -> Self {
+        self.inset = inset;
         self
     }
 
@@ -133,8 +141,7 @@ impl RenderOnce for Dropdown {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let disabled = self.disabled;
         let focused = matches!(self.state, DropdownState::Focused | DropdownState::Active);
-        let sidebar = (self.sidebar_style && cx.try_global::<theme::GlobalTheme>().is_some())
-            .then(|| sidebar_style(cx));
+        let sidebar = self.sidebar_style.then(|| sidebar_style(cx));
         let foreground = if let Some(palette) = sidebar {
             if disabled {
                 palette.disabled_text
@@ -169,7 +176,13 @@ impl RenderOnce for Dropdown {
                     SemanticColor::Background.resolve(cx)
                 }
             },
-            |palette| palette.background,
+            |palette| {
+                if self.inset {
+                    SemanticColor::BackgroundPanelField.resolve(cx)
+                } else {
+                    palette.background
+                }
+            },
         );
         let hover_background = sidebar.map_or_else(
             || SemanticColor::BackgroundHover.resolve(cx),

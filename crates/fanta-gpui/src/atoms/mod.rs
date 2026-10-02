@@ -22,6 +22,7 @@ mod checkbox;
 mod color_system;
 mod dropdown;
 mod input;
+mod inspector_tabs;
 mod lucide;
 mod radio_button;
 mod segmented_control;
@@ -49,6 +50,7 @@ pub use input::{
     InputSize, InputVisualState, NumericInput, NumericInputMulti, TextInputLabel, TextInputVariant,
     VariableCell, VariableChip, VariableChipState,
 };
+pub(crate) use inspector_tabs::InspectorTabs;
 pub use lucide::{LucideIcon, render_lucide_icon};
 pub use radio_button::{RadioButton, RadioButtonSelection, RadioButtonState, RadioButtonVariant};
 pub use segmented_control::{

@@ -274,7 +274,7 @@ impl Render for ZoomControls {
                 .debug_selector(|| "zoombar-percent".to_owned())
                 .w(px(tokens::InputGeometry::NUMERIC_WIDTH))
                 .gap_1()
-                .typography(TypographyToken::BodyMedium)
+                .typography(TypographyToken::Panel)
                 .tooltip(|window, cx| Tooltip::new("Zoom level").build(window, cx))
                 .on_mouse_down(
                     MouseButton::Left,

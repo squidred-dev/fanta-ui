@@ -139,6 +139,7 @@ pub(in super::super::super) fn render_trigger(
     )))
     .xsmall()
     .compact()
+    .typography(crate::atoms::TypographyToken::Panel)
     .ghost()
     .w(metrics.row_height)
     .h(metrics.row_height)
@@ -154,28 +155,45 @@ pub(in super::super::super) fn render_trigger(
     .child(Icon::new(IconName::Settings2).xsmall())
 }
 
-pub(in super::super::super) fn render_tab(
-    panel_id: &SharedString,
-    selected_tab: TypographySettingsTab,
-    candidate: TypographySettingsTab,
-    target: DesignPanelTarget,
+pub(in super::super::super) fn render_tabs(
+    projection: &TypeSettingsOverlayProjection,
+    advanced_type_settings_enabled: bool,
+    has_variable_axes: bool,
     events: &TypeSettingsEventSink,
-    focus: FocusHandle,
-) -> Button {
-    let layout = grid_layout();
+) -> crate::atoms::InspectorTabs {
+    let mut candidates = vec![TypographySettingsTab::Basics];
+    if advanced_type_settings_enabled {
+        candidates.push(TypographySettingsTab::Details);
+        if has_variable_axes {
+            candidates.push(TypographySettingsTab::Variable);
+        }
+    }
+    let selected = candidates
+        .iter()
+        .position(|candidate| *candidate == projection.tab)
+        .unwrap_or(0);
+    let target = projection.target.clone();
+    let focus = projection.focus.clone();
     let events = events.clone();
-    crate::atoms::ui_button(SharedString::from(format!(
-        "{}-type-settings-tab-{}",
-        panel_id,
-        candidate.label().to_lowercase()
-    )))
-    .label(candidate.label())
-    .xsmall()
-    .compact()
-    .ghost()
-    .h(layout.row_height())
-    .selected(candidate == selected_tab)
-    .on_activate(move |_, window, cx| {
+    crate::atoms::InspectorTabs::new(
+        format!("{}-type-settings-tabs", projection.panel_id),
+        candidates.iter().map(|candidate| {
+            (
+                format!(
+                    "{}-type-settings-tab-{}",
+                    projection.panel_id,
+                    candidate.label().to_lowercase()
+                )
+                .into(),
+                candidate.label().into(),
+            )
+        }),
+    )
+    .selected_index(selected)
+    .on_change(move |selection, window, cx| {
+        let Some(candidate) = candidates.get(selection.index).copied() else {
+            return;
+        };
         events.send_overlay(
             &target,
             TypeSettingsOverlayEvent::SelectTab(candidate),
@@ -204,7 +222,7 @@ pub(in super::super::super) fn render_segments(
     let mut segments = crate::molecules::inspector_segmented_control(metrics, cx)
         .border_0()
         .w_full()
-        .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx));
+        .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx));
     for (index, (label, selected, value)) in options.into_iter().enumerate() {
         let events = events.clone();
         let mut segment = crate::molecules::inspector_segment(
@@ -257,6 +275,7 @@ pub(in super::super::super) fn render_number_field(
         .label(label)
         .xsmall()
         .compact()
+        .typography(crate::atoms::TypographyToken::Panel)
         .w_full()
         .h(layout.row_height())
         .disabled(!enabled)
@@ -276,7 +295,7 @@ pub(in super::super::super) fn render_number_field(
             } else {
                 crate::atoms::SemanticColor::BackgroundSelected.resolve(cx)
             })
-            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
             .child(button.invisible().tab_stop(false))
             .child(
                 div()
@@ -287,7 +306,7 @@ pub(in super::super::super) fn render_number_field(
                     .bottom_0()
                     .child(
                         Input::new(&input)
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .appearance(false)
                             .bordered(false)
                             .focus_bordered(false)

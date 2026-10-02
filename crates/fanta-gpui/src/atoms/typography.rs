@@ -14,6 +14,10 @@ pub enum TypographyToken {
     BodyMediumStrong,
     BodySmall,
     BodySmallStrong,
+    /// Editor panel copy follows Zed's UI scale and the host's rem sizing.
+    Panel,
+    PanelStrong,
+    PanelCaption,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -24,7 +28,7 @@ pub struct TypographyStyle {
 }
 
 impl TypographyToken {
-    pub const ALL: [Self; 10] = [
+    pub const ALL: [Self; 13] = [
         Self::Display,
         Self::HeadingLarge,
         Self::HeadingMedium,
@@ -35,6 +39,9 @@ impl TypographyToken {
         Self::BodyMediumStrong,
         Self::BodySmall,
         Self::BodySmallStrong,
+        Self::Panel,
+        Self::PanelStrong,
+        Self::PanelCaption,
     ];
 
     pub const fn name(self) -> &'static str {
@@ -46,6 +53,8 @@ impl TypographyToken {
             Self::BodyLarge | Self::BodyLargeStrong => "body/body.large",
             Self::BodyMedium | Self::BodyMediumStrong => "body/body.medium",
             Self::BodySmall | Self::BodySmallStrong => "body/body.small",
+            Self::Panel | Self::PanelStrong => "panel/body",
+            Self::PanelCaption => "panel/caption",
         }
     }
 
@@ -102,13 +111,30 @@ impl TypographyToken {
                 line_height: px(14.),
                 font_weight: strong,
             },
+            Self::Panel | Self::PanelStrong => TypographyStyle {
+                font_size: px(super::tokens::TypeScale::TITLE),
+                line_height: px(super::tokens::TypeScale::DISPLAY),
+                font_weight: if self == Self::PanelStrong {
+                    FontWeight::SEMIBOLD
+                } else {
+                    FontWeight::NORMAL
+                },
+            },
+            Self::PanelCaption => TypographyStyle {
+                font_size: px(super::tokens::TypeScale::BODY),
+                line_height: px(super::tokens::RowHeight::FIELD - super::tokens::Space::SM),
+                font_weight: FontWeight::NORMAL,
+            },
         }
     }
 
     pub const fn is_strong(self) -> bool {
         matches!(
             self,
-            Self::BodyLargeStrong | Self::BodyMediumStrong | Self::BodySmallStrong
+            Self::BodyLargeStrong
+                | Self::BodyMediumStrong
+                | Self::BodySmallStrong
+                | Self::PanelStrong
         )
     }
 }
@@ -116,8 +142,16 @@ impl TypographyToken {
 pub trait TypographyExt: gpui::Styled + Sized {
     fn typography(mut self, token: TypographyToken) -> Self {
         let style = token.style();
-        self = self.text_size(style.font_size);
-        self = self.line_height(style.line_height);
+        self = if matches!(
+            token,
+            TypographyToken::Panel | TypographyToken::PanelStrong | TypographyToken::PanelCaption
+        ) {
+            self.text_size(ui::rems_from_px(f32::from(style.font_size)))
+                .line_height(ui::rems_from_px(f32::from(style.line_height)))
+        } else {
+            self.text_size(style.font_size)
+                .line_height(style.line_height)
+        };
         self.font_weight(style.font_weight)
     }
 }

@@ -111,7 +111,7 @@ impl DesignScrubController for DesignPanel {
                         )
                         .child(
                             div()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .font_semibold()
                                 .child(format!("Scrub {}", speed.label())),
                         ),

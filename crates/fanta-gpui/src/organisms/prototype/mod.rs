@@ -386,7 +386,7 @@ impl Render for PrototypePanel {
                         content.child(self.render_hint(
                             PrototypeHint::RunningPrototype,
                             "Running your prototype",
-                            "Use the play button in the toolbar to play your prototype. If there are no connections, the play button can be used to play a presentation of your frames.",
+                            "Use the play button in the Properties sidebar header to play your prototype. If there are no connections, the play button can be used to play a presentation of your frames.",
                             LucideIcon::Play,
                             cx,
                         ))

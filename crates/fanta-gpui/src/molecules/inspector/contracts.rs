@@ -285,10 +285,10 @@ impl InspectorMetrics {
     /// Each one is a named view of the shared geometry scale
     /// ([`crate::atoms::tokens`]); `LABEL_WIDTH` is inspector-specific and so
     /// stays a literal here.
-    pub const SECTION_HEADER_HEIGHT: f32 = tokens::RowHeight::SECTION_HEADER;
+    pub const SECTION_HEADER_HEIGHT: f32 = tokens::InspectorGeometry::SECTION_HEADER;
     pub const ROW_HEIGHT: f32 = tokens::RowHeight::FIELD;
     pub const HORIZONTAL_PADDING: f32 = tokens::Space::LG;
-    pub const ROW_GAP: f32 = tokens::Space::XS;
+    pub const ROW_GAP: f32 = tokens::InspectorGeometry::ROW_GAP;
     pub const CONTROL_GAP: f32 = tokens::Space::SM;
     pub const LABEL_WIDTH: f32 = 96.;
     pub const ICON_SIZE: f32 = tokens::IconSize::MD;
@@ -428,7 +428,7 @@ mod tests {
     #[test]
     fn default_metrics_match_the_existing_inspector_baseline() {
         let metrics = InspectorMetrics::default();
-        assert_eq!(metrics.section_header_height, px(40.));
+        assert_eq!(metrics.section_header_height, px(32.));
         assert_eq!(metrics.row_height, px(24.));
         assert_eq!(metrics.horizontal_padding, px(16.));
         assert_eq!(metrics.label_width, px(96.));
@@ -443,11 +443,11 @@ mod tests {
         let metrics = InspectorMetrics::current();
         assert_eq!(
             metrics.section_header_height,
-            px(tokens::RowHeight::SECTION_HEADER)
+            px(tokens::InspectorGeometry::SECTION_HEADER)
         );
         assert_eq!(metrics.row_height, px(tokens::RowHeight::FIELD));
         assert_eq!(metrics.horizontal_padding, px(tokens::Space::LG));
-        assert_eq!(metrics.row_gap, px(tokens::Space::XS));
+        assert_eq!(metrics.row_gap, px(tokens::InspectorGeometry::ROW_GAP));
         assert_eq!(metrics.control_gap, px(tokens::Space::SM));
         // Label width is inspector-specific geometry with no shared token.
         assert_eq!(metrics.label_width, px(96.));

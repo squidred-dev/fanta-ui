@@ -171,7 +171,7 @@ fn render_property_section(
     let section_id = section.id.clone();
     let section_title = section.title.clone();
     let mut header = h_flex()
-        .h(px(40.))
+        .h(px(HEADER_HEIGHT))
         .w_full()
         .px(px(PANEL_PADDING))
         .gap_2()
@@ -181,7 +181,7 @@ fn render_property_section(
                 .flex_1()
                 .min_w(px(0.))
                 .truncate()
-                .typography(crate::atoms::TypographyToken::BodyLarge)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .font_semibold()
                 .child(section.title.clone()),
         );
@@ -197,6 +197,7 @@ fn render_property_section(
             .tooltip(SharedString::from(format!("Copy {section_title}")))
             .xsmall()
             .compact()
+            .typography(crate::atoms::TypographyToken::Panel)
             .ghost()
             .on_activate(move |_, _, cx| {
                 event_sink.copy_section(copy_section_id.clone(), copy_value.clone(), cx);
@@ -204,7 +205,7 @@ fn render_property_section(
         );
     }
 
-    let mut body = v_flex().w_full().px(px(PANEL_PADDING)).pb_3().gap_1();
+    let mut body = crate::molecules::inspector_section_body();
     if let Some(summary) = section.summary.clone() {
         body = body.child(
             div()
@@ -213,8 +214,8 @@ fn render_property_section(
                 .px_2()
                 .py_1()
                 .rounded(px(4.))
-                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+                .typography(crate::atoms::TypographyToken::Panel)
                 .child(summary),
         );
     }
@@ -240,6 +241,7 @@ fn render_property_section(
                     )))
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .ghost()
                     .selected(representation == active_representation)
                     .on_activate(move |_, _, cx| {
@@ -259,8 +261,8 @@ fn render_property_section(
                     .flex()
                     .items_center()
                     .rounded(px(4.))
-                    .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(active_representation.label()),
             );
@@ -289,13 +291,13 @@ fn render_property_section(
             .px_2()
             .gap_2()
             .rounded(px(4.))
-            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
             .child(
                 div()
                     .w(px(96.))
                     .flex_none()
                     .truncate()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(row.label),
             )
@@ -304,7 +306,7 @@ fn render_property_section(
                     .flex_1()
                     .min_w(px(0.))
                     .truncate()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .child(row.displayed_value),
             )
             .when(copyable, |element| {
@@ -313,13 +315,13 @@ fn render_property_section(
                     .tab_index(0)
                     .cursor_pointer()
                     .hover(|style| {
-                        style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                        style.bg(crate::atoms::SemanticColor::BackgroundPanelHover
                             .resolve(cx)
                             .opacity(0.55))
                     })
                     .focus(|style| {
                         style
-                            .bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
+                            .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                             .border_color(
                                 crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
                             )
@@ -345,7 +347,7 @@ fn render_property_section(
         .w_full()
         .flex_none()
         .border_b_1()
-        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
+        .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
         .child(header)
         .child(body)
         .into_any_element()
@@ -361,7 +363,7 @@ pub(in super::super) fn render(
             .w_full()
             .px(px(PANEL_PADDING))
             .py_4()
-            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .typography(crate::atoms::TypographyToken::Panel)
             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
             .child("Supply DesignViewerPropertiesViewData for this exact selection")
             .into_any_element();

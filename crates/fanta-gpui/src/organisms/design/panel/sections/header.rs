@@ -16,6 +16,7 @@ pub(in super::super) struct HeaderProjection {
     mode: HeaderMode,
     can_edit: bool,
     selection_kind: DesignPanelSelectionKind,
+    node_kind: DesignPanelNodeKind,
     viewer_title: SharedString,
     selection_header: DesignSelectionHeaderViewData,
     command_target: Option<DesignPanelTarget>,
@@ -58,6 +59,7 @@ pub(in super::super) struct HeaderSelectionProjection {
     kind: DesignPanelSelectionKind,
     count: usize,
     selected_node_name: SharedString,
+    node_kind: DesignPanelNodeKind,
     header: DesignSelectionHeaderViewData,
     command_target: Option<DesignPanelTarget>,
     overlay: Option<SelectionHeaderOverlay>,
@@ -68,6 +70,7 @@ impl HeaderSelectionProjection {
         kind: DesignPanelSelectionKind,
         count: usize,
         selected_node_name: SharedString,
+        node_kind: DesignPanelNodeKind,
         header: DesignSelectionHeaderViewData,
         command_target: Option<DesignPanelTarget>,
         overlay: Option<SelectionHeaderOverlay>,
@@ -76,6 +79,7 @@ impl HeaderSelectionProjection {
             kind,
             count,
             selected_node_name,
+            node_kind,
             header,
             command_target,
             overlay,
@@ -108,6 +112,7 @@ impl HeaderProjection {
             mode,
             can_edit: navigation.can_edit,
             selection_kind: selection.kind,
+            node_kind: selection.node_kind,
             viewer_title,
             selection_header: selection.header,
             command_target: selection.command_target,
@@ -233,6 +238,7 @@ pub(in super::super) fn render_tab(
         .tooltip(SharedString::from(format!("Open {}", surface.label())))
         .xsmall()
         .compact()
+        .typography(crate::atoms::TypographyToken::Panel)
         .ghost()
         .selected(active)
         .on_activate(move |_, _, cx| {
@@ -264,7 +270,7 @@ pub(in super::super) fn render_surface_tabs(
         .gap_1()
         .items_center()
         .border_b_1()
-        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
+        .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
         .children(tabs)
         .into_any_element()
 }
@@ -312,6 +318,30 @@ pub(in super::super) fn emit_selection_header_command_for_target(
         || (access.requires_edit() && !panel.can_edit())
     {
         return;
+    }
+    if matches!(
+        command,
+        DesignSelectionHeaderCommand::ChangeLayerType { .. }
+    ) {
+        let header = panel.resolved_selection_header_view_data();
+        let available = header.title_menu.as_ref().is_some_and(|menu| {
+            menu.items
+                .iter()
+                .any(|item| item.enabled && item.command == command)
+        }) || header
+            .primary_controls
+            .iter()
+            .chain(&header.overflow_controls)
+            .filter(|control| control.enabled)
+            .any(|control| {
+                control
+                    .menu_items
+                    .iter()
+                    .any(|item| item.enabled && item.command == command)
+            });
+        if !available {
+            return;
+        }
     }
     cx.emit_design_panel_action(
         panel,
@@ -385,6 +415,20 @@ pub(in super::super) fn render_selection_header_control_icon(
     render_lucide_icon(icon, color, 16.)
 }
 
+fn header_menu_surface(id: &'static str, window: &Window, cx: &App) -> gpui::Stateful<gpui::Div> {
+    crate::molecules::sidebar_menu_chrome(
+        crate::molecules::menu_panel(
+            id,
+            popup_width(window, crate::atoms::tokens::MenuWidth::STANDARD),
+            cx,
+        ),
+        cx,
+    )
+    .max_h(crate::molecules::popup_max_height(window))
+    .overflow_y_scroll()
+    .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
+}
+
 pub(in super::super) fn render_selection_header_title(
     projection: &HeaderProjection,
     data: &DesignSelectionHeaderViewData,
@@ -395,7 +439,7 @@ pub(in super::super) fn render_selection_header_title(
             .flex_1()
             .min_w(px(0.))
             .truncate()
-            .typography(crate::atoms::TypographyToken::BodyLarge)
+            .typography(crate::atoms::TypographyToken::Panel)
             .font_semibold()
             .child(data.title.clone())
             .into_any_element();
@@ -415,14 +459,18 @@ pub(in super::super) fn render_selection_header_title(
         "{}-selection-header-title",
         projection.panel_id
     )))
+    .debug_selector(|| "design-layer-type".to_owned())
     .label(title)
     .dropdown_caret(true)
     .tooltip("Change layer type")
     .xsmall()
     .compact()
+    .typography(crate::atoms::TypographyToken::Panel)
     .ghost()
+    .text_left()
     .h(px(24.))
     .max_w(px(144.))
+    .min_w_0()
     .disabled(menu.items.is_empty())
     .on_keyboard_activate(move |_, cx| {
         sink_for_keyboard.dispatch(
@@ -435,6 +483,7 @@ pub(in super::super) fn render_selection_header_title(
         "{}-selection-header-title-menu",
         projection.panel_id
     )))
+    .appearance(false)
     .anchor(Anchor::TopLeft)
     .open(projection.selection_header_overlay.as_ref() == Some(&overlay))
     .overlay_closable(true)
@@ -449,10 +498,8 @@ pub(in super::super) fn render_selection_header_title(
     .trigger(trigger)
     .content(move |_, window, cx| {
         let popover = cx.entity();
-        v_flex()
-            .w(popup_width(window, 184.))
-            .gap_1()
-            .children(menu.items.clone().into_iter().map(|item| {
+        header_menu_surface("design-layer-type-menu", window, cx).children(
+            menu.items.clone().into_iter().map(|item| {
                 let event_sink = sink_for_content.clone();
                 let popover = popover.clone();
                 let command = item.command.clone();
@@ -479,11 +526,20 @@ pub(in super::super) fn render_selection_header_title(
                     "{panel_id}-selection-header-title-item-{}",
                     item.id,
                 )))
+                .debug_selector({
+                    let id = item.id.to_string();
+                    move || format!("design-layer-type-{id}")
+                })
                 .label(item.label)
                 .tooltip(tooltip)
                 .xsmall()
                 .compact()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .ghost()
+                .text_left()
+                .justify_start()
+                .px_2()
+                .h(px(crate::atoms::tokens::RowHeight::MENU))
                 .w_full()
                 .disabled(!enabled)
                 .when(enabled, |button| {
@@ -504,7 +560,8 @@ pub(in super::super) fn render_selection_header_title(
                         });
                     })
                 })
-            }))
+            }),
+        )
     });
     div()
         .flex_1()
@@ -547,6 +604,7 @@ pub(in super::super) fn render_selection_header_control(
         .tooltip(tooltip)
         .xsmall()
         .compact()
+        .typography(crate::atoms::TypographyToken::Panel)
         .ghost()
         .w(px(24.))
         .h(px(24.))
@@ -596,6 +654,7 @@ pub(in super::super) fn render_selection_header_control(
     .tooltip(tooltip)
     .xsmall()
     .compact()
+    .typography(crate::atoms::TypographyToken::Panel)
     .ghost()
     .w(px(26.))
     .h(px(24.))
@@ -612,6 +671,7 @@ pub(in super::super) fn render_selection_header_control(
         "{}-selection-header-control-menu-{}",
         projection.panel_id, control.id
     )))
+    .appearance(false)
     .anchor(Anchor::TopRight)
     .open(projection.selection_header_overlay.as_ref() == Some(&overlay))
     .overlay_closable(true)
@@ -626,7 +686,7 @@ pub(in super::super) fn render_selection_header_control(
     .trigger(trigger)
     .content(move |_, window, cx| {
         let popover = cx.entity();
-        v_flex().w(popup_width(window, 208.)).gap_1().children(
+        header_menu_surface("design-selection-actions", window, cx).children(
             control.menu_items.clone().into_iter().map(|item| {
                 let event_sink = sink_for_content.clone();
                 let popover = popover.clone();
@@ -658,7 +718,12 @@ pub(in super::super) fn render_selection_header_control(
                 .tooltip(tooltip)
                 .xsmall()
                 .compact()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .ghost()
+                .text_left()
+                .justify_start()
+                .px_2()
+                .h(px(crate::atoms::tokens::RowHeight::MENU))
                 .w_full()
                 .disabled(!enabled)
                 .when(enabled, |button| {
@@ -706,6 +771,7 @@ pub(in super::super) fn render_selection_header_more(
     .tooltip("More")
     .xsmall()
     .compact()
+    .typography(crate::atoms::TypographyToken::Panel)
     .ghost()
     .w(px(24.))
     .h(px(24.))
@@ -721,6 +787,7 @@ pub(in super::super) fn render_selection_header_more(
         "{}-selection-header-more-menu",
         projection.panel_id
     )))
+    .appearance(false)
     .anchor(Anchor::TopRight)
     .open(projection.selection_header_overlay.as_ref() == Some(&overlay))
     .overlay_closable(true)
@@ -773,7 +840,12 @@ pub(in super::super) fn render_selection_header_more(
                     .tooltip(tooltip)
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .ghost()
+                    .text_left()
+                    .justify_start()
+                    .px_2()
+                    .h(px(crate::atoms::tokens::RowHeight::MENU))
                     .w_full()
                     .disabled(!enabled)
                     .when(enabled, |button| {
@@ -805,7 +877,7 @@ pub(in super::super) fn render_selection_header_more(
                         .px_2()
                         .flex()
                         .items_center()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(control.tooltip.clone())
                         .into_any_element(),
@@ -849,7 +921,12 @@ pub(in super::super) fn render_selection_header_more(
                         .tooltip(tooltip)
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
+                        .text_left()
+                        .justify_start()
+                        .px_2()
+                        .h(px(crate::atoms::tokens::RowHeight::MENU))
                         .w_full()
                         .disabled(!enabled)
                         .when(enabled, |button| {
@@ -875,7 +952,7 @@ pub(in super::super) fn render_selection_header_more(
                 }
             }
         }
-        v_flex().w(popup_width(window, 216.)).gap_1().children(rows)
+        header_menu_surface("design-selection-more", window, cx).children(rows)
     })
     .into_any_element()
 }
@@ -889,11 +966,11 @@ pub(in super::super) fn render_viewer_header(
         .w_full()
         .flex_none()
         .border_b_1()
-        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
+        .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
         .child(render_surface_tabs(projection, event_sink, cx))
         .child(
             h_flex()
-                .h(px(48.))
+                .h(px(HEADER_HEIGHT))
                 .px(px(PANEL_PADDING))
                 .gap_2()
                 .items_center()
@@ -921,7 +998,7 @@ pub(in super::super) fn render_viewer_header(
                         .flex_1()
                         .min_w(px(0.))
                         .truncate()
-                        .typography(crate::atoms::TypographyToken::BodyLarge)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .font_semibold()
                         .child(projection.viewer_title.clone()),
                 ),
@@ -936,9 +1013,9 @@ fn render_editable_selection_row(
 ) -> AnyElement {
     let selection_header = &projection.selection_header;
     h_flex()
-        .h(px(48.))
-        .pl(px(PANEL_PADDING))
-        .pr_2()
+        .h(px(HEADER_HEIGHT))
+        .min_w_0()
+        .px(px(PANEL_PADDING))
         .gap_1()
         .items_center()
         .when(
@@ -960,7 +1037,7 @@ fn render_editable_selection_row(
                             .flex_1()
                             .min_w(px(0.))
                             .truncate()
-                            .typography(crate::atoms::TypographyToken::BodyLarge)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .font_semibold()
                             .child("Page"),
                     )
@@ -970,6 +1047,15 @@ fn render_editable_selection_row(
             projection.selection_kind != DesignPanelSelectionKind::None,
             |header| {
                 header
+                    .child(render_lucide_icon(
+                        if projection.selection_kind == DesignPanelSelectionKind::Multiple {
+                            LucideIcon::Layers
+                        } else {
+                            projection.node_kind.lucide_icon()
+                        },
+                        crate::atoms::sidebar_style(cx).muted_icon,
+                        crate::atoms::tokens::IconSize::SM,
+                    ))
                     .child(render_selection_header_title(
                         projection,
                         selection_header,
@@ -1009,7 +1095,7 @@ pub(in super::super) fn render_selection_summary(
         .w_full()
         .flex_none()
         .border_b_1()
-        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
+        .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
         .child(render_editable_selection_row(projection, &event_sink, cx))
         .into_any_element()
 }
@@ -1026,7 +1112,7 @@ pub(in super::super) fn render_draw_header(
         .w_full()
         .flex_none()
         .border_b_1()
-        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
+        .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
         .child(
             h_flex()
                 .id(heading_id)
@@ -1034,7 +1120,7 @@ pub(in super::super) fn render_draw_header(
                 .h(px(HEADER_HEIGHT))
                 .px(px(PANEL_PADDING))
                 .items_center()
-                .typography(crate::atoms::TypographyToken::BodyLarge)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .font_semibold()
                 .child(DesignPanelWorkspaceMode::Draw.label()),
         )
@@ -1051,7 +1137,7 @@ pub(in super::super) fn render_editor_header(
         .w_full()
         .flex_none()
         .border_b_1()
-        .border_color(crate::atoms::SemanticColor::BorderToolbar.resolve(cx))
+        .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
         .child(render_surface_tabs(projection, event_sink, cx))
         .child(render_editable_selection_row(projection, event_sink, cx))
         .into_any_element()

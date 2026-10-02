@@ -40,6 +40,7 @@ use crate::molecules::{
 mod contrast;
 mod gradient;
 mod media;
+mod pattern;
 mod resource_browser;
 mod shader;
 mod solid_color;
@@ -61,27 +62,28 @@ use crate::design::{
     DesignColorStyleSample, DesignColorStyleSampleSelection, DesignColorStyleSampleViewData,
     DesignGradientPaint, DesignGradientStop, DesignImageFilter, DesignImageFilters,
     DesignImagePaint, DesignMediaCropAction, DesignMediaCropToolState, DesignMediaDroppedFile,
-    DesignMediaKind, DesignMediaPaintPlacement, DesignMediaPaintScaleMode, DesignMediaPaintView,
-    DesignMediaPaintViewData, DesignMediaSourceAction, DesignMenuPreviewPhase, DesignPaint,
-    DesignPaintBinding, DesignPaintColorTarget, DesignPaintEdit, DesignPaintKind,
-    DesignPaintPayload, DesignPaintProperty, DesignPaintSource, DesignPaintTransform,
-    DesignPaintType, DesignPaintValue, DesignPaintVariableViewData, DesignPanelCollection,
-    DesignPanelEditPhase, DesignPatternHorizontalAlignment, DesignPatternPaint,
-    DesignPatternSource, DesignPatternSpacing, DesignPatternTileType, DesignShaderDefinition,
-    DesignShaderPaint, DesignShaderPropertyDefinition, DesignShaderPropertyValue,
-    DesignShaderSelection, DesignShaderViewData, DesignSolidPaint, DesignVariable,
-    DesignVariableImportState, DesignVariableResolvedValue, DesignVariableSource, DesignVideoPaint,
-    DesignVideoPreviewAction, DesignVideoPreviewState, DesignVideoPreviewStatus,
+    DesignMediaKind, DesignMediaPaintAsset, DesignMediaPaintPlacement, DesignMediaPaintScaleMode,
+    DesignMediaPaintView, DesignMediaPaintViewData, DesignMediaSourceAction,
+    DesignMenuPreviewPhase, DesignPaint, DesignPaintBinding, DesignPaintColorTarget,
+    DesignPaintEdit, DesignPaintKind, DesignPaintPayload, DesignPaintProperty, DesignPaintSource,
+    DesignPaintTransform, DesignPaintType, DesignPaintValue, DesignPaintVariableViewData,
+    DesignPanelCollection, DesignPanelEditPhase, DesignPatternHorizontalAlignment,
+    DesignPatternPaint, DesignPatternSource, DesignPatternSpacing, DesignPatternTileType,
+    DesignShaderDefinition, DesignShaderPaint, DesignShaderPropertyDefinition,
+    DesignShaderPropertyValue, DesignShaderSelection, DesignShaderViewData, DesignSolidPaint,
+    DesignVariable, DesignVariableImportState, DesignVariableResolvedValue, DesignVariableSource,
+    DesignVideoPaint, DesignVideoPreviewAction, DesignVideoPreviewState, DesignVideoPreviewStatus,
 };
 
 const PICKER_WIDTH: f32 = tokens::MenuWidth::PICKER;
 const PICKER_MAX_HEIGHT: f32 = 520.;
-const PICKER_HEADER_HEIGHT: f32 = tokens::RowHeight::SECTION_HEADER;
+const PICKER_HEADER_HEIGHT: f32 = tokens::InspectorGeometry::SECTION_HEADER;
 const PAINT_TYPE_ROW_HEIGHT: f32 = tokens::RowHeight::SECTION_HEADER;
+const PAINT_UTILITY_ROW_HEIGHT: f32 = tokens::RowHeight::FIELD + tokens::Space::SM;
 const PAINT_HEADER_CONTROL_SIZE: f32 = tokens::ControlSize::CHROME;
 const PAINT_HEADER_GAP: f32 = tokens::Space::XS;
 const PAINT_HEADER_HORIZONTAL_PADDING: f32 = tokens::Space::LG;
-const PAINT_HEADER_TRAILING_CONTROL_COUNT: usize = 2;
+const PAINT_HEADER_TRAILING_CONTROL_COUNT: usize = 0;
 const COLOR_AREA_HEIGHT: f32 = 248.;
 const SELECTOR_INSET: f32 = tokens::Space::SM;
 const KEYBOARD_FINE_STEP: f32 = 0.01;
@@ -89,13 +91,71 @@ const KEYBOARD_COARSE_STEP: f32 = 0.1;
 const HUE_FINE_STEP: f32 = 1.;
 const HUE_COARSE_STEP: f32 = 10.;
 
+/// Menu choices keep their label and check columns aligned independently of
+/// the centered label layout used by ordinary buttons and segmented controls.
+fn picker_menu_option(
+    id: impl Into<SharedString>,
+    label: impl Into<SharedString>,
+    leading: Option<LucideIcon>,
+    checked: bool,
+    cx: &App,
+) -> gpui::Div {
+    let id = id.into();
+    let label: SharedString = label.into();
+    let text_selector = format!("{id}-text");
+    let check_selector = format!("{id}-check");
+    h_flex()
+        .w_full()
+        .min_w_0()
+        .gap(px(tokens::Space::SM))
+        .when_some(leading, |row, icon| {
+            row.child(
+                div()
+                    .size(px(tokens::ControlSize::INLINE))
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .child(render_lucide_icon(
+                        icon,
+                        crate::atoms::SemanticColor::TextTertiary.resolve(cx),
+                        tokens::IconSize::SM,
+                    )),
+            )
+        })
+        .child(
+            div()
+                .debug_selector(move || text_selector.clone())
+                .flex_1()
+                .min_w_0()
+                .truncate()
+                .text_left()
+                .typography(crate::atoms::TypographyToken::Panel)
+                .child(label),
+        )
+        .child(
+            div()
+                .debug_selector(move || check_selector.clone())
+                .size(px(tokens::ControlSize::INLINE))
+                .flex_none()
+                .flex()
+                .items_center()
+                .justify_center()
+                .when(checked, |slot| {
+                    slot.child(render_lucide_icon(
+                        LucideIcon::Check,
+                        crate::atoms::SemanticColor::Text.resolve(cx),
+                        tokens::IconSize::SM,
+                    ))
+                }),
+        )
+}
+
 const fn paint_header_min_width() -> f32 {
     let controls = DesignPaintType::ALL.len() + PAINT_HEADER_TRAILING_CONTROL_COUNT;
     controls as f32 * PAINT_HEADER_CONTROL_SIZE
-        // The zero-width flexible spacer between paint types and tools adds
-        // one child, so the row has `controls` gaps rather than `controls - 1`.
-        + controls as f32 * PAINT_HEADER_GAP
-        + PAINT_HEADER_HORIZONTAL_PADDING
+        + (controls - 1) as f32 * PAINT_HEADER_GAP
+        + PAINT_HEADER_HORIZONTAL_PADDING * 2.
 }
 
 /// Opaque host identity for the paint currently shown by the picker.
@@ -259,6 +319,14 @@ enum PaintPickerTab {
     #[default]
     Custom,
     Libraries,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+enum MediaPickerTab {
+    #[default]
+    Source,
+    Assets,
+    Adjust,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -444,6 +512,7 @@ pub struct PaintPicker {
     supported_blend_modes: Vec<DesignBlendMode>,
     disabled: bool,
     active_tab: PaintPickerTab,
+    media_tab: MediaPickerTab,
     shader_browser_requested: bool,
     color_only_title: Option<SharedString>,
     color_only_color_editable: bool,
@@ -484,6 +553,9 @@ pub struct PaintPicker {
     opacity_input: Entity<InputState>,
     stop_position_input: Entity<InputState>,
     shader_number_input: Entity<InputState>,
+    pattern_number_inputs: [Entity<InputState>; 3],
+    pattern_number_invalid: [bool; 3],
+    pattern_number_sessions: [Option<DesignPaintEdit>; 3],
     shader_color_input: Entity<InputState>,
     shader_active_number_property: Option<SharedString>,
     shader_active_color_property: Option<SharedString>,
@@ -529,7 +601,7 @@ impl PaintPicker {
         let hue_slider = cx.new(|cx| crate::molecules::Slider::new("color-picker-hue", 0., cx));
         let alpha_slider = cx.new(|cx| crate::molecules::Slider::new("color-picker-alpha", 1., cx));
         let resource_search_input =
-            cx.new(|cx| InputState::new(window, cx).placeholder("Search styles and variables"));
+            cx.new(|cx| InputState::new(window, cx).placeholder("Search resources"));
         let hex_input = cx.new(|cx| InputState::new(window, cx).placeholder("RRGGBB"));
         let color_channel_inputs = [
             cx.new(|cx| InputState::new(window, cx).placeholder("0")),
@@ -540,6 +612,11 @@ impl PaintPicker {
         let stop_position_input = cx.new(|cx| InputState::new(window, cx).placeholder("0"));
         let shader_number_input = cx.new(|cx| InputState::new(window, cx).placeholder("0"));
         let shader_color_input = cx.new(|cx| InputState::new(window, cx).placeholder("RRGGBB"));
+        let pattern_number_inputs = [
+            cx.new(|cx| InputState::new(window, cx).placeholder("100")),
+            cx.new(|cx| InputState::new(window, cx).placeholder("0")),
+            cx.new(|cx| InputState::new(window, cx).placeholder("0")),
+        ];
 
         let hex_subscription = cx.subscribe_in(
             &hex_input,
@@ -611,6 +688,15 @@ impl PaintPicker {
                 },
             ));
         }
+        for (field, input) in pattern_number_inputs.iter().enumerate() {
+            subscriptions.push(cx.subscribe_in(
+                input,
+                window,
+                move |this, _, event: &InputEvent, window, cx| {
+                    this.handle_pattern_number_input(field, event, window, cx);
+                },
+            ));
+        }
 
         Self {
             hue_slider,
@@ -631,6 +717,7 @@ impl PaintPicker {
             supported_blend_modes: DesignBlendMode::NON_PASS_THROUGH.to_vec(),
             disabled: false,
             active_tab: PaintPickerTab::Custom,
+            media_tab: MediaPickerTab::Source,
             shader_browser_requested: false,
             color_only_title: None,
             color_only_color_editable: true,
@@ -668,6 +755,9 @@ impl PaintPicker {
             opacity_input,
             stop_position_input,
             shader_number_input,
+            pattern_number_inputs,
+            pattern_number_invalid: [false; 3],
+            pattern_number_sessions: [None, None, None],
             shader_color_input,
             shader_active_number_property: None,
             shader_active_color_property: None,
@@ -813,6 +903,10 @@ impl PaintPicker {
         };
         let target_changed = self.target.as_ref() != Some(&target);
         let paint = normalize_paint(paint);
+        let paint_type_changed = self
+            .paint
+            .as_ref()
+            .is_some_and(|previous| previous.paint_type() != paint.paint_type());
         let shader_changed = match (
             self.paint.as_ref().map(|paint| &paint.payload),
             &paint.payload,
@@ -823,9 +917,10 @@ impl PaintPicker {
             (Some(DesignPaintPayload::Shader(_)), _) | (_, DesignPaintPayload::Shader(_)) => true,
             _ => false,
         };
-        let preview_invalidated = self.blend_mode_menu_preview.as_ref().is_some_and(|active| {
-            !active.target.exactly_eq(&target) || active.original != paint.blend_mode
-        });
+        let preview_invalidated = paint_type_changed
+            || self.blend_mode_menu_preview.as_ref().is_some_and(|active| {
+                !active.target.exactly_eq(&target) || active.original != paint.blend_mode
+            });
         if preview_invalidated {
             self.cancel_blend_mode_preview(cx);
         }
@@ -834,6 +929,8 @@ impl PaintPicker {
         if target_changed {
             self.reset_resource_search(window, cx);
             self.active_tab = PaintPickerTab::Custom;
+            self.media_tab = MediaPickerTab::Source;
+            self.pattern_number_invalid = [false; 3];
             self.shader_browser_requested = paint.paint_type() == DesignPaintType::Shader;
             self.clear_nested_overlays();
             self.creation_menu_index = PaintCreationKind::Style as usize;
@@ -857,6 +954,17 @@ impl PaintPicker {
             self.continuous_edit = None;
             self.reset_text_input_edit_sessions();
         } else {
+            if paint_type_changed {
+                // A host may replace the payload without replacing the paint's
+                // stable identity. Destination editors must remain reachable.
+                self.active_tab = PaintPickerTab::Custom;
+                self.media_tab = MediaPickerTab::Source;
+                self.shader_browser_requested = false;
+                self.contrast_checker_open = false;
+                self.clear_nested_overlays();
+                self.reset_resource_search(window, cx);
+                self.scroll_handle.set_offset(Point::default());
+            }
             if shader_changed {
                 self.reset_shader_input_edit_sessions();
                 if matches!(&paint.payload, DesignPaintPayload::Shader(_)) {
@@ -888,6 +996,7 @@ impl PaintPicker {
 
         self.target = Some(target);
         self.paint = Some(paint);
+        self.sync_pattern_inputs(window, cx, target_changed);
         self.remember_current_hue();
 
         let preserve_hex_draft =
@@ -1159,6 +1268,8 @@ impl PaintPicker {
         self.opacity_edit_session = None;
         self.stop_position_edit_session = None;
         self.reset_shader_input_edit_sessions();
+        self.pattern_number_sessions = [None, None, None];
+        self.pattern_number_invalid = [false; 3];
         self.ignore_next_hex_change = false;
         self.ignore_next_color_channel_changes = [false; 3];
         self.ignore_next_opacity_change = false;
@@ -1175,6 +1286,9 @@ impl PaintPicker {
         sessions.extend(self.stop_position_edit_session.take());
         sessions.extend(self.shader_number_edit_session.take());
         sessions.extend(self.shader_color_edit_session.take());
+        for session in &mut self.pattern_number_sessions {
+            sessions.extend(session.take());
+        }
         for session in sessions {
             self.finish_text_input_edit(session, None, cx);
         }
@@ -1186,7 +1300,12 @@ impl PaintPicker {
         phase: DesignPanelEditPhase,
         cx: &mut Context<Self>,
     ) -> Option<DesignPaint> {
-        if self.editing_disabled() {
+        let disabled = if edit.property == DesignPaintProperty::Source {
+            self.base_editing_disabled()
+        } else {
+            self.editing_disabled()
+        };
+        if disabled {
             return None;
         }
         let mut paint = self.paint.clone()?;
@@ -1273,6 +1392,7 @@ impl PaintPicker {
             return;
         }
         self.shader_browser_requested = paint_type == DesignPaintType::Shader;
+        self.media_tab = MediaPickerTab::Source;
         let candidate = paint_for_type(paint, paint_type, self.selected_stop);
         self.selected_stop = clamp_stop_index(&candidate, self.selected_stop);
         self.selected_stop_id = candidate

@@ -168,8 +168,7 @@ impl Render for MotionInspector {
                     .gap(px(tokens::Space::SM))
                     .items_center()
                     .child(
-                        truncating_label(property.label.clone())
-                            .typography(TypographyToken::BodyMedium),
+                        truncating_label(property.label.clone()).typography(TypographyToken::Panel),
                     )
                     .child(
                         action(
@@ -198,8 +197,8 @@ impl Render for MotionInspector {
             .overflow_y_scroll()
             .occlude()
             .on_pinch(|_, _, cx| cx.stop_propagation())
-            .bg(Color::Background.resolve(cx))
-            .text_color(Color::Text.resolve(cx))
+            .bg(Color::BackgroundPanel.resolve(cx))
+            .text_color(crate::atoms::sidebar_style(cx).text)
             .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
             .when(!self.data.selection_name.is_empty(), |v| {
                 v.child(selection(
@@ -249,7 +248,7 @@ impl Render for MotionInspector {
                                         cx,
                                     )
                                     .flex_1()
-                                    .bg(Color::BackgroundSecondary.resolve(cx))
+                                    .bg(Color::BackgroundPanelField.resolve(cx))
                                     .on_activate(cx.listener(|this, _, _, cx| {
                                         if this.data.can_preview {
                                             cx.emit(Action::PlayingChangeRequested {
@@ -269,7 +268,7 @@ impl Render for MotionInspector {
                                         )
                                         .flex_1()
                                         .when(self.data.auto_keyframe, |v| {
-                                            v.bg(Color::BackgroundSecondary.resolve(cx))
+                                            v.bg(Color::BackgroundPanelField.resolve(cx))
                                         })
                                         .on_activate(
                                             cx.listener(|this, _, _, cx| {
@@ -290,7 +289,7 @@ impl Render for MotionInspector {
                 |v| {
                     v.child(
                         div()
-                            .typography(TypographyToken::BodyMedium)
+                            .typography(TypographyToken::Panel)
                             .text_color(Color::TextSecondary.resolve(cx))
                             .child("Properties with keyframes appear here."),
                     )
@@ -307,7 +306,7 @@ impl Render for MotionInspector {
                             cx,
                         )
                         .w_full()
-                        .bg(Color::BackgroundSecondary.resolve(cx))
+                        .bg(Color::BackgroundPanelField.resolve(cx))
                         .on_activate(
                             cx.listener(|_, _, _, cx| cx.emit(Action::TimelineOpenRequested)),
                         ),

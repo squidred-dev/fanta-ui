@@ -374,10 +374,12 @@ fn render_direct_icon_action(
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+                .hover(|style| {
+                    style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
+                })
                 .focus(|style| {
                     style
-                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                         .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
         })
@@ -426,16 +428,18 @@ fn render_direct_compact_icon_action(
         .rounded(px(4.))
         .border_1()
         .border_color(cx.theme().transparent)
-        .typography(crate::atoms::TypographyToken::BodyMedium)
+        .typography(crate::atoms::TypographyToken::Panel)
         .when(enabled, |button| {
             button
                 .key_context(CONTROL_KEY_CONTEXT)
                 .tab_index(0)
                 .cursor_pointer()
-                .hover(|style| style.bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx)))
+                .hover(|style| {
+                    style.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
+                })
                 .focus(|style| {
                     style
-                        .bg(crate::atoms::SemanticColor::BackgroundHover.resolve(cx))
+                        .bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                         .border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                 })
         })
@@ -463,7 +467,7 @@ pub(in super::super) fn render_fill(
     cx: &mut Context<DesignPanel>,
 ) -> Option<AnyElement> {
     projection.collection.supported.then(|| {
-        let mut content = v_flex().pl(px(PANEL_PADDING)).pr_2().pt_1().pb_4().gap_2();
+        let mut content = crate::molecules::inspector_section_body();
         if let Some(binding) = projection.collection.style_binding.as_ref() {
             content =
                 content.child(chrome.paints_bound_style_summary("fill", binding.name.clone(), cx));
@@ -509,7 +513,7 @@ pub(in super::super) fn render_selection_colors(
     if !projection.selection_is_multiple || projection.colors.is_empty() {
         return None;
     }
-    let mut content = v_flex().px(px(PANEL_PADDING)).pb_4().gap_1();
+    let mut content = crate::molecules::inspector_section_body();
     for (index, selection_color) in projection.colors.iter().enumerate() {
         let target = AuxiliaryColorPickerTarget::SelectionColor {
             target: projection.identity.target.clone(),
@@ -546,7 +550,7 @@ pub(in super::super) fn render_stroke(
     cx: &mut Context<DesignPanel>,
 ) -> Option<AnyElement> {
     projection.collection.supported.then(|| {
-        let mut content = v_flex().pl(px(PANEL_PADDING)).pr_2().pb_4().gap_2();
+        let mut content = crate::molecules::inspector_section_body();
         let Some(stroke) = projection.stroke.as_ref() else {
             return chrome.paints_section(
                 DesignPanelSection::Stroke,
@@ -638,7 +642,7 @@ pub(in super::super) fn render_stroke(
                             .child(chrome.paints_group_label("Position", cx))
                             .child(chrome.paints_value_cell(
                                 "stroke-align",
-                                "Align",
+                                "",
                                 stroke.align.label(),
                                 DesignPanelProperty::StrokeAlign,
                                 DesignPanelValue::StrokeAlign(DesignStrokeAlign::Center),
@@ -873,7 +877,7 @@ pub(in super::super) fn render_stroke(
                     geometry = geometry
                         .child(
                             div()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child(format!("Point {}", index + 1)),
                         )
@@ -1053,9 +1057,9 @@ pub(in super::super) fn render_stroke(
                                     .px_2()
                                     .py_1()
                                     .rounded(px(4.))
-                                    .bg(crate::atoms::SemanticColor::BackgroundSecondary
+                                    .bg(crate::atoms::SemanticColor::BackgroundPanelField
                                         .resolve(cx))
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .text_color(
                                         crate::atoms::SemanticColor::TextTertiary.resolve(cx),
                                     )

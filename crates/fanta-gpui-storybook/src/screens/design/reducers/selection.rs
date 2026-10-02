@@ -10,8 +10,30 @@ pub(crate) fn acknowledge_header_command(
     cx: &mut Context<Storybook>,
 ) -> bool {
     if let DesignPanelAction::SelectionHeaderCommandRequested { target, command } = action {
-        screen.harness.last_action =
-            format!("Host received selected-node command {command:?} for {target:?}").into();
+        if let DesignSelectionHeaderCommand::ChangeLayerType { kind } = command {
+            let live = panel.read(cx).inspection_context();
+            let accepted = live.permissions().can_edit()
+                && story_design_target(live).as_ref() == Some(target)
+                && matches!(target, DesignPanelTarget::Nodes { node_ids } if node_ids.len() == 1);
+            let changed = accepted && screen.host.nodes.iter_mut().any(|node| {
+                let is_target = matches!(target, DesignPanelTarget::Nodes { node_ids } if node_ids.first() == Some(&node.id));
+                if is_target && matches!(node.kind, DesignPanelNodeKind::Frame | DesignPanelNodeKind::Group | DesignPanelNodeKind::Section)
+                    && matches!(kind, DesignPanelNodeKind::Frame | DesignPanelNodeKind::Group | DesignPanelNodeKind::Section) {
+                    node.kind = *kind;
+                    true
+                } else {
+                    false
+                }
+            });
+            screen.harness.last_action = if changed {
+                format!("Changed layer type to {}", kind.label()).into()
+            } else {
+                "Layer type change unavailable for the current selection".into()
+            };
+        } else {
+            screen.harness.last_action =
+                format!("Host received selected-node command {command:?} for {target:?}").into();
+        }
         screen.apply_inspection_context(panel, cx);
         cx.notify();
         return true;

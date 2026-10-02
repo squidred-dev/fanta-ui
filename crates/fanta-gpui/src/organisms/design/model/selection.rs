@@ -272,8 +272,16 @@ pub enum DesignSelectionHeaderCommand {
     Boolean(DesignBooleanOperation),
     Flatten,
     EditObject,
-    TitleMenuItem { item_id: SharedString },
-    HostDefined { command_id: SharedString },
+    /// Request a host-validated conversion of the selected layer.
+    ChangeLayerType {
+        kind: DesignPanelNodeKind,
+    },
+    TitleMenuItem {
+        item_id: SharedString,
+    },
+    HostDefined {
+        command_id: SharedString,
+    },
 }
 
 impl DesignSelectionHeaderCommand {
@@ -293,6 +301,7 @@ impl DesignSelectionHeaderCommand {
             | Self::Boolean(_)
             | Self::Flatten
             | Self::EditObject
+            | Self::ChangeLayerType { .. }
             | Self::TitleMenuItem { .. }
             | Self::HostDefined { .. } => DesignSelectionHeaderCommandAccess::EditRequired,
         }
@@ -683,18 +692,15 @@ impl DesignSelectionHeaderViewData {
         )
     }
 
-    /// A representative fallback for stories and incremental integrations.
-    ///
-    /// Real Figma headers are contextual (for example Select matching layers
-    /// depends on the current page). Hosts should supply exact view data when
-    /// sibling availability, plugins, or document state affect the matrix.
+    /// Compact editor baseline for stories and incremental integrations.
+    /// Hosts supply exact view data when document capabilities differ.
     pub fn for_node_kind(kind: DesignPanelNodeKind) -> Self {
         use DesignSelectionHeaderControlKind as Kind;
 
         let direct = DesignSelectionHeaderControl::direct;
         let boolean = DesignSelectionHeaderControl::boolean_flatten_menu;
         let title = kind.label();
-        match kind {
+        let mut header = match kind {
             DesignPanelNodeKind::Text | DesignPanelNodeKind::TextPath => Self::new(
                 title,
                 [
@@ -713,23 +719,7 @@ impl DesignSelectionHeaderViewData {
                     direct(Kind::UseAsMask),
                     boolean(),
                 ],
-            )
-            .with_title_menu(DesignSelectionHeaderMenu::new(
-                "frame-type",
-                ["frame", "group", "section"].into_iter().map(|id| {
-                    let label = match id {
-                        "frame" => "Frame",
-                        "group" => "Group",
-                        "section" => "Section",
-                        _ => unreachable!(),
-                    };
-                    DesignSelectionHeaderMenuItem::new(
-                        id,
-                        label,
-                        DesignSelectionHeaderCommand::TitleMenuItem { item_id: id.into() },
-                    )
-                }),
-            )),
+            ),
             DesignPanelNodeKind::Arrow | DesignPanelNodeKind::Line => Self::new(
                 title,
                 [
@@ -760,6 +750,41 @@ impl DesignSelectionHeaderViewData {
                     direct(Kind::EditObject),
                 ],
             ),
+        };
+        // Keep frequent editing actions in the row. Discovery and structural
+        // operations remain available in the labelled More menu.
+        let (primary, secondary): (Vec<_>, Vec<_>) = header
+            .primary_controls
+            .into_iter()
+            .partition(|control| matches!(control.kind, Kind::CreateComponent | Kind::EditObject));
+        header.primary_controls = primary;
+        header.overflow_controls.splice(0..0, secondary);
+        if matches!(
+            kind,
+            DesignPanelNodeKind::Frame | DesignPanelNodeKind::Group | DesignPanelNodeKind::Section
+        ) {
+            header.title_menu = Some(DesignSelectionHeaderMenu::new(
+                "layer-type",
+                [
+                    DesignPanelNodeKind::Frame,
+                    DesignPanelNodeKind::Group,
+                    DesignPanelNodeKind::Section,
+                ]
+                .into_iter()
+                .map(|candidate| {
+                    let item = DesignSelectionHeaderMenuItem::new(
+                        candidate.label().to_ascii_lowercase(),
+                        candidate.label(),
+                        DesignSelectionHeaderCommand::ChangeLayerType { kind: candidate },
+                    );
+                    if candidate == kind {
+                        item.disabled("Current layer type")
+                    } else {
+                        item
+                    }
+                }),
+            ));
         }
+        header
     }
 }

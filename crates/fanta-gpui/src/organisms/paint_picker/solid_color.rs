@@ -1370,7 +1370,7 @@ impl PaintPicker {
             .overflow_hidden()
             .rounded(px(7.))
             .border_1()
-            .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
+            .border_color(crate::atoms::SemanticColor::BorderPanel.resolve(cx))
             .cursor_crosshair()
             .focus(|style| {
                 style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
@@ -1640,6 +1640,7 @@ impl PaintPicker {
                 .dropdown_caret(true)
                 .tooltip("Color format")
                 .xsmall()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .compact()
                 .outline()
                 .w(px(62.))
@@ -1653,9 +1654,8 @@ impl PaintPicker {
                 }));
         let mut control = div().relative().w(px(62.)).h(px(26.)).child(trigger);
         if open {
-            let menu = crate::molecules::popup_surface(
+            let menu = crate::molecules::sidebar_popup_surface(
                 SharedString::from(format!("{}-color-format-options", self.id)),
-                px(tokens::Radius::MENU),
                 cx,
             )
             .debug_selector(|| "color-picker-format-menu".to_owned())
@@ -1682,8 +1682,7 @@ impl PaintPicker {
                 );
             }))
             .w(px(tokens::MenuWidth::NARROW))
-            .py_1()
-            .gap_1()
+            .p(px(tokens::Space::XS))
             .children(
                 ColorFormat::ALL
                     .into_iter()
@@ -1695,16 +1694,22 @@ impl PaintPicker {
                             format.label()
                         )))
                         .debug_selector(move || format!("color-picker-format-{}", format.label()))
-                        .label(format.label())
+                        .child(picker_menu_option(
+                            format!("color-picker-format-{}", format.label()),
+                            format.label(),
+                            None,
+                            self.color_format == format,
+                            cx,
+                        ))
                         .xsmall()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .compact()
                         .ghost()
                         .w_full()
+                        .h(px(tokens::RowHeight::MENU))
+                        .px(px(tokens::Space::SM))
                         .tab_stop(false)
                         .selected(self.color_format_menu_index == index)
-                        .when(self.color_format == format, |button| {
-                            button.child(Icon::new(IconName::Check).xsmall())
-                        })
                         .on_activate(cx.listener(
                             move |this, _, window, cx| this.set_color_format(format, window, cx),
                         ))
@@ -1725,7 +1730,10 @@ impl PaintPicker {
     pub(super) fn render_color_channel_fields(&self, cx: &mut Context<Self>) -> AnyElement {
         let labels = self.color_format.channel_labels();
         let disabled = self.color_editing_disabled();
-        let mut fields = h_flex().flex_1().min_w(gpui::Pixels::ZERO).gap_1();
+        let mut fields = h_flex()
+            .flex_1()
+            .min_w(gpui::Pixels::ZERO)
+            .gap(px(tokens::Space::XS));
         for (channel, label) in labels.into_iter().enumerate() {
             let percentage =
                 matches!(self.color_format, ColorFormat::Hsl | ColorFormat::Hsb) && channel > 0;
@@ -1736,10 +1744,10 @@ impl PaintPicker {
                     .min_w_0()
                     .child(
                         Input::new(&self.color_channel_inputs[channel])
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .prefix(
                                 div()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .text_color(
                                         crate::atoms::SemanticColor::TextTertiary.resolve(cx),
                                     )
@@ -1748,11 +1756,12 @@ impl PaintPicker {
                             .when(percentage, |input| {
                                 input.suffix(
                                     div()
-                                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                                        .typography(crate::atoms::TypographyToken::Panel)
                                         .child("%"),
                                 )
                             })
                             .xsmall()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .h(px(26.))
                             .flex_1()
                             .min_w(gpui::Pixels::ZERO)
@@ -1775,13 +1784,14 @@ impl PaintPicker {
             .debug_selector(|| "color-picker-opacity".to_owned())
             .child(
                 Input::new(&self.opacity_input)
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .suffix(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .child("%"),
                     )
                     .xsmall()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .h(px(26.))
                     .w(px(62.))
                     .disabled(opacity_disabled)
@@ -1793,7 +1803,7 @@ impl PaintPicker {
         if matches!(self.color_format, ColorFormat::Hex | ColorFormat::Css) {
             let controls = h_flex()
                 .w_full()
-                .gap_1()
+                .gap(px(tokens::Space::XS))
                 .child(self.render_color_format_selector(cx))
                 .child(
                     div()
@@ -1802,8 +1812,8 @@ impl PaintPicker {
                         .min_w_0()
                         .child(
                             Input::new(&self.hex_input)
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
                                 .xsmall()
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .h(px(26.))
                                 .flex_1()
                                 .min_w(gpui::Pixels::ZERO)
@@ -1824,11 +1834,11 @@ impl PaintPicker {
 
         v_flex()
             .w_full()
-            .gap_1()
+            .gap(px(tokens::InspectorGeometry::ROW_GAP))
             .child(
                 h_flex()
                     .w_full()
-                    .gap_1()
+                    .gap(px(tokens::Space::XS))
                     .child(self.render_color_format_selector(cx))
                     .child(self.render_color_channel_fields(cx)),
             )
@@ -1838,7 +1848,7 @@ impl PaintPicker {
                     .justify_between()
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("Opacity"),
                     )
@@ -1852,12 +1862,12 @@ impl PaintPicker {
         Some(
             v_flex()
                 .w_full()
-                .gap_2()
+                .gap(px(tokens::InspectorGeometry::ROW_GAP))
                 .child(self.render_color_area(color, cx))
                 .child(
                     h_flex()
                         .w_full()
-                        .gap_2()
+                        .gap(px(tokens::InspectorGeometry::ROW_GAP))
                         .when(self.eyedropper_enabled, |row| {
                             row.child(
                                 crate::atoms::ui_button(SharedString::from(format!(
@@ -1867,6 +1877,7 @@ impl PaintPicker {
                                 .debug_selector(|| "color-picker-eyedropper".to_owned())
                                 .tooltip("Pick color from canvas")
                                 .xsmall()
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .compact()
                                 .ghost()
                                 .w(px(24.))
@@ -1887,7 +1898,7 @@ impl PaintPicker {
                             v_flex()
                                 .flex_1()
                                 .min_w(gpui::Pixels::ZERO)
-                                .gap_2()
+                                .gap(px(tokens::InspectorGeometry::ROW_GAP))
                                 .child(self.render_hue_control(cx))
                                 .child(self.render_alpha_control(color, cx)),
                         ),
@@ -1900,22 +1911,23 @@ impl PaintPicker {
     pub(super) fn render_opacity_only(&self, cx: &mut Context<Self>) -> AnyElement {
         v_flex()
             .w_full()
-            .gap_1()
+            .gap(px(tokens::InspectorGeometry::ROW_GAP))
             .child(
                 div()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("Paint opacity"),
             )
             .child(
                 Input::new(&self.opacity_input)
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .suffix(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .child("%"),
                     )
                     .xsmall()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .h(px(26.))
                     .disabled(self.editing_disabled())
                     .when(self.opacity_invalid, |input| {

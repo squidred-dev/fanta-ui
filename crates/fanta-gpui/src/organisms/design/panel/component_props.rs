@@ -1014,6 +1014,7 @@ impl DesignComponentController for DesignPanel {
         .tooltip(trigger_tooltip)
         .xsmall()
         .compact()
+        .typography(crate::atoms::TypographyToken::Panel)
         .ghost()
         .w(px(20.))
         .h(px(ROW_HEIGHT))
@@ -1071,13 +1072,13 @@ impl DesignComponentController for DesignPanel {
                             .gap_2()
                             .child(
                                 div()
-                                    .typography(crate::atoms::TypographyToken::BodyLarge)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .font_semibold()
                                     .child("Variables"),
                             )
                             .child(
                                 div()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .text_color(
                                         crate::atoms::SemanticColor::TextTertiary.resolve(cx),
                                     )
@@ -1086,7 +1087,7 @@ impl DesignComponentController for DesignPanel {
                     )
                     .child(
                         Input::new(&search_input)
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .small()
                             .prefix(Icon::new(IconName::Search).small()),
                     );
@@ -1104,7 +1105,7 @@ impl DesignComponentController for DesignPanel {
                                     .flex_1()
                                     .min_w(px(0.))
                                     .truncate()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .child(binding.variable_name),
                             )
                             .child(
@@ -1114,6 +1115,7 @@ impl DesignComponentController for DesignPanel {
                                 .label("Detach")
                                 .xsmall()
                                 .compact()
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .ghost()
                                 .disabled(!can_change || !binding.can_detach)
                                 .on_activate(move |_, _, cx| {
@@ -1138,7 +1140,7 @@ impl DesignComponentController for DesignPanel {
                         div()
                             .px_1()
                             .py_3()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("No compatible variables"),
                     );
@@ -1160,7 +1162,7 @@ impl DesignComponentController for DesignPanel {
                         div()
                             .px_1()
                             .pt_2()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(heading),
                     );
@@ -1191,7 +1193,11 @@ impl DesignComponentController for DesignPanel {
                             )
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
+                            .text_left()
+                            .justify_start()
+                            .px_2()
                             .w_full()
                             .selected(selected)
                             .disabled(!can_change || variable.disabled_reason.is_some())
@@ -1303,6 +1309,7 @@ impl DesignComponentController for DesignPanel {
         .tooltip("Swap instance")
         .xsmall()
         .compact()
+        .typography(crate::atoms::TypographyToken::Panel)
         .w_full()
         .h(px(ROW_HEIGHT))
         .on_activate(move |_, window, cx| {
@@ -1347,13 +1354,13 @@ impl DesignComponentController for DesignPanel {
                 .p_2()
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyLarge)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .font_semibold()
                         .child("Swap instance"),
                 )
                 .child(
                     Input::new(&search_input)
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .small()
                         .prefix(Icon::new(IconName::Search).small()),
                 );
@@ -1366,7 +1373,11 @@ impl DesignComponentController for DesignPanel {
                 .label("None")
                 .xsmall()
                 .compact()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .ghost()
+                .text_left()
+                .justify_start()
+                .px_2()
                 .w_full()
                 .selected(current.is_none())
                 .disabled(!can_change)
@@ -1384,7 +1395,7 @@ impl DesignComponentController for DesignPanel {
                     div()
                         .px_1()
                         .py_3()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("No components found"),
                 );
@@ -1398,7 +1409,7 @@ impl DesignComponentController for DesignPanel {
                     div()
                         .px_1()
                         .pt_2()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(heading),
                 );
@@ -1460,7 +1471,11 @@ impl DesignComponentController for DesignPanel {
                                 .tooltip(tooltip)
                                 .xsmall()
                                 .compact()
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .ghost()
+                                .text_left()
+                                .justify_start()
+                                .px_2()
                                 .w_full()
                                 .selected(selected)
                                 .disabled(!can_change || (!applyable && !importable))
@@ -3356,7 +3371,7 @@ impl DesignComponentController for DesignPanel {
                             div()
                                 .w(px(88.))
                                 .truncate()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                                 .child(control.layer_name),
                         )
@@ -3381,7 +3396,7 @@ impl DesignComponentController for DesignPanel {
                                 .text_color(
                                     crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
                                 )
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .child(div().truncate().child(pill_label)),
                         ),
                 )
@@ -3393,7 +3408,7 @@ impl DesignComponentController for DesignPanel {
                 .gap_1()
                 .child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(format!("Applied property · {}", surface.label())),
                 )
@@ -3420,6 +3435,7 @@ impl DesignComponentController for DesignPanel {
         .tooltip("Create component property")
         .xsmall()
         .compact()
+        .typography(crate::atoms::TypographyToken::Panel)
         .ghost()
         .selected(open)
         .disabled(kinds.is_empty())
@@ -3464,7 +3480,7 @@ impl DesignComponentController for DesignPanel {
                 div()
                     .px_2()
                     .py_1()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .font_semibold()
                     .child("Create component property"),
             );
@@ -3478,6 +3494,9 @@ impl DesignComponentController for DesignPanel {
                     .xsmall()
                     .compact()
                     .ghost()
+                    .text_left()
+                    .justify_start()
+                    .px_2()
                     .w_full()
                     .on_activate(move |_, window, cx| {
                         panel.update(cx, |this, cx| {
@@ -3520,13 +3539,13 @@ impl DesignComponentController for DesignPanel {
             .gap_2()
             .child(
                 div()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("Name"),
             )
             .child(
                 Input::new(&self.component_authoring.name_input)
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .appearance(false)
                     .bordered(true)
                     .xsmall()
@@ -3573,7 +3592,7 @@ impl DesignComponentController for DesignPanel {
                 fields = fields
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(if draft.kind == DesignComponentPropertyKind::Variant {
                                 "Default value and first Variant value"
@@ -3583,7 +3602,7 @@ impl DesignComponentController for DesignPanel {
                     )
                     .child(
                         Input::new(&self.component_authoring.default_input)
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .appearance(false)
                             .bordered(true)
                             .xsmall()
@@ -3602,7 +3621,7 @@ impl DesignComponentController for DesignPanel {
                 fields = fields
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("Default and preferred instances"),
                     )
@@ -3612,6 +3631,9 @@ impl DesignComponentController for DesignPanel {
                             .xsmall()
                             .compact()
                             .ghost()
+                            .text_left()
+                            .justify_start()
+                            .px_2()
                             .w_full()
                             .selected(default_value.is_none())
                             .on_activate(move |_, _, cx| {
@@ -3653,7 +3675,7 @@ impl DesignComponentController for DesignPanel {
                                 div()
                                     .size(px(20.))
                                     .rounded(px(4.))
-                                    .bg(crate::atoms::SemanticColor::BackgroundSecondary
+                                    .bg(crate::atoms::SemanticColor::BackgroundPanelField
                                         .resolve(cx))
                                     .flex()
                                     .items_center()
@@ -3672,7 +3694,7 @@ impl DesignComponentController for DesignPanel {
                                     .flex_1()
                                     .min_w(px(0.))
                                     .truncate()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .child(reference.name.clone()),
                             )
                             .child(
@@ -3757,13 +3779,13 @@ impl DesignComponentController for DesignPanel {
                 fields = fields
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child("Description"),
                     )
                     .child(
                         Input::new(&self.component_authoring.default_input)
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .appearance(false)
                             .bordered(true)
                             .xsmall()
@@ -3779,12 +3801,12 @@ impl DesignComponentController for DesignPanel {
                                     .gap_0p5()
                                     .child(
                                         div()
-                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .typography(crate::atoms::TypographyToken::Panel)
                                             .child("Minimum layers"),
                                     )
                                     .child(
                                         Input::new(&self.component_authoring.slot_minimum_input)
-                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .typography(crate::atoms::TypographyToken::Panel)
                                             .appearance(false)
                                             .bordered(true)
                                             .xsmall()
@@ -3797,12 +3819,12 @@ impl DesignComponentController for DesignPanel {
                                     .gap_0p5()
                                     .child(
                                         div()
-                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .typography(crate::atoms::TypographyToken::Panel)
                                             .child("Maximum layers"),
                                     )
                                     .child(
                                         Input::new(&self.component_authoring.slot_maximum_input)
-                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .typography(crate::atoms::TypographyToken::Panel)
                                             .appearance(false)
                                             .bordered(true)
                                             .xsmall()
@@ -3813,7 +3835,7 @@ impl DesignComponentController for DesignPanel {
                     .when(settings_invalid, |fields| {
                         fields.child(
                             div()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .text_color(crate::atoms::SemanticColor::TextDanger.resolve(cx))
                                 .child("Use whole numbers and keep minimum ≤ maximum."),
                         )
@@ -3896,7 +3918,7 @@ impl DesignComponentController for DesignPanel {
                     .child(
                         div()
                             .pt_1()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .font_semibold()
                             .child("Preferred instances"),
                     );
@@ -3919,7 +3941,11 @@ impl DesignComponentController for DesignPanel {
                         .label(reference.name.clone())
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
+                        .text_left()
+                        .justify_start()
+                        .px_2()
                         .w_full()
                         .selected(selected)
                         .on_activate(move |_, _, cx| {
@@ -3962,7 +3988,7 @@ impl DesignComponentController for DesignPanel {
                 .child(
                     div()
                         .pt_1()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .font_semibold()
                         .child("Default variable"),
                 )
@@ -3972,6 +3998,9 @@ impl DesignComponentController for DesignPanel {
                         .xsmall()
                         .compact()
                         .ghost()
+                        .text_left()
+                        .justify_start()
+                        .px_2()
                         .w_full()
                         .selected(draft.default_variable_id.is_none())
                         .on_activate(move |_, _, cx| {
@@ -4007,7 +4036,11 @@ impl DesignComponentController for DesignPanel {
                     .label(format!("{} / {}", variable.collection_name, variable.name))
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .ghost()
+                    .text_left()
+                    .justify_start()
+                    .px_2()
                     .w_full()
                     .selected(selected)
                     .on_activate(move |_, _, cx| {
@@ -4027,13 +4060,13 @@ impl DesignComponentController for DesignPanel {
             .justify_between()
             .child(
                 div()
-                    .typography(crate::atoms::TypographyToken::BodyLarge)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .font_semibold()
                     .child("Create component property"),
             )
             .child(
                 div()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(draft.kind.label()),
             )
@@ -4059,6 +4092,7 @@ impl DesignComponentController for DesignPanel {
                     .label("Create")
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .disabled(name_invalid || settings_invalid)
                     .on_activate(move |_, window, cx| {
                         panel_for_submit.update(cx, |this, cx| {
@@ -4108,14 +4142,14 @@ impl DesignComponentController for DesignPanel {
                     .child(
                         div()
                             .truncate()
-                            .typography(crate::atoms::TypographyToken::BodyLarge)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .font_semibold()
                             .child("Edit component property"),
                     )
                     .child(
                         div()
                             .truncate()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(format!(
                                 "{} · {}",
@@ -4144,7 +4178,7 @@ impl DesignComponentController for DesignPanel {
         {
             modal = modal.child(
                 div()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("Description editing is available for Slot properties."),
             );
@@ -4159,6 +4193,9 @@ impl DesignComponentController for DesignPanel {
                     .xsmall()
                     .compact()
                     .ghost()
+                    .text_left()
+                    .justify_start()
+                    .px_2()
                     .w_full()
                     .on_activate(move |_, window, cx| {
                         panel_for_rename.update(cx, |this, cx| {
@@ -4182,7 +4219,7 @@ impl DesignComponentController for DesignPanel {
                     .child(
                         div()
                             .pt_1()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .font_semibold()
                             .child("Value"),
                     )
@@ -4215,7 +4252,7 @@ impl DesignComponentController for DesignPanel {
                     .child(
                         div()
                             .pt_1()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .font_semibold()
                             .child("Value"),
                     )
@@ -4226,7 +4263,7 @@ impl DesignComponentController for DesignPanel {
                             .child(
                                 div().flex_1().min_w(px(0.)).child(
                                     Input::new(&self.component_authoring.default_input)
-                                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                                        .typography(crate::atoms::TypographyToken::Panel)
                                         .appearance(false)
                                         .bordered(true)
                                         .xsmall()
@@ -4250,7 +4287,7 @@ impl DesignComponentController for DesignPanel {
                 modal = modal.child(
                     div()
                         .pt_1()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .font_semibold()
                         .child("Value"),
                 );
@@ -4262,6 +4299,9 @@ impl DesignComponentController for DesignPanel {
                             .xsmall()
                             .compact()
                             .ghost()
+                            .text_left()
+                            .justify_start()
+                            .px_2()
                             .w_full()
                             .selected(default_value.is_none())
                             .on_activate(move |_, _, cx| {
@@ -4304,7 +4344,7 @@ impl DesignComponentController for DesignPanel {
                                 div()
                                     .size(px(20.))
                                     .rounded(px(4.))
-                                    .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
+                                    .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
                                     .flex()
                                     .items_center()
                                     .justify_center()
@@ -4320,7 +4360,7 @@ impl DesignComponentController for DesignPanel {
                                     .flex_1()
                                     .min_w(px(0.))
                                     .truncate()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .child(reference.name.clone()),
                             )
                             .when(definition.capabilities.edit_default_value, |row| {
@@ -4411,7 +4451,7 @@ impl DesignComponentController for DesignPanel {
                             .justify_between()
                             .child(
                                 div()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .child("Default variable"),
                             )
                             .child(variable_button),
@@ -4429,18 +4469,18 @@ impl DesignComponentController for DesignPanel {
                     .child(
                         div()
                             .pt_1()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .font_semibold()
                             .child("Slot settings"),
                     )
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .child("Description"),
                     )
                     .child(
                         Input::new(&self.component_authoring.default_input)
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .appearance(false)
                             .bordered(true)
                             .xsmall()
@@ -4456,12 +4496,12 @@ impl DesignComponentController for DesignPanel {
                                     .gap_0p5()
                                     .child(
                                         div()
-                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .typography(crate::atoms::TypographyToken::Panel)
                                             .child("Minimum layers"),
                                     )
                                     .child(
                                         Input::new(&self.component_authoring.slot_minimum_input)
-                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .typography(crate::atoms::TypographyToken::Panel)
                                             .appearance(false)
                                             .bordered(true)
                                             .xsmall()
@@ -4474,12 +4514,12 @@ impl DesignComponentController for DesignPanel {
                                     .gap_0p5()
                                     .child(
                                         div()
-                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .typography(crate::atoms::TypographyToken::Panel)
                                             .child("Maximum layers"),
                                     )
                                     .child(
                                         Input::new(&self.component_authoring.slot_maximum_input)
-                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .typography(crate::atoms::TypographyToken::Panel)
                                             .appearance(false)
                                             .bordered(true)
                                             .xsmall()
@@ -4490,7 +4530,7 @@ impl DesignComponentController for DesignPanel {
                     .when(settings_invalid, |modal| {
                         modal.child(
                             div()
-                                .typography(crate::atoms::TypographyToken::BodyMedium)
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .text_color(crate::atoms::SemanticColor::TextDanger.resolve(cx))
                                 .child("Use whole numbers and keep minimum ≤ maximum."),
                         )
@@ -4567,7 +4607,7 @@ impl DesignComponentController for DesignPanel {
                     .child(
                         div()
                             .pt_1()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .font_semibold()
                             .child("Preferred instances"),
                     );
@@ -4590,7 +4630,11 @@ impl DesignComponentController for DesignPanel {
                         .label(reference.name.clone())
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
+                        .text_left()
+                        .justify_start()
+                        .px_2()
                         .w_full()
                         .selected(selected)
                         .on_activate(move |_, _, cx| {
@@ -4627,7 +4671,7 @@ impl DesignComponentController for DesignPanel {
             modal = modal.child(
                 div()
                     .pt_1()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .font_semibold()
                     .child("Variant values"),
             );
@@ -4672,7 +4716,7 @@ impl DesignComponentController for DesignPanel {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx));
                 if option.can_reorder {
                     handle = handle
@@ -4722,7 +4766,7 @@ impl DesignComponentController for DesignPanel {
                     .border_1()
                     .border_color(cx.theme().transparent)
                     .hover(|style| {
-                        style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                        style.bg(crate::atoms::SemanticColor::BackgroundPanelHover
                             .resolve(cx)
                             .opacity(0.6))
                     })
@@ -4730,7 +4774,7 @@ impl DesignComponentController for DesignPanel {
                 if editing {
                     row = row.child(
                         Input::new(&self.component_authoring.name_input)
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .appearance(false)
                             .bordered(false)
                             .focus_bordered(true)
@@ -4745,7 +4789,7 @@ impl DesignComponentController for DesignPanel {
                             .flex_1()
                             .min_w(px(0.))
                             .truncate()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .child(option.name.clone()),
                     );
                 }
@@ -4763,6 +4807,7 @@ impl DesignComponentController for DesignPanel {
                         .tooltip("Delete Variant value")
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
                         .on_activate(move |_, _, cx| {
                             panel_for_delete.update(cx, |this, cx| {
@@ -4859,7 +4904,7 @@ impl DesignComponentController for DesignPanel {
                 modal = modal.child(
                     h_flex().w_full().h(px(ROW_HEIGHT)).pl(px(18.)).child(
                         Input::new(&self.component_authoring.name_input)
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .appearance(false)
                             .bordered(true)
                             .xsmall()
@@ -4874,7 +4919,11 @@ impl DesignComponentController for DesignPanel {
                         .label("+ Add value")
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
+                        .text_left()
+                        .justify_start()
+                        .px_2()
                         .w_full()
                         .on_activate(move |_, window, cx| {
                             panel.update(cx, |this, cx| {
@@ -4901,6 +4950,7 @@ impl DesignComponentController for DesignPanel {
                     .label("Save")
                     .xsmall()
                     .compact()
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .disabled(settings_invalid)
                     .on_activate(move |_, window, cx| {
                         panel_for_save.update(cx, |this, cx| {
@@ -4932,7 +4982,7 @@ impl DesignComponentController for DesignPanel {
                     .justify_between()
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .font_semibold()
                             .child("Properties"),
                     )
@@ -4944,7 +4994,7 @@ impl DesignComponentController for DesignPanel {
                 content
                     .child(
                         div()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextDanger.resolve(cx))
                             .child("Host definition order crosses the Variant partition"),
                     )
@@ -4979,7 +5029,7 @@ impl DesignComponentController for DesignPanel {
             }
             content = content.child(
                 div()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(partition.label()),
             );
@@ -5025,7 +5075,7 @@ impl DesignComponentController for DesignPanel {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx));
                 if definition.capabilities.reorder {
                     handle = handle
@@ -5084,7 +5134,7 @@ impl DesignComponentController for DesignPanel {
                     .border_color(cx.theme().transparent)
                     .cursor_pointer()
                     .hover(|style| {
-                        style.bg(crate::atoms::SemanticColor::BackgroundToolbarHover
+                        style.bg(crate::atoms::SemanticColor::BackgroundPanelHover
                             .resolve(cx)
                             .opacity(0.6))
                     })
@@ -5094,14 +5144,14 @@ impl DesignComponentController for DesignPanel {
                         )
                     })
                     .when(selected, |row| {
-                        row.bg(crate::atoms::SemanticColor::BackgroundToolbarHover.resolve(cx))
+                        row.bg(crate::atoms::SemanticColor::BackgroundPanelHover.resolve(cx))
                     })
                     .child(handle)
                     .child(
                         div()
                             .w(px(16.))
                             .flex_none()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                             .child(match kind {
                                 DesignComponentPropertyKind::Variant => "V",
@@ -5114,7 +5164,7 @@ impl DesignComponentController for DesignPanel {
                 if editing {
                     row = row.child(
                         Input::new(&self.component_authoring.name_input)
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .appearance(false)
                             .bordered(false)
                             .focus_bordered(true)
@@ -5131,13 +5181,13 @@ impl DesignComponentController for DesignPanel {
                             .child(
                                 div()
                                     .truncate()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .child(property.name.clone()),
                             )
                             .child(
                                 div()
                                     .truncate()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .text_color(
                                         crate::atoms::SemanticColor::TextTertiary.resolve(cx),
                                     )
@@ -5162,6 +5212,7 @@ impl DesignComponentController for DesignPanel {
                         .tooltip("Edit component property")
                         .xsmall()
                         .compact()
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .ghost()
                         .on_activate(move |_, window, cx| {
                             panel_for_edit.update(cx, |this, cx| {
@@ -5300,7 +5351,11 @@ impl DesignComponentController for DesignPanel {
                             .label("Rename property")
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
+                            .text_left()
+                            .justify_start()
+                            .px_2()
                             .w_full()
                             .on_activate(move |_, window, cx| {
                                 panel_for_rename.update(cx, |this, cx| {
@@ -5322,7 +5377,11 @@ impl DesignComponentController for DesignPanel {
                             .label("Delete property")
                             .xsmall()
                             .compact()
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .ghost()
+                            .text_left()
+                            .justify_start()
+                            .px_2()
                             .w_full()
                             .on_activate(move |_, _, cx| {
                                 panel_for_delete.update(cx, |this, cx| {
@@ -5387,7 +5446,7 @@ impl DesignComponentController for DesignPanel {
         if self.host.inspected_node().component_properties.is_empty() {
             content = content.child(
                 div()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child("Create a property with +"),
             );
@@ -5415,7 +5474,7 @@ impl DesignComponentController for DesignPanel {
             .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
             .child(
                 div()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .font_semibold()
                     .child("Expose nested properties"),
             );
@@ -5489,13 +5548,13 @@ impl DesignComponentController for DesignPanel {
                                 .child(
                                     div()
                                         .truncate()
-                                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                                        .typography(crate::atoms::TypographyToken::Panel)
                                         .child(candidate.nested_property.property_name.clone()),
                                 )
                                 .child(
                                     div()
                                         .truncate()
-                                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                                        .typography(crate::atoms::TypographyToken::Panel)
                                         .text_color(
                                             crate::atoms::SemanticColor::TextTertiary.resolve(cx),
                                         )
@@ -5544,7 +5603,7 @@ impl DesignComponentController for DesignPanel {
                 .gap_2()
                 .rounded(px(4.))
                 .cursor_pointer()
-                .typography(crate::atoms::TypographyToken::BodyMedium)
+                .typography(crate::atoms::TypographyToken::Panel)
                 .text_color(if unmet {
                     crate::atoms::SemanticColor::BackgroundWarning.resolve(cx)
                 } else {
@@ -5607,7 +5666,7 @@ impl DesignComponentController for DesignPanel {
                 .rounded(px(4.))
                 .border_1()
                 .border_color(crate::atoms::SemanticColor::Border.resolve(cx))
-                .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx));
+                .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx));
             for guideline in guidelines {
                 let (icon, color) = match guideline.status {
                     SlotLimitGuidelineStatus::Met => {
@@ -5626,7 +5685,7 @@ impl DesignComponentController for DesignPanel {
                     h_flex()
                         .min_h(px(ROW_HEIGHT))
                         .gap_2()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .child(div().w(px(14.)).text_color(color).child(icon))
                         .child(div().flex_1().min_w(px(0.)).child(guideline.label))
                         .when_some(
@@ -5691,6 +5750,7 @@ impl DesignComponentController for DesignPanel {
                 .tooltip("Edit multiline text")
                 .xsmall()
                 .compact()
+                .typography(crate::atoms::TypographyToken::Panel)
                 .w_full()
                 .h(px(ROW_HEIGHT))
                 .disabled(!self.property_is_editable(DesignPanelProperty::ComponentProperty(index)))
@@ -5722,7 +5782,7 @@ impl DesignComponentController for DesignPanel {
                     div()
                         .w(px(104.))
                         .truncate()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child(property.name.clone()),
                 )
@@ -5755,7 +5815,7 @@ impl DesignComponentController for DesignPanel {
                             )
                             .child(
                                 Input::new(&self.retained.inputs.component_multiline)
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .appearance(false)
                                     .bordered(false)
                                     .focus_bordered(false)
@@ -5776,6 +5836,7 @@ impl DesignComponentController for DesignPanel {
                                 .label("Cancel")
                                 .xsmall()
                                 .compact()
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .ghost()
                                 .on_activate(cx.listener(
                                     |this, _, window, cx| {
@@ -5791,6 +5852,7 @@ impl DesignComponentController for DesignPanel {
                                 .label("Apply")
                                 .xsmall()
                                 .compact()
+                                .typography(crate::atoms::TypographyToken::Panel)
                                 .on_activate(cx.listener(
                                     |this, _, window, cx| {
                                         this.finish_component_multiline_editor(true, window, cx);
@@ -5809,7 +5871,7 @@ impl DesignComponentController for DesignPanel {
             property_content = property_content.child(
                 div()
                     .pl(px(112.))
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(description.clone()),
             );
@@ -5819,7 +5881,7 @@ impl DesignComponentController for DesignPanel {
                 h_flex()
                     .pl(px(112.))
                     .gap_1()
-                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                    .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
                     .child(render_lucide_icon(
                         LucideIcon::ExternalLink,
@@ -5837,7 +5899,7 @@ impl DesignComponentController for DesignPanel {
                     .child(
                         div()
                             .flex_1()
-                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                            .typography(crate::atoms::TypographyToken::Panel)
                             .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                             .child(match property.override_state {
                                 DesignComponentPropertyOverrideState::Default => "",
@@ -5950,7 +6012,7 @@ impl DesignComponentController for DesignPanel {
             if !settings.preferred_values.is_empty() {
                 property_content = property_content.child(
                     div()
-                        .typography(crate::atoms::TypographyToken::BodyMedium)
+                        .typography(crate::atoms::TypographyToken::Panel)
                         .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                         .child("Preferred instances"),
                 );
@@ -5972,12 +6034,12 @@ impl DesignComponentController for DesignPanel {
                                 div()
                                     .flex_1()
                                     .truncate()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .child(preferred.name.clone()),
                             )
                             .child(
                                 div()
-                                    .typography(crate::atoms::TypographyToken::BodyMedium)
+                                    .typography(crate::atoms::TypographyToken::Panel)
                                     .text_color(
                                         crate::atoms::SemanticColor::TextTertiary.resolve(cx),
                                     )
@@ -6034,12 +6096,12 @@ impl DesignComponentController for DesignPanel {
                                         div()
                                             .flex_1()
                                             .truncate()
-                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .typography(crate::atoms::TypographyToken::Panel)
                                             .child(child.name.clone()),
                                     )
                                     .child(
                                         div()
-                                            .typography(crate::atoms::TypographyToken::BodyMedium)
+                                            .typography(crate::atoms::TypographyToken::Panel)
                                             .text_color(
                                                 crate::atoms::SemanticColor::TextTertiary
                                                     .resolve(cx),
@@ -6599,8 +6661,8 @@ impl DesignComponentController for DesignPanel {
             .rounded(px(4.))
             .border_1()
             .border_color(cx.theme().transparent)
-            .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
-            .typography(crate::atoms::TypographyToken::BodyMedium)
+            .bg(crate::atoms::SemanticColor::BackgroundPanelField.resolve(cx))
+            .typography(crate::atoms::TypographyToken::Panel)
             .when(enabled, |button| {
                 button
                     .key_context(CONTROL_KEY_CONTEXT)

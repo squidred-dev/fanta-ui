@@ -119,7 +119,7 @@ use super::{
     DesignTextVerticalAlignment, DesignTransformModifierChange, DesignTransformOperation,
     DesignTransformUnit, DesignTypographyStyleBinding, DesignTypographyStyleViewData,
     DesignTypographyTarget, DesignVariable, DesignVariableImportState, DesignVariableModeViewData,
-    DesignVariableScope, DesignVariableSource, DesignVariableViewData, DesignVariableWidthPoint,
+    DesignVariableSource, DesignVariableViewData, DesignVariableWidthPoint,
     DesignVariableWidthPreset, DesignVariableWidthStroke, DesignVariablesEntryPoint,
     DesignVectorCoordinateAxis, DesignVectorEditViewData, DesignVectorSelectionValue,
     DesignVideoExportFps, DesignViewerColorRepresentation, DesignViewerPropertiesViewData,

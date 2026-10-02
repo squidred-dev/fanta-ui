@@ -33,9 +33,17 @@ application host
   not import the Design facade, Design-prefixed domain types, or the crate
   prelude.
 
-This is a dependency rule, not a Spectrum visual restyle. Components continue
-to use the active GPUI theme, the repository's control contracts, and Lucide
-icons.
+Components use Zed's active panel, element, border, and elevated-surface roles
+when available, with a gpui-component theme fallback for standalone hosts.
+Shared `Panel`, `PanelStrong`, and `PanelCaption` typography follows the host's
+rem scale: 14 px UI copy with a 20 px line height and 12 px captions. Inspector
+fields and actions use the repository's compact control geometry and Lucide
+icons; shared inspector molecules own the visual recipes. `InspectorGeometry`
+sets section headers to 32 px, body side insets to 16 px, bottom padding to
+12 px, attached-caption gaps to 4 px, row gaps to 8 px, and subgroup gaps
+to 12 px. Bodies start directly
+below their header, while standalone content may request an explicit 8 px top
+inset.
 
 ### Behavioral component taxonomy
 
@@ -486,7 +494,7 @@ per-node mode fixtures and echoes accepted actions through the same setters.
 
 ## Selected-node header
 
-The 48px selected-node header is controlled independently from the node
+The 32px selected-node header is controlled independently from the node
 property snapshot. Supply `DesignSelectionHeaderViewData` with its display
 title, optional title menu, ordered primary controls, and ordered overflow
 controls:
@@ -970,8 +978,10 @@ path/description/keywords, and an optional disabled reason. Imported library
 variables remain Library-sourced; importing never collapses their remote
 identity into a page variable.
 
-The anchored diamond picker is searchable and groups compatible results by
-page or library. Applying an imported/page variable emits
+The anchored variable picker is searchable and groups compatible results by
+page or library. It owns one opaque elevated surface whose width and height
+are independent from its small trigger, clamps inside the window, and scrolls
+the compatible results. Applying an imported/page variable emits
 `PropertyVariableApplyRequested`; selecting an Available library variable
 first emits `PropertyVariableImportRequested`; detaching the exact echoed
 binding emits `PropertyVariableDetachRequested`. All three carry stable IDs
@@ -1184,6 +1194,13 @@ a component set, selected sublayers, and nested exposure candidates.
 ## Paint and collection controls
 
 Fill and stroke swatches open the transient paint picker. It includes:
+
+Content navigation uses canonical Zed `TabBar`/`Tab` components for Custom/
+Libraries, shader Parameters/Shaders, and media Source/Assets/Adjust. The
+standalone fallback preserves rectangular geometry when either the Zed theme
+or settings provider is absent. Selected tabs reveal themselves at narrow
+widths and keyboard selection retains focus. Existing compatible media assets
+remain selectable while empty-source drafts disable crop and filter editing.
 
 - solid color;
 - a Figma-style six-item top-level Solid, Gradient, Pattern, Image, Video, and
@@ -1715,6 +1732,12 @@ reorder operations. Export uses stable configuration IDs and dedicated typed
 intents. The story applies those intents to mock state and immediately
 supplies the updated read model back to the component.
 
+Adding to a collapsed Fill, Stroke, Effects, Layout guides, or Export section
+expands that section immediately without changing document data. After the
+host echoes a new paint or effect, the inspector opens that new item's editor.
+Unsupported, style-bound, or permission-denied add requests leave disclosure
+state unchanged.
+
 Frames can additionally expose Figma's native
 [**Show in exports** Fill control](https://help.figma.com/hc/en-us/articles/360040028114-Guide-to-exports-in-Figma)
 through `DesignPanelNode::fill_shows_in_exports`. `None` suppresses the row;
@@ -1771,10 +1794,13 @@ inferring document geometry.
 Effects are an ordered, stable-ID collection. Rows stay compact; dragging one
 emits `EffectReorderRequested { effect_id, from_index, to_index }`, removing it
 emits `EffectRemoveRequested`, and every leaf edit emits
-`EffectEditRequested` with the same ID plus a legacy index hint. One settings
-popover is anchored to the active row, and a host echo resolves it by ID after
-reordering. The panel never mutates or sorts the controlled collection, which
-is important because Figma renders effects according to their order and only
+`EffectEditRequested` with the same ID plus a legacy index hint. One inline
+settings editor expands below the active row. Editing its own fields keeps
+that editor mounted for focus and transaction continuity, and both canonical
+and compatibility host echoes resolve it by ID after reordering. Removing the
+effect or binding its collection to a style dismisses that editor. The panel
+never mutates or sorts the controlled collection, which is important because
+Figma renders effects according to their order and only
 the first Background blur/Glass conflict can render.
 
 `DesignEffectCapabilities` combines Figma's documented type limits with exact
@@ -1831,8 +1857,10 @@ rows read-only until the host accepts a detach. Bindable shadow leaves
 (`radius`, `color`, `spread`, `offsetX`, and `offsetY`) and blur `radius`
 retain `DesignEffectVariableBinding` metadata. Compatible variables come from
 `DesignEffectVariableViewData`, and apply/detach emit ID-addressed host
-intents. Noise, Texture, Glass, and opaque effects deliberately expose no
-variable controls, matching Figma's
+intents. A leaf's variable controls appear only when it has a binding or a
+compatible catalog entry, so an empty catalog does not add disabled rows to
+the settings editor. Noise, Texture, Glass, and opaque effects deliberately
+expose no variable controls, matching Figma's
 [VariableBindableEffectField](https://developers.figma.com/docs/plugins/api/VariableBindableEffectField/)
 contract. Irrelevant controls are never rendered or resolved for another
 effect kind.
