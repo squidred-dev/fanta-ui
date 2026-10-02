@@ -343,6 +343,7 @@ impl ToolbarToolGroup {
                 ToolbarTool::Move,
                 ToolbarTool::Hand,
                 ToolbarTool::PathSelect,
+                ToolbarTool::Inspect,
             ],
             Self::Brushes => &[ToolbarTool::Brush, ToolbarTool::Pencil, ToolbarTool::Eraser],
             Self::Selection => &[
@@ -1071,6 +1072,20 @@ mod tests {
         assert!(!ToolbarTool::Resources.is_available_in(ToolbarMode::Design));
         assert!(!ToolbarTool::Scale.is_available_in(ToolbarMode::Design));
         assert_eq!(ToolbarTool::Resources.shortcut(), Some("⇧ I"));
+    }
+
+    #[test]
+    fn inspect_is_reachable_in_the_move_group_and_preserves_its_active_face() {
+        assert!(ToolbarTool::Inspect.is_available_in(ToolbarMode::Design));
+        assert!(
+            ToolbarToolGroup::Move
+                .tools()
+                .contains(&ToolbarTool::Inspect)
+        );
+        assert_eq!(
+            ToolbarToolGroup::Move.display_tool(ToolbarTool::Inspect),
+            ToolbarTool::Inspect
+        );
     }
 
     #[test]
