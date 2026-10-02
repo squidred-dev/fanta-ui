@@ -472,6 +472,9 @@ impl EditorToolbar {
         if !self.secondary_control_supported(control) {
             return div().into_any_element();
         }
+        let disabled = control == ToolbarSecondaryControl::DevReadyForDevelopment
+            && !self.dev_options.readiness_available;
+        let selected = selected && !disabled;
         let label = label.into();
         let tooltip = label.clone();
         let accent = crate::atoms::SemanticColor::TextOnBrand.resolve(cx);
@@ -482,13 +485,10 @@ impl EditorToolbar {
                 self.id
             )))
             .debug_selector(move || format!("toolbar-secondary-{suffix}"))
-            .key_context(CONTROL_KEY_CONTEXT)
-            .tab_index(0)
             .h(px(28.))
             .px_2()
             .gap_1()
             .rounded(px(7.))
-            .cursor_pointer()
             .typography(crate::atoms::TypographyToken::BodyMedium)
             .font_medium()
             .border_1()
@@ -498,24 +498,34 @@ impl EditorToolbar {
             } else {
                 cx.theme().transparent
             })
-            .text_color(if selected {
+            .text_color(if disabled {
+                crate::atoms::SemanticColor::TextDisabled.resolve(cx)
+            } else if selected {
                 accent
             } else {
                 crate::atoms::SemanticColor::Text.resolve(cx)
             })
-            .hover(|style| {
-                style.bg(if selected {
-                    pale_accent
-                } else {
-                    crate::atoms::SemanticColor::BackgroundHover.resolve(cx)
-                })
+            .when(!disabled, |button| {
+                button
+                    .key_context(CONTROL_KEY_CONTEXT)
+                    .tab_index(0)
+                    .cursor_pointer()
+                    .hover(|style| {
+                        style.bg(if selected {
+                            pale_accent
+                        } else {
+                            crate::atoms::SemanticColor::BackgroundHover.resolve(cx)
+                        })
+                    })
+                    .focus(|style| {
+                        style.border_color(
+                            crate::atoms::SemanticColor::BackgroundSelected.resolve(cx),
+                        )
+                    })
+                    .on_activate(cx.listener(move |this, _, _, cx| {
+                        this.request_control_value(control, value.clone(), cx);
+                    }))
             })
-            .focus(|style| {
-                style.border_color(crate::atoms::SemanticColor::BackgroundSelected.resolve(cx))
-            })
-            .on_activate(cx.listener(move |this, _, _, cx| {
-                this.request_control_value(control, value.clone(), cx);
-            }))
             .child(crate::atoms::render_lucide_icon(
                 if control == ToolbarSecondaryControl::MotionPlayPause
                     && self.motion_options.playing
@@ -662,7 +672,13 @@ impl EditorToolbar {
             )
             .child(self.render_value_button(
                 "dev-ready",
-                "Ready for dev",
+                if !self.dev_options.readiness_available {
+                    "Readiness unavailable"
+                } else if self.dev_options.ready_for_development {
+                    "Ready for dev"
+                } else {
+                    "Mark ready for dev"
+                },
                 ToolbarSecondaryControl::DevReadyForDevelopment,
                 ToolbarControlValue::Toggle(!self.dev_options.ready_for_development),
                 self.dev_options.ready_for_development,
@@ -731,11 +747,11 @@ impl EditorToolbar {
                 self.motion_options.auto_keyframe,
                 cx,
             ))
-            .child(self.render_secondary_button(
+            .child(self.render_editor_chip(
                 "motion-keyframe",
                 "Keyframe",
                 ToolbarSecondaryControl::MotionAddKeyframe,
-                false,
+                window,
                 cx,
             ))
             .child(self.render_editor_chip(
@@ -750,6 +766,13 @@ impl EditorToolbar {
                 "Timeline",
                 ToolbarSecondaryControl::MotionTimeline,
                 true,
+                cx,
+            ))
+            .child(self.render_secondary_button(
+                "motion-time-comment",
+                "Comment",
+                ToolbarSecondaryControl::MotionTimeComment,
+                self.motion_options.time_comment_armed,
                 cx,
             ))
             .into_any_element()

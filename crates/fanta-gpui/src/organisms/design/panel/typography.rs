@@ -38,6 +38,7 @@ pub(super) fn projection(
             typography,
             panel.host.inspected_node().text_path,
             panel.host.inspected_node().text_path_start_data,
+            panel.host.inspected_node().text_path_placement,
         ),
         sections::typography::TypographyAccessProjection::new(
             panel.can_edit(),
@@ -45,6 +46,8 @@ pub(super) fn projection(
             panel.property_is_editable(DesignPanelProperty::VerticalTextAlignment),
             panel.text_path_flip_is_available(),
             panel.text_path_start_debug_controls_are_available(),
+            panel.text_path_direction_is_available(),
+            panel.text_path_placement_is_available(),
         ),
         sections::typography::TypographyResourceProjection::new(
             font_browser,
@@ -61,6 +64,15 @@ pub(super) fn projection(
 /// Internal controller for Typography targeting, transient edits, resources,
 /// and compatibility chrome used by the extracted Typography section.
 pub(super) trait DesignTypographyController: Sized {
+    fn text_path_direction_is_available(&self) -> bool;
+    fn text_path_placement_is_available(&self) -> bool;
+    fn emit_text_path_direction(&self, direction: DesignTextPathDirection, cx: &mut Context<Self>);
+    fn emit_text_path_placement(
+        &self,
+        value: &DesignPanelValue,
+        phase: DesignPanelEditPhase,
+        cx: &mut Context<Self>,
+    );
     fn text_path_flip_is_available(&self) -> bool;
     fn text_path_start_debug_controls_are_available(&self) -> bool;
     fn text_max_lines_are_available(&self) -> bool;
@@ -87,6 +99,13 @@ pub(super) trait DesignTypographyController: Sized {
     fn finish_variable_font_axis_edit(
         &mut self,
         commit: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    );
+    fn finish_variable_font_axis_edit_with_focus_restore(
+        &mut self,
+        commit: bool,
+        restore_focus: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     );
@@ -226,6 +245,74 @@ pub(super) trait DesignTypographyController: Sized {
 }
 
 impl DesignTypographyController for DesignPanel {
+    fn text_path_direction_is_available(&self) -> bool {
+        let node = self.host.inspected_node();
+        node.kind == DesignPanelNodeKind::TextPath
+            && node.supports_section(DesignPanelSection::Typography)
+            && node.text_path.is_some_and(|path| path.direction.is_some())
+    }
+
+    fn text_path_placement_is_available(&self) -> bool {
+        let node = self.host.inspected_node();
+        node.kind == DesignPanelNodeKind::TextPath
+            && node.supports_section(DesignPanelSection::Typography)
+            && node.text_path_placement.is_some_and(|placement| {
+                placement.offset.is_finite() && (0. ..=1.).contains(&placement.offset)
+            })
+    }
+
+    fn emit_text_path_direction(&self, direction: DesignTextPathDirection, cx: &mut Context<Self>) {
+        if !self.can_edit()
+            || !self.text_path_direction_is_available()
+            || self
+                .host
+                .inspected_node()
+                .text_path
+                .and_then(|path| path.direction)
+                == Some(direction)
+        {
+            return;
+        }
+        cx.emit_design_panel_action(
+            self,
+            DesignPanelAction::TextPathDirectionChangeRequested {
+                node_id: self.host.inspected_node().id.clone(),
+                direction,
+            },
+        );
+    }
+
+    fn emit_text_path_placement(
+        &self,
+        value: &DesignPanelValue,
+        phase: DesignPanelEditPhase,
+        cx: &mut Context<Self>,
+    ) {
+        if !self.can_edit() || !self.text_path_placement_is_available() {
+            return;
+        }
+        let Some(current) = self.host.inspected_node().text_path_placement else {
+            return;
+        };
+        let DesignPanelValue::Ratio(offset) = value else {
+            return;
+        };
+        if !offset.is_finite() || !(0. ..=1.).contains(offset) {
+            return;
+        }
+        cx.emit_design_panel_action(
+            self,
+            DesignPanelAction::TextPathPlacementChangeRequested {
+                node_id: self.host.inspected_node().id.clone(),
+                placement: DesignTextPathPlacement {
+                    offset: *offset,
+                    ..current
+                },
+                phase,
+            },
+        );
+    }
+
     fn text_path_flip_is_available(&self) -> bool {
         self.host.inspected_node().kind == DesignPanelNodeKind::TextPath
             && self
@@ -385,6 +472,7 @@ impl DesignTypographyController for DesignPanel {
         {
             return;
         }
+        self.finish_preserved_property_draft(window, cx);
         if !self.begin_variable_font_axis_edit(tag, cx) {
             return;
         }
@@ -460,6 +548,16 @@ impl DesignTypographyController for DesignPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.finish_variable_font_axis_edit_with_focus_restore(commit, true, window, cx);
+    }
+
+    fn finish_variable_font_axis_edit_with_focus_restore(
+        &mut self,
+        commit: bool,
+        restore_focus: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self
             .edit
             .variable_font_axis_scrub
@@ -482,7 +580,9 @@ impl DesignTypographyController for DesignPanel {
         if let Some(event) = self.edit.finish_variable_font_axis_edit(value) {
             self.emit_variable_font_axis_event(event, cx);
         }
-        self.overlays.type_settings_focus().focus(window, cx);
+        if restore_focus {
+            self.overlays.type_settings_focus().focus(window, cx);
+        }
         cx.notify();
     }
 

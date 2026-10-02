@@ -856,6 +856,7 @@ impl DesignBrowserController for DesignPanel {
             DesignPanelProperty::TextList => "List style",
             DesignPanelProperty::TextPathStartSegment => "Start segment",
             DesignPanelProperty::TextPathStartPosition => "Start position",
+            DesignPanelProperty::TextPathOffset => "Start offset",
             DesignPanelProperty::ComponentProperty(_) => "Property",
             DesignPanelProperty::SlotStretchChildOnInsert(_) => "Stretch child",
             DesignPanelProperty::SlotDisplayEmpty(_) => "Show empty slot",

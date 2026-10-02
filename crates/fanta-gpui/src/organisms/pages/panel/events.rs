@@ -252,6 +252,9 @@ impl PagesPanel {
     }
 
     pub(super) fn begin_new_page(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.read_only {
+            return;
+        }
         if !self.expanded {
             self.expanded = true;
             cx.emit(PagesPanelAction::ExpansionChanged { expanded: true });
@@ -274,6 +277,9 @@ impl PagesPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.read_only {
+            return;
+        }
         self.page_menu = None;
         self.editing = Some(PageEditorTarget::Existing {
             page_id,
@@ -307,6 +313,9 @@ impl PagesPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.read_only {
+            return;
+        }
         let Some(target) = self.editing.take() else {
             return;
         };
@@ -363,7 +372,7 @@ impl PagesPanel {
             },
         );
 
-        if is_double_enter {
+        if is_double_enter && !self.read_only {
             self.last_keyboard_page_activation = None;
             self.begin_rename(page_id, page_title, window, cx);
         } else {
@@ -422,6 +431,9 @@ impl PagesPanel {
     }
 
     pub(super) fn page_menu_action_enabled(&self, action: PageMenuAction) -> bool {
+        if self.read_only && action != PageMenuAction::CopyLink {
+            return false;
+        }
         let Some(menu) = &self.page_menu else {
             return false;
         };
@@ -561,6 +573,9 @@ impl PagesPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.read_only && mode == PanelMode::Replace {
+            return;
+        }
         self.mode = mode;
         self.filter_menu_open = false;
         if mode == PanelMode::Replace {
@@ -625,6 +640,9 @@ impl PagesPanel {
     }
 
     pub(super) fn request_replace(&mut self, all: bool, cx: &mut Context<Self>) {
+        if self.read_only {
+            return;
+        }
         if (all && self.results.total == 0) || (!all && self.results.items.is_empty()) {
             return;
         }

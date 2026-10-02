@@ -236,7 +236,7 @@ impl PagesPanel {
             }
             this.last_keyboard_page_activation = None;
             this.page_menu = None;
-            if event.click_count() >= 2 {
+            if event.click_count() >= 2 && !this.read_only {
                 this.begin_rename(page_id.clone(), page_title.clone(), window, cx);
             } else {
                 cx.emit(PagesPanelAction::SelectRequested {

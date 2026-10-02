@@ -1620,3 +1620,87 @@ fn last_page_delete_and_read_only_actions_do_not_emit(cx: &mut TestAppContext) {
     click(cx, "pages-page-menu-delete");
     assert!(actions.borrow().is_empty());
 }
+
+#[gpui::test]
+fn read_only_pages_keep_find_and_copy_without_mutation_controls(cx: &mut TestAppContext) {
+    let (host, cx) = setup(cx);
+    let panel = panel(&host, cx);
+    let actions = actions(&host, cx);
+    cx.update(|_, app| panel.update(app, |panel, cx| panel.set_read_only(true, cx)));
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("pages-add-trigger").is_none());
+    focus_panel(&panel, cx);
+    cx.dispatch_action(AddPage);
+    assert!(read_panel(&panel, cx, |panel| panel.editing.is_none()));
+
+    secondary_click(cx, "pages-row-page-2");
+    for selector in [
+        "pages-page-menu-rename",
+        "pages-page-menu-duplicate",
+        "pages-page-menu-move-up",
+        "pages-page-menu-delete",
+    ] {
+        assert!(
+            cx.debug_bounds(selector).is_none(),
+            "unexpected mutation control: {selector}"
+        );
+    }
+    actions.borrow_mut().clear();
+    click(cx, "pages-page-menu-copy-link");
+    assert_eq!(
+        actions.borrow().as_slice(),
+        &[PagesPanelAction::CopyLinkRequested {
+            page_id: "page-2".into()
+        }]
+    );
+
+    click(cx, "pages-search-trigger");
+    set_one_search_result(&panel, cx);
+    click(cx, "pages-filter-trigger");
+    assert!(cx.debug_bounds("pages-mode-find").is_some());
+    assert!(cx.debug_bounds("pages-mode-replace").is_none());
+    actions.borrow_mut().clear();
+    cx.update(|window, app| {
+        panel.update(app, |panel, cx| {
+            panel.set_panel_mode(PanelMode::Replace, window, cx);
+            panel.request_replace(false, cx);
+            panel.request_replace(true, cx);
+            assert_eq!(panel.mode, PanelMode::Find);
+        })
+    });
+    assert!(actions.borrow().is_empty());
+}
+
+#[gpui::test]
+fn read_only_pages_preserve_an_existing_name_draft(cx: &mut TestAppContext) {
+    let (host, cx) = setup(cx);
+    let panel = panel(&host, cx);
+    let actions = actions(&host, cx);
+    cx.update(|window, app| {
+        panel.update(app, |panel, cx| {
+            panel.begin_rename("page-2".into(), "Page 2".into(), window, cx);
+            panel.rename_input.update(cx, |input, cx| {
+                input.set_value("Retained page draft", window, cx)
+            });
+            panel.set_read_only(true, cx);
+            panel.commit_page_name(false, window, cx);
+            assert!(panel.has_pending_authoring(cx));
+            assert_eq!(panel.rename_input.read(cx).value(), "Retained page draft");
+        })
+    });
+    assert!(actions.borrow().is_empty());
+    cx.update(|window, app| {
+        panel.update(app, |panel, cx| {
+            panel.set_read_only(false, cx);
+            panel.commit_page_name(false, window, cx);
+            assert!(!panel.has_pending_authoring(cx));
+        })
+    });
+    assert_eq!(
+        actions.borrow().as_slice(),
+        &[PagesPanelAction::RenameRequested {
+            page_id: "page-2".into(),
+            title: "Retained page draft".into(),
+        }]
+    );
+}

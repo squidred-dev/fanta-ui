@@ -371,6 +371,14 @@ impl EditorToolbar {
     }
 
     pub(super) fn request_tool(&mut self, tool: ToolbarTool, cx: &mut Context<Self>) {
+        let tool = if self.mode == ToolbarMode::Dev && tool == ToolbarTool::Move {
+            ToolbarTool::Inspect
+        } else {
+            tool
+        };
+        if self.mode == ToolbarMode::Dev && !tool.is_available_in(self.mode) {
+            return;
+        }
         if !self.tool_supported(tool) {
             return;
         }
@@ -415,6 +423,9 @@ impl EditorToolbar {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if !self.choice_candidates(control).contains(&candidate) {
+            return;
+        }
         self.set_overlay(None, cx);
         self.request_control_value(control, ToolbarControlValue::Choice(candidate), cx);
         let focus_handle = self.focus_handle.clone();
@@ -426,6 +437,9 @@ impl EditorToolbar {
     /// controls without one.
     pub(super) fn choice_candidates(&self, control: ToolbarSecondaryControl) -> &[SharedString] {
         match control {
+            ToolbarSecondaryControl::MotionAddKeyframe => {
+                &self.motion_options.available_keyframe_properties
+            }
             ToolbarSecondaryControl::MotionAnimationStyle => {
                 &self.motion_options.available_animation_styles
             }
@@ -650,6 +664,9 @@ impl EditorToolbar {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if !self.commands.contains(&command) {
+            return;
+        }
         self.set_overlay(None, cx);
         // Focus the toolbar before handing off; a host action may focus a new editor.
         self.focus_handle.focus(window, cx);
@@ -662,7 +679,10 @@ impl EditorToolbar {
         control: ToolbarSecondaryControl,
         cx: &mut Context<Self>,
     ) {
-        if !self.secondary_control_supported(control) {
+        if !self.secondary_control_supported(control)
+            || (control == ToolbarSecondaryControl::DevReadyForDevelopment
+                && !self.dev_options.readiness_available)
+        {
             return;
         }
         cx.emit(ToolbarAction::SecondaryControlInvoked {
@@ -677,7 +697,10 @@ impl EditorToolbar {
         value: ToolbarControlValue,
         cx: &mut Context<Self>,
     ) {
-        if !self.secondary_control_supported(control) {
+        if !self.secondary_control_supported(control)
+            || (control == ToolbarSecondaryControl::DevReadyForDevelopment
+                && !self.dev_options.readiness_available)
+        {
             return;
         }
         cx.emit(ToolbarAction::ControlChangeRequested {

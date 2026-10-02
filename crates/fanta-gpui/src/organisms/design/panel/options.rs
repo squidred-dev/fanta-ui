@@ -879,6 +879,11 @@ impl DesignOptionsController for DesignPanel {
             || self.paint_target_index(&panel_target) != Some(target.index)
             || !self.can_edit()
             || !self.collection_is_supported(target.collection)
+            || !self
+                .host
+                .inspected_node()
+                .paint_collection_edit_mode(target.collection)
+                .allows_property(&DesignPaintProperty::BlendMode)
             || self.paint_style_binding(target.collection).is_some()
             || original == candidate
             || candidate == DesignBlendMode::PassThrough

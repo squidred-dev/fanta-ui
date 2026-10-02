@@ -62,7 +62,12 @@ impl PagesPanel {
             window_size,
             size(
                 px(PAGE_MENU_WIDTH),
-                sidebar_menu_height(8, 3, cx).min(window_size.height),
+                sidebar_menu_height(
+                    if self.read_only { 1 } else { 8 },
+                    if self.read_only { 0 } else { 3 },
+                    cx,
+                )
+                .min(window_size.height),
             ),
         );
         let max_height = window_size.height - clamped.y;
@@ -87,58 +92,60 @@ impl PagesPanel {
                 true,
                 cx,
             ))
-            .child(sidebar_menu_separator(cx))
-            .child(self.render_page_menu_item(
-                "Rename page",
-                "pages-page-menu-rename",
-                PageMenuAction::Rename,
-                !self.page_menu_action_enabled(PageMenuAction::CopyLink),
-                cx,
-            ))
-            .child(self.render_page_menu_item(
-                "Duplicate page",
-                "pages-page-menu-duplicate",
-                PageMenuAction::Duplicate,
-                false,
-                cx,
-            ))
-            .child(sidebar_menu_separator(cx))
-            .child(self.render_page_menu_item(
-                "Move up",
-                "pages-page-menu-move-up",
-                PageMenuAction::Move(PagesPanelMoveDirection::Up),
-                false,
-                cx,
-            ))
-            .child(self.render_page_menu_item(
-                "Move down",
-                "pages-page-menu-move-down",
-                PageMenuAction::Move(PagesPanelMoveDirection::Down),
-                false,
-                cx,
-            ))
-            .child(self.render_page_menu_item(
-                "Move to top",
-                "pages-page-menu-move-top",
-                PageMenuAction::Move(PagesPanelMoveDirection::Top),
-                false,
-                cx,
-            ))
-            .child(self.render_page_menu_item(
-                "Move to bottom",
-                "pages-page-menu-move-bottom",
-                PageMenuAction::Move(PagesPanelMoveDirection::Bottom),
-                false,
-                cx,
-            ))
-            .child(sidebar_menu_separator(cx))
-            .child(self.render_page_menu_item(
-                "Delete page",
-                "pages-page-menu-delete",
-                PageMenuAction::Delete,
-                false,
-                cx,
-            )),
+            .when(!self.read_only, |menu| {
+                menu.child(sidebar_menu_separator(cx))
+                    .child(self.render_page_menu_item(
+                        "Rename page",
+                        "pages-page-menu-rename",
+                        PageMenuAction::Rename,
+                        !self.page_menu_action_enabled(PageMenuAction::CopyLink),
+                        cx,
+                    ))
+                    .child(self.render_page_menu_item(
+                        "Duplicate page",
+                        "pages-page-menu-duplicate",
+                        PageMenuAction::Duplicate,
+                        false,
+                        cx,
+                    ))
+                    .child(sidebar_menu_separator(cx))
+                    .child(self.render_page_menu_item(
+                        "Move up",
+                        "pages-page-menu-move-up",
+                        PageMenuAction::Move(PagesPanelMoveDirection::Up),
+                        false,
+                        cx,
+                    ))
+                    .child(self.render_page_menu_item(
+                        "Move down",
+                        "pages-page-menu-move-down",
+                        PageMenuAction::Move(PagesPanelMoveDirection::Down),
+                        false,
+                        cx,
+                    ))
+                    .child(self.render_page_menu_item(
+                        "Move to top",
+                        "pages-page-menu-move-top",
+                        PageMenuAction::Move(PagesPanelMoveDirection::Top),
+                        false,
+                        cx,
+                    ))
+                    .child(self.render_page_menu_item(
+                        "Move to bottom",
+                        "pages-page-menu-move-bottom",
+                        PageMenuAction::Move(PagesPanelMoveDirection::Bottom),
+                        false,
+                        cx,
+                    ))
+                    .child(sidebar_menu_separator(cx))
+                    .child(self.render_page_menu_item(
+                        "Delete page",
+                        "pages-page-menu-delete",
+                        PageMenuAction::Delete,
+                        false,
+                        cx,
+                    ))
+            }),
         )
         .with_priority(3)
         .into_any_element()
@@ -251,7 +258,9 @@ impl PagesPanel {
             .capture_key_up(prevent_keyboard_activation_click)
             .track_scroll(&self.filter_menu_scroll_handle)
             .child(self.render_mode_item(PanelMode::Find, "Find", mode, cx))
-            .child(self.render_mode_item(PanelMode::Replace, "Replace", mode, cx))
+            .when(!self.read_only, |menu| {
+                menu.child(self.render_mode_item(PanelMode::Replace, "Replace", mode, cx))
+            })
             .child(sidebar_menu_separator(cx))
             .children(PagesPanelElementKind::FILTER_ORDER.into_iter().map(|kind| {
                 let active = if kind == PagesPanelElementKind::All {

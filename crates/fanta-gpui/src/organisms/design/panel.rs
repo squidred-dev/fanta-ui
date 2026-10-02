@@ -115,14 +115,15 @@ use super::{
     DesignStrokeJoin, DesignStrokeType, DesignStrokeWeightMode, DesignTextCase,
     DesignTextDecoration, DesignTextDecorationColor, DesignTextDecorationMetric,
     DesignTextDecorationStyle, DesignTextHorizontalAlignment, DesignTextLeadingTrim,
-    DesignTextList, DesignTextPathOrientation, DesignTextPathStartData, DesignTextResize,
-    DesignTextVerticalAlignment, DesignTransformModifierChange, DesignTransformOperation,
-    DesignTransformUnit, DesignTypographyStyleBinding, DesignTypographyStyleViewData,
-    DesignTypographyTarget, DesignVariable, DesignVariableImportState, DesignVariableModeViewData,
-    DesignVariableSource, DesignVariableViewData, DesignVariableWidthPoint,
-    DesignVariableWidthPreset, DesignVariableWidthStroke, DesignVariablesEntryPoint,
-    DesignVectorCoordinateAxis, DesignVectorEditViewData, DesignVectorSelectionValue,
-    DesignVideoExportFps, DesignViewerColorRepresentation, DesignViewerPropertiesViewData,
+    DesignTextList, DesignTextPathDirection, DesignTextPathOrientation, DesignTextPathPlacement,
+    DesignTextPathStartData, DesignTextResize, DesignTextVerticalAlignment,
+    DesignTransformModifierChange, DesignTransformOperation, DesignTransformUnit,
+    DesignTypographyStyleBinding, DesignTypographyStyleViewData, DesignTypographyTarget,
+    DesignVariable, DesignVariableImportState, DesignVariableModeViewData, DesignVariableSource,
+    DesignVariableViewData, DesignVariableWidthPoint, DesignVariableWidthPreset,
+    DesignVariableWidthStroke, DesignVariablesEntryPoint, DesignVectorCoordinateAxis,
+    DesignVectorEditViewData, DesignVectorSelectionValue, DesignVideoExportFps,
+    DesignViewerColorRepresentation, DesignViewerPropertiesViewData,
     design_panel_section_is_visible_in_workspace, resolve_design_panel_sections_with_export,
 };
 
@@ -1334,6 +1335,9 @@ struct PropertyVariableButtonState {
 pub struct DesignPanel {
     id: SharedString,
     focus_handle: FocusHandle,
+    draft_preserving_focus_scope: Option<FocusHandle>,
+    draft_preserving_focus_subscription: Option<(FocusHandle, Subscription)>,
+    property_draft_preserved: bool,
     host: DesignPanelHostState,
     resources: DesignPanelResourceCatalogs,
     preferences: DesignInspectorPreferences,
@@ -1369,6 +1373,9 @@ trait DesignPanelActionEmitter {
 
 impl DesignPanelActionEmitter for Context<'_, DesignPanel> {
     fn emit_design_panel_action(&mut self, panel: &DesignPanel, mut action: DesignPanelAction) {
+        if action.paint_target().is_some() && !panel.node_capability_allows_action(&action) {
+            return;
+        }
         if panel.host.inspection_context.selection().kind() == DesignPanelSelectionKind::Multiple
             && action.legacy_node_id_mut().is_some()
         {
@@ -1380,6 +1387,28 @@ impl DesignPanelActionEmitter for Context<'_, DesignPanel> {
 
 #[allow(deprecated)]
 impl DesignPanel {
+    /// Preserve input drafts while focus enters host controls that may reject an action.
+    pub fn set_draft_preserving_focus_scope(&mut self, scope: Option<FocusHandle>) {
+        self.draft_preserving_focus_scope = scope;
+    }
+
+    /// The host must let the emitted edit settle before applying its next action.
+    pub fn finish_preserved_property_draft(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        if std::mem::take(&mut self.property_draft_preserved) {
+            if self.edit.variable_font_axis.is_some() {
+                self.finish_variable_font_axis_edit_with_focus_restore(true, false, window, cx);
+            } else {
+                self.finish_property_edit_after_input_blur(true, window, cx);
+            }
+            return true;
+        }
+        false
+    }
+
     /// Current Figma scrub band while either numeric scrub transaction is
     /// active. Pre-threshold click candidates deliberately return `None`.
     pub fn active_scrub_speed(&self) -> Option<DesignScrubSpeed> {
@@ -1437,7 +1466,9 @@ impl DesignPanel {
         enabled: bool,
         cx: &mut Context<Self>,
     ) {
-        let currently_enabled = self.paint_collection_item_actions_enabled(collection);
+        let currently_enabled = !self
+            .paint_collection_item_actions_disabled
+            .contains(&collection);
         if currently_enabled == enabled {
             return;
         }
@@ -1451,9 +1482,13 @@ impl DesignPanel {
     }
 
     fn paint_collection_item_actions_enabled(&self, collection: DesignPanelCollection) -> bool {
-        !self
-            .paint_collection_item_actions_disabled
-            .contains(&collection)
+        self.host
+            .inspected_node()
+            .paint_collection_edit_mode(collection)
+            .allows_full_controls()
+            && !self
+                .paint_collection_item_actions_disabled
+                .contains(&collection)
     }
 
     pub fn set_eyedropper_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
@@ -2262,6 +2297,28 @@ impl Focusable for DesignPanel {
 
 impl Render for DesignPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self
+            .draft_preserving_focus_subscription
+            .as_ref()
+            .map(|(scope, _)| scope)
+            != self.draft_preserving_focus_scope.as_ref()
+        {
+            self.draft_preserving_focus_subscription =
+                self.draft_preserving_focus_scope.clone().map(|scope| {
+                    let subscription = cx.on_focus_out(&scope, window, |this, _, window, cx| {
+                        if !this
+                            .retained
+                            .inputs
+                            .property
+                            .focus_handle(cx)
+                            .is_focused(window)
+                        {
+                            this.finish_preserved_property_draft(window, cx);
+                        }
+                    });
+                    (scope, subscription)
+                });
+        }
         self.render_shell(window, cx)
     }
 }

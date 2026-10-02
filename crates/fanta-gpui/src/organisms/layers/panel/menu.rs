@@ -22,6 +22,13 @@ impl MenuEntry {
 }
 
 impl LayersPanel {
+    pub(super) fn context_action_is_read_only(action: LayersPanelContextAction) -> bool {
+        matches!(
+            action,
+            LayersPanelContextAction::Copy | LayersPanelContextAction::GoToMainComponent
+        )
+    }
+
     pub(super) fn render_context_menu(
         &mut self,
         window: &Window,
@@ -31,7 +38,13 @@ impl LayersPanel {
         let (Some(panel_bounds), Some(menu)) = (self.panel_bounds, self.menu.as_ref()) else {
             return div().into_any_element();
         };
-        let sections = menu_sections_for_node(&menu.node);
+        let mut sections = menu_sections_for_node(&menu.node);
+        if self.read_only {
+            for section in &mut sections {
+                section.retain(|entry| Self::context_action_is_read_only(entry.action));
+            }
+            sections.retain(|section| !section.is_empty());
+        }
         let row_count = sections.iter().map(Vec::len).sum::<usize>();
         let separator_count = sections.len().saturating_sub(1);
         let estimated_height = sidebar_menu_height(row_count, separator_count, cx);

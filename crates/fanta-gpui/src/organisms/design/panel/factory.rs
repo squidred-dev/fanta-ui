@@ -38,13 +38,21 @@ impl DesignPanelFactory {
                     }
                 }
                 InputEvent::Blur => {
+                    if this
+                        .draft_preserving_focus_scope
+                        .as_ref()
+                        .is_some_and(|scope| scope.contains_focused(window, cx))
+                    {
+                        this.property_draft_preserved = true;
+                        return;
+                    }
                     if this.edit.variable_font_axis.is_some() {
                         this.finish_variable_font_axis_edit(true, window, cx);
                     } else {
                         this.finish_property_edit_after_input_blur(true, window, cx);
                     }
                 }
-                InputEvent::Focus => {}
+                InputEvent::Focus => this.property_draft_preserved = false,
             },
         );
         let property_variable_search = cx.new(|cx| InputState::new(window, cx));
@@ -883,6 +891,9 @@ impl DesignPanelFactory {
         DesignPanel {
             id,
             focus_handle: cx.focus_handle(),
+            draft_preserving_focus_scope: None,
+            draft_preserving_focus_subscription: None,
+            property_draft_preserved: false,
             host: DesignPanelHostState::new(node, inspection_context),
             resources: DesignPanelResourceCatalogs::default(),
             preferences: DesignInspectorPreferences::default(),

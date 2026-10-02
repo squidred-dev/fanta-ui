@@ -448,12 +448,17 @@ impl DesignPropertiesController for DesignPanel {
                 .inspected_node()
                 .supports_section(DesignPanelSection::Layer),
             DesignPanelProperty::FillShowsInExports => {
-                self.collection_is_supported(DesignPanelCollection::Fill)
+                self.host
+                    .inspected_node()
+                    .paint_collection_edit_mode(DesignPanelCollection::Fill)
+                    .allows_full_controls()
+                    && self.collection_is_supported(DesignPanelCollection::Fill)
             }
             DesignPanelProperty::TextPathStartSegment
             | DesignPanelProperty::TextPathStartPosition => {
                 self.text_path_start_debug_controls_are_available()
             }
+            DesignPanelProperty::TextPathOffset => self.text_path_placement_is_available(),
             DesignPanelProperty::ComponentProperty(_)
             | DesignPanelProperty::SlotStretchChildOnInsert(_)
             | DesignPanelProperty::SlotDisplayEmpty(_)
@@ -534,6 +539,11 @@ impl DesignPropertiesController for DesignPanel {
             }
             DesignPanelProperty::PaintVisible { collection, index } => {
                 self.paint_visibility_supported
+                    && self
+                        .host
+                        .inspected_node()
+                        .paint_collection_edit_mode(collection)
+                        .allows_full_controls()
                     && self.collection_is_supported(collection)
                     && self
                         .paint_collection(collection)
@@ -583,6 +593,25 @@ impl DesignPropertiesController for DesignPanel {
     }
 
     fn node_capability_allows_action(&self, action: &DesignPanelAction) -> bool {
+        if let Some((collection, _)) = action.paint_target() {
+            let edit_mode = self
+                .host
+                .inspected_node()
+                .paint_collection_edit_mode(collection);
+            let allowed = match action {
+                DesignPanelAction::PaintEditRequested { edit, phase, .. } => {
+                    *phase == DesignPanelEditPhase::Cancel
+                        || edit_mode.allows_property(&edit.property)
+                }
+                DesignPanelAction::PaintEyedropperRequested { .. } => {
+                    edit_mode.allows_property(&DesignPaintProperty::Color)
+                }
+                _ => edit_mode.allows_full_controls(),
+            };
+            if !allowed {
+                return false;
+            }
+        }
         match action {
             DesignPanelAction::PropertyChangeRequested { property, .. }
             | DesignPanelAction::PropertyEditRequested { property, .. } => {
@@ -823,6 +852,12 @@ impl DesignPropertiesController for DesignPanel {
             DesignPanelAction::TextPathFlipOrientationRequested { .. } => {
                 self.text_path_flip_is_available()
             }
+            DesignPanelAction::TextPathDirectionChangeRequested { .. } => {
+                self.text_path_direction_is_available()
+            }
+            DesignPanelAction::TextPathPlacementChangeRequested { .. } => {
+                self.text_path_placement_is_available()
+            }
             _ => true,
         }
     }
@@ -868,6 +903,7 @@ impl DesignPropertiesController for DesignPanel {
             | DesignPanelProperty::TextPathStartPosition => {
                 self.text_path_start_debug_controls_are_available()
             }
+            DesignPanelProperty::TextPathOffset => self.text_path_placement_is_available(),
             _ => true,
         };
         let vector_allows_property = match property {
@@ -1543,6 +1579,10 @@ impl DesignPropertiesController for DesignPanel {
         if self.emit_effect_edit(property, value.clone(), DesignPanelEditPhase::Commit, cx) {
             return;
         }
+        if property == DesignPanelProperty::TextPathOffset {
+            self.emit_text_path_placement(&value, DesignPanelEditPhase::Commit, cx);
+            return;
+        }
         if matches!(
             property,
             DesignPanelProperty::TextPathStartSegment | DesignPanelProperty::TextPathStartPosition
@@ -1698,6 +1738,10 @@ impl DesignPropertiesController for DesignPanel {
             return;
         }
         if self.emit_effect_edit(property, value.clone(), phase, cx) {
+            return;
+        }
+        if property == DesignPanelProperty::TextPathOffset {
+            self.emit_text_path_placement(&value, phase, cx);
             return;
         }
         if matches!(
@@ -2965,6 +3009,9 @@ impl DesignPropertiesController for DesignPanel {
             )),
             DesignPanelProperty::TextPathStartPosition => Some(DesignPanelValue::Ratio(
                 self.host.inspected_node().text_path_start_data?.position,
+            )),
+            DesignPanelProperty::TextPathOffset => Some(DesignPanelValue::Ratio(
+                self.host.inspected_node().text_path_placement?.offset,
             )),
             DesignPanelProperty::ComponentProperty(index) => Some(DesignPanelValue::Text(
                 self.host
@@ -4679,7 +4726,9 @@ impl DesignPropertiesController for DesignPanel {
                 (Some(1.), None)
             }
             DesignPanelProperty::TextPathStartSegment => (Some(0.), Some(f64::from(u32::MAX))),
-            DesignPanelProperty::TextPathStartPosition => (Some(0.), Some(1.)),
+            DesignPanelProperty::TextPathStartPosition | DesignPanelProperty::TextPathOffset => {
+                (Some(0.), Some(1.))
+            }
             DesignPanelProperty::SlotMinimumInstances(_)
             | DesignPanelProperty::SlotMaximumInstances(_) => (Some(0.), None),
             DesignPanelProperty::Width
@@ -4900,6 +4949,7 @@ impl DesignPropertiesController for DesignPanel {
         {
             return;
         }
+        self.finish_preserved_property_draft(window, cx);
         let property_state_mixed = self
             .host
             .property_states
@@ -5084,6 +5134,17 @@ impl DesignPropertiesController for DesignPanel {
             .controlled_draft()
             .map(SharedString::from)
             .unwrap_or(input_draft);
+        if editor.property == DesignPanelProperty::TextPathOffset
+            && let DesignPanelValue::Ratio(offset) = editor.original
+            && draft
+                .trim()
+                .strip_suffix('%')
+                .unwrap_or(draft.trim())
+                .trim()
+                == format_number(offset * 100.)
+        {
+            return Some(Ok(editor.original.clone()));
+        }
         Some(match editor.kind {
             PropertyEditorKind::Shader { field, input } => {
                 let DesignPanelValue::ShaderProperty(original) = &editor.original else {

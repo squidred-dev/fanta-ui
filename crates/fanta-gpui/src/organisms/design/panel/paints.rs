@@ -425,7 +425,13 @@ impl DesignPaintController for DesignPanel {
         let Some(mut paint) = self.picker_paint(target) else {
             return false;
         };
-        if paint.read_only {
+        if paint.read_only
+            || !self
+                .host
+                .inspected_node()
+                .paint_collection_edit_mode(target.collection)
+                .allows_property(&edit.property)
+        {
             return false;
         }
         if let (
@@ -933,6 +939,14 @@ impl DesignPaintController for DesignPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if !self
+            .host
+            .inspected_node()
+            .paint_collection_edit_mode(collection)
+            .allows_full_controls()
+        {
+            return;
+        }
         if !self.resources.paint_styles.enabled
             || !matches!(
                 collection,
@@ -984,6 +998,14 @@ impl DesignPaintController for DesignPanel {
         style: DesignPaintStyleSelection,
         cx: &mut Context<Self>,
     ) {
+        if !self
+            .host
+            .inspected_node()
+            .paint_collection_edit_mode(collection)
+            .allows_full_controls()
+        {
+            return;
+        }
         if !self.resources.paint_styles.enabled
             || !self.can_edit()
             || !self.collection_is_supported(collection)
@@ -1014,6 +1036,14 @@ impl DesignPaintController for DesignPanel {
         style: DesignPaintStyleSelection,
         cx: &mut Context<Self>,
     ) {
+        if !self
+            .host
+            .inspected_node()
+            .paint_collection_edit_mode(collection)
+            .allows_full_controls()
+        {
+            return;
+        }
         if !self.resources.paint_styles.enabled
             || !self.can_edit()
             || !self.collection_is_supported(collection)
@@ -1043,6 +1073,14 @@ impl DesignPaintController for DesignPanel {
         collection: DesignPanelCollection,
         cx: &mut Context<Self>,
     ) {
+        if !self
+            .host
+            .inspected_node()
+            .paint_collection_edit_mode(collection)
+            .allows_full_controls()
+        {
+            return;
+        }
         let Some(paints) = self.paint_collection(collection).map(<[_]>::to_vec) else {
             return;
         };
@@ -1071,6 +1109,14 @@ impl DesignPaintController for DesignPanel {
         collection: DesignPanelCollection,
         cx: &mut Context<Self>,
     ) {
+        if !self
+            .host
+            .inspected_node()
+            .paint_collection_edit_mode(collection)
+            .allows_full_controls()
+        {
+            return;
+        }
         let Some(binding) = self
             .paint_style_binding(collection)
             .filter(|binding| binding.can_detach)
@@ -1600,6 +1646,11 @@ impl DesignPaintController for DesignPanel {
         } else {
             swatch
         };
+        let allows_full_controls = self
+            .host
+            .inspected_node()
+            .paint_collection_edit_mode(collection)
+            .allows_full_controls();
         let collection_style_bound = self.paint_style_binding(collection).is_some();
         let can_reorder = self.can_edit()
             && self.collection_is_supported(collection)
@@ -1783,26 +1834,31 @@ impl DesignPaintController for DesignPanel {
                 )
             })
             .child(paint_values)
-            .when(self.paint_visibility_supported, |row| {
-                row.child(self.render_visibility_button(
+            .when(
+                self.paint_visibility_supported && allows_full_controls,
+                |row| {
+                    row.child(self.render_visibility_button(
+                        format!(
+                            "{}-paint-visible-{index}",
+                            collection.label().to_lowercase().replace(' ', "-")
+                        ),
+                        paint.visible,
+                        DesignPanelProperty::PaintVisible { collection, index },
+                        cx,
+                    ))
+                },
+            )
+            .when(allows_full_controls, |row| {
+                row.child(self.render_remove_button(
                     format!(
-                        "{}-paint-visible-{index}",
+                        "remove-{}-{index}",
                         collection.label().to_lowercase().replace(' ', "-")
                     ),
-                    paint.visible,
-                    DesignPanelProperty::PaintVisible { collection, index },
+                    collection,
+                    index,
                     cx,
                 ))
             })
-            .child(self.render_remove_button(
-                format!(
-                    "remove-{}-{index}",
-                    collection.label().to_lowercase().replace(' ', "-")
-                ),
-                collection,
-                index,
-                cx,
-            ))
             .when(can_reorder, move |row| {
                 row.on_drag(drag, |drag, _, _, cx| {
                     cx.new(|_| PaintDragPreview { drag: drag.clone() })
@@ -1858,6 +1914,10 @@ impl DesignPaintController for DesignPanel {
                 self.host.inspected_node().fill_style_binding.clone(),
             ),
             self.host.inspected_node().fill_shows_in_exports,
+            self.host
+                .inspected_node()
+                .paint_collection_edit_mode(DesignPanelCollection::Fill)
+                .allows_full_controls(),
         )
     }
 
@@ -3891,11 +3951,39 @@ impl DesignPaintController for DesignPanel {
             self.picker_paint(target)
                 .map(|paint| (target.clone(), index, paint))
         });
+        let color_only_title = desired.as_ref().and_then(|(target, _, _)| {
+            (!self
+                .host
+                .inspected_node()
+                .paint_collection_edit_mode(target.collection)
+                .allows_full_controls())
+            .then(|| SharedString::from(format!("{} color", target.collection.label())))
+        });
+        let color_only_editability = if color_only_title.is_some() {
+            desired.as_ref().map_or((true, true), |(target, index, _)| {
+                (
+                    true,
+                    self.property_is_editable(DesignPanelProperty::PaintOpacity {
+                        collection: target.collection,
+                        index: *index,
+                    }),
+                )
+            })
+        } else {
+            (true, true)
+        };
         let disabled = !self.can_edit()
             || desired.as_ref().is_some_and(|(target, _, paint)| {
                 paint.read_only || self.paint_style_binding(target.collection).is_some()
             });
-        let (target_matches, paint_matches, disabled_matches, has_target) = {
+        let (
+            target_matches,
+            paint_matches,
+            disabled_matches,
+            color_only_matches,
+            color_only_editability_matches,
+            has_target,
+        ) = {
             let picker = self.paint_picker.read(cx);
             let target_matches = match (&desired, picker.target()) {
                 (Some((target, index, _)), Some(current)) => {
@@ -3919,10 +4007,17 @@ impl DesignPaintController for DesignPanel {
                 target_matches,
                 paint_matches,
                 picker.is_disabled() == disabled,
+                picker.color_only_title() == color_only_title.as_ref(),
+                picker.color_only_editability() == color_only_editability,
                 picker.target().is_some(),
             )
         };
-        if target_matches && paint_matches && disabled_matches {
+        if target_matches
+            && paint_matches
+            && disabled_matches
+            && color_only_matches
+            && color_only_editability_matches
+        {
             self.paint_picker.update(cx, |picker, cx| {
                 picker.set_contrast_view_data(contrast_view_data, cx);
             });
@@ -3931,7 +4026,12 @@ impl DesignPaintController for DesignPanel {
 
         let node_id = self.host.inspected_node().id.clone();
         self.paint_picker.update(cx, |picker, cx| {
-            picker.set_color_only(None, cx);
+            picker.set_color_only(color_only_title, cx);
+            picker.set_color_only_editability(
+                color_only_editability.0,
+                color_only_editability.1,
+                cx,
+            );
             match desired {
                 Some((target, index, paint)) if !target_matches || !paint_matches => {
                     picker.set_target(node_id, target.collection, index, paint, window, cx);

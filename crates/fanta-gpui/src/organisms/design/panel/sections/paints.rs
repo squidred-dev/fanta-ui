@@ -54,16 +54,19 @@ impl PaintCollectionProjection {
 pub(in super::super) struct FillProjection {
     collection: PaintCollectionProjection,
     shows_in_exports: Option<bool>,
+    allows_full_controls: bool,
 }
 
 impl FillProjection {
     pub(in super::super) fn new(
         collection: PaintCollectionProjection,
         shows_in_exports: Option<bool>,
+        allows_full_controls: bool,
     ) -> Self {
         Self {
             collection,
             shows_in_exports,
+            allows_full_controls,
         }
     }
 }
@@ -484,7 +487,9 @@ pub(in super::super) fn render_fill(
                 content = content.child(empty_collection("No fills", cx));
             }
             if let Some(show_in_exports) = projection
-                .shows_in_exports
+                .allows_full_controls
+                .then_some(projection.shows_in_exports)
+                .flatten()
                 .filter(|_| !projection.collection.paints.is_empty())
             {
                 content = content.child(chrome.paints_checkbox_row(
@@ -498,7 +503,9 @@ pub(in super::super) fn render_fill(
         }
         chrome.paints_section(
             DesignPanelSection::Fill,
-            Some(DesignPanelCollection::Fill),
+            projection
+                .allows_full_controls
+                .then_some(DesignPanelCollection::Fill),
             content.into_any_element(),
             cx,
         )

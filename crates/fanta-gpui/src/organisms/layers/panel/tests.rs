@@ -1234,3 +1234,93 @@ fn host_picker_focus_survives_a_context_action(cx: &mut TestAppContext) {
     click(cx, "layers-menu-detach-instance", Modifiers::none());
     assert!(cx.update(|window, _| focus.is_focused(window)));
 }
+
+#[gpui::test]
+fn read_only_layers_keep_navigation_and_copy_without_editing(cx: &mut TestAppContext) {
+    let (host, actions, cx) = setup(cx);
+    let panel = panel(&host, cx);
+    cx.update(|_, app| panel.update(app, |panel, cx| panel.set_read_only(true, cx)));
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("layers-lock-group").is_none());
+    assert!(cx.debug_bounds("layers-visibility-image").is_none());
+
+    click(cx, "layers-row-instance", Modifiers::none());
+    assert!(matches!(
+        actions.borrow().last(),
+        Some(LayersPanelAction::SelectRequested { .. })
+    ));
+    actions.borrow_mut().clear();
+    cx.simulate_keystrokes("shift-secondary-l shift-secondary-h");
+    cx.run_until_parked();
+    assert!(actions.borrow().is_empty());
+    double_click(cx, "layers-row-instance");
+    assert!(read_panel(&panel, cx, |panel| panel.editing.is_none()));
+
+    let origin = bounds(cx, "layers-row-image").center();
+    cx.simulate_mouse_move(origin, None, Modifiers::none());
+    cx.simulate_mouse_down(origin, MouseButton::Left, Modifiers::none());
+    cx.simulate_mouse_move(
+        origin + gpui::point(px(12.), px(0.)),
+        MouseButton::Left,
+        Modifiers::none(),
+    );
+    assert!(!cx.read(|app| app.has_active_drag()));
+    cx.simulate_mouse_up(origin, MouseButton::Left, Modifiers::none());
+    cx.run_until_parked();
+
+    let destination = bounds(cx, "layers-row-frame").center();
+    actions.borrow_mut().clear();
+    cx.update(|_, app| {
+        panel.update(app, |panel, cx| {
+            panel.request_move("image".into(), "frame".into(), destination, cx);
+        })
+    });
+    assert!(actions.borrow().is_empty());
+
+    secondary_click(cx, "layers-row-instance");
+    assert!(cx.debug_bounds("layers-menu-detach-instance").is_none());
+    assert!(cx.debug_bounds("layers-menu-rename").is_none());
+    assert!(cx.debug_bounds("layers-menu-main-component").is_some());
+    actions.borrow_mut().clear();
+    click(cx, "layers-menu-copy", Modifiers::none());
+    assert_eq!(
+        actions.borrow().as_slice(),
+        &[LayersPanelAction::ContextActionRequested {
+            node_id: "instance".into(),
+            action: LayersPanelContextAction::Copy,
+        }]
+    );
+}
+
+#[gpui::test]
+fn read_only_layers_preserve_an_existing_rename_draft(cx: &mut TestAppContext) {
+    let (host, actions, cx) = setup(cx);
+    let panel = panel(&host, cx);
+    cx.update(|window, app| {
+        panel.update(app, |panel, cx| {
+            panel.begin_rename("text".into(), "Title".into(), window, cx);
+            panel.rename_input.update(cx, |input, cx| {
+                input.set_value("Retained draft", window, cx)
+            });
+            panel.set_read_only(true, cx);
+            panel.commit_rename(false, window, cx);
+            assert!(panel.has_pending_authoring(cx));
+            assert_eq!(panel.rename_input.read(cx).value(), "Retained draft");
+        })
+    });
+    assert!(actions.borrow().is_empty());
+    cx.update(|window, app| {
+        panel.update(app, |panel, cx| {
+            panel.set_read_only(false, cx);
+            panel.commit_rename(false, window, cx);
+            assert!(!panel.has_pending_authoring(cx));
+        })
+    });
+    assert_eq!(
+        actions.borrow().as_slice(),
+        &[LayersPanelAction::RenameRequested {
+            node_id: "text".into(),
+            title: "Retained draft".into(),
+        }]
+    );
+}

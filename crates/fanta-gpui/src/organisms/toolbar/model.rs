@@ -188,7 +188,7 @@ impl ToolbarTool {
             Self::Actions => "Actions",
             Self::Inspect => "Inspect",
             Self::ColorPicker => "Color picker",
-            Self::Code => "Code",
+            Self::Code => "Saved Code",
             Self::Variables => "Variables",
             Self::ReadyForDev => "Mark ready for dev",
             Self::MotionSelect => "Motion select",
@@ -238,7 +238,7 @@ impl ToolbarTool {
             Self::Actions => "Search commands and tools",
             Self::Inspect => "Inspect layer properties",
             Self::ColorPicker => "Sample colors and variables from the canvas",
-            Self::Code => "View generated or connected code",
+            Self::Code => "View the saved FNX and JSON project files",
             Self::Variables => "Explore variables and aliases",
             Self::ReadyForDev => "Mark the current selection ready for development",
             Self::MotionSelect => "Select layers and keyframes",
@@ -285,7 +285,6 @@ impl ToolbarTool {
 
     pub fn is_available_in(self, mode: ToolbarMode) -> bool {
         (mode == ToolbarMode::Motion && ToolbarToolGroup::MotionTimeline.tools().contains(&self))
-            || (mode == ToolbarMode::Dev && ToolbarToolGroup::DevHandoff.tools().contains(&self))
             || mode.layout().iter().any(|item| match item {
                 ToolbarItem::Tool(tool) => *tool == self,
                 ToolbarItem::Group(group) => group.tools().contains(&self),
@@ -431,12 +430,12 @@ const DESIGN_LAYOUT: &[ToolbarItem] = &[
 ];
 
 const DEV_LAYOUT: &[ToolbarItem] = &[
-    ToolbarItem::Group(ToolbarToolGroup::Move),
+    ToolbarItem::Tool(ToolbarTool::Inspect),
+    ToolbarItem::Tool(ToolbarTool::Hand),
     ToolbarItem::Separator,
-    ToolbarItem::Tool(ToolbarTool::ColorPicker),
+    ToolbarItem::Tool(ToolbarTool::Measure),
+    ToolbarItem::Tool(ToolbarTool::Annotation),
     ToolbarItem::Tool(ToolbarTool::Code),
-    ToolbarItem::Tool(ToolbarTool::Variables),
-    ToolbarItem::Tool(ToolbarTool::Comment),
     ToolbarItem::Tool(ToolbarTool::Actions),
 ];
 
@@ -513,6 +512,7 @@ pub enum ToolbarControlValue {
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct DevToolbarOptions {
     pub ready_for_development: bool,
+    pub readiness_available: bool,
 }
 
 /// Host-provided Motion toolbar and playback values.
@@ -521,12 +521,14 @@ pub struct MotionToolbarOptions {
     pub playing: bool,
     pub looping: bool,
     pub auto_keyframe: bool,
+    pub time_comment_armed: bool,
     pub current_time_ms: u32,
     pub duration_ms: u32,
     pub animation_style: SharedString,
     /// Preset styles offered by the animation-style menu; the toolbar never
     /// invents a style outside this host-supplied catalog.
     pub available_animation_styles: Vec<SharedString>,
+    pub available_keyframe_properties: Vec<SharedString>,
 }
 
 impl Default for MotionToolbarOptions {
@@ -535,9 +537,22 @@ impl Default for MotionToolbarOptions {
             playing: false,
             looping: true,
             auto_keyframe: false,
+            time_comment_armed: false,
             current_time_ms: 0,
             duration_ms: 2_000,
             animation_style: "Fade in".into(),
+            available_keyframe_properties: [
+                "Position X",
+                "Position Y",
+                "Rotation",
+                "Scale X",
+                "Scale Y",
+                "Opacity",
+                "Fill color",
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             available_animation_styles: ["Fade in", "Spring", "Slide up", "Pop"]
                 .into_iter()
                 .map(Into::into)
@@ -1030,7 +1045,7 @@ mod tests {
                 .iter()
                 .any(|group| group.tools().contains(tool));
             assert!(
-                in_layout || in_group,
+                in_layout || in_group || *tool == ToolbarTool::ColorPicker,
                 "{} is unreachable from every mode and group",
                 tool.label()
             );
@@ -1056,6 +1071,34 @@ mod tests {
         assert!(!ToolbarTool::Resources.is_available_in(ToolbarMode::Design));
         assert!(!ToolbarTool::Scale.is_available_in(ToolbarMode::Design));
         assert_eq!(ToolbarTool::Resources.shortcut(), Some("⇧ I"));
+    }
+
+    #[test]
+    fn dev_mode_exposes_only_inspection_navigation_marks_and_saved_code() {
+        let available: HashSet<_> = ToolbarTool::ALL
+            .iter()
+            .copied()
+            .filter(|tool| tool.is_available_in(ToolbarMode::Dev))
+            .collect();
+        assert_eq!(
+            available,
+            HashSet::from([
+                ToolbarTool::Inspect,
+                ToolbarTool::Hand,
+                ToolbarTool::Measure,
+                ToolbarTool::Annotation,
+                ToolbarTool::Code,
+                ToolbarTool::Actions,
+            ])
+        );
+        assert!(
+            ToolbarMode::Dev
+                .layout()
+                .iter()
+                .all(|item| !matches!(item, ToolbarItem::Group(_)))
+        );
+        assert_eq!(ToolbarTool::Code.label(), "Saved Code");
+        assert!(!DevToolbarOptions::default().readiness_available);
     }
 
     #[test]

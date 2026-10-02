@@ -49,6 +49,7 @@ pub(in super::super) struct TypographyValuesProjection {
     typography: DesignTypography,
     text_path: Option<DesignTextPathViewData>,
     text_path_start: Option<DesignTextPathStartData>,
+    text_path_placement: Option<DesignTextPathPlacement>,
 }
 
 impl TypographyValuesProjection {
@@ -56,11 +57,13 @@ impl TypographyValuesProjection {
         typography: DesignTypography,
         text_path: Option<DesignTextPathViewData>,
         text_path_start: Option<DesignTextPathStartData>,
+        text_path_placement: Option<DesignTextPathPlacement>,
     ) -> Self {
         Self {
             typography,
             text_path,
             text_path_start,
+            text_path_placement,
         }
     }
 }
@@ -73,6 +76,8 @@ pub(in super::super) struct TypographyAccessProjection {
     vertical_alignment_editable: bool,
     text_path_flip_available: bool,
     text_path_start_debug_available: bool,
+    text_path_direction_available: bool,
+    text_path_placement_available: bool,
 }
 
 impl TypographyAccessProjection {
@@ -82,6 +87,8 @@ impl TypographyAccessProjection {
         vertical_alignment_editable: bool,
         text_path_flip_available: bool,
         text_path_start_debug_available: bool,
+        text_path_direction_available: bool,
+        text_path_placement_available: bool,
     ) -> Self {
         Self {
             can_edit,
@@ -89,6 +96,8 @@ impl TypographyAccessProjection {
             vertical_alignment_editable,
             text_path_flip_available,
             text_path_start_debug_available,
+            text_path_direction_available,
+            text_path_placement_available,
         }
     }
 }
@@ -230,6 +239,7 @@ impl TypographyInspectorChrome for DesignPanel {
 enum TypographyEvent {
     Property(DesignPanelProperty, DesignPanelValue),
     FlipTextPath,
+    TextPathDirection(DesignTextPathDirection),
     ToggleSection,
 }
 
@@ -283,6 +293,9 @@ fn dispatch(
         }
         TypographyEvent::Property(_, _) => {}
         TypographyEvent::FlipTextPath => panel.emit_text_path_flip_orientation(cx),
+        TypographyEvent::TextPathDirection(direction) => {
+            panel.emit_text_path_direction(direction, cx)
+        }
         TypographyEvent::ToggleSection => panel.toggle_section(DesignPanelSection::Typography, cx),
     }
 }
@@ -448,6 +461,54 @@ fn font_browser_row(
             row.child(button)
         })
         .into_any_element()
+}
+
+fn text_path_direction(
+    projection: &TypographyProjection,
+    events: &TypographyEventSink,
+    _cx: &mut Context<DesignPanel>,
+) -> Option<AnyElement> {
+    let current = projection.values.text_path?.direction?;
+    let enabled = projection.access.can_edit && projection.access.text_path_direction_available;
+    Some(
+        h_flex()
+            .gap_1()
+            .children(
+                [
+                    DesignTextPathDirection::Forward,
+                    DesignTextPathDirection::Reverse,
+                ]
+                .into_iter()
+                .map(|direction| {
+                    let identity = projection.identity.clone();
+                    let events = events.clone();
+                    let control_id = SharedString::from(format!(
+                        "{}-text-path-direction-{}",
+                        identity.panel_id,
+                        direction.label()
+                    ));
+                    let debug_selector = control_id.to_string();
+                    crate::atoms::ui_button(control_id)
+                        .debug_selector(move || debug_selector.clone())
+                        .xsmall()
+                        .compact()
+                        .ghost()
+                        .flex_1()
+                        .h(px(ROW_HEIGHT))
+                        .selected(current == direction)
+                        .disabled(!enabled)
+                        .child(direction.label())
+                        .on_activate(move |_, _, cx| {
+                            events.send(
+                                &identity,
+                                TypographyEvent::TextPathDirection(direction),
+                                cx,
+                            )
+                        })
+                }),
+            )
+            .into_any_element(),
+    )
 }
 
 fn text_path_orientation(
@@ -732,6 +793,29 @@ fn render_content(
         content = content
             .child(group_label("Text on path", cx))
             .child(orientation);
+    }
+    if let Some(direction) = text_path_direction(projection, events, cx) {
+        content = content.child(group_label("Direction", cx)).child(direction);
+    }
+    if projection.access.text_path_placement_available
+        && let Some(placement) = projection.values.text_path_placement
+    {
+        content = content
+            .child(group_label("Start offset", cx))
+            .child(chrome.typography_value_cell(
+                "text-path-offset",
+                "%",
+                format!("{}%", format_number(placement.offset * 100.)),
+                DesignPanelProperty::TextPathOffset,
+                DesignPanelValue::Ratio(placement.offset),
+                cx,
+            ))
+            .child(
+                div()
+                    .typography(crate::atoms::TypographyToken::Panel)
+                    .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                    .child("Distance along the current path"),
+            );
     }
     if projection.access.text_path_start_debug_available
         && let Some(start) = projection.values.text_path_start
