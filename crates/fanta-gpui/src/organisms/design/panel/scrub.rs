@@ -566,6 +566,7 @@ pub(super) fn render_numeric_scrub_surface(
 ) -> AnyElement {
     let mut surface = div()
         .id(id)
+        .relative()
         .h_full()
         .w_full()
         .flex_1()
@@ -575,7 +576,7 @@ pub(super) fn render_numeric_scrub_surface(
         .child(content);
     if enabled {
         let panel_for_down = panel.clone();
-        let panel_for_move = panel.clone();
+        let panel_for_move = panel.downgrade();
         let panel_for_up = panel.clone();
         let origin_for_down = origin.clone();
         surface = surface
@@ -599,19 +600,46 @@ pub(super) fn render_numeric_scrub_surface(
                     });
                 },
             )
-            .on_mouse_move(move |event: &MouseMoveEvent, _, cx| {
-                if event.dragging() {
-                    panel_for_move.update(cx, |this, cx| {
-                        this.update_numeric_property_scrub(
-                            property,
-                            f32::from(event.position.x),
-                            f32::from(event.position.y),
-                            event.modifiers,
-                            cx,
-                        );
-                    });
-                }
-            })
+            .child(
+                gpui::canvas(
+                    |_, _, _| (),
+                    move |_, _, window, _| {
+                        window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
+                            if phase != gpui::DispatchPhase::Capture
+                                || event.pressed_button != Some(MouseButton::Left)
+                            {
+                                return;
+                            }
+                            let Some(panel) = panel_for_move.upgrade() else {
+                                return;
+                            };
+                            if !panel
+                                .read(cx)
+                                .edit
+                                .numeric_scrub
+                                .as_ref()
+                                .is_some_and(|scrub| scrub.property == property)
+                            {
+                                return;
+                            }
+                            // The first move can already be outside the readout, before a
+                            // hovered-element listener can promote the click to a scrub.
+                            panel.update(cx, |this, cx| {
+                                this.update_numeric_property_scrub(
+                                    property,
+                                    f32::from(event.position.x),
+                                    f32::from(event.position.y),
+                                    event.modifiers,
+                                    cx,
+                                );
+                            });
+                            cx.stop_propagation();
+                        });
+                    },
+                )
+                .absolute()
+                .size_full(),
+            )
             .on_mouse_up(MouseButton::Left, move |_: &MouseUpEvent, window, cx| {
                 panel_for_up.update(cx, |this, cx| {
                     this.finish_numeric_property_scrub(true, true, window, cx);

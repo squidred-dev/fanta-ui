@@ -3240,6 +3240,275 @@ fn additional_labels_are_transient_width_safe_and_do_not_emit_document_intents(
     assert!(captured.borrow().is_empty());
 }
 
+fn scrub_opacity_lifecycle(
+    actions: &Rc<RefCell<Vec<DesignPanelAction>>>,
+    multiple: bool,
+) -> Vec<(f32, DesignPanelEditPhase)> {
+    actions
+        .borrow()
+        .iter()
+        .filter_map(|action| {
+            let leaf = match action.targeted_node_action() {
+                Some((target, leaf)) => {
+                    assert!(multiple);
+                    assert_eq!(
+                        target,
+                        &DesignPanelTarget::Nodes {
+                            node_ids: vec!["first".into(), "second".into()],
+                        },
+                    );
+                    leaf
+                }
+                None => action,
+            };
+            match leaf {
+                DesignPanelAction::PropertyEditRequested {
+                    property: DesignPanelProperty::Opacity,
+                    value: DesignPanelValue::Number(value),
+                    phase,
+                    ..
+                } => Some((*value, *phase)),
+                _ => None,
+            }
+        })
+        .collect()
+}
+
+fn assert_numeric_scrub_first_move_outside(
+    multiple: bool,
+    cancel: bool,
+    redraw_after_down: bool,
+    cx: &mut TestAppContext,
+) {
+    let node = DesignPanelNode::new("first", "First", DesignPanelNodeKind::Rectangle);
+    let (host, visual_cx) = setup(node.clone(), cx);
+    let panel = panel(&host, visual_cx);
+    let captured = actions(&host, visual_cx);
+    panel.update(visual_cx, |panel, cx| {
+        if multiple {
+            panel.set_inspection_context(
+                DesignPanelInspectionContext::multiple(
+                    DesignPanelMultipleSelection::new(
+                        node,
+                        DesignPanelNode::new("second", "Second", DesignPanelNodeKind::Ellipse),
+                    ),
+                    DesignPanelParentLayout::Mixed,
+                    DesignPanelPermissions::editor(),
+                ),
+                cx,
+            );
+        }
+        panel.set_property_value_state(
+            DesignPanelProperty::Opacity,
+            DesignPanelPropertyValueState::Uniform(DesignPanelValue::Number(50.)),
+            cx,
+        );
+    });
+    visual_cx.run_until_parked();
+    let field = visual_cx
+        .debug_bounds("design-opacity-value")
+        .expect("opacity readout");
+    let viewport = visual_cx
+        .debug_bounds("design-test-panel-viewport")
+        .expect("panel");
+    let start = field.center();
+    let outside = gpui::point(viewport.right() + px(80.), start.y);
+    assert!(!viewport.contains(&outside));
+    assert!(outside.x - start.x > px(50.));
+    visual_cx.simulate_mouse_down(start, MouseButton::Left, Modifiers::none());
+    if redraw_after_down {
+        visual_cx.run_until_parked();
+    }
+    assert!(visual_cx.read(|cx| panel.read(cx).edit.numeric_scrub.is_some()));
+    visual_cx.simulate_mouse_move(outside, MouseButton::Left, Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(
+        visual_cx.read(|cx| {
+            panel
+                .read(cx)
+                .numeric_scrub_is_active(DesignPanelProperty::Opacity)
+        }),
+        "the first move outside the panel must start the armed scrub"
+    );
+    assert_eq!(
+        scrub_opacity_lifecycle(&captured, multiple),
+        [
+            (50., DesignPanelEditPhase::Begin),
+            (100., DesignPanelEditPhase::Preview)
+        ],
+        "capture and bubble must not both deliver the same move",
+    );
+    // A redraw replaces the window listener; it must not accumulate callbacks.
+    panel.update(visual_cx, |_, cx| cx.notify());
+    visual_cx.run_until_parked();
+    if cancel {
+        visual_cx.simulate_keystrokes("escape");
+        visual_cx.run_until_parked();
+    }
+    visual_cx.simulate_mouse_up(outside, MouseButton::Left, Modifiers::none());
+    visual_cx.run_until_parked();
+    visual_cx.simulate_mouse_move(
+        outside + gpui::point(px(12.), px(0.)),
+        MouseButton::Left,
+        Modifiers::none(),
+    );
+    visual_cx.simulate_mouse_up(outside, MouseButton::Left, Modifiers::none());
+    visual_cx.run_until_parked();
+    assert_eq!(
+        scrub_opacity_lifecycle(&captured, multiple),
+        [
+            (50., DesignPanelEditPhase::Begin),
+            (100., DesignPanelEditPhase::Preview),
+            (
+                if cancel { 50. } else { 100. },
+                if cancel {
+                    DesignPanelEditPhase::Cancel
+                } else {
+                    DesignPanelEditPhase::Commit
+                }
+            ),
+        ],
+        "release or cancellation emits exactly one terminal event",
+    );
+    assert!(visual_cx.read(|cx| {
+        let panel = panel.read(cx);
+        panel.edit.numeric_scrub.is_none() && panel.edit.property.is_none()
+    }));
+}
+
+#[gpui::test]
+fn mounted_numeric_scrub_first_move_outside_commits_single_and_multiple(cx: &mut TestAppContext) {
+    for multiple in [false, true] {
+        for redraw in [false, true] {
+            assert_numeric_scrub_first_move_outside(multiple, false, redraw, cx);
+        }
+    }
+}
+
+#[gpui::test]
+fn mounted_numeric_scrub_first_move_outside_escape_cancels_once(cx: &mut TestAppContext) {
+    for multiple in [false, true] {
+        for redraw in [false, true] {
+            assert_numeric_scrub_first_move_outside(multiple, true, redraw, cx);
+        }
+    }
+}
+
+#[gpui::test]
+fn mounted_numeric_scrub_first_move_outside_requires_armed_left_editable_surface(
+    cx: &mut TestAppContext,
+) {
+    let node = DesignPanelNode::new("first", "First", DesignPanelNodeKind::Rectangle);
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    let captured = actions(&host, visual_cx);
+    let field = visual_cx
+        .debug_bounds("design-opacity-value")
+        .expect("opacity readout");
+    let start = field.center();
+    let outside = gpui::point(px(400.), start.y);
+    visual_cx.simulate_mouse_move(outside, MouseButton::Left, Modifiers::none());
+    visual_cx.simulate_mouse_down(start, MouseButton::Right, Modifiers::none());
+    visual_cx.simulate_mouse_move(outside, MouseButton::Right, Modifiers::none());
+    visual_cx.simulate_mouse_up(outside, MouseButton::Right, Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(scrub_opacity_lifecycle(&captured, false).is_empty());
+    assert!(visual_cx.read(|cx| panel.read(cx).edit.numeric_scrub.is_none()));
+
+    visual_cx.simulate_mouse_down(start, MouseButton::Left, Modifiers::none());
+    visual_cx.simulate_mouse_move(outside, MouseButton::Right, Modifiers::none());
+    visual_cx.simulate_mouse_up(outside, MouseButton::Left, Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(scrub_opacity_lifecycle(&captured, false).is_empty());
+    assert!(visual_cx.read(|cx| panel.read(cx).edit.numeric_scrub.is_none()));
+
+    panel.update(visual_cx, |panel, cx| {
+        panel.set_property_value_state(
+            DesignPanelProperty::Opacity,
+            DesignPanelPropertyValueState::Uniform(DesignPanelValue::Number(50.)).read_only(),
+            cx,
+        );
+    });
+    visual_cx.run_until_parked();
+    visual_cx.simulate_mouse_down(start, MouseButton::Left, Modifiers::none());
+    visual_cx.simulate_mouse_move(outside, MouseButton::Left, Modifiers::none());
+    visual_cx.simulate_mouse_up(outside, MouseButton::Left, Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(scrub_opacity_lifecycle(&captured, false).is_empty());
+    assert!(visual_cx.read(|cx| {
+        let panel = panel.read(cx);
+        panel.edit.numeric_scrub.is_none() && panel.edit.property.is_none()
+    }));
+}
+
+#[gpui::test]
+fn mounted_numeric_scrub_first_move_outside_context_change_and_unmount_release_owner(
+    cx: &mut TestAppContext,
+) {
+    use gpui::VisualContext as _;
+    let node = DesignPanelNode::new("first", "First", DesignPanelNodeKind::Rectangle);
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    let captured = actions(&host, visual_cx);
+    panel.update(visual_cx, |panel, cx| {
+        panel.set_property_value_state(
+            DesignPanelProperty::Opacity,
+            DesignPanelPropertyValueState::Uniform(DesignPanelValue::Number(50.)),
+            cx,
+        );
+    });
+    visual_cx.run_until_parked();
+    let start = visual_cx
+        .debug_bounds("design-opacity-value")
+        .expect("opacity readout")
+        .center();
+    let outside = gpui::point(px(400.), start.y);
+    visual_cx.simulate_mouse_down(start, MouseButton::Left, Modifiers::none());
+    visual_cx.simulate_mouse_move(outside, MouseButton::Left, Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(visual_cx.read(|cx| {
+        panel
+            .read(cx)
+            .numeric_scrub_is_active(DesignPanelProperty::Opacity)
+    }));
+    panel.update(visual_cx, |panel, cx| {
+        panel.set_node(
+            DesignPanelNode::new("replacement", "Replacement", DesignPanelNodeKind::Rectangle),
+            cx,
+        );
+    });
+    visual_cx.run_until_parked();
+    visual_cx.simulate_mouse_move(
+        outside + gpui::point(px(20.), px(0.)),
+        MouseButton::Left,
+        Modifiers::none(),
+    );
+    visual_cx.simulate_mouse_up(outside, MouseButton::Left, Modifiers::none());
+    visual_cx.run_until_parked();
+    assert_eq!(
+        scrub_opacity_lifecycle(&captured, false),
+        [
+            (50., DesignPanelEditPhase::Begin),
+            (100., DesignPanelEditPhase::Preview),
+            (50., DesignPanelEditPhase::Cancel),
+        ]
+    );
+    assert!(visual_cx.read(|cx| panel.read(cx).edit.numeric_scrub.is_none()));
+    let weak_panel = panel.downgrade();
+    visual_cx.replace_root_view(|_, _| gpui::EmptyView);
+    drop(host);
+    drop(panel);
+    visual_cx.run_until_parked();
+    visual_cx.simulate_mouse_move(outside, MouseButton::Left, Modifiers::none());
+    visual_cx.simulate_mouse_up(outside, MouseButton::Left, Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(
+        weak_panel.upgrade().is_none(),
+        "unmounted frame listeners must not retain the panel"
+    );
+    assert_eq!(scrub_opacity_lifecycle(&captured, false).len(), 3);
+}
+
 #[gpui::test]
 fn numeric_pointer_scrub_emits_one_typed_lifecycle_with_modifier_precision(
     cx: &mut TestAppContext,
