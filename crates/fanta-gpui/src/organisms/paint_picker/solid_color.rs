@@ -590,7 +590,7 @@ impl PaintPicker {
 
     pub(super) fn opacity_editing_disabled(&self) -> bool {
         self.editing_disabled()
-            || self.opacity_read_only_reason.is_some()
+            || self.opacity_read_only_reason().is_some()
             || (self.color_only_title.is_some() && !self.color_only_opacity_editable)
             || self.paint.as_ref().is_some_and(|paint| {
                 paint.kind.is_gradient() && paint_color_locked(paint, self.selected_stop)
