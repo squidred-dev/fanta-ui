@@ -1991,6 +1991,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                 .id(SharedString::from(format!("{}-export-all", self.id)))
                 .h(px(ROW_HEIGHT))
                 .w_full()
+                .min_w_0()
                 .px_2()
                 .flex()
                 .items_center()
@@ -2030,7 +2031,16 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                         );
                     })
                 })
-                .child(format!("Export {}", self.node_name)),
+                .tooltip({
+                    let label = format!("Export {}", self.node_name);
+                    move |window, cx| Tooltip::new(label.clone()).build(window, cx)
+                })
+                .child(
+                    div()
+                        .min_w_0()
+                        .truncate()
+                        .child(format!("Export {}", self.node_name)),
+                ),
         );
 
         if self.export_preview_available() {
