@@ -590,6 +590,7 @@ impl PaintPicker {
 
     pub(super) fn opacity_editing_disabled(&self) -> bool {
         self.editing_disabled()
+            || self.opacity_read_only_reason().is_some()
             || (self.color_only_title.is_some() && !self.color_only_opacity_editable)
             || self.paint.as_ref().is_some_and(|paint| {
                 paint.kind.is_gradient() && paint_color_locked(paint, self.selected_stop)
@@ -1904,6 +1905,16 @@ impl PaintPicker {
                         ),
                 )
                 .child(self.render_color_value_controls(cx))
+                .when_some(self.opacity_read_only_reason.clone(), |editor, reason| {
+                    editor.child(
+                        div()
+                            .debug_selector(|| "color-picker-opacity-read-only-reason".to_owned())
+                            .w_full()
+                            .typography(crate::atoms::TypographyToken::Panel)
+                            .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
+                            .child(reason),
+                    )
+                })
                 .into_any_element(),
         )
     }

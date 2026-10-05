@@ -16,6 +16,7 @@ use crate::{
     layers::{CloseLayersOverlay, LAYERS_PANEL_KEY_CONTEXT},
     pages::{ClosePagesSearch, PAGES_PANEL_KEY_CONTEXT},
     properties_tabs::PROPERTIES_TABS_KEY_CONTEXT,
+    timeline::TIMELINE_KEY_CONTEXT,
     toolbar::{
         CloseToolbarOverlay, NextToolbarCommand, PreviousToolbarCommand,
         TOOLBAR_TEXT_ENTRY_KEY_CONTEXT,
@@ -164,6 +165,7 @@ fn is_fanta_text_input(event: &KeystrokeEvent) -> bool {
             || context.contains(DESIGN_PANEL_KEY_CONTEXT)
             || context.contains(LAYERS_PANEL_KEY_CONTEXT)
             || context.contains(PROPERTIES_TABS_KEY_CONTEXT)
+            || context.contains(TIMELINE_KEY_CONTEXT)
             || context.contains(VARIABLES_SCREEN_KEY_CONTEXT)
             || context.contains(GENERATION_SCREEN_KEY_CONTEXT)
             || context.contains(ASSETS_PANEL_KEY_CONTEXT)

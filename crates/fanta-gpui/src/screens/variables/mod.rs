@@ -1586,6 +1586,7 @@ impl VariablesScreen {
                                 "{}-table-horizontal-scroll",
                                 self.id
                             )))
+                            .debug_selector(|| "variables-modes-viewport".to_owned())
                             .flex_1()
                             .min_w(px(0.))
                             .h_full()
@@ -1791,6 +1792,7 @@ impl Render for VariablesScreen {
                     .when(self.sidebar_visible, |header| {
                         header.child(
                             h_flex()
+                                .debug_selector(|| "variables-document-header".to_owned())
                                 .w(px(self.sidebar_width()))
                                 .h_full()
                                 .flex_none()
@@ -1799,8 +1801,14 @@ impl Render for VariablesScreen {
                                 .border_color(palette.border)
                                 .font_weight(gpui::FontWeight::MEDIUM)
                                 .text_size(crate::atoms::sidebar_text_size())
-                                .child(self.view_data.document_name.clone())
-                                .child(div().flex_1())
+                                .child(
+                                    div()
+                                        .debug_selector(|| "variables-document-title".to_owned())
+                                        .flex_1()
+                                        .min_w_0()
+                                        .truncate()
+                                        .child(self.view_data.document_name.clone()),
+                                )
                                 .child(
                                     icon_button(
                                         SharedString::from(format!("{}-toggle-sidebar", self.id)),
@@ -1808,6 +1816,7 @@ impl Render for VariablesScreen {
                                         px(tokens::Space::XS),
                                         cx,
                                     )
+                                    .flex_none()
                                     .debug_selector(|| "variables-toggle-sidebar".to_owned())
                                     .on_activate(
                                         cx.listener(|this, _, _, cx| this.toggle_sidebar(cx)),
@@ -1818,6 +1827,7 @@ impl Render for VariablesScreen {
                     })
                     .child(
                         h_flex()
+                            .debug_selector(|| "variables-collection-header".to_owned())
                             .flex_1()
                             .min_w(px(0.))
                             .px_3()
