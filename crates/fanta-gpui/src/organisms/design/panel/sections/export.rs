@@ -1989,6 +1989,7 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
         content = content.child(
             div()
                 .id(SharedString::from(format!("{}-export-all", self.id)))
+                .debug_selector(|| "design-export-all".to_owned())
                 .h(px(ROW_HEIGHT))
                 .w_full()
                 .min_w_0()
@@ -2037,7 +2038,10 @@ impl<'a, C: ExportInspectorChrome> ExportRenderer<'a, C> {
                 })
                 .child(
                     div()
+                        .debug_selector(|| "design-export-all-label".to_owned())
+                        .flex_1()
                         .min_w_0()
+                        .text_center()
                         .truncate()
                         .child(format!("Export {}", self.node_name)),
                 ),

@@ -1355,6 +1355,78 @@ fn design_sections_share_header_insets_and_vertical_row_spacing(cx: &mut TestApp
 }
 
 #[gpui::test]
+fn export_button_label_uses_available_width_without_collapsing_or_overflowing(
+    cx: &mut TestAppContext,
+) {
+    let mut node = DesignPanelNode::new("export-target", "Page", DesignPanelNodeKind::Slice);
+    let (host, visual_cx) = setup(node.clone(), cx);
+    let panel = panel(&host, visual_cx);
+    let captured = actions(&host, visual_cx);
+    panel.update(visual_cx, |panel, cx| {
+        panel.set_export_view_data(
+            DesignExportViewData {
+                target: DesignPanelTarget::Nodes {
+                    node_ids: vec![node.id.clone()],
+                },
+                configurations: vec![DesignExportConfiguration::new(
+                    "png",
+                    DesignExportFormat::Png,
+                )],
+                mode: DesignExportMode::Static,
+                static_capabilities: Default::default(),
+                preview: None,
+                animated: None,
+            },
+            cx,
+        );
+    });
+    for name in [
+        "Page",
+        "Release candidate artwork with a filename much wider than the entire properties inspector",
+    ] {
+        node.name = name.into();
+        panel.update(visual_cx, |panel, cx| panel.set_node(node.clone(), cx));
+        for width in [320., 400., 472.] {
+            host.update(visual_cx, |host, cx| {
+                host.panel_width = width;
+                cx.notify();
+            });
+            visual_cx.run_until_parked();
+            let button = visual_cx
+                .debug_bounds("design-export-all")
+                .expect("mounted export button");
+            let label = visual_cx
+                .debug_bounds("design-export-all-label")
+                .expect("mounted export label");
+            assert!(
+                label.size.width >= button.size.width - px(20.),
+                "{name:?} label collapsed at {width}px: label={label:?}, button={button:?}"
+            );
+            assert!(
+                label.left() >= button.left() + px(8.) && label.right() <= button.right() - px(8.),
+                "{name:?} label escaped the padded button at {width}px: label={label:?}, button={button:?}"
+            );
+            assert!(
+                (label.center().x - button.center().x).abs() <= px(1.),
+                "label must stay centered"
+            );
+            captured.borrow_mut().clear();
+            visual_cx.simulate_click(button.center(), Modifiers::none());
+            visual_cx.run_until_parked();
+            assert_eq!(
+                captured.borrow().as_slice(),
+                &[DesignPanelAction::ExportAllRequested {
+                    target: DesignPanelTarget::Nodes {
+                        node_ids: vec![node.id.clone()]
+                    },
+                }],
+                "label sizing must preserve the export button's exact target"
+            );
+        }
+    }
+}
+
+#[gpui::test]
 fn stroke_position_preview_button_keeps_its_label_and_caret_readable_at_compact_widths(
     cx: &mut TestAppContext,
 ) {
