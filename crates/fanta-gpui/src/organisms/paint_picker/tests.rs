@@ -126,6 +126,70 @@ fn nested_overlay_coordinator_dismisses_only_the_topmost_surface() {
 }
 
 #[gpui::test]
+fn host_bound_alpha_guard_disables_controls_and_preserves_independent_opacity_default(
+    cx: &mut TestAppContext,
+) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    let bound = DesignPaint::from_payload(DesignPaintPayload::Solid(DesignSolidPaint {
+        color: DesignColor::PURPLE,
+        binding: Some(crate::design::DesignPaintBinding::new("accent", "Accent")),
+    }))
+    .with_id("fill");
+    picker.update_in(visual_cx, |picker, window, cx| {
+        picker.set_target(
+            "rect",
+            DesignPanelCollection::Fill,
+            0,
+            bound.clone(),
+            window,
+            cx,
+        );
+        assert!(
+            !picker.opacity_editing_disabled(),
+            "hosts with independent paint opacity retain editing by default"
+        );
+        picker.set_opacity_read_only_reason(
+            Some("Detach the color variable to edit its opacity".into()),
+            cx,
+        );
+        assert!(picker.opacity_editing_disabled());
+        picker.set_opacity(25., DesignPanelEditPhase::Commit, cx);
+        picker.set_alpha(0.25, cx);
+    });
+    visual_cx.run_until_parked();
+    assert!(
+        events.borrow().is_empty(),
+        "both numeric opacity and alpha slider are inert"
+    );
+    let reason = visual_cx
+        .debug_bounds("color-picker-opacity-read-only-reason")
+        .expect("visible disabled reason");
+    assert!(reason.size.width > px(0.) && reason.size.height > px(0.));
+    picker.update_in(visual_cx, |picker, window, cx| {
+        let mut detached = bound.clone();
+        let DesignPaintPayload::Solid(solid) = &mut detached.payload else {
+            panic!("solid")
+        };
+        solid.binding = None;
+        picker.set_target("rect", DesignPanelCollection::Fill, 0, detached, window, cx);
+        picker.set_opacity_read_only_reason(None, cx);
+        assert!(!picker.opacity_editing_disabled());
+        picker.set_opacity(25., DesignPanelEditPhase::Commit, cx);
+    });
+    visual_cx.run_until_parked();
+    assert!(
+        visual_cx
+            .debug_bounds("color-picker-opacity-read-only-reason")
+            .is_none()
+    );
+    assert!(
+        matches!(events.borrow().as_slice(), [PaintPickerEvent::Edit { edit, phase: DesignPanelEditPhase::Commit, .. }] if edit.property == DesignPaintProperty::Opacity && edit.value == DesignPaintValue::Number(25.))
+    );
+}
+
+#[gpui::test]
 fn nested_overlay_dismissal_unwinds_focus_in_stack_order(cx: &mut TestAppContext) {
     let (host, visual_cx) = setup_picker(cx);
     let picker = picker(&host, visual_cx);

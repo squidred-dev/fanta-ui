@@ -257,6 +257,82 @@ fn playback_menu_and_time_inputs_request_host_values(cx: &mut TestAppContext) {
         Some(&TimelineAction::SeekRequested { time_ms: 1250 })
     );
 }
+
+#[gpui::test]
+fn time_inputs_survive_host_keymap_reload(cx: &mut TestAppContext) {
+    let (host, actions, cx) =
+        mount_component(cx, |_, cx| Timeline::new("test-timeline", data(), cx));
+    cx.simulate_resize(size(px(1400.), px(360.)));
+    cx.run_until_parked();
+    cx.update(|_, app| app.clear_key_bindings());
+
+    for (selector, value, expected) in [
+        (
+            "timeline-current-time",
+            "0.5",
+            TimelineAction::SeekRequested { time_ms: 500 },
+        ),
+        (
+            "timeline-duration",
+            "2.5",
+            TimelineAction::DurationChangeRequested { duration_ms: 2500 },
+        ),
+    ] {
+        actions.borrow_mut().clear();
+        let target = cx
+            .debug_bounds(selector)
+            .expect("time input renders")
+            .center();
+        cx.simulate_click(target, Modifiers::none());
+        cx.simulate_keystrokes("secondary-a");
+        cx.simulate_input(value);
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        assert_eq!(actions.borrow().as_slice(), [expected]);
+    }
+    let timeline = cx.read(|app| host.read(app).component.clone());
+    assert_eq!(
+        timeline.read_with(cx, |timeline, _| timeline.view_data().clone()),
+        data()
+    );
+}
+
+#[gpui::test]
+fn time_input_keeps_explicit_input_keybindings_after_reload(cx: &mut TestAppContext) {
+    let (host, actions, cx) =
+        mount_component(cx, |_, cx| Timeline::new("test-timeline", data(), cx));
+    cx.simulate_resize(size(px(1400.), px(360.)));
+    cx.run_until_parked();
+    cx.update(|_, app| {
+        app.clear_key_bindings();
+        app.bind_keys([gpui::KeyBinding::new(
+            "secondary-a",
+            gpui_component::input::MoveHome,
+            Some("Input"),
+        )]);
+    });
+    let target = cx
+        .debug_bounds("timeline-current-time")
+        .expect("time input renders")
+        .center();
+    cx.simulate_click(target, Modifiers::none());
+    cx.simulate_keystrokes("end secondary-a");
+    cx.simulate_input("1");
+    cx.run_until_parked();
+    let value = cx.read(|app| {
+        host.read(app)
+            .component
+            .read(app)
+            .time_input
+            .as_ref()
+            .expect("time input")
+            .read(app)
+            .value()
+    });
+    assert_eq!(value, "10.00");
+    assert!(actions.borrow().is_empty());
+}
+
 #[gpui::test]
 fn read_only_tracks_allow_selection_but_never_emit_edits(cx: &mut TestAppContext) {
     let (host, actions, cx) = mount_component(cx, |_, cx| {

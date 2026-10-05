@@ -517,6 +517,7 @@ pub struct PaintPicker {
     color_only_title: Option<SharedString>,
     color_only_color_editable: bool,
     color_only_opacity_editable: bool,
+    opacity_read_only_reason: Option<SharedString>,
     color_format: ColorFormat,
     color_format_menu_index: usize,
     color_format_menu_focus_handle: FocusHandle,
@@ -722,6 +723,7 @@ impl PaintPicker {
             color_only_title: None,
             color_only_color_editable: true,
             color_only_opacity_editable: true,
+            opacity_read_only_reason: None,
             color_format: ColorFormat::Hex,
             color_format_menu_index: ColorFormat::Hex.index(),
             color_format_menu_focus_handle: cx.focus_handle(),
@@ -1025,6 +1027,7 @@ impl PaintPicker {
         self.color_only_title = None;
         self.color_only_color_editable = true;
         self.color_only_opacity_editable = true;
+        self.opacity_read_only_reason = None;
         self.color_format = ColorFormat::Hex;
         self.clear_nested_overlays();
         self.creation_menu_index = PaintCreationKind::Style as usize;
@@ -1092,6 +1095,22 @@ impl PaintPicker {
             self.forget_nested_overlay(overlay);
         }
         self.reset_text_input_edit_sessions();
+    }
+
+    pub(crate) fn opacity_read_only_reason(&self) -> Option<&SharedString> {
+        self.opacity_read_only_reason.as_ref()
+    }
+
+    pub(crate) fn set_opacity_read_only_reason(
+        &mut self,
+        reason: Option<SharedString>,
+        cx: &mut Context<Self>,
+    ) {
+        if self.opacity_read_only_reason != reason {
+            self.cancel_text_input_edit_sessions(cx);
+            self.opacity_read_only_reason = reason;
+            cx.notify();
+        }
     }
 
     pub(crate) fn color_only_title(&self) -> Option<&SharedString> {

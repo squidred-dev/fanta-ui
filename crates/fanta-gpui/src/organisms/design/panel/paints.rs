@@ -425,6 +425,20 @@ impl DesignPaintController for DesignPanel {
         let Some(mut paint) = self.picker_paint(target) else {
             return false;
         };
+        let property = match edit.property {
+            DesignPaintProperty::Opacity => Some(DesignPanelProperty::PaintOpacity {
+                collection: target.collection,
+                index: self.paint_target_index(target).unwrap_or(target.index),
+            }),
+            DesignPaintProperty::Visible => Some(DesignPanelProperty::PaintVisible {
+                collection: target.collection,
+                index: self.paint_target_index(target).unwrap_or(target.index),
+            }),
+            _ => None,
+        };
+        if property.is_some_and(|property| !self.property_is_editable(property)) {
+            return false;
+        }
         if paint.read_only
             || !self
                 .host
@@ -1582,8 +1596,22 @@ impl DesignPaintController for DesignPanel {
         index: usize,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let binding = match &paint.payload {
+            DesignPaintPayload::Solid(solid) => solid.binding.as_ref(),
+            _ => None,
+        };
+        let binding_tooltip = binding.map(|binding| {
+            let name = binding.collection_name.as_ref().map_or_else(
+                || binding.variable_name.to_string(),
+                |collection| format!("{collection} / {}", binding.variable_name),
+            );
+            SharedString::from(format!("Color variable: {name} · #{}", paint.color.hex()))
+        });
         let label: SharedString = match &paint.payload {
-            DesignPaintPayload::Solid(_) => paint.color.hex().to_string(),
+            DesignPaintPayload::Solid(_) => binding.map_or_else(
+                || paint.color.hex().to_string(),
+                |binding| binding.variable_name.to_string(),
+            ),
             DesignPaintPayload::Gradient(_) => format!(
                 "{} · {} stops",
                 paint.kind.label(),
@@ -1676,8 +1704,19 @@ impl DesignPaintController for DesignPanel {
             self.id,
             collection.label().to_lowercase()
         ));
+        let label_debug_id = format!(
+            "{}-{}-paint-label-{index}",
+            self.id,
+            collection.label().to_lowercase()
+        );
+        let binding_debug_id = format!(
+            "{}-{}-paint-binding-{index}",
+            self.id,
+            collection.label().to_lowercase()
+        );
         let trigger = crate::atoms::ui_button(trigger_id)
             .debug_selector(move || trigger_debug_id.clone())
+            .when_some(binding_tooltip, |this, tooltip| this.tooltip(tooltip))
             .xsmall()
             .compact()
             .typography(crate::atoms::TypographyToken::Panel)
@@ -1712,9 +1751,23 @@ impl DesignPaintController for DesignPanel {
                 }
             })
             .child(swatch)
+            .when(binding.is_some(), |this| {
+                this.child(
+                    div()
+                        .flex_none()
+                        .debug_selector(move || binding_debug_id)
+                        .child(crate::atoms::render_lucide_icon(
+                            crate::atoms::LucideIcon::Variable,
+                            crate::atoms::SemanticColor::Icon.resolve(cx),
+                            crate::atoms::tokens::IconSize::SM,
+                        )),
+                )
+            })
             .child(
                 div()
+                    .debug_selector(move || label_debug_id)
                     .flex_1()
+                    .min_w_0()
                     .truncate()
                     .text_left()
                     .typography(crate::atoms::TypographyToken::Panel)
@@ -3890,6 +3943,9 @@ impl DesignPaintController for DesignPanel {
     fn sync_paint_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let contrast_view_data = self.active_color_contrast_view_data();
         if let Some(target) = self.overlays.auxiliary_color_picker().clone() {
+            self.paint_picker.update(cx, |picker, cx| {
+                picker.set_opacity_read_only_reason(None, cx)
+            });
             let Some(paint) = self.auxiliary_color_paint(&target) else {
                 self.cancel_active_paint_edit(cx);
                 self.overlays
@@ -3950,6 +4006,23 @@ impl DesignPaintController for DesignPanel {
             let index = self.paint_target_index(target)?;
             self.picker_paint(target)
                 .map(|paint| (target.clone(), index, paint))
+        });
+        let opacity_read_only_reason = desired.as_ref().and_then(|(target, index, _)| {
+            let property = DesignPanelProperty::PaintOpacity {
+                collection: target.collection,
+                index: *index,
+            };
+            (!self.property_is_editable(property)).then(|| {
+                self.host
+                    .property_states
+                    .get(&property)
+                    .and_then(DesignPanelPropertyValueState::read_only_reason)
+                    .map(|reason| SharedString::from(reason.to_owned()))
+                    .unwrap_or_else(|| "Opacity is read only".into())
+            })
+        });
+        self.paint_picker.update(cx, |picker, cx| {
+            picker.set_opacity_read_only_reason(opacity_read_only_reason, cx)
         });
         let color_only_title = desired.as_ref().and_then(|(target, _, _)| {
             (!self

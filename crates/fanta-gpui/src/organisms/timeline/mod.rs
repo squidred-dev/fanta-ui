@@ -25,6 +25,7 @@ const ROW: f32 = tokens::RowHeight::PAGE;
 const HEADER: f32 = tokens::RowHeight::SECTION_HEADER + tokens::Space::SM;
 const GUTTER: f32 = tokens::Space::LG;
 pub const TIMELINE_MIN_WIDTH: f32 = RAIL + tokens::InputGeometry::COMBO_WIDTH;
+pub const TIMELINE_KEY_CONTEXT: &str = "FantaTimeline";
 
 #[derive(Clone, Debug, PartialEq)]
 enum Overlay {
@@ -393,7 +394,7 @@ impl Render for Timeline {
             .id(self.id.clone())
             .debug_selector(|| "timeline".to_owned())
             .track_focus(&self.focus_handle)
-            .key_context("FantaTimeline")
+            .key_context(TIMELINE_KEY_CONTEXT)
             .tab_index(0)
             .relative()
             .w_full()

@@ -119,6 +119,121 @@ fn sidebar_and_name_column_compress_on_narrow_pages(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn document_title_stays_inside_its_header_without_covering_controls(cx: &mut TestAppContext) {
+    let (host, _actions, cx) = mount(cx);
+    let component = cx.read(|app| host.read(app).component.clone());
+
+    for document_name in [
+        "fanta-release-variables-prototype-20261005",
+        "Short",
+        "A very long project title with spaces and non-ASCII text — Diseño de variables",
+    ] {
+        component.update(cx, |page, cx| {
+            let mut data = page.view_data.clone();
+            data.document_name = document_name.into();
+            page.set_view_data(data, cx);
+        });
+        for width in [VARIABLES_SCREEN_MIN_WIDTH, 900., 1440.] {
+            cx.simulate_resize(size(px(width), px(700.)));
+            cx.run_until_parked();
+            cx.run_until_parked();
+            let header = cx
+                .debug_bounds("variables-document-header")
+                .expect("project header");
+            let title = cx
+                .debug_bounds("variables-document-title")
+                .expect("project title");
+            let toggle = cx
+                .debug_bounds("variables-toggle-sidebar")
+                .expect("sidebar toggle");
+            let collection = cx
+                .debug_bounds("variables-collection-header")
+                .expect("collection header");
+            assert!(title.size.width > px(0.));
+            assert!(
+                title.left() >= header.left() && title.right() <= toggle.left(),
+                "{document_name:?} at {width}px must fit before the toggle: {title:?}, {toggle:?}"
+            );
+            assert_eq!(toggle.size.width, px(tokens::RowHeight::FIELD));
+            assert!(toggle.right() <= header.right());
+            assert!(header.right() <= collection.left());
+            assert!(title.right() <= collection.left());
+
+            cx.simulate_click(toggle.center(), Modifiers::none());
+            cx.run_until_parked();
+            assert!(cx.debug_bounds("variables-document-header").is_none());
+            let reopen = cx
+                .debug_bounds("variables-toggle-sidebar-collapsed")
+                .expect("collapsed sidebar toggle");
+            cx.simulate_click(reopen.center(), Modifiers::none());
+            cx.run_until_parked();
+            assert!(cx.debug_bounds("variables-document-header").is_some());
+            component.read_with(cx, |page, _| {
+                assert_eq!(page.view_data.document_name.as_ref(), document_name);
+            });
+        }
+    }
+}
+
+#[gpui::test]
+fn horizontal_wheel_reveals_second_mode_before_the_binding_sidebar(cx: &mut TestAppContext) {
+    let (host, _actions, cx) = mount(cx);
+    let component = cx.read(|app| host.read(app).component.clone());
+    component.update(cx, |page, cx| {
+        let mut data = page.view_data.clone();
+        data.modes.push(VariablesMode::new("dark", "Mode 2"));
+        page.set_view_data(data, cx);
+        page.set_context_data(
+            VariablesContextData {
+                bindings: Some(VariablesLayerBindings {
+                    node_id: "shape".into(),
+                    name: "Shape".into(),
+                    properties: Vec::new(),
+                }),
+                ..Default::default()
+            },
+            cx,
+        );
+    });
+    cx.simulate_resize(size(px(900.), px(700.)));
+    cx.run_until_parked();
+    cx.run_until_parked();
+    let viewport = cx
+        .debug_bounds("variables-modes-viewport")
+        .expect("mode viewport");
+    let binding = cx
+        .debug_bounds("variables-layer-bindings")
+        .expect("binding sidebar");
+    let name = cx
+        .debug_bounds("variables-name-header")
+        .expect("pinned name column");
+    let add_mode = cx
+        .debug_bounds("variables-add-mode")
+        .expect("pinned add mode control");
+    let second_before = cx
+        .debug_bounds("variables-mode-header-dark")
+        .expect("second mode");
+    assert!(second_before.right() > viewport.right());
+    assert!(viewport.right() <= add_mode.left());
+    assert!(add_mode.right() <= binding.left());
+    cx.simulate_event(gpui::ScrollWheelEvent {
+        position: point(viewport.center().x, second_before.center().y),
+        delta: gpui::ScrollDelta::Pixels(point(px(-10_000.), px(0.))),
+        ..Default::default()
+    });
+    cx.run_until_parked();
+    cx.run_until_parked();
+    let second_after = cx
+        .debug_bounds("variables-mode-header-dark")
+        .expect("second mode after scrolling");
+    assert!(second_after.left() >= viewport.left());
+    assert!(second_after.right() <= viewport.right());
+    assert_eq!(cx.debug_bounds("variables-name-header"), Some(name));
+    assert_eq!(cx.debug_bounds("variables-add-mode"), Some(add_mode));
+    assert_eq!(cx.debug_bounds("variables-layer-bindings"), Some(binding));
+}
+
+#[gpui::test]
 fn mode_scopes_stack_above_collections_in_the_sidebar(cx: &mut TestAppContext) {
     let (host, _actions, cx) = mount(cx);
     cx.simulate_resize(size(px(900.), px(700.)));

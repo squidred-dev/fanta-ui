@@ -75,6 +75,86 @@ fn style_browser_search_matches_names_previews_and_library_sources() {
 }
 
 #[gpui::test]
+fn bound_paint_row_propagates_host_alpha_guards_and_clears_them_after_detach(
+    cx: &mut TestAppContext,
+) {
+    let mut node = DesignPanelNode::new("rectangle", "Rectangle", DesignPanelNodeKind::Rectangle);
+    node.fills[0] =
+        DesignPaint::from_payload(DesignPaintPayload::Solid(super::super::DesignSolidPaint {
+            color: DesignColor::PURPLE,
+            binding: Some(super::super::DesignPaintBinding::new("accent", "Accent")),
+        }))
+        .with_id("bound-fill");
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    let target = PaintPickerTarget {
+        collection: DesignPanelCollection::Fill,
+        index: 0,
+        paint_id: "bound-fill".into(),
+    };
+    panel.update_in(visual_cx, |panel, window, cx| {
+        for property in [
+            DesignPanelProperty::PaintOpacity {
+                collection: DesignPanelCollection::Fill,
+                index: 0,
+            },
+            DesignPanelProperty::PaintVisible {
+                collection: DesignPanelCollection::Fill,
+                index: 0,
+            },
+        ] {
+            panel.set_property_value_state(
+                property,
+                DesignPanelPropertyValueState::Unset
+                    .read_only_with_reason("Detach the color variable first"),
+                cx,
+            );
+        }
+        panel
+            .overlays
+            .open(DesignOverlayState::PaintPicker(target.clone()));
+        panel.sync_paint_picker(window, cx);
+        for (property, value) in [
+            (DesignPaintProperty::Opacity, DesignPaintValue::Number(25.)),
+            (DesignPaintProperty::Visible, DesignPaintValue::Bool(false)),
+        ] {
+            assert!(!panel.paint_edit_is_applicable(&target, &DesignPaintEdit { property, value }));
+        }
+    });
+    visual_cx.run_until_parked();
+    let picker = visual_cx.read(|app| panel.read(app).paint_picker.clone());
+    picker.read_with(visual_cx, |picker, _| {
+        assert_eq!(
+            picker
+                .opacity_read_only_reason()
+                .map(|reason| reason.as_ref()),
+            Some("Detach the color variable first")
+        )
+    });
+    panel.update_in(visual_cx, |panel, window, cx| {
+        let mut detached = panel.node().clone();
+        let DesignPaintPayload::Solid(solid) = &mut detached.fills[0].payload else {
+            panic!("solid")
+        };
+        solid.binding = None;
+        panel.set_node(detached, cx);
+        panel.set_property_value_states([], cx);
+        panel.sync_paint_picker(window, cx);
+        assert!(panel.paint_edit_is_applicable(
+            &target,
+            &DesignPaintEdit {
+                property: DesignPaintProperty::Opacity,
+                value: DesignPaintValue::Number(25.)
+            }
+        ));
+    });
+    visual_cx.run_until_parked();
+    picker.read_with(visual_cx, |picker, _| {
+        assert!(picker.opacity_read_only_reason().is_none())
+    });
+}
+
+#[gpui::test]
 fn style_browser_controls_are_transient_and_leave_host_catalogs_untouched(cx: &mut TestAppContext) {
     let node = DesignPanelNode::new("styled", "Styled", DesignPanelNodeKind::Rectangle);
     let (host, visual_cx) = setup(node, cx);
@@ -12487,6 +12567,54 @@ fn picker_creation_menu_revalidates_the_active_leaf_before_whole_style_creation(
         captured_actions.borrow().is_empty(),
         "a creation menu opened for a stale paint must not create a collection style"
     );
+}
+
+#[gpui::test]
+fn bound_paint_row_shows_binding_at_minimum_width_and_opens_exact_detach(cx: &mut TestAppContext) {
+    let mut node = DesignPanelNode::new("rectangle", "Rectangle", DesignPanelNodeKind::Rectangle);
+    node.fills[0] = DesignPaint::from_payload(DesignPaintPayload::Solid(super::super::DesignSolidPaint {
+        color: DesignColor::PURPLE,
+        binding: Some(super::super::DesignPaintBinding::new("accent", "A very long accent color variable name that cannot fit in the narrow inspector").with_collection("Theme")),
+    })).with_id("bound-fill");
+    let expected = node.clone();
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    let captured = actions(&host, visual_cx);
+    let viewport = visual_cx
+        .debug_bounds("design-test-panel-viewport")
+        .expect("mounted panel");
+    let trigger = visual_cx
+        .debug_bounds("design-fill-paint-0")
+        .expect("paint row");
+    let label = visual_cx
+        .debug_bounds("design-fill-paint-label-0")
+        .expect("variable name label");
+    let indicator = visual_cx
+        .debug_bounds("design-fill-paint-binding-0")
+        .expect("visible variable indicator");
+    assert!(label.size.width > px(30.) && label.size.height > px(0.));
+    assert!(indicator.size.width > px(0.));
+    assert!(label.left() >= trigger.left() && label.right() <= trigger.right());
+    assert!(indicator.left() >= trigger.left() && indicator.right() <= trigger.right());
+    assert!(trigger.right() <= viewport.right());
+    visual_cx.simulate_click(trigger.center(), Modifiers::none());
+    visual_cx.run_until_parked();
+    let picker = visual_cx.read(|app| panel.read(app).paint_picker.clone());
+    picker.update(visual_cx, |picker, cx| {
+        picker.request_color_variable_detach(cx)
+    });
+    visual_cx.run_until_parked();
+    assert!(captured.borrow().iter().any(|action| matches!(action,
+        DesignPanelAction::PaintColorVariableDetachRequested { node_id, collection: DesignPanelCollection::Fill, paint_id, index: 0, variable_id, .. }
+        if node_id.as_ref() == "rectangle" && paint_id.as_ref() == "bound-fill" && variable_id.as_ref() == "accent"
+    )));
+    panel.read_with(visual_cx, |panel, _| {
+        assert_eq!(
+            panel.node(),
+            &expected,
+            "opening and detaching emits an intent without mutating controlled host data"
+        )
+    });
 }
 
 #[gpui::test]
