@@ -417,6 +417,7 @@ pub struct VideoPlayback {
     seek_trace: Option<Arc<VideoSeekTrace>>,
     pending_seek: Option<u64>,
     awaiting_seek_frame: Option<u64>,
+    frame_request_floor_us: Option<u64>,
     last_frame: Option<(NativeTime, VideoPlaybackFrame)>,
     seeking: bool,
     requested_play: bool,
@@ -527,6 +528,7 @@ impl VideoPlayback {
                 seek_trace,
                 pending_seek: None,
                 awaiting_seek_frame: None,
+                frame_request_floor_us: None,
                 last_frame: None,
                 seeking: false,
                 requested_play: false,
@@ -682,6 +684,7 @@ impl VideoPlayback {
                 .context("The video player was closed.")?;
             let requested = playback_frame_request_time(
                 self.awaiting_seek_frame,
+                &mut self.frame_request_floor_us,
                 status,
                 || msg_send![**output, itemTimeForHostTime:host_time],
             );
@@ -846,23 +849,39 @@ impl VideoPlayback {
 
 fn playback_frame_request_time(
     seek_target: Option<u64>,
+    request_floor_us: &mut Option<u64>,
     status: VideoPlaybackStatus,
     host_time: impl FnOnce() -> NativeTime,
 ) -> NativeTime {
-    // Seek completion can precede the output's host-time mapping update. Keep
-    // querying the requested item time until its first frame arrives; a paused
-    // player likewise has no advancing display clock to synchronize against.
+    // Keep the explicit request floor after the first frame arrives: output's
+    // host mapping can still lag when playback resumes. A later backward seek
+    // replaces this floor; it must never constrain the source sample's PTS.
+    if let Some(target) = seek_target {
+        *request_floor_us = Some(target);
+    }
     let explicit_time = seek_target.or_else(|| {
         (status.state != VideoPlaybackState::Playing).then_some(status.current_time_us)
     });
+    let item_time = |time_us| NativeTime {
+        value: time_us as i64,
+        timescale: 1_000_000,
+        flags: 1,
+        epoch: 0,
+    };
     match explicit_time {
-        Some(time_us) => NativeTime {
-            value: time_us as i64,
-            timescale: 1_000_000,
-            flags: 1,
-            epoch: 0,
-        },
-        None => host_time(),
+        Some(time_us) => item_time(time_us),
+        None => {
+            let requested = host_time();
+            if let Some(floor) = *request_floor_us
+                && time_us(requested).is_ok_and(|requested_us| requested_us < floor)
+            {
+                item_time(floor)
+            } else {
+                // Leave invalid mappings to the caller's existing unchanged or
+                // error handling rather than turning them into valid requests.
+                requested
+            }
+        }
     }
 }
 
@@ -1472,7 +1491,9 @@ mod tests {
             duration_us: 3_000_000,
         };
         let mut seek_target = Some(1_500_000);
-        let requested = playback_frame_request_time(seek_target, status, &host_time);
+        let mut request_floor = None;
+        let requested =
+            playback_frame_request_time(seek_target, &mut request_floor, status, &host_time);
         assert_eq!(time_us(requested)?, 1_500_000);
         assert_eq!(
             host_queries.get(),
@@ -1486,13 +1507,23 @@ mod tests {
             "obsolete output must not finish the seek frame wait"
         );
         assert_eq!(
-            time_us(playback_frame_request_time(seek_target, status, &host_time))?,
+            time_us(playback_frame_request_time(
+                seek_target,
+                &mut request_floor,
+                status,
+                &host_time
+            ))?,
             1_500_000
         );
         assert!(accept_seek_frame(&mut seek_target, 1_500_000));
         assert_eq!(seek_target, None);
         assert_eq!(
-            time_us(playback_frame_request_time(seek_target, status, &host_time))?,
+            time_us(playback_frame_request_time(
+                seek_target,
+                &mut request_floor,
+                status,
+                &host_time
+            ))?,
             2_700_000
         );
         assert_eq!(
@@ -1503,7 +1534,12 @@ mod tests {
         status.state = VideoPlaybackState::Paused;
         status.current_time_us = 1_520_000;
         assert_eq!(
-            time_us(playback_frame_request_time(seek_target, status, &host_time))?,
+            time_us(playback_frame_request_time(
+                seek_target,
+                &mut request_floor,
+                status,
+                &host_time
+            ))?,
             1_520_000
         );
         assert_eq!(
@@ -1532,6 +1568,228 @@ mod tests {
         seek_target = Some(33_333);
         assert!(!accept_seek_frame(&mut seek_target, 33_335));
         assert_eq!(seek_target, Some(33_333));
+    }
+
+    #[test]
+    fn video_playback_request_floor_rejects_pre_seek_clock_after_resuming() -> Result<()> {
+        let mut seek_target = Some(1_200_000);
+        let mut request_floor = None;
+        let mut status = VideoPlaybackStatus {
+            state: VideoPlaybackState::Paused,
+            current_time_us: 1_200_000,
+            duration_us: 3_000_000,
+        };
+        let obsolete_host_time = || NativeTime {
+            value: 5_000,
+            timescale: 1_000_000,
+            flags: 1,
+            epoch: 0,
+        };
+        let completed_request = time_us(playback_frame_request_time(
+            seek_target,
+            &mut request_floor,
+            status,
+            obsolete_host_time,
+        ))?;
+        assert_eq!(completed_request, 1_200_000);
+        assert!(accept_seek_frame(&mut seek_target, completed_request));
+        assert_eq!(seek_target, None);
+        status.state = VideoPlaybackState::Playing;
+        status.current_time_us = 1_205_000;
+        let resumed_request = time_us(playback_frame_request_time(
+            seek_target,
+            &mut request_floor,
+            status,
+            obsolete_host_time,
+        ))?;
+        assert!(
+            resumed_request >= completed_request,
+            "resumed request {resumed_request} must not rewind before the completed seek {completed_request} when the output host mapping is obsolete"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn video_playback_request_floor_allows_an_explicit_backward_seek() -> Result<()> {
+        let mut seek_target = Some(1_200_000);
+        let mut request_floor = None;
+        let mut status = VideoPlaybackStatus {
+            state: VideoPlaybackState::Playing,
+            current_time_us: 1_205_000,
+            duration_us: 3_000_000,
+        };
+        let initial = playback_frame_request_time(seek_target, &mut request_floor, status, || {
+            NativeTime::ZERO
+        });
+        assert_eq!(time_us(initial)?, 1_200_000);
+        assert!(accept_seek_frame(&mut seek_target, 1_200_000));
+        assert_eq!(request_floor, Some(1_200_000));
+        seek_target = Some(200_000);
+        let requested = time_us(playback_frame_request_time(
+            seek_target,
+            &mut request_floor,
+            status,
+            || NativeTime {
+                value: 1_205_000,
+                timescale: 1_000_000,
+                flags: 1,
+                epoch: 0,
+            },
+        ))?;
+        assert_eq!(requested, 200_000, "new seek replaces the old position");
+        assert_eq!(request_floor, Some(200_000));
+        assert!(accept_seek_frame(&mut seek_target, requested));
+        status.current_time_us = 240_000;
+        let resumed = time_us(playback_frame_request_time(
+            seek_target,
+            &mut request_floor,
+            status,
+            || NativeTime {
+                value: 240_000,
+                timescale: 1_000_000,
+                flags: 1,
+                epoch: 0,
+            },
+        ))?;
+        assert_eq!(resumed, 240_000, "playback advances after backward seek");
+        Ok(())
+    }
+
+    #[test]
+    fn video_playback_request_floor_keeps_earlier_long_sample_presentation() -> Result<()> {
+        let mut seek_target = Some(125_000);
+        let mut request_floor = None;
+        let mut status = VideoPlaybackStatus {
+            state: VideoPlaybackState::Paused,
+            current_time_us: 125_000,
+            duration_us: 1_000_000,
+        };
+        let requested = time_us(playback_frame_request_time(
+            seek_target,
+            &mut request_floor,
+            status,
+            || NativeTime::ZERO,
+        ))?;
+        assert_eq!(requested, 125_000);
+        assert!(
+            accept_seek_frame(&mut seek_target, 0),
+            "the source sample covering 125ms can begin at 0ms"
+        );
+        assert_eq!(seek_target, None);
+        assert_eq!(
+            request_floor,
+            Some(125_000),
+            "PTS does not lower the request floor"
+        );
+        status.state = VideoPlaybackState::Playing;
+        status.current_time_us = 175_000;
+        let resumed = time_us(playback_frame_request_time(
+            seek_target,
+            &mut request_floor,
+            status,
+            || NativeTime {
+                value: 175_000,
+                timescale: 1_000_000,
+                flags: 1,
+                epoch: 0,
+            },
+        ))?;
+        assert_eq!(resumed, 175_000);
+        assert!(
+            accept_seek_frame(&mut seek_target, 0),
+            "continued playback inside a long sample must accept its earlier PTS"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn video_playback_request_floor_preserves_invalid_host_mappings() {
+        let status = VideoPlaybackStatus {
+            state: VideoPlaybackState::Playing,
+            current_time_us: 1_205_000,
+            duration_us: 3_000_000,
+        };
+        let invalid_mappings = [
+            NativeTime {
+                flags: 0,
+                ..NativeTime::ZERO
+            },
+            NativeTime {
+                flags: 1 | 4,
+                ..NativeTime::ZERO
+            },
+            NativeTime {
+                flags: 1 | 8,
+                ..NativeTime::ZERO
+            },
+            NativeTime {
+                flags: 1 | 16,
+                ..NativeTime::ZERO
+            },
+            NativeTime {
+                value: -1,
+                ..NativeTime::ZERO
+            },
+            NativeTime {
+                timescale: 0,
+                ..NativeTime::ZERO
+            },
+            NativeTime {
+                epoch: 1,
+                ..NativeTime::ZERO
+            },
+        ];
+        for invalid in invalid_mappings {
+            let mut request_floor = Some(1_200_000);
+            let requested =
+                playback_frame_request_time(None, &mut request_floor, status, || invalid);
+            assert_eq!(
+                (
+                    requested.value,
+                    requested.timescale,
+                    requested.flags,
+                    requested.epoch
+                ),
+                (
+                    invalid.value,
+                    invalid.timescale,
+                    invalid.flags,
+                    invalid.epoch
+                ),
+                "invalid mapping must still reach the existing caller validation"
+            );
+            assert!(time_us(requested).is_err());
+            assert_eq!(request_floor, Some(1_200_000));
+        }
+    }
+
+    #[test]
+    fn video_playback_request_floor_uses_item_time_when_not_playing() -> Result<()> {
+        let mut request_floor = Some(1_200_000);
+        let host_queries = std::cell::Cell::new(0);
+        for state in [
+            VideoPlaybackState::Loading,
+            VideoPlaybackState::Paused,
+            VideoPlaybackState::Ended,
+        ] {
+            let status = VideoPlaybackStatus {
+                state,
+                current_time_us: 200_000,
+                duration_us: 3_000_000,
+            };
+            let requested = playback_frame_request_time(None, &mut request_floor, status, || {
+                host_queries.set(host_queries.get() + 1);
+                NativeTime::ZERO
+            });
+            assert_eq!(time_us(requested)?, status.current_time_us);
+            assert_eq!(request_floor, Some(1_200_000));
+        }
+        assert_eq!(
+            host_queries.get(),
+            0,
+            "non-playing states have no advancing display clock"
+        );
+        Ok(())
     }
 
     #[test]
