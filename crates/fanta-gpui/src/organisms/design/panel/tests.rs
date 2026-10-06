@@ -20112,6 +20112,75 @@ fn property_variable_popup_uses_its_full_surface_and_stays_inside_the_window(
 }
 
 #[gpui::test]
+fn bound_property_summary_wraps_full_precedence_and_keeps_detach_usable_at_minimum_width(
+    cx: &mut TestAppContext,
+) {
+    let node = DesignPanelNode::new("rectangle", "Rectangle", DesignPanelNodeKind::Rectangle);
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    let captured = actions(&host, visual_cx);
+    let label = "Radius / Components / Large / Rounded (independent corners take precedence)";
+    visual_cx.simulate_resize(gpui::size(px(320.), px(900.)));
+    for theme in [
+        gpui_component::ThemeMode::Dark,
+        gpui_component::ThemeMode::Light,
+    ] {
+        captured.borrow_mut().clear();
+        visual_cx.update(|window, app| {
+            gpui_component::Theme::change(theme, None, app);
+            panel.update(app, |panel, cx| {
+                panel.set_property_value_state(
+                    DesignPanelProperty::CornerRadius,
+                    DesignPanelPropertyValueState::bound(DesignPanelPropertyBinding::new(
+                        "radius-variable",
+                        label,
+                        DesignPanelBindingKind::Variable,
+                        DesignPanelValue::Number(7.),
+                    )),
+                    cx,
+                );
+                panel.open_property_variable_picker(DesignPanelProperty::CornerRadius, window, cx);
+            });
+            window.refresh();
+        });
+        visual_cx.run_until_parked();
+        let surface = visual_cx
+            .debug_bounds("property-variable-surface-CornerRadius")
+            .expect("bound variable popup");
+        let summary = visual_cx
+            .debug_bounds("property-variable-summary-CornerRadius")
+            .expect("full binding explanation");
+        let detach = visual_cx
+            .debug_bounds("property-variable-detach-CornerRadius")
+            .expect("detach control");
+        assert!(
+            summary.size.height >= px(36.),
+            "the full explanation must wrap onto multiple lines"
+        );
+        assert!(summary.left() >= surface.left() && summary.right() <= surface.right());
+        assert!(summary.top() >= surface.top() && summary.bottom() <= surface.bottom());
+        assert!(
+            summary.right() <= detach.left(),
+            "wrapped label must not cover Detach"
+        );
+        assert!(detach.right() <= surface.right() && detach.bottom() <= surface.bottom());
+        assert!(
+            detach.size.width >= px(40.),
+            "Detach keeps a usable hit region"
+        );
+        visual_cx.simulate_click(detach.center(), Modifiers::none());
+        visual_cx.run_until_parked();
+        assert_eq!(captured.borrow().len(), 1);
+        assert!(matches!(
+            &captured.borrow()[0],
+            DesignPanelAction::PropertyVariableDetachRequested { variable_id, target, .. }
+                if variable_id.as_ref() == "radius-variable"
+                    && target.property == DesignPanelProperty::CornerRadius
+        ));
+    }
+}
+
+#[gpui::test]
 fn canonical_effect_settings_follow_identity_and_dismiss_after_removal(cx: &mut TestAppContext) {
     let mut node = DesignPanelNode::new("effects", "Effects", DesignPanelNodeKind::Rectangle);
     node.effects = vec![

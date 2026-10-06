@@ -576,14 +576,18 @@ impl DesignBrowserController for DesignPanel {
                     content = content.child(
                         h_flex()
                             .w_full()
+                            .items_start()
                             .gap_2()
                             .px_1()
                             .child(
                                 div()
                                     .flex_1()
                                     .min_w(px(0.))
-                                    .truncate()
+                                    .whitespace_normal()
                                     .typography(crate::atoms::TypographyToken::Panel)
+                                    .debug_selector(move || {
+                                        format!("property-variable-summary-{property:?}")
+                                    })
                                     .child(binding.name().clone()),
                             )
                             .child(
@@ -591,6 +595,10 @@ impl DesignBrowserController for DesignPanel {
                                     "{panel_id}-detach-property-variable-{property:?}"
                                 )))
                                 .label("Detach")
+                                .flex_shrink_0()
+                                .debug_selector(move || {
+                                    format!("property-variable-detach-{property:?}")
+                                })
                                 .tooltip(
                                     read_only_reason
                                         .clone()
