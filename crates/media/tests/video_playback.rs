@@ -210,11 +210,22 @@ mod native {
 
     fn repeated_same_position_seek_can_resume_advancing_frames() -> Result<()> {
         let mut player = player(CLIP, 128)?;
-        for _ in 0..3 {
-            near(
-                colors(&seek_frame(&mut player, 1_200_000)?)?[0],
-                [0, 255, 255],
-            )?;
+        for iteration in 0..3 {
+            let frame = seek_frame(&mut player, 1_200_000).with_context(|| {
+                format!(
+                    "repeated-seek phase=paused_seek iteration={} target_us=1200000 player_status={:?}",
+                    iteration + 1,
+                    player.status()
+                )
+            })?;
+            near(colors(&frame)?[0], [0, 255, 255]).with_context(|| {
+                format!(
+                    "repeated-seek phase=paused_seek iteration={} target_us=1200000 frame_pts_us={} player_status={:?}",
+                    iteration + 1,
+                    frame.presentation_time_us,
+                    player.status()
+                )
+            })?;
         }
         player.play()?;
         let mut timestamps = BTreeSet::new();
@@ -223,7 +234,13 @@ mod native {
                 if let VideoFrameUpdate::Frame(frame) =
                     player.frame_for_host_time(video_host_time_seconds())?
                 {
-                    near(colors(&frame)?[0], [0, 255, 255])?;
+                    near(colors(&frame)?[0], [0, 255, 255]).with_context(|| {
+                        format!(
+                            "repeated-seek phase=resumed_playback frame_pts_us={} previous_frame_pts_us={timestamps:?} player_status={:?}",
+                            frame.presentation_time_us,
+                            player.status()
+                        )
+                    })?;
                     timestamps.insert(frame.presentation_time_us);
                 }
                 Ok(player.status()?.current_time_us >= 1_650_000)
@@ -235,10 +252,19 @@ mod native {
             "Repeated seek pinned the frame query: {timestamps:?}"
         );
         player.pause()?;
-        near(
-            colors(&seek_frame(&mut player, 2_500_000)?)?[0],
-            [255, 0, 255],
-        )?;
+        let frame = seek_frame(&mut player, 2_500_000).with_context(|| {
+            format!(
+                "repeated-seek phase=final_paused_seek target_us=2500000 player_status={:?}",
+                player.status()
+            )
+        })?;
+        near(colors(&frame)?[0], [255, 0, 255]).with_context(|| {
+            format!(
+                "repeated-seek phase=final_paused_seek target_us=2500000 frame_pts_us={} player_status={:?}",
+                frame.presentation_time_us,
+                player.status()
+            )
+        })?;
         Ok(())
     }
 
