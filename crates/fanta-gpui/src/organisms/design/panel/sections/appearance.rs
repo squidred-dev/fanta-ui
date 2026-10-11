@@ -668,6 +668,8 @@ impl AppearancePanelCompat for DesignPanel {
                 layout_grid_target: None,
                 export_configuration_id: None,
                 original: original.clone(),
+                initial_draft: None,
+                initially_uniform: true,
                 last_preview: None,
                 base,
                 kind,

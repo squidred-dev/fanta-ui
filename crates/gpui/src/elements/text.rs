@@ -682,7 +682,7 @@ impl TextLayout {
                 //    because the previous layout may have been computed without truncation)
                 if let Some(text_layout) = element_state.0.borrow().as_ref()
                     && let Some(size) = text_layout.size
-                    && (wrap_width.is_none() || wrap_width == text_layout.wrap_width)
+                    && wrap_width == text_layout.wrap_width
                     && truncate_width.is_none()
                 {
                     return size;
@@ -1287,5 +1287,148 @@ mod tests {
             make_text_unstable_id(false).id,
             make_text_unstable_id(true).id
         );
+    }
+
+    fn measure_text_layout(
+        layout: &TextLayout,
+        text: &SharedString,
+        width: crate::AvailableSpace,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> Size<Pixels> {
+        // A fresh layout node bypasses Taffy's cache while retaining the text's
+        // real measurement cache across probes.
+        let layout_id = layout.layout(text.clone(), None, window, cx);
+        window.compute_layout(
+            layout_id,
+            crate::size(width, crate::AvailableSpace::MaxContent),
+            cx,
+        );
+        window.layout_bounds(layout_id).size
+    }
+
+    fn cached_text_lines(layout: &TextLayout) -> Vec<Arc<WrappedLineLayout>> {
+        let state = layout.0.borrow();
+        match state.as_ref() {
+            Some(state) => state.lines.iter().map(|line| line.layout.clone()).collect(),
+            None => Vec::new(),
+        }
+    }
+
+    #[gpui::test]
+    fn text_layout_intrinsic_size_recovers_after_zero_and_narrow_wrap(
+        cx: &mut crate::TestAppContext,
+    ) {
+        use crate::{AvailableSpace, div, px, size};
+
+        let cx = cx.add_empty_window();
+        cx.draw(Point::default(), size(px(800.), px(600.)), |window, cx| {
+            let text = SharedString::from("Drag on the canvas to select a crop");
+            let natural = measure_text_layout(
+                &TextLayout::default(),
+                &text,
+                AvailableSpace::MaxContent,
+                window,
+                cx,
+            );
+            assert!(natural.width > px(0.) && natural.height > px(0.));
+
+            let narrow_width = px((natural.width.as_f32() / 4.).floor());
+            assert!(narrow_width > px(0.) && narrow_width < natural.width);
+            for width in [px(0.), narrow_width] {
+                let layout = TextLayout::default();
+                let wrapped = measure_text_layout(
+                    &layout,
+                    &text,
+                    AvailableSpace::Definite(width),
+                    window,
+                    cx,
+                );
+                assert!(wrapped.width <= width);
+                assert!(wrapped.height > natural.height);
+                assert_eq!(
+                    layout.0.borrow().as_ref().map(|state| state.wrap_width),
+                    Some(Some(width)),
+                );
+                let intrinsic =
+                    measure_text_layout(&layout, &text, AvailableSpace::MaxContent, window, cx);
+                assert_eq!(intrinsic, natural, "after wrapping at {width:?}");
+            }
+            div()
+        });
+    }
+
+    #[gpui::test]
+    fn text_layout_unchanged_wrap_preserves_geometry_and_shaped_lines(
+        cx: &mut crate::TestAppContext,
+    ) {
+        use crate::{AvailableSpace, div, px, size};
+
+        let cx = cx.add_empty_window();
+        cx.draw(Point::default(), size(px(800.), px(600.)), |window, cx| {
+            let text = SharedString::from("Drag on the canvas to select a crop");
+            let layout = TextLayout::default();
+            let width = AvailableSpace::Definite(px(48.));
+            let first = measure_text_layout(&layout, &text, width, window, cx);
+            let first_lines = cached_text_lines(&layout);
+            assert!(!first_lines.is_empty());
+            let repeated = measure_text_layout(&layout, &text, width, window, cx);
+            let repeated_lines = cached_text_lines(&layout);
+            let fresh = measure_text_layout(&TextLayout::default(), &text, width, window, cx);
+            assert_eq!(repeated, first);
+            assert_eq!(repeated, fresh);
+            assert_eq!(first_lines.len(), repeated_lines.len());
+            assert!(
+                first_lines
+                    .iter()
+                    .zip(&repeated_lines)
+                    .all(|(first, repeated)| Arc::ptr_eq(first, repeated))
+            );
+            div()
+        });
+    }
+
+    #[gpui::test]
+    fn text_layout_resizing_matches_fresh_measurements_with_and_without_wrapping(
+        cx: &mut crate::TestAppContext,
+    ) {
+        use crate::{AvailableSpace, TextStyleRefinement, div, px, size};
+
+        let cx = cx.add_empty_window();
+        cx.draw(Point::default(), size(px(800.), px(600.)), |window, cx| {
+            let text = SharedString::from("Drag on the canvas to select a crop");
+            for white_space in [WhiteSpace::Normal, WhiteSpace::Nowrap] {
+                window.with_text_style(
+                    Some(TextStyleRefinement {
+                        white_space: Some(white_space),
+                        ..Default::default()
+                    }),
+                    |window| {
+                        let layout = TextLayout::default();
+                        for width in [
+                            AvailableSpace::Definite(px(240.)),
+                            AvailableSpace::Definite(px(32.)),
+                            AvailableSpace::Definite(px(480.)),
+                            AvailableSpace::MaxContent,
+                            AvailableSpace::Definite(px(0.)),
+                            AvailableSpace::MaxContent,
+                            AvailableSpace::Definite(px(240.)),
+                        ] {
+                            let fresh = measure_text_layout(
+                                &TextLayout::default(),
+                                &text,
+                                width,
+                                window,
+                                cx,
+                            );
+                            let reused = measure_text_layout(&layout, &text, width, window, cx);
+                            assert_eq!(reused, fresh, "{white_space:?} at {width:?}");
+                            assert!(fresh.height > px(0.));
+                        }
+                    },
+                );
+            }
+            div()
+        });
     }
 }

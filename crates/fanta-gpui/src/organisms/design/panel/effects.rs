@@ -487,6 +487,8 @@ impl DesignEffectsController for DesignPanel {
             layout_grid_target: None,
             export_configuration_id: None,
             original: current.clone(),
+            initial_draft: Some(draft.to_string()),
+            initially_uniform: true,
             last_preview: None,
             base,
             kind: PropertyEditorKind::Shader { field, input },
