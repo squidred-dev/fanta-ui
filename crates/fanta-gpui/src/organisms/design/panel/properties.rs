@@ -5299,7 +5299,13 @@ impl DesignPropertiesController for DesignPanel {
             Ok(value) => property
                 .is_some_and(|property| !self.layout_property_value_is_applicable(property, value)),
         });
+        // InputState queues Change after the synchronous seeding guard is reset.
+        // Rounded display text is still untouched input, not a numeric preview.
+        let untouched_seed = self.edit.property.as_ref().is_some_and(|editor| {
+            editor.last_preview.is_none() && editor.initial_draft.as_deref() == Some(draft.as_ref())
+        });
         if !self.edit.suppress_property_input_change
+            && !untouched_seed
             && !self.edit.property_invalid
             && let Some(Ok(value)) = parsed
         {
@@ -5368,6 +5374,13 @@ impl DesignPropertiesController for DesignPanel {
         let Some(property) = self.edit.property.as_ref().map(|editor| editor.property) else {
             return;
         };
+        let untouched = self.property_draft_state(cx) == DesignPropertyDraftState::Unchanged
+            && self
+                .edit
+                .property
+                .as_ref()
+                .is_some_and(|editor| editor.last_preview.is_none());
+        let commit = commit && !untouched;
         let value = commit
             .then(|| self.parsed_property_draft(cx))
             .flatten()

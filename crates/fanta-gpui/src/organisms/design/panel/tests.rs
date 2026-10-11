@@ -20601,6 +20601,251 @@ fn preserved_property_draft_commits_after_peer_focus_without_stealing_focus(
 }
 
 #[gpui::test]
+fn property_fractional_seed_focus_enter_and_blur_are_unchanged(cx: &mut TestAppContext) {
+    for enter in [false, true] {
+        let mut node = DesignPanelNode::new("shape", "Shape", DesignPanelNodeKind::Rectangle);
+        node.x = 55.375;
+        let (host, visual_cx) = setup(node.clone(), cx);
+        let panel = panel(&host, visual_cx);
+        let captured = actions(&host, visual_cx);
+        let input_center = visual_cx
+            .debug_bounds("design-x")
+            .expect("X input")
+            .center();
+        visual_cx.simulate_click(input_center, Modifiers::none());
+        visual_cx.run_until_parked();
+        panel.read_with(visual_cx, |panel, cx| {
+            assert_eq!(
+                panel.retained.inputs.property.read(cx).value().as_ref(),
+                "55.38"
+            );
+            assert_eq!(
+                panel.property_draft_state(cx),
+                DesignPropertyDraftState::Unchanged
+            );
+        });
+        let property_events = || {
+            captured
+                .borrow()
+                .iter()
+                .filter_map(|action| match action {
+                    DesignPanelAction::PropertyEditRequested {
+                        property: DesignPanelProperty::X,
+                        phase,
+                        value,
+                        ..
+                    } => Some((*phase, value.clone())),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            property_events(),
+            vec![(
+                DesignPanelEditPhase::Begin,
+                DesignPanelValue::Number(55.375)
+            )]
+        );
+        if enter {
+            visual_cx.simulate_keystrokes("enter");
+        } else {
+            panel.update_in(visual_cx, |panel, window, cx| {
+                panel.focus_handle.focus(window, cx)
+            });
+        }
+        visual_cx.run_until_parked();
+        assert_eq!(
+            property_events(),
+            vec![
+                (
+                    DesignPanelEditPhase::Begin,
+                    DesignPanelValue::Number(55.375)
+                ),
+                (
+                    DesignPanelEditPhase::Cancel,
+                    DesignPanelValue::Number(55.375)
+                ),
+            ]
+        );
+        panel.read_with(visual_cx, |panel, cx| {
+            assert_eq!(
+                panel.property_draft_state(cx),
+                DesignPropertyDraftState::None
+            );
+            assert_eq!(panel.node(), &node);
+        });
+        captured.borrow_mut().clear();
+        let input_center = visual_cx
+            .debug_bounds("design-x")
+            .expect("reopened X input")
+            .center();
+        visual_cx.simulate_click(input_center, Modifiers::none());
+        panel.update_in(visual_cx, |panel, window, cx| {
+            panel
+                .retained
+                .inputs
+                .property
+                .update(cx, |input, cx| input.set_value("72.125", window, cx));
+        });
+        visual_cx.run_until_parked();
+        visual_cx.simulate_keystrokes("enter");
+        visual_cx.run_until_parked();
+        assert_eq!(
+            property_events(),
+            vec![
+                (
+                    DesignPanelEditPhase::Begin,
+                    DesignPanelValue::Number(55.375)
+                ),
+                (
+                    DesignPanelEditPhase::Preview,
+                    DesignPanelValue::Number(72.125)
+                ),
+                (
+                    DesignPanelEditPhase::Commit,
+                    DesignPanelValue::Number(72.125)
+                ),
+            ],
+            "cancelling an untouched editor must not suppress the next edit"
+        );
+    }
+}
+
+#[gpui::test]
+fn property_fractional_seed_allows_real_preview_return_and_commit(cx: &mut TestAppContext) {
+    let mut node = DesignPanelNode::new("shape", "Shape", DesignPanelNodeKind::Rectangle);
+    node.x = 55.375;
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    let captured = actions(&host, visual_cx);
+    let input_center = visual_cx
+        .debug_bounds("design-x")
+        .expect("X input")
+        .center();
+    visual_cx.simulate_click(input_center, Modifiers::none());
+    visual_cx.run_until_parked();
+    for text in ["72.125", "bad", "55.38", "72.125"] {
+        panel.update_in(visual_cx, |panel, window, cx| {
+            panel
+                .retained
+                .inputs
+                .property
+                .update(cx, |input, cx| input.set_value(text, window, cx));
+        });
+        visual_cx.run_until_parked();
+        if text == "bad" {
+            panel.read_with(visual_cx, |panel, cx| {
+                assert_eq!(
+                    panel.property_draft_state(cx),
+                    DesignPropertyDraftState::Invalid
+                );
+                assert_eq!(
+                    panel.retained.inputs.property.read(cx).value().as_ref(),
+                    "bad"
+                );
+            });
+        }
+    }
+    visual_cx.simulate_keystrokes("enter");
+    visual_cx.run_until_parked();
+    let property_events: Vec<_> = captured
+        .borrow()
+        .iter()
+        .filter_map(|action| match action {
+            DesignPanelAction::PropertyEditRequested {
+                property: DesignPanelProperty::X,
+                phase,
+                value,
+                ..
+            } => Some((*phase, value.clone())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        property_events,
+        vec![
+            (
+                DesignPanelEditPhase::Begin,
+                DesignPanelValue::Number(55.375)
+            ),
+            (
+                DesignPanelEditPhase::Preview,
+                DesignPanelValue::Number(72.125)
+            ),
+            (
+                DesignPanelEditPhase::Preview,
+                DesignPanelValue::Number(55.38)
+            ),
+            (
+                DesignPanelEditPhase::Preview,
+                DesignPanelValue::Number(72.125)
+            ),
+            (
+                DesignPanelEditPhase::Commit,
+                DesignPanelValue::Number(72.125)
+            ),
+        ]
+    );
+    assert_eq!(
+        panel.read_with(visual_cx, |panel, cx| panel.property_draft_state(cx)),
+        DesignPropertyDraftState::None
+    );
+    captured.borrow_mut().clear();
+    let input_center = visual_cx
+        .debug_bounds("design-x")
+        .expect("reopened X input")
+        .center();
+    visual_cx.simulate_click(input_center, Modifiers::none());
+    for text in ["72.125", "55.375"] {
+        panel.update_in(visual_cx, |panel, window, cx| {
+            panel
+                .retained
+                .inputs
+                .property
+                .update(cx, |input, cx| input.set_value(text, window, cx));
+        });
+        visual_cx.run_until_parked();
+    }
+    visual_cx.simulate_keystrokes("enter");
+    visual_cx.run_until_parked();
+    let returned_events: Vec<_> = captured
+        .borrow()
+        .iter()
+        .filter_map(|action| match action {
+            DesignPanelAction::PropertyEditRequested {
+                property: DesignPanelProperty::X,
+                phase,
+                value,
+                ..
+            } => Some((*phase, value.clone())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        returned_events,
+        vec![
+            (
+                DesignPanelEditPhase::Begin,
+                DesignPanelValue::Number(55.375)
+            ),
+            (
+                DesignPanelEditPhase::Preview,
+                DesignPanelValue::Number(72.125)
+            ),
+            (
+                DesignPanelEditPhase::Preview,
+                DesignPanelValue::Number(55.375)
+            ),
+            (
+                DesignPanelEditPhase::Commit,
+                DesignPanelValue::Number(55.375)
+            ),
+        ],
+        "a real preview returning to its original value retains the terminal lifecycle"
+    );
+}
+
+#[gpui::test]
 fn property_save_commits_focused_current_input_once(cx: &mut TestAppContext) {
     let mut node = DesignPanelNode::new("shape", "Shape", DesignPanelNodeKind::Rectangle);
     node.x = 40.;
