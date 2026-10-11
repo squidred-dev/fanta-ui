@@ -20608,12 +20608,25 @@ fn property_fractional_seed_focus_enter_and_blur_are_unchanged(cx: &mut TestAppC
         let (host, visual_cx) = setup(node.clone(), cx);
         let panel = panel(&host, visual_cx);
         let captured = actions(&host, visual_cx);
+        visual_cx.update(|window, _| window.activate_window());
+        visual_cx.run_until_parked();
+        assert!(visual_cx.update(|window, _| window.is_window_active()));
         let input_center = visual_cx
             .debug_bounds("design-x")
             .expect("X input")
             .center();
         visual_cx.simulate_click(input_center, Modifiers::none());
         visual_cx.run_until_parked();
+        panel.update_in(visual_cx, |panel, window, cx| {
+            assert!(
+                panel
+                    .retained
+                    .inputs
+                    .property
+                    .focus_handle(cx)
+                    .is_focused(window)
+            );
+        });
         panel.read_with(visual_cx, |panel, cx| {
             assert_eq!(
                 panel.retained.inputs.property.read(cx).value().as_ref(),
@@ -20650,7 +20663,16 @@ fn property_fractional_seed_focus_enter_and_blur_are_unchanged(cx: &mut TestAppC
             visual_cx.simulate_keystrokes("enter");
         } else {
             panel.update_in(visual_cx, |panel, window, cx| {
-                panel.focus_handle.focus(window, cx)
+                panel.focus_handle.focus(window, cx);
+                assert!(panel.focus_handle.is_focused(window));
+                assert!(
+                    !panel
+                        .retained
+                        .inputs
+                        .property
+                        .focus_handle(cx)
+                        .is_focused(window)
+                );
             });
         }
         visual_cx.run_until_parked();
