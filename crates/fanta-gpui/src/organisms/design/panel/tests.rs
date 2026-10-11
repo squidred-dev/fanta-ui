@@ -20669,13 +20669,11 @@ fn property_save_keeps_invalid_raw_input_and_last_valid_preview(cx: &mut TestApp
     let (host, visual_cx) = setup(node, cx);
     let panel = panel(&host, visual_cx);
     let captured = actions(&host, visual_cx);
-    visual_cx.simulate_click(
-        visual_cx
-            .debug_bounds("design-x")
-            .expect("X input")
-            .center(),
-        Modifiers::none(),
-    );
+    let input_center = visual_cx
+        .debug_bounds("design-x")
+        .expect("X input")
+        .center();
+    visual_cx.simulate_click(input_center, Modifiers::none());
     visual_cx.run_until_parked();
     panel.update_in(visual_cx, |panel, window, cx| {
         panel
@@ -20772,13 +20770,11 @@ fn property_close_hold_preserves_valid_and_invalid_input_through_host_focus(
             scope
         });
         visual_cx.run_until_parked();
-        visual_cx.simulate_click(
-            visual_cx
-                .debug_bounds("design-x")
-                .expect("X input")
-                .center(),
-            Modifiers::none(),
-        );
+        let input_center = visual_cx
+            .debug_bounds("design-x")
+            .expect("X input")
+            .center();
+        visual_cx.simulate_click(input_center, Modifiers::none());
         visual_cx.run_until_parked();
         panel.update_in(visual_cx, |panel, window, cx| {
             panel
@@ -20888,13 +20884,11 @@ fn property_save_unchanged_and_mixed_fields_do_not_create_changes(cx: &mut TestA
             });
             visual_cx.run_until_parked();
         }
-        visual_cx.simulate_click(
-            visual_cx
-                .debug_bounds("design-x")
-                .expect("X input")
-                .center(),
-            Modifiers::none(),
-        );
+        let input_center = visual_cx
+            .debug_bounds("design-x")
+            .expect("X input")
+            .center();
+        visual_cx.simulate_click(input_center, Modifiers::none());
         visual_cx.run_until_parked();
         panel.update_in(visual_cx, |panel, window, cx| {
             assert_eq!(
@@ -20946,13 +20940,11 @@ fn property_save_commits_representative_value_from_mixed_and_unset_input(cx: &mu
             panel.set_property_value_state(DesignPanelProperty::X, state, cx);
         });
         visual_cx.run_until_parked();
-        visual_cx.simulate_click(
-            visual_cx
-                .debug_bounds("design-x")
-                .expect("X input")
-                .center(),
-            Modifiers::none(),
-        );
+        let input_center = visual_cx
+            .debug_bounds("design-x")
+            .expect("X input")
+            .center();
+        visual_cx.simulate_click(input_center, Modifiers::none());
         visual_cx.run_until_parked();
         panel.update_in(visual_cx, |panel, window, cx| {
             assert!(panel.retained.inputs.property.read(cx).value().is_empty());

@@ -4,7 +4,7 @@
 use gpui::{
     AnyElement, App, Context, InteractiveElement as _, IntoElement as _, KeyDownEvent, MouseButton,
     ObjectFit, ParentElement as _, Role, SharedString, StatefulInteractiveElement as _,
-    Styled as _, StyledImage as _, Window, div, img, px,
+    Styled as _, StyledImage as _, Window, div, img, prelude::FluentBuilder as _, px,
 };
 
 use crate::atoms::{CONTROL_KEY_CONTEXT, ControlExt as _};
@@ -331,11 +331,13 @@ impl GenerationScreen {
                     ),
             )
             .child(Self::lightbox_info("MODEL", model_label, colors))
-            .child(Self::lightbox_info(
-                "CREATED",
-                output.created_at.clone(),
-                colors,
-            ));
+            .when(!output.created_at.is_empty(), |details| {
+                details.child(Self::lightbox_info(
+                    "CREATED",
+                    output.created_at.clone(),
+                    colors,
+                ))
+            });
         if !output.detail.is_empty() {
             details = details.child(Self::lightbox_info("OUTPUT", output.detail.clone(), colors));
         }
