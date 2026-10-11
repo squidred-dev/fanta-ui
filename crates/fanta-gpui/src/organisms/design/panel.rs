@@ -734,6 +734,8 @@ struct PropertyEditor {
     /// Stable host export-row identity captured before Begin.
     export_configuration_id: Option<SharedString>,
     original: DesignPanelValue,
+    initial_draft: Option<String>,
+    initially_uniform: bool,
     last_preview: Option<DesignPanelValue>,
     base: f64,
     kind: PropertyEditorKind,
@@ -784,6 +786,7 @@ impl PropertyEditor {
             draft,
         } = seed;
         let presentation = InspectorFieldPresentation::new(InspectorFieldAccess::Editable);
+        let initially_uniform = matches!(&value, InspectorValue::Uniform(_));
         let controlled = match kind {
             PropertyEditorKind::Number { .. }
             | PropertyEditorKind::OptionalNumber { .. }
@@ -822,6 +825,8 @@ impl PropertyEditor {
             layout_grid_target,
             export_configuration_id,
             original,
+            initial_draft: Some(draft.clone()),
+            initially_uniform,
             last_preview: None,
             base,
             kind,
@@ -1338,6 +1343,7 @@ pub struct DesignPanel {
     draft_preserving_focus_scope: Option<FocusHandle>,
     draft_preserving_focus_subscription: Option<(FocusHandle, Subscription)>,
     property_draft_preserved: bool,
+    property_draft_preserved_for_host: bool,
     host: DesignPanelHostState,
     resources: DesignPanelResourceCatalogs,
     preferences: DesignInspectorPreferences,
@@ -1385,8 +1391,103 @@ impl DesignPanelActionEmitter for Context<'_, DesignPanel> {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DesignPropertyDraftState {
+    None,
+    Unchanged,
+    Valid,
+    Invalid,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DesignPropertyDraftError;
+
+impl std::fmt::Display for DesignPropertyDraftError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(
+            "Correct or cancel the invalid property value before saving. Its draft was kept.",
+        )
+    }
+}
+
+impl std::error::Error for DesignPropertyDraftError {}
+
 #[allow(deprecated)]
 impl DesignPanel {
+    /// Reports the ordinary property input only, not picker or font-axis editors.
+    pub fn property_draft_state(&self, cx: &App) -> DesignPropertyDraftState {
+        let Some(editor) = self.edit.property.as_ref() else {
+            return DesignPropertyDraftState::None;
+        };
+        let Some(initial_draft) = editor.initial_draft.as_ref() else {
+            return DesignPropertyDraftState::None;
+        };
+        if self
+            .edit
+            .numeric_scrub
+            .as_ref()
+            .is_some_and(|scrub| scrub.active)
+        {
+            return DesignPropertyDraftState::None;
+        }
+        let draft = self.retained.inputs.property.read(cx).value();
+        // Mixed and unset inputs can start blank without an authored change.
+        if draft.as_ref() == initial_draft.as_str() {
+            return DesignPropertyDraftState::Unchanged;
+        }
+        match self.parse_property_draft(draft) {
+            Some(Ok(value))
+                if self.layout_property_value_is_applicable(editor.property, &value) =>
+            {
+                if editor.initially_uniform && value == editor.original {
+                    DesignPropertyDraftState::Unchanged
+                } else {
+                    DesignPropertyDraftState::Valid
+                }
+            }
+            _ => DesignPropertyDraftState::Invalid,
+        }
+    }
+
+    /// Prevents prompt activation from committing or discarding input on blur.
+    /// Cancel may keep this state; refocusing the input resumes normal editing.
+    pub fn preserve_property_draft_for_host_action(&mut self) {
+        if self
+            .edit
+            .property
+            .as_ref()
+            .is_some_and(|editor| editor.initial_draft.is_some())
+        {
+            self.property_draft_preserved = true;
+            self.property_draft_preserved_for_host = true;
+        }
+    }
+
+    /// A true result means an edit intent was emitted. The host must let its
+    /// subscription settle before taking a document snapshot. Invalid input is
+    /// not consumed, even when its last valid preview differs from the draft.
+    pub fn try_commit_property_draft(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Result<bool, DesignPropertyDraftError> {
+        match self.property_draft_state(cx) {
+            DesignPropertyDraftState::None => Ok(false),
+            DesignPropertyDraftState::Invalid => {
+                self.edit.property_invalid = true;
+                cx.notify();
+                Err(DesignPropertyDraftError)
+            }
+            state => {
+                self.finish_property_edit_after_input_blur(
+                    state == DesignPropertyDraftState::Valid,
+                    window,
+                    cx,
+                );
+                Ok(true)
+            }
+        }
+    }
     /// Preserve input drafts while focus enters host controls that may reject an action.
     pub fn set_draft_preserving_focus_scope(&mut self, scope: Option<FocusHandle>) {
         self.draft_preserving_focus_scope = scope;
@@ -2306,12 +2407,13 @@ impl Render for DesignPanel {
             self.draft_preserving_focus_subscription =
                 self.draft_preserving_focus_scope.clone().map(|scope| {
                     let subscription = cx.on_focus_out(&scope, window, |this, _, window, cx| {
-                        if !this
-                            .retained
-                            .inputs
-                            .property
-                            .focus_handle(cx)
-                            .is_focused(window)
+                        if !this.property_draft_preserved_for_host
+                            && !this
+                                .retained
+                                .inputs
+                                .property
+                                .focus_handle(cx)
+                                .is_focused(window)
                         {
                             this.finish_preserved_property_draft(window, cx);
                         }

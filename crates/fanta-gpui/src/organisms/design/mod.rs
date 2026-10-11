@@ -12,7 +12,10 @@ mod typography_style_picker;
 
 pub use context::*;
 pub use model::*;
-pub use panel::{DesignInspector, DesignPanel, DesignPropertyPanel, DesignPropertyPanelKind};
+pub use panel::{
+    DesignInspector, DesignPanel, DesignPropertyDraftError, DesignPropertyDraftState,
+    DesignPropertyPanel, DesignPropertyPanelKind,
+};
 pub use sections::{
     DesignPanelSectionBand, design_panel_section_band,
     design_panel_section_is_visible_in_workspace, resolve_design_panel_sections,
