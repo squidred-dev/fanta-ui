@@ -49,6 +49,16 @@ impl Timeline {
             })
             .into_any_element()
     }
+    /// Separates groups of header controls.
+    fn divider(cx: &App) -> Div {
+        div()
+            .flex_none()
+            .w_px()
+            .h_5()
+            .mx_1()
+            .bg(Color::Border.resolve(cx))
+    }
+
     pub(super) fn render_controls(&self, _window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let d = &self.view_data;
         let editing = !d.read_only;
@@ -71,9 +81,10 @@ impl Timeline {
                 div()
                     .flex_none()
                     .px_2()
-                    .typography(TypographyToken::BodyLargeStrong)
+                    .typography(TypographyToken::PanelStrong)
                     .child("Timeline"),
             )
+            .child(Self::divider(cx))
             .child(self.command(
                 "previous",
                 "Previous keyframe",
@@ -115,6 +126,7 @@ impl Timeline {
                 },
                 cx,
             ))
+            .child(Self::divider(cx))
             .when(self.auto_keyframe_available, |controls| {
                 controls.child(self.command(
                     "auto-keyframe",
@@ -139,6 +151,7 @@ impl Timeline {
                 },
                 cx,
             ))
+            .child(Self::divider(cx))
             .child(
                 div()
                     .id("timeline-current-time")
@@ -196,6 +209,7 @@ impl Timeline {
                     })
                 })),
             )
+            .child(Self::divider(cx))
             .child(
                 self.button(
                     "playback",
@@ -312,8 +326,11 @@ impl Timeline {
                     .w(px(tokens::InputGeometry::MULTI_CELL_WIDTH))
                     .flex_none()
                     .text_right()
+                    .typography(TypographyToken::PanelCaption)
+                    .text_color(Color::TextTertiary.resolve(cx))
                     .child(format!("{:.0}%", d.zoom * 100.)),
             )
+            .child(Self::divider(cx))
             .child(self.command(
                 "help",
                 "Timeline help",

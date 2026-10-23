@@ -257,26 +257,6 @@ impl DrawInspector {
         sample
     }
 
-    fn parameter_block(
-        label: &'static str,
-        slider: Entity<Slider>,
-        entry: Entity<Entry>,
-        cx: &App,
-    ) -> impl IntoElement {
-        v_flex()
-            .flex_1()
-            .min_w_0()
-            .gap(px(tokens::InspectorGeometry::CAPTION_GAP))
-            .child(
-                div()
-                    .typography(TypographyToken::PanelCaption)
-                    .text_color(crate::atoms::sidebar_style(cx).muted_text)
-                    .child(label),
-            )
-            .child(entry)
-            .child(slider)
-    }
-
     fn save_preset_action(&self, cx: &mut Context<Self>) -> impl IntoElement {
         icon_button(
             format!("{}-save-preset", self.id),
@@ -300,12 +280,9 @@ impl DrawInspector {
         }))
     }
 
-    fn parameter_row(
-        label: &'static str,
-        slider: Entity<Slider>,
-        entry: Entity<Entry>,
-        cx: &App,
-    ) -> impl IntoElement {
+    /// One row of the panel's single grid: every label shares one column, so
+    /// tip, paint and stroke settings line up.
+    fn labeled_row(label: &'static str, control: impl IntoElement, cx: &App) -> Div {
         h_flex()
             .w_full()
             .min_w_0()
@@ -320,13 +297,31 @@ impl DrawInspector {
                     .text_color(crate::atoms::sidebar_style(cx).muted_text)
                     .child(label),
             )
-            .child(div().flex_1().min_w_0().child(slider))
-            .child(
-                div()
-                    .w(px(tokens::InputGeometry::NUMERIC_WIDTH))
-                    .flex_none()
-                    .child(entry),
-            )
+            .child(div().flex_1().min_w_0().child(control))
+    }
+
+    fn parameter_row(
+        label: &'static str,
+        slider: Entity<Slider>,
+        entry: Entity<Entry>,
+        cx: &App,
+    ) -> impl IntoElement {
+        Self::labeled_row(
+            label,
+            h_flex()
+                .w_full()
+                .min_w_0()
+                .items_center()
+                .gap(px(tokens::Space::SM))
+                .child(div().flex_1().min_w_0().child(slider))
+                .child(
+                    div()
+                        .w(px(tokens::InputGeometry::NUMERIC_WIDTH))
+                        .flex_none()
+                        .child(entry),
+                ),
+            cx,
+        )
     }
 
     fn settings_body() -> Div {
@@ -335,7 +330,7 @@ impl DrawInspector {
             .min_w_0()
             .px(px(tokens::InspectorGeometry::BODY_INSET))
             .pb(px(tokens::InspectorGeometry::BODY_BOTTOM))
-            .gap(px(tokens::InspectorGeometry::GROUP_GAP))
+            .gap(px(tokens::InspectorGeometry::ROW_GAP))
     }
 
     fn toggle(
@@ -507,63 +502,32 @@ impl Render for DrawInspector {
                         Self::settings_body()
                             .pt(px(tokens::InspectorGeometry::BODY_INSET))
                             .when(self.capabilities.brush_tip, |body| {
-                                body.child(
-                                    v_flex()
-                                        .w_full()
-                                        .min_w_0()
-                                        .gap(px(tokens::InspectorGeometry::CAPTION_GAP))
-                                        .child(
-                                            div()
-                                                .typography(TypographyToken::PanelCaption)
-                                                .text_color(
-                                                    crate::atoms::sidebar_style(cx).muted_text,
-                                                )
-                                                .child("Tip"),
-                                        )
-                                        .child(
-                                            h_flex()
-                                                .w_full()
-                                                .min_w_0()
-                                                .items_center()
-                                                .gap(px(tokens::InspectorGeometry::ROW_GAP))
-                                                .child(self.render_tip_sample(cx))
-                                                .child(
-                                                    div()
-                                                        .flex_1()
-                                                        .min_w_0()
-                                                        .child(self.tip.clone()),
-                                                )
-                                                .when(self.capabilities.save_preset, |row| {
-                                                    row.child(self.save_preset_action(cx))
-                                                }),
-                                        ),
-                                )
-                            })
-                            .when(self.capabilities.hardness, |body| {
-                                body.child(
+                                body.child(Self::labeled_row(
+                                    "Tip",
                                     h_flex()
                                         .w_full()
                                         .min_w_0()
-                                        .gap(px(tokens::InspectorGeometry::ROW_GAP))
-                                        .child(Self::parameter_block(
-                                            "Size",
-                                            self.size_slider.clone(),
-                                            self.size.clone(),
-                                            cx,
-                                        ))
-                                        .child(Self::parameter_block(
-                                            "Hardness",
-                                            self.hardness_slider.clone(),
-                                            self.hardness.clone(),
-                                            cx,
-                                        )),
-                                )
+                                        .items_center()
+                                        .gap(px(tokens::Space::SM))
+                                        .child(self.render_tip_sample(cx))
+                                        .child(div().flex_1().min_w_0().child(self.tip.clone()))
+                                        .when(self.capabilities.save_preset, |row| {
+                                            row.child(self.save_preset_action(cx))
+                                        }),
+                                    cx,
+                                ))
                             })
-                            .when(!self.capabilities.hardness, |body| {
+                            .child(Self::parameter_row(
+                                "Size",
+                                self.size_slider.clone(),
+                                self.size.clone(),
+                                cx,
+                            ))
+                            .when(self.capabilities.hardness, |body| {
                                 body.child(Self::parameter_row(
-                                    "Size",
-                                    self.size_slider.clone(),
-                                    self.size.clone(),
+                                    "Hardness",
+                                    self.hardness_slider.clone(),
+                                    self.hardness.clone(),
                                     cx,
                                 ))
                             })
@@ -590,39 +554,19 @@ impl Render for DrawInspector {
                 panel.child(
                     section("Paint", cx).child(
                         Self::settings_body()
-                            .child(
-                                v_flex()
-                                    .w_full()
-                                    .min_w_0()
-                                    .gap(px(tokens::InspectorGeometry::ROW_GAP))
-                                    .child(row("Color", self.color.clone(), cx))
-                                    .child(row("Blend mode", self.blend.clone(), cx)),
-                            )
+                            .child(Self::labeled_row("Color", self.color.clone(), cx))
+                            .child(Self::labeled_row("Blend", self.blend.clone(), cx))
+                            .child(Self::parameter_row(
+                                "Opacity",
+                                self.opacity_slider.clone(),
+                                self.opacity.clone(),
+                                cx,
+                            ))
                             .when(self.capabilities.flow, |body| {
-                                body.child(
-                                    h_flex()
-                                        .w_full()
-                                        .min_w_0()
-                                        .gap(px(tokens::InspectorGeometry::ROW_GAP))
-                                        .child(Self::parameter_block(
-                                            "Opacity",
-                                            self.opacity_slider.clone(),
-                                            self.opacity.clone(),
-                                            cx,
-                                        ))
-                                        .child(Self::parameter_block(
-                                            "Flow",
-                                            self.flow_slider.clone(),
-                                            self.flow.clone(),
-                                            cx,
-                                        )),
-                                )
-                            })
-                            .when(!self.capabilities.flow, |body| {
                                 body.child(Self::parameter_row(
-                                    "Opacity",
-                                    self.opacity_slider.clone(),
-                                    self.opacity.clone(),
+                                    "Flow",
+                                    self.flow_slider.clone(),
+                                    self.flow.clone(),
                                     cx,
                                 ))
                             }),

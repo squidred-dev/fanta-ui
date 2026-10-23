@@ -25,7 +25,9 @@ impl LayersPanel {
     pub(super) fn context_action_is_read_only(action: LayersPanelContextAction) -> bool {
         matches!(
             action,
-            LayersPanelContextAction::Copy | LayersPanelContextAction::GoToMainComponent
+            LayersPanelContextAction::Copy
+                | LayersPanelContextAction::GoToMainComponent
+                | LayersPanelContextAction::AddToAgent
         )
     }
 
@@ -172,6 +174,7 @@ pub(super) fn menu_sections_for(kind: LayersPanelNodeKind) -> Vec<Vec<MenuEntry>
             Action::PasteToReplace,
             Action::CopyPasteAs,
         ]),
+        entries(&[Action::AddToAgent]),
         entries(&[Action::MoveToPage, Action::BringToFront, Action::SendToBack]),
     ];
 

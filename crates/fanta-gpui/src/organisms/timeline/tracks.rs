@@ -598,7 +598,8 @@ impl Timeline {
                     )
                     .child(
                         div()
-                            .w(px(tokens::InputGeometry::MULTI_CELL_WIDTH))
+                            .w(px(tokens::InputGeometry::NUMERIC_WIDTH))
+                            .flex_none()
                             .truncate()
                             .text_right()
                             .text_color(Color::TextTertiary.resolve(cx))

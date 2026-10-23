@@ -1281,6 +1281,8 @@ fn read_only_layers_keep_navigation_and_copy_without_editing(cx: &mut TestAppCon
     assert!(cx.debug_bounds("layers-menu-detach-instance").is_none());
     assert!(cx.debug_bounds("layers-menu-rename").is_none());
     assert!(cx.debug_bounds("layers-menu-main-component").is_some());
+    // Mentioning a layer to the host's agent edits nothing.
+    assert!(cx.debug_bounds("layers-menu-add-to-agent").is_some());
     actions.borrow_mut().clear();
     click(cx, "layers-menu-copy", Modifiers::none());
     assert_eq!(
