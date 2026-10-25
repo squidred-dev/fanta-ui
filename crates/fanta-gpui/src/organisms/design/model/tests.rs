@@ -3899,12 +3899,22 @@ fn canonical_node_taxonomy_excludes_tools_paints_and_context_aliases() {
 
 #[test]
 fn exact_blend_modes_include_plus_and_light_variants() {
-    assert_eq!(DesignBlendMode::ALL.len(), 19);
+    assert_eq!(DesignBlendMode::ALL.len(), 27);
     assert_eq!(DesignBlendMode::LinearBurn.label(), "Plus darker");
     assert_eq!(DesignBlendMode::LinearDodge.label(), "Plus lighter");
     assert!(DesignBlendMode::ALL.contains(&DesignBlendMode::SoftLight));
     assert!(DesignBlendMode::ALL.contains(&DesignBlendMode::HardLight));
-    assert_eq!(DesignBlendMode::NON_PASS_THROUGH.len(), 18);
+    assert_eq!(DesignBlendMode::VividLight.label(), "Vivid light");
+    assert_eq!(DesignBlendMode::Divide.label(), "Divide");
+    assert_eq!(DesignBlendMode::NON_PASS_THROUGH.len(), 26);
+    assert_eq!(
+        DesignBlendMode::NON_PASS_THROUGH.as_slice(),
+        &DesignBlendMode::ALL[1..]
+    );
+    let mut labels: Vec<_> = DesignBlendMode::ALL.map(DesignBlendMode::label).to_vec();
+    labels.sort_unstable();
+    labels.dedup();
+    assert_eq!(labels.len(), DesignBlendMode::ALL.len());
     assert!(!DesignBlendMode::NON_PASS_THROUGH.contains(&DesignBlendMode::PassThrough));
     assert!(DesignPanelNodeKind::Frame.supports_pass_through_blend());
     assert!(DesignPanelNodeKind::Group.supports_pass_through_blend());
