@@ -1473,11 +1473,13 @@ The paint contract follows Figma's current
 and
 [shader discovery/import/property-definition model](https://developers.figma.com/docs/plugins/api/Shader/).
 
-`DesignBlendMode::ALL` is the exact 19-value current layer set, including
-Plus darker (`LinearBurn`), Plus lighter (`LinearDodge`), Soft light, and Hard
-light. Paint and effect controls use the 18-value
-`NON_PASS_THROUGH` subset because Pass through applies only to eligible layer
-containers.
+`DesignBlendMode::ALL` is the 27-value layer set: Figma's current 19 values,
+including Plus darker (`LinearBurn`), Plus lighter (`LinearDodge`), Soft light,
+and Hard light, plus the photo editors' Darker color, Lighter color, Vivid
+light, Linear light, Pin light, Hard mix, Subtract, and Divide. Paint and effect
+controls use the 26-value `NON_PASS_THROUGH` subset because Pass through
+applies only to eligible layer containers. A host that cannot render a mode
+leaves it out with `set_supported_blend_modes`.
 
 ### Inspector-menu hover previews
 
