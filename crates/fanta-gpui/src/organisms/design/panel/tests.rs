@@ -10680,6 +10680,61 @@ fn font_browser_emits_exact_apply_and_import_intents_and_rejects_unavailable_row
 }
 
 #[gpui::test]
+fn font_browser_popup_holds_its_rows_so_typing_and_clicks_reach_them(cx: &mut TestAppContext) {
+    let node = DesignPanelNode::new("text", "Text", DesignPanelNodeKind::Text);
+    let archivo = crate::design::DesignFontSelection::local("archivo", "bold");
+    let catalog = DesignFontViewData::ready([
+        crate::design::DesignFontFamily::local(
+            "inter",
+            "Inter",
+            [crate::design::DesignFontStyle::imported(
+                "regular", "Regular",
+            )],
+        ),
+        crate::design::DesignFontFamily::local(
+            "archivo",
+            "Archivo",
+            [crate::design::DesignFontStyle::imported("bold", "Bold")],
+        ),
+    ]);
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    let captured_actions = actions(&host, visual_cx);
+    panel.update(visual_cx, |panel, cx| panel.set_font_view_data(catalog, cx));
+    visual_cx.run_until_parked();
+
+    let trigger = visual_cx
+        .debug_bounds("design-font-browser-button-label")
+        .expect("the Typography section renders the font browser trigger");
+    visual_cx.simulate_click(trigger.center(), Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(panel.read_with(visual_cx, |panel, _| panel.overlays.font_browser_open()));
+
+    visual_cx.simulate_input("arch");
+    visual_cx.run_until_parked();
+    assert!(
+        visual_cx
+            .debug_bounds("font-inter-regular-button-label")
+            .is_none(),
+        "typing in the focused search field filters the rows",
+    );
+    let row = visual_cx
+        .debug_bounds("font-archivo-bold-button-label")
+        .expect("the matching row stays listed");
+
+    visual_cx.simulate_click(row.center(), Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(
+        captured_actions.borrow().iter().any(|action| matches!(
+            action,
+            DesignPanelAction::TypographyFontApplyRequested { font, .. } if font == &archivo
+        )),
+        "clicking a row applies its font: {:?}",
+        captured_actions.borrow(),
+    );
+}
+
+#[gpui::test]
 fn typography_details_are_lossless_host_controlled_and_respect_read_only_states(
     cx: &mut TestAppContext,
 ) {
