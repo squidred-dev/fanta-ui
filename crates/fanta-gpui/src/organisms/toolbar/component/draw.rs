@@ -94,6 +94,27 @@ pub(super) enum DrawChoice {
     CropRatio,
 }
 
+/// A chip label that truncates without growing, so a centered chip keeps its
+/// chevron beside the text.
+pub(super) fn chip_label(text: impl Into<SharedString>) -> Div {
+    div()
+        .min_w_0()
+        .truncate()
+        .whitespace_nowrap()
+        .overflow_hidden()
+        .child(text.into())
+}
+
+/// Separates groups of controls in a context row.
+pub(super) fn toolbar_divider(cx: &App) -> Div {
+    div()
+        .flex_none()
+        .w_px()
+        .h_5()
+        .mx_0p5()
+        .bg(Color::Border.resolve(cx))
+}
+
 fn chip(id: SharedString, label: impl Into<SharedString>, cx: &App) -> Stateful<Div> {
     icon_button(
         id,
@@ -256,13 +277,15 @@ impl EditorToolbar {
         let open = self.overlay == Some(ToolbarOverlay::DrawNumber(field));
         let value = field.get(&self.draw_options);
         let trigger = chip(format!("{}-draw-{:?}", self.id, field).into(), "", cx)
-            // Reserve room for the entire supported range, including 5000px.
+            // Reserve room for the entire supported range, including 5000px,
+            // so dragging a value never shifts its neighbours.
             .w(px(tokens::InputGeometry::NUMERIC_WIDTH
                 + if matches!(field, DrawNumber::Size | DrawNumber::Feather) {
                     tokens::Space::SM
                 } else {
                     tokens::Space::NONE
                 }))
+            .justify_center()
             .child(render_lucide_icon(
                 match field {
                     DrawNumber::Size => LucideIcon::CircleDot,
@@ -360,11 +383,14 @@ impl EditorToolbar {
     ) -> AnyElement {
         let open = self.overlay == Some(ToolbarOverlay::DrawChoice(choice));
         let label = self.current_draw_choice(choice).clone();
+        // A fixed width keeps value changes from resizing the dock; the label
+        // and chevron stay together in its center.
         let mut trigger = chip(format!("{}-draw-choice-{choice:?}", self.id).into(), "", cx)
             .w(px(tokens::DropdownGeometry::WIDTH))
+            .justify_center()
             .debug_selector(move || format!("toolbar-draw-choice-{choice:?}"))
             .relative()
-            .child(crate::atoms::truncating_label(label.clone()))
+            .child(chip_label(label.clone()))
             .child(Icon::new(IconName::ChevronDown).xsmall())
             .tooltip(move |window, cx| Tooltip::new(label.clone()).build(window, cx))
             .on_mouse_down(
@@ -496,7 +522,9 @@ impl EditorToolbar {
         match self.active_tool {
             ToolbarTool::Brush | ToolbarTool::Pencil | ToolbarTool::Eraser => {
                 if self.draw_brush_capabilities.brush_tip {
-                    row = row.child(self.render_draw_choice(DrawChoice::BrushTip, window, cx));
+                    row = row
+                        .child(self.render_draw_choice(DrawChoice::BrushTip, window, cx))
+                        .child(toolbar_divider(cx));
                 }
                 for field in [
                     DrawNumber::Size,
@@ -517,7 +545,7 @@ impl EditorToolbar {
                     }
                 }
                 if self.draw_brush_capabilities.pressure {
-                    row = row.child(self.draw_toggle(
+                    row = row.child(toolbar_divider(cx)).child(self.draw_toggle(
                         "pressure",
                         "Use pen pressure",
                         LucideIcon::PenTool,

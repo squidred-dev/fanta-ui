@@ -580,6 +580,7 @@ impl EditorToolbar {
                     .h(px(28.))
                     .w(px(tokens::DropdownGeometry::WIDTH))
                     .flex_none()
+                    .justify_center()
                     .px_2()
                     .gap_1()
                     .rounded(px(7.))
@@ -616,7 +617,7 @@ impl EditorToolbar {
                             this.toggle_option_editor(control, open, cx);
                         }),
                     )
-                    .child(crate::atoms::truncating_label(label.clone()))
+                    .child(super::draw::chip_label(label.clone()))
                     .tooltip(move |window, cx| Tooltip::new(label.clone()).build(window, cx))
                     .child(
                         Icon::new(if open {
@@ -728,6 +729,7 @@ impl EditorToolbar {
                     .px_2()
                     .flex()
                     .items_center()
+                    .justify_center()
                     .rounded(px(7.))
                     .bg(crate::atoms::SemanticColor::BackgroundSecondary.resolve(cx))
                     .typography(crate::atoms::TypographyToken::BodyMedium)
@@ -739,6 +741,7 @@ impl EditorToolbar {
                             .build(window, cx)
                     }),
             )
+            .child(super::draw::toolbar_divider(cx))
             .child(self.render_value_button(
                 "motion-autokey",
                 "Auto key",
@@ -761,6 +764,7 @@ impl EditorToolbar {
                 window,
                 cx,
             ))
+            .child(super::draw::toolbar_divider(cx))
             .child(self.render_secondary_button(
                 "motion-timeline",
                 "Timeline",

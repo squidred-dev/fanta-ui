@@ -109,8 +109,11 @@ impl Timeline {
         cx: &mut Context<Self>,
     ) -> Self {
         let view_data = view_data.normalized();
-        let zoom_slider =
-            cx.new(|cx| Slider::new("timeline-zoom", Self::zoom_to_slider(view_data.zoom), cx));
+        let zoom_slider = cx.new(|cx| {
+            let mut slider = Slider::new("timeline-zoom", Self::zoom_to_slider(view_data.zoom), cx);
+            slider.set_compact(true, cx);
+            slider
+        });
         let subscription = cx.subscribe(&zoom_slider, |this, _, event: &SliderAction, cx| {
             if event.phase != SliderPhase::Begin {
                 cx.emit(TimelineAction::ZoomChangeRequested {
