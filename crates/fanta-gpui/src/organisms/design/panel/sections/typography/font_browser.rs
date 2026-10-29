@@ -365,8 +365,6 @@ pub(in super::super::super) fn render(
             }
             content
         })
-        .w_full()
-        .h(px(ROW_HEIGHT))
         .into_any_element()
 }
 
