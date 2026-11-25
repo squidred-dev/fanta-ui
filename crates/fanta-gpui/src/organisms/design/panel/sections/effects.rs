@@ -370,7 +370,9 @@ pub(in super::super) fn render(
 
     let mut content = crate::molecules::inspector_section_body();
     for (index, effect) in projection.content.effects.iter().enumerate() {
-        let can_reorder = false;
+        let can_reorder = projection.access.can_edit
+            && projection.access.collection_supported
+            && projection.content.effects.len() > 1;
         let active = projection.settings_are_active(effect, index);
         let target = projection.target(effect, index);
         let target_for_keyboard = target.clone();
@@ -467,6 +469,7 @@ pub(in super::super) fn render(
                 div()
                     .w(px(14.))
                     .flex_none()
+                    .debug_selector(move || format!("effect-drag-handle-{index}"))
                     .typography(crate::atoms::TypographyToken::Panel)
                     .text_color(crate::atoms::SemanticColor::TextTertiary.resolve(cx))
                     .child(crate::atoms::render_lucide_icon(

@@ -21301,3 +21301,47 @@ fn property_save_commits_representative_value_from_mixed_and_unset_input(cx: &mu
         ));
     }
 }
+
+#[gpui::test]
+fn dragging_an_effect_row_onto_another_asks_the_host_to_reorder(cx: &mut TestAppContext) {
+    let mut node = DesignPanelNode::new("effects", "Effects", DesignPanelNodeKind::Rectangle);
+    node.effects = vec![
+        super::super::DesignEffect::new(DesignEffectKind::DropShadow).with_id("shadow-a"),
+        super::super::DesignEffect::new(DesignEffectKind::InnerShadow).with_id("shadow-b"),
+    ];
+    let (host, visual_cx) = setup(node, cx);
+    let captured_actions = actions(&host, visual_cx);
+    visual_cx.run_until_parked();
+    visual_cx.simulate_event(gpui::ScrollWheelEvent {
+        position: gpui::point(px(160.), px(360.)),
+        delta: gpui::ScrollDelta::Pixels(gpui::point(px(0.), px(-420.))),
+        ..Default::default()
+    });
+    visual_cx.run_until_parked();
+
+    let dragged = visual_cx
+        .debug_bounds("effect-drag-handle-1")
+        .expect("an effect row shows a drag handle when there is more than one effect");
+    let destination = visual_cx
+        .debug_bounds("effect-drag-handle-0")
+        .expect("the first effect row shows a drag handle too");
+    visual_cx.simulate_mouse_down(dragged.center(), MouseButton::Left, Modifiers::none());
+    visual_cx.simulate_mouse_move(destination.center(), MouseButton::Left, Modifiers::none());
+    visual_cx.run_until_parked();
+    visual_cx.simulate_mouse_up(destination.center(), MouseButton::Left, Modifiers::none());
+    visual_cx.run_until_parked();
+
+    assert!(
+        captured_actions.borrow().iter().any(|action| matches!(
+            action,
+            DesignPanelAction::EffectReorderRequested {
+                effect_id,
+                from_index: 1,
+                to_index: 0,
+                ..
+            } if effect_id.as_ref() == "shadow-b"
+        )),
+        "dropping the second effect on the first asks for the move: {:?}",
+        captured_actions.borrow(),
+    );
+}
