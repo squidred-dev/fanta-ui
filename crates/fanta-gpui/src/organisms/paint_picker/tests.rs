@@ -543,6 +543,50 @@ fn blend_mode_and_color_style_sample_emit_typed_atomic_intents(cx: &mut TestAppC
 }
 
 #[gpui::test]
+fn blend_mode_menu_holds_its_rows_so_clicks_reach_them(cx: &mut TestAppContext) {
+    let (host, visual_cx) = setup_picker(cx);
+    let picker = picker(&host, visual_cx);
+    let events = picker_events(&host, visual_cx);
+    visual_cx.update(|window, app| {
+        picker.update(app, |picker, cx| {
+            picker.set_target(
+                "node",
+                DesignPanelCollection::Fill,
+                0,
+                DesignPaint::solid(DesignColor::BLACK).with_id("fill"),
+                window,
+                cx,
+            );
+        });
+    });
+    visual_cx.run_until_parked();
+
+    let trigger = visual_cx
+        .debug_bounds("paint-picker-test-paint-blend-mode-button-label")
+        .expect("the picker renders its blend-mode trigger");
+    visual_cx.simulate_click(trigger.center(), gpui::Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(picker.read_with(visual_cx, |picker, _| {
+        picker.nested_overlay_is_open(PaintPickerOverlay::BlendMode)
+    }));
+
+    let row = visual_cx
+        .debug_bounds("paint-picker-blend-multiply")
+        .expect("the open menu lists Multiply");
+    visual_cx.simulate_click(row.center(), gpui::Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(
+        events.borrow().iter().any(|event| matches!(
+            event,
+            PaintPickerEvent::Edit { edit, .. }
+                if edit.value == DesignPaintValue::BlendMode(DesignBlendMode::Multiply)
+        )),
+        "clicking a row applies its blend mode: {:?}",
+        events.borrow(),
+    );
+}
+
+#[gpui::test]
 fn color_only_editability_gates_color_and_opacity_independently(cx: &mut TestAppContext) {
     let (host, visual_cx) = setup_picker(cx);
     let picker = picker(&host, visual_cx);

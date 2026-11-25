@@ -496,10 +496,7 @@ impl PaintPicker {
                     });
                 })
             }))
-        })
-        .w_full()
-        .min_w_0()
-        .h(px(tokens::RowHeight::FIELD));
+        });
 
         blend.into_any_element()
     }

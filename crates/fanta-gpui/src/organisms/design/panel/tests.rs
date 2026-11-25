@@ -15532,6 +15532,115 @@ fn component_swap_browser_intents_preserve_catalog_identity_and_controlled_state
 }
 
 #[gpui::test]
+fn component_swap_popup_holds_its_rows_so_clicks_reach_them(cx: &mut TestAppContext) {
+    let node = DesignPanelNode::new("button-instance", "Button", DesignPanelNodeKind::Instance);
+    let check = DesignComponentSwapCandidate::library(
+        super::super::DesignComponentReference::remote(
+            "icon-check",
+            "Check",
+            "Product foundations",
+        ),
+        "library-key-check",
+        "product-foundations",
+        "Product foundations",
+    )
+    .with_import_state(super::super::DesignComponentImportState::Imported);
+    let check_selection = check.selection();
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    let captured_actions = actions(&host, visual_cx);
+    panel.update(visual_cx, |panel, cx| {
+        panel.set_component_swap_view_data(DesignComponentSwapViewData::new([check]), cx);
+    });
+    visual_cx.run_until_parked();
+    visual_cx.simulate_event(gpui::ScrollWheelEvent {
+        position: gpui::point(px(160.), px(360.)),
+        delta: gpui::ScrollDelta::Pixels(gpui::point(px(0.), px(-420.))),
+        ..Default::default()
+    });
+    visual_cx.run_until_parked();
+
+    let trigger = visual_cx
+        .debug_bounds("design-component-swap-leading-icon-button-label")
+        .expect("the instance-swap property renders its browser trigger");
+    visual_cx.simulate_click(trigger.center(), Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(panel.read_with(visual_cx, |panel, _| {
+        panel.overlays.component_swap_browser().is_some()
+    }));
+
+    let row = visual_cx
+        .debug_bounds("component-swap-leading-icon-library-key-check-button-label")
+        .expect("the open browser lists the candidate");
+    visual_cx.simulate_click(row.center(), Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(
+        captured_actions.borrow().iter().any(|action| matches!(
+            action,
+            DesignPanelAction::ComponentSwapApplyRequested {
+                selection: Some(selection),
+                ..
+            } if selection == &check_selection
+        )),
+        "clicking a row swaps to its component: {:?}",
+        captured_actions.borrow(),
+    );
+}
+
+#[gpui::test]
+fn component_property_variable_popup_holds_its_rows_so_clicks_reach_them(cx: &mut TestAppContext) {
+    let node = DesignPanelNode::new("button-main", "Button", DesignPanelNodeKind::Component);
+    let visibility = DesignVariable::page(
+        "next-visibility",
+        "Next visibility",
+        "behavior",
+        "Behavior",
+        super::super::DesignVariableResolvedType::Boolean,
+    )
+    .with_resolved_value(super::super::DesignVariableResolvedValue::Boolean(false));
+    let (host, visual_cx) = setup(node, cx);
+    let panel = panel(&host, visual_cx);
+    let captured_actions = actions(&host, visual_cx);
+    panel.update(visual_cx, |panel, cx| {
+        panel.set_property_variable_view_data(DesignVariableViewData::new([visibility]), cx);
+    });
+    visual_cx.run_until_parked();
+    visual_cx.simulate_event(gpui::ScrollWheelEvent {
+        position: gpui::point(px(160.), px(360.)),
+        delta: gpui::ScrollDelta::Pixels(gpui::point(px(0.), px(-420.))),
+        ..Default::default()
+    });
+    visual_cx.run_until_parked();
+
+    let trigger = visual_cx
+        .debug_bounds("design-component-variable-show-icon-defaultValue-button-label")
+        .expect("the boolean property renders its variable trigger");
+    visual_cx.simulate_click(trigger.center(), Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(panel.read_with(visual_cx, |panel, _| {
+        panel
+            .overlays
+            .component_property_variable_picker()
+            .is_some()
+    }));
+
+    let row = visual_cx
+        .debug_bounds("component-variable-show-icon-next-visibility-button-label")
+        .expect("the open picker lists the compatible variable");
+    visual_cx.simulate_click(row.center(), Modifiers::none());
+    visual_cx.run_until_parked();
+    assert!(
+        captured_actions.borrow().iter().any(|action| matches!(
+            action,
+            DesignPanelAction::ComponentPropertyVariableApplyRequested { variable_id, .. }
+                if variable_id.as_ref() == "next-visibility"
+        )),
+        "clicking a row applies its variable: {:?}",
+        captured_actions.borrow(),
+    );
+}
+
+#[gpui::test]
 fn multiline_component_text_emits_begin_preview_commit_and_cancel_without_local_mutation(
     cx: &mut TestAppContext,
 ) {
