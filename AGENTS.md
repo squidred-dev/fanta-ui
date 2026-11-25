@@ -22,7 +22,10 @@ Read `ARCHITECTURE.md` before changing component boundaries.
   trigger element instead. A `.h(px(ROW_HEIGHT))` on the font browser's
   `Popover` shrank its popup to one row, so its list painted outside the box
   with no background and every click on a row counted as a click outside.
-  Test a popover by clicking its rows in a mounted test, not by calling the
+  The component swap browser, the component property variable picker and the
+  paint blend-mode menu had the same fault; the test
+  `no_popover_chain_sizes_the_popover_itself` now fails on any size call
+  chained on a `Popover`. Test a popover by clicking its rows in a mounted test, not by calling the
   panel's emit methods.
 
 ## Commands

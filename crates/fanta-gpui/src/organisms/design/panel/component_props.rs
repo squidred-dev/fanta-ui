@@ -1228,8 +1228,6 @@ impl DesignComponentController for DesignPanel {
                 }
                 content.child(rows)
             })
-            .w(px(20.))
-            .h(px(ROW_HEIGHT))
             .into_any_element(),
         )
     }
@@ -1506,8 +1504,6 @@ impl DesignComponentController for DesignPanel {
             }
             content.child(rows)
         })
-        .w_full()
-        .h(px(ROW_HEIGHT))
         .into_any_element()
     }
 

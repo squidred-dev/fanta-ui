@@ -1820,9 +1820,7 @@ impl DesignPaintController for DesignPanel {
                         })
                         .trigger(trigger)
                         .appearance(false)
-                        .content(move |_, _, _| picker_content.clone())
-                        .w_full()
-                        .h_full(),
+                        .content(move |_, _, _| picker_content.clone()),
                 ),
             )
             .child(
