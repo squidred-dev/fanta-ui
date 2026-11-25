@@ -158,3 +158,86 @@ pub(crate) fn assert_pointer_and_keyboard_parity<A>(
     }
     actions.borrow_mut().clear();
 }
+
+/// `Popover`'s `Styled` methods size its popup box, not its trigger, so a
+/// size call chained on the `Popover` shrinks the box under its content.
+#[test]
+fn no_popover_chain_sizes_the_popover_itself() {
+    // Split so this file's own text does not match.
+    const NEEDLE: &str = concat!("Popover", "::new(");
+    let mut files = vec![std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src")];
+    let mut offenders = Vec::new();
+    while let Some(path) = files.pop() {
+        if path.is_dir() {
+            for entry in std::fs::read_dir(&path).expect("source directory is readable") {
+                files.push(entry.expect("source entry is readable").path());
+            }
+            continue;
+        }
+        if path.extension().is_none_or(|extension| extension != "rs") {
+            continue;
+        }
+        let source = std::fs::read_to_string(&path).expect("source file is readable");
+        let lines: Vec<&str> = source.lines().collect();
+        for (start, line) in lines.iter().enumerate() {
+            if !line.contains(NEEDLE) || line.trim_end().ends_with(';') {
+                continue;
+            }
+            let base_indent = indent(line);
+            let mut chain_indent = None;
+            for (offset, chain_line) in lines[start + 1..].iter().enumerate() {
+                let code = chain_line.trim_start();
+                if code.is_empty() {
+                    continue;
+                }
+                let line_indent = indent(chain_line);
+                let chain_indent = match chain_indent {
+                    Some(chain_indent) => chain_indent,
+                    // rustfmt puts the builder calls at the opening line's indent or one level deeper.
+                    None if code.starts_with('.') && line_indent <= base_indent + 4 => {
+                        *chain_indent.insert(line_indent)
+                    }
+                    None if line_indent > base_indent || code.starts_with(')') => continue,
+                    None => break,
+                };
+                if line_indent < chain_indent {
+                    break;
+                }
+                if line_indent == chain_indent {
+                    let method: String = code
+                        .trim_start_matches('.')
+                        .chars()
+                        .take_while(|character| character.is_alphanumeric() || *character == '_')
+                        .collect();
+                    if is_size_method(&method) {
+                        offenders.push(format!(
+                            "{}:{}: .{method}()",
+                            path.display(),
+                            start + offset + 2
+                        ));
+                    }
+                    if code.ends_with(';') {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "these calls size a Popover's popup box, so its content paints outside the box and \
+         clicks on it count as outside clicks; size the trigger element instead:\n{}",
+        offenders.join("\n")
+    );
+}
+
+fn indent(line: &str) -> usize {
+    line.len() - line.trim_start().len()
+}
+
+fn is_size_method(method: &str) -> bool {
+    matches!(method, "w" | "h" | "size")
+        || ["w_", "h_", "size_", "min_", "max_", "flex_"]
+            .iter()
+            .any(|prefix| method.starts_with(prefix))
+}
